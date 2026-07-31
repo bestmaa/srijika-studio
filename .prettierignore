@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+target
+.sutra
+pnpm-lock.yaml
+apps/studio/src-tauri/gen

@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+  "apps/studio/src-tauri",
+  "crates/studio-core",
+  "crates/project-store",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+rust-version = "1.97.1"
+
+[workspace.dependencies]
+anyhow = "1.0.100"
+schemars = "1.2.2"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.145"
+tempfile = "3.23.0"
+thiserror = "2.0.17"
