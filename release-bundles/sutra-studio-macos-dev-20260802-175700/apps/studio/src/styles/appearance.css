@@ -1,0 +1,1132 @@
+/*
+ * Sutra Studio application appearance
+ * -----------------------------------
+ * These tokens theme editor chrome only. Authored React content remains isolated
+ * in the design iframe, fullscreen preview, and browser preview document roots.
+ */
+
+:root {
+  color: var(--chrome-text, #fcfcfc);
+  background: var(--chrome-bg, #111111);
+  font-family: var(
+    --studio-ui-font,
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif
+  );
+}
+
+html,
+body,
+#root {
+  color: var(--chrome-text);
+  background: var(--chrome-bg);
+}
+
+[data-studio-color-scheme='dark'] .studio-shell,
+[data-studio-color-scheme='dark'] .preview-shell {
+  color-scheme: dark;
+}
+
+[data-studio-color-scheme='light'] .studio-shell,
+[data-studio-color-scheme='light'] .preview-shell {
+  color-scheme: light;
+}
+
+.studio-shell,
+.preview-shell,
+.literal-prop-menu,
+.settings-dialog {
+  font-family: var(--studio-ui-font);
+}
+
+.code-panel pre,
+.code-panel code,
+.literal-prop-menu__target,
+.public-prop code,
+.shape-field code,
+.event-argument-editor code,
+.structured-instance-prop textarea,
+.appearance-editor input:not([type='color']):not([type='range']) {
+  font-family: var(--studio-code-font);
+}
+
+.studio-shell,
+.studio-body,
+.preview-shell {
+  color: var(--chrome-text);
+  background: var(--chrome-bg);
+}
+
+.studio-shell ::selection,
+.preview-shell ::selection {
+  color: var(--chrome-accent-contrast);
+  background: var(--chrome-selection);
+}
+
+.topbar {
+  border-bottom-color: var(--chrome-border);
+  color: var(--chrome-text);
+  background: var(--chrome-topbar-bg);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+}
+
+.brand-mark,
+.settings-mark {
+  color: var(--chrome-accent-contrast);
+  background: var(--chrome-accent);
+  box-shadow: 0 4px 13px var(--chrome-accent-soft);
+}
+
+.brand-copy strong,
+.panel-heading h2,
+.hierarchy-panel h2,
+.inspector-heading h2,
+.template-gallery h2,
+.template-gallery h3 {
+  color: var(--chrome-text);
+}
+
+.brand-copy small,
+.file-status,
+.control-label,
+.field-row > label,
+.prop-field-heading label,
+.node-name-field label,
+.spacing-field-heading,
+.structure-summary p,
+.empty-copy,
+.field-help,
+.tree-slot-row,
+.event-argument-help,
+.locked-root-size small,
+.shape-field-heading label {
+  color: var(--chrome-text-muted);
+}
+
+.eyebrow,
+.builder-inspector-heading small,
+.node-name-field span,
+.tree-meta,
+.tree-count,
+.appearance-message {
+  color: var(--chrome-text-subtle);
+}
+
+.mvp-badge,
+.count-pill,
+.type-pill,
+.tree-meta,
+.tree-count,
+.symbol-pair span,
+.template-gallery-section-heading > span,
+.template-node-count {
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.topbar-group,
+.mode-switcher,
+.viewport-size-control,
+.left-rail,
+.inspector-panel,
+.left-panel,
+.pages-panel,
+.hierarchy-panel > header,
+.inspector-heading,
+.node-name-field,
+.inspector-tabs,
+.inspector-section,
+.statusbar {
+  border-color: var(--chrome-border);
+}
+
+.mode-switcher,
+.viewport-size-control,
+.branch-switch,
+.preview-toolbar .preview-sizing-switch {
+  background: var(--chrome-surface);
+}
+
+.mode-button,
+.icon-button,
+.app-menu-button,
+.viewport-size-control,
+.preview-toolbar .preview-sizing-switch button {
+  color: var(--chrome-text-muted);
+}
+
+.mode-button:hover,
+.icon-button:hover,
+.app-menu-button:hover,
+.app-menu-button.is-open,
+.preview-toolbar .preview-sizing-switch button:hover {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-text);
+  background: var(--chrome-hover);
+}
+
+.mode-button.is-active,
+.icon-button.is-active,
+.preview-toolbar .preview-sizing-switch button.is-active,
+.branch-switch button.is-active {
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--chrome-accent-border);
+}
+
+.viewport-size-control input,
+.viewport-size-control button {
+  color: inherit;
+}
+
+.viewport-size-control button:hover,
+.viewport-size-control.is-custom {
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.secondary-button,
+.small-action-button,
+.design-property-add,
+.event-argument-structured button {
+  border-color: var(--chrome-border-strong);
+  color: var(--chrome-text);
+  background: var(--chrome-raised);
+}
+
+.secondary-button:hover,
+.small-action-button:hover:not(:disabled),
+.design-property-add:hover,
+.design-property-add[aria-expanded='true'],
+.event-argument-structured button:hover {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.icon-button:focus-visible,
+.mode-button:focus-visible,
+.secondary-button:focus-visible,
+.app-menu-button:focus-visible,
+.component-tile:focus-visible,
+.structure-item:focus-visible,
+.project-page-item:focus-visible,
+.tree-row:focus-visible,
+.design-property-add:focus-visible,
+.small-action-button:focus-visible {
+  outline: 2px solid var(--chrome-accent);
+  outline-offset: 1px;
+}
+
+.left-rail,
+.left-panel,
+.pages-panel,
+.hierarchy-panel,
+.inspector-panel {
+  color: var(--chrome-text);
+  background: var(--chrome-sidebar-bg);
+}
+
+[data-studio-translucent-sidebar='true'] .left-rail,
+[data-studio-translucent-sidebar='true'] .inspector-panel {
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+.panel-heading,
+.hierarchy-panel > header,
+.pages-panel > header,
+.inspector-heading {
+  background: var(--chrome-panel);
+}
+
+.search-box,
+.studio-shell input:not(.fullscreen-preview-document *),
+.studio-shell select:not(.fullscreen-preview-document *),
+.studio-shell textarea:not(.fullscreen-preview-document *),
+.public-prop-type-select,
+.instance-definition > input,
+.instance-definition > select,
+.add-instance-row > input,
+.add-instance-row > select,
+.structured-instance-prop textarea,
+.design-property-picker > input {
+  border-color: var(--chrome-border-strong);
+  color: var(--chrome-text);
+  background: var(--chrome-surface);
+}
+
+.studio-shell input:not(.fullscreen-preview-document *)::placeholder,
+.studio-shell textarea:not(.fullscreen-preview-document *)::placeholder {
+  color: var(--chrome-text-subtle);
+}
+
+.search-box input,
+.search-box input:focus {
+  background: transparent;
+}
+
+.studio-shell input:not(.fullscreen-preview-document *):focus,
+.studio-shell select:not(.fullscreen-preview-document *):focus,
+.studio-shell textarea:not(.fullscreen-preview-document *):focus,
+.search-box:focus-within,
+.public-prop-type-select:focus-visible,
+.instance-definition > input:focus,
+.instance-definition > select:focus,
+.add-instance-row > input:focus,
+.add-instance-row > select:focus,
+.design-property-picker > input:focus {
+  border-color: var(--chrome-accent);
+  outline: none;
+  box-shadow: var(--chrome-focus);
+}
+
+.studio-shell input:not(.fullscreen-preview-document *):disabled,
+.studio-shell select:not(.fullscreen-preview-document *):disabled,
+.studio-shell textarea:not(.fullscreen-preview-document *):disabled,
+.delete-node-button:disabled,
+.small-action-button:disabled {
+  border-color: var(--chrome-border);
+  color: var(--chrome-text-subtle);
+  background: var(--chrome-surface);
+}
+
+.palette-section > header,
+.project-page-item,
+.tree-row,
+.inspector-tabs button,
+.branch-switch button,
+.statusbar,
+.status-bridge {
+  color: var(--chrome-text-muted);
+}
+
+.component-tile,
+.structure-item,
+.project-page-item,
+.tree-row,
+.design-property-option-group button {
+  border-color: var(--chrome-border);
+  color: var(--chrome-text-muted);
+  background: var(--chrome-surface);
+}
+
+.project-page-item,
+.tree-row {
+  background: transparent;
+}
+
+.component-tile:hover,
+.structure-item:hover,
+.project-page-item:hover,
+.tree-row:hover,
+.design-property-option-group button:hover {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-text);
+  background: var(--chrome-hover);
+}
+
+.component-icon,
+.selection-icon,
+.pages-add-button,
+.template-gallery-icon,
+.saved-template-icon {
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.tree-row.is-selected,
+.tree-slot-row.is-active-slot,
+.project-page-item.is-selected {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.workspace,
+.code-panel,
+.canvas-scroll {
+  background-color: var(--chrome-canvas);
+}
+
+.canvas-scroll {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--chrome-text) 7.5%, transparent) 1px,
+    transparent 0
+  );
+}
+
+.canvas-ruler-bar,
+.device-label,
+.inspector-tabs,
+.statusbar,
+.preview-toolbar {
+  border-color: var(--chrome-border);
+  color: var(--chrome-text-muted);
+  background: var(--chrome-surface);
+}
+
+.device-frame {
+  border-color: var(--chrome-border-strong);
+  background: #ffffff;
+  box-shadow:
+    0 22px 54px rgba(0, 0, 0, 0.42),
+    0 0 0 1px color-mix(in srgb, var(--chrome-text) 3%, transparent);
+}
+
+.code-panel pre {
+  border-color: var(--chrome-border);
+  color: var(--chrome-text);
+  background: var(--chrome-code-bg);
+}
+
+.inspector-tabs button:hover,
+.inspector-section > header {
+  color: var(--chrome-text);
+  background: var(--chrome-surface);
+}
+
+.inspector-tabs button.is-active {
+  border-bottom-color: var(--chrome-accent);
+  color: var(--chrome-accent-text);
+}
+
+.binding-select,
+.public-event-editor legend,
+.event-argument-editor legend,
+.shape-field-heading code,
+.page-root-facts strong {
+  color: var(--chrome-accent-text) !important;
+}
+
+.inspector-panel .page-identity-section input[readonly] {
+  border-color: var(--chrome-border-strong) !important;
+  color: var(--chrome-text-muted) !important;
+  background: var(--chrome-surface) !important;
+}
+
+.bound-value,
+.public-prop,
+.shape-field,
+.page-root-facts span,
+.locked-root-size span,
+.prop-field.is-instance-prop,
+.symbol-pair span {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+/* Nested prop schemas are working surfaces, not selected controls. Keep them
+   neutral so a deep object remains readable instead of becoming a color block. */
+.public-prop,
+.shape-field,
+.prop-field.is-instance-prop {
+  border-color: var(--chrome-border);
+  background: var(--chrome-surface);
+}
+
+.bound-value.is-unbound,
+.public-props-empty,
+.event-argument-editor,
+.shape-add-field button,
+.add-instance-control,
+.design-property-manager,
+.design-property-picker {
+  border-color: var(--chrome-border-strong);
+  color: var(--chrome-text-muted);
+  background: var(--chrome-surface);
+}
+
+.public-prop-card,
+.public-prop-design-value,
+.public-event-editor,
+.value-shape-editor,
+.value-shape-editor[data-depth='0'],
+.object-definition,
+.instance-definition {
+  border-color: var(--chrome-border);
+  background: transparent;
+}
+
+.public-prop small,
+.public-prop > span small,
+.page-root-facts span,
+.instance-required-toggle,
+.design-property-option-group > span,
+.public-prop-structured-value > label {
+  color: var(--chrome-text-muted);
+}
+
+.toggle,
+.appearance-switch {
+  background: var(--chrome-border-strong);
+}
+
+.toggle span,
+.appearance-switch span {
+  background: var(--chrome-text);
+}
+
+.toggle.is-on,
+.appearance-switch.is-on {
+  background: var(--chrome-accent);
+}
+
+.status-dot,
+.live-indicator i {
+  background: var(--chrome-success);
+}
+
+.delete-node-button,
+.shape-remove-button,
+.icon-button.danger {
+  color: var(--chrome-danger);
+}
+
+.delete-node-button:hover:not(:disabled),
+.shape-remove-button:hover,
+.icon-button.danger:hover {
+  color: var(--chrome-danger);
+  background: var(--chrome-danger-soft);
+}
+
+.file-menu-popover,
+.literal-prop-menu,
+.template-gallery,
+.template-card,
+.saved-template-row,
+.learn-example-card {
+  border-color: var(--chrome-border-strong);
+  color: var(--chrome-text);
+  background: var(--chrome-panel);
+}
+
+.file-menu-popover,
+.literal-prop-menu {
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.46),
+    0 0 0 1px color-mix(in srgb, var(--chrome-text) 3%, transparent);
+}
+
+.file-menu-popover button,
+.literal-prop-menu > button {
+  color: var(--chrome-text-muted);
+}
+
+.file-menu-popover button svg,
+.literal-prop-menu__target {
+  color: var(--chrome-accent-text);
+}
+
+.file-menu-popover button:hover,
+.literal-prop-menu > button:hover,
+.literal-prop-menu > button:focus-visible {
+  color: var(--chrome-text);
+  background: var(--chrome-accent-soft);
+}
+
+.template-gallery-backdrop,
+.settings-backdrop {
+  background: var(--chrome-overlay);
+  backdrop-filter: blur(7px);
+}
+
+.template-gallery,
+.settings-dialog {
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.58),
+    0 0 0 1px color-mix(in srgb, var(--chrome-text) 3%, transparent);
+}
+
+.template-gallery-header,
+.template-gallery-footer,
+.template-card,
+.saved-template-row,
+.learn-workflow,
+.learn-example-card,
+.design-property-picker {
+  background: var(--chrome-panel);
+}
+
+.template-gallery-scroll,
+.learn-gallery-scroll {
+  background-color: var(--chrome-bg);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--chrome-text) 3.5%, transparent) 1px,
+    transparent 0
+  );
+}
+
+.template-card-heading > div > span,
+.learn-preview-number,
+.learn-preview-kind,
+.learn-concepts > span,
+.learn-syntax-list code,
+.saved-template-icon {
+  color: var(--chrome-accent-text);
+}
+
+.template-use-button,
+.learn-open-button {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-contrast);
+  background: var(--chrome-accent);
+}
+
+.template-use-button:hover,
+.learn-open-button:hover {
+  border-color: var(--chrome-accent-text);
+  background: var(--chrome-accent);
+  filter: brightness(1.08);
+}
+
+.learn-filter-list button {
+  border-color: var(--chrome-border);
+  color: var(--chrome-text-muted);
+  background: var(--chrome-surface);
+}
+
+.learn-filter-list button:hover,
+.learn-filter-list button[aria-pressed='true'] {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.preview-toolbar {
+  background: var(--chrome-topbar-bg);
+  backdrop-filter: blur(18px);
+}
+
+.preview-toolbar strong,
+.preview-toast {
+  color: var(--chrome-accent-text);
+}
+
+.preview-toast,
+.fullscreen-preview-controls {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-text);
+  background: var(--chrome-panel);
+}
+
+.fullscreen-preview {
+  background: var(--chrome-bg);
+}
+
+.preview-document,
+.fullscreen-preview-document {
+  color-scheme: light;
+  color: #17171d;
+  background: #ffffff;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+/* Settings > Appearance */
+.settings-backdrop {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+}
+
+.settings-dialog {
+  display: grid;
+  width: min(980px, calc(100vw - 32px));
+  height: min(720px, calc(100vh - 32px));
+  min-height: 540px;
+  grid-template-columns: 210px minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid var(--chrome-border-strong);
+  border-radius: 14px;
+  color: var(--chrome-text);
+  background: var(--chrome-bg);
+}
+
+.settings-sidebar {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--chrome-border);
+  padding: 18px 12px;
+  background: var(--chrome-sidebar-bg);
+}
+
+.settings-sidebar-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 20px;
+}
+
+.settings-mark {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.settings-sidebar-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-sidebar-heading span,
+.settings-sidebar > p {
+  color: var(--chrome-text-subtle);
+  font-size: 8px;
+}
+
+.settings-sidebar-heading strong {
+  font-size: 14px;
+}
+
+.settings-sidebar nav {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-sidebar nav button {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0 10px;
+  color: var(--chrome-text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  text-align: left;
+}
+
+.settings-sidebar nav button.is-active {
+  border-color: var(--chrome-accent-border);
+  color: var(--chrome-accent-text);
+  background: var(--chrome-accent-soft);
+}
+
+.settings-sidebar > p {
+  margin: auto 7px 0;
+  line-height: 1.55;
+}
+
+.settings-content {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.settings-content-header {
+  display: flex;
+  min-height: 86px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--chrome-border);
+  padding: 17px 20px;
+  background: var(--chrome-surface);
+}
+
+.settings-content-header h2 {
+  margin: 3px 0 0;
+  color: var(--chrome-text);
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.settings-content-header p {
+  margin: 4px 0 0;
+  color: var(--chrome-text-muted);
+  font-size: 9px;
+}
+
+.settings-scroll {
+  min-height: 0;
+  overflow: auto;
+  padding: 22px;
+}
+
+.appearance-theme-section,
+.appearance-editor {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.appearance-theme-section > h3,
+.appearance-editor h3 {
+  margin: 0;
+  color: var(--chrome-text);
+  font-size: 11px;
+}
+
+.appearance-theme-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.appearance-theme-card {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 9px;
+  padding: 6px;
+  color: var(--chrome-text-muted);
+  background: var(--chrome-panel);
+  cursor: pointer;
+  text-align: left;
+}
+
+.appearance-theme-card:hover,
+.appearance-theme-card.is-selected {
+  border-color: var(--chrome-accent);
+}
+
+.appearance-theme-card:focus-visible {
+  outline: 2px solid var(--chrome-accent);
+  outline-offset: 2px;
+}
+
+.appearance-theme-card > span:last-of-type {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px 2px;
+  color: inherit;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.appearance-theme-card > svg {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  color: var(--chrome-accent);
+}
+
+.appearance-theme-preview {
+  position: relative;
+  display: block;
+  height: 92px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f3f3f3;
+}
+
+.appearance-theme-preview i,
+.appearance-theme-preview b,
+.appearance-theme-preview em {
+  position: absolute;
+  display: block;
+  border-radius: 5px;
+}
+
+.appearance-theme-preview i {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 31%;
+  border-radius: 0;
+  background: #e3e3e3;
+}
+
+.appearance-theme-preview b {
+  top: 17px;
+  right: 13%;
+  width: 39%;
+  height: 6px;
+  background: #c7c7c7;
+}
+
+.appearance-theme-preview em {
+  right: 7%;
+  bottom: -10px;
+  left: 38%;
+  height: 58px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #dedede;
+}
+
+.appearance-theme-preview.is-dark {
+  background: #202020;
+}
+
+.appearance-theme-preview.is-dark i {
+  background: #171717;
+}
+
+.appearance-theme-preview.is-dark b {
+  background: #666666;
+}
+
+.appearance-theme-preview.is-dark em {
+  background: #303030;
+  box-shadow: 0 0 0 1px #4b4b4b;
+}
+
+.appearance-theme-preview.is-system {
+  background: linear-gradient(90deg, #f3f3f3 0 50%, #202020 50%);
+}
+
+.appearance-theme-preview.is-system i {
+  background: linear-gradient(90deg, #e3e3e3 0 50%, #171717 50%);
+}
+
+.appearance-theme-preview.is-system em {
+  background: linear-gradient(90deg, #fff 0 50%, #303030 50%);
+  box-shadow: 0 0 0 1px #777;
+}
+
+.appearance-editor {
+  margin-top: 22px;
+  overflow: hidden;
+  border: 1px solid var(--chrome-border);
+  border-radius: 10px;
+  background: var(--chrome-panel);
+}
+
+.appearance-editor > header,
+.appearance-setting-row {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid var(--chrome-border);
+  padding: 8px 12px;
+}
+
+.appearance-editor > header {
+  min-height: 54px;
+}
+
+.appearance-editor-actions,
+.appearance-editor-actions > label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.appearance-editor-actions > button {
+  display: inline-flex;
+  height: 29px;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 5px;
+  padding: 0 7px;
+  color: var(--chrome-text-muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 9px;
+}
+
+.appearance-editor-actions > button:hover {
+  color: var(--chrome-text);
+  background: var(--chrome-hover);
+}
+
+.appearance-editor-actions > label {
+  height: 31px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 7px;
+  padding-left: 7px;
+  background: var(--chrome-surface);
+}
+
+.appearance-preset-mark {
+  color: var(--chrome-accent-text);
+  font-size: 9px;
+}
+
+.appearance-editor-actions select {
+  width: 106px;
+  height: 29px;
+  border: 0;
+  padding: 0 7px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 9px;
+}
+
+.appearance-setting-row > label,
+.appearance-setting-row > span {
+  flex: 0 0 126px;
+  color: var(--chrome-text);
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.appearance-setting-row > input,
+.appearance-color-control,
+.appearance-contrast-row > div {
+  width: min(100%, 360px);
+}
+
+.appearance-setting-row > input {
+  height: 31px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 7px;
+  padding: 0 9px;
+}
+
+.appearance-color-control {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.appearance-color-control input:not([type='color']) {
+  min-width: 0;
+  height: 31px;
+  border: 1px solid var(--chrome-border);
+  border-radius: 7px;
+  padding: 0 9px;
+  text-transform: uppercase;
+}
+
+.appearance-color-swatch {
+  width: 30px;
+  height: 31px;
+  overflow: hidden;
+  border: 1px solid var(--chrome-border-strong) !important;
+  border-radius: 7px;
+  padding: 2px;
+  background: var(--chrome-surface) !important;
+  cursor: pointer;
+}
+
+.appearance-color-swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.appearance-color-swatch::-webkit-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+
+.appearance-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.appearance-switch span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transition: transform 120ms ease;
+}
+
+.appearance-switch.is-on span {
+  background: var(--chrome-accent-contrast);
+  transform: translateX(16px);
+}
+
+.appearance-contrast-row > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 9px;
+}
+
+.appearance-contrast-row input {
+  width: 100%;
+  accent-color: var(--chrome-accent);
+}
+
+.appearance-contrast-row output {
+  color: var(--chrome-text-muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.appearance-message {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 8px;
+}
+
+.settings-footer {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--chrome-border);
+  padding: 9px 14px;
+  background: var(--chrome-surface);
+}
+
+.settings-footer .secondary-button {
+  gap: 6px;
+}
+
+@media (max-width: 860px) {
+  .settings-dialog {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+
+  .appearance-theme-preview {
+    height: 74px;
+  }
+
+  .appearance-editor > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-height: 650px) {
+  .settings-backdrop {
+    padding: 8px;
+  }
+
+  .settings-dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    min-height: 0;
+  }
+
+  .settings-content-header {
+    min-height: 70px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+
+  .settings-scroll {
+    padding: 14px 18px;
+  }
+
+  .appearance-theme-preview {
+    height: 66px;
+  }
+}

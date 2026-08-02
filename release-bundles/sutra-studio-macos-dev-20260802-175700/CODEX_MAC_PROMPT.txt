@@ -1,0 +1,8 @@
+Set up this Sutra Studio source archive for macOS development. Read MAC_SETUP.md completely first.
+Verify Xcode Command Line Tools, Node >=22.13, pnpm 11.18, rustup, Rust and Cargo. Install only the
+missing prerequisites, asking me when macOS needs a password or system confirmation. Run pnpm
+install --frozen-lockfile, rebuild and test the bundled MCP plugin, and start the app with pnpm
+tauri dev. Add this repository as a local Codex marketplace, install
+sutra-studio@sutra-studio-local, then tell me to restart/start a new task if required. Finally use
+$sutra-studio to inspect the running app and confirm the Studio status bar reports Codex connected.
+Do not delete or rewrite project source files to solve environment-only setup issues.

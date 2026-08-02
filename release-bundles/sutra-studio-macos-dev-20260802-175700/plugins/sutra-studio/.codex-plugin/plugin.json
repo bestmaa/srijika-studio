@@ -1,0 +1,43 @@
+{
+  "name": "sutra-studio",
+  "version": "0.1.0+codex.20260802174941",
+  "description": "Build, inspect, validate, debug, responsively verify, and normalize canonical React UI documents in Sutra Studio from Codex.",
+  "author": {
+    "name": "Sutra Studio"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "mcp",
+    "react",
+    "tauri",
+    "visual-builder",
+    "ui-automation"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Sutra Studio",
+    "shortDescription": "Build React interfaces in the desktop Studio",
+    "longDescription": "Connect Codex to a running Sutra Studio app through a private authenticated bridge, then use compact versioned tools to inspect hierarchy and component manifests, apply atomic UI operations, normalize repeated siblings into typed React Repeat/map structures, inspect generated TSX contracts, add breakpoint-aware styles, validate the canonical AST, inspect rendered geometry across viewports, and capture clean PNG previews for screenshot fidelity.",
+    "developerName": "Sutra Studio",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Recreate screenshot designs",
+      "Build and edit React UI",
+      "Normalize repeated UI into typed React maps",
+      "Inspect generated React contracts",
+      "Verify responsive layouts across viewports",
+      "Inspect rendered layout",
+      "Capture clean previews"
+    ],
+    "defaultPrompt": [
+      "Recreate this design in the running Sutra Studio app and verify it at the source image dimensions.",
+      "Analyze repeated siblings, convert the reviewed candidates to typed Repeat nodes, and verify generated React output.",
+      "Make the active page responsive without duplicating its component tree, then check mobile, tablet, desktop, and wide layouts.",
+      "Inspect the current Sutra page and fix its layout diagnostics.",
+      "Add a typed page prop and bind it to the selected component."
+    ],
+    "brandColor": "#6756E8"
+  }
+}

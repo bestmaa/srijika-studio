@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "1.0",
+  "toolVersion": "0.3.1",
+  "documentFormatVersions": [1],
+  "transport": {
+    "mcp": "stdio",
+    "studioBridge": "authenticated-loopback-http"
+  },
+  "features": {
+    "atomicBatches": true,
+    "optimisticConcurrency": true,
+    "generatedIdMapping": true,
+    "localBatchNodeReferences": true,
+    "schemaValidation": true,
+    "graphValidation": true,
+    "semanticValidation": true,
+    "protocolAdapters": true,
+    "structuredDesignPlans": true,
+    "exactViewport": true,
+    "computedLayoutInspection": true,
+    "cleanPngCapture": true,
+    "detailedComponentManifests": true,
+    "typedRepeatConversion": true,
+    "responsiveStyleWrites": true,
+    "generatedTsxInspection": true
+  },
+  "limits": {
+    "customViewport": {
+      "minWidth": 240,
+      "maxWidth": 4096,
+      "minHeight": 200,
+      "maxHeight": 4096
+    },
+    "operations": {
+      "maxBatch": 500,
+      "maxDesignPlanBatch": 1000
+    },
+    "outline": {
+      "maxDepth": 64,
+      "maxNodes": 2000
+    },
+    "layout": {
+      "maxNodeIds": 500,
+      "maxInstances": 5000
+    },
+    "capture": {
+      "minPixelRatio": 1,
+      "maxPixelRatio": 2
+    },
+    "repetitions": {
+      "minInstances": 2,
+      "maxInstances": 100,
+      "maxCandidates": 500
+    }
+  },
+  "canonicalTools": [
+    "sutra_get_capabilities",
+    "sutra_get_project_summary",
+    "sutra_get_page_outline",
+    "sutra_get_node",
+    "sutra_get_component_catalog",
+    "sutra_analyze_repetitions",
+    "sutra_get_generated_code",
+    "sutra_apply_operations",
+    "sutra_validate_document",
+    "sutra_get_diagnostics",
+    "sutra_render_preview",
+    "sutra_get_layout_snapshot",
+    "sutra_capture_preview",
+    "sutra_undo",
+    "sutra_redo",
+    "sutra_import_design_plan"
+  ],
+  "deprecatedTools": ["sutra_import_design_image"]
+}
