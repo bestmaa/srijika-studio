@@ -1,0 +1,53 @@
+---
+title: Srijika Studio Documentation
+description: Product, authoring, architecture, and engineering documentation for Srijika Studio.
+---
+
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
+
+Srijika Studio is a **code-first React application studio**. Restricted, typed `.ui.tsx` is the only persisted UI source of truth. The hierarchy, Inspector, diagnostics, and React preview are derived views of that source.
+
+:::caution[Private alpha]
+The current milestone is a working code-first UI foundation. Rust-backed generated APIs and business logic are planned for Phase 2; they are not part of the current product.
+:::
+
+<CardGrid>
+  <Card title="Start with product status" icon="information">
+    Understand what is implemented today, what remains deliberately limited, and what the roadmap
+    promises.
+  </Card>
+  <Card title="Learn the authoring model" icon="seti:typescript">
+    See how pure UI files, connectors, stores, hooks, slots, and parts form one predictable system.
+  </Card>
+  <Card title="Understand the architecture" icon="puzzle">
+    Follow source through the restricted compiler, derived document, workbench, renderer, and native
+    boundary.
+  </Card>
+  <Card title="Use canonical reference" icon="document">
+    Read the complete engineering documents used by the repository and its quality gates.
+  </Card>
+</CardGrid>
+
+## The core promise
+
+Visual tooling must never silently replace developer-owned code with a hidden format. Srijika permits an operation only when it can produce a bounded source edit, validate the expected content hash, compile the resulting TSX, and pass the same rules used everywhere else.
+
+```text
+.ui.tsx source
+  → restricted non-executing compiler
+  → diagnostics + stable source map + validated UiDocument
+  → hierarchy + Inspector + React preview
+  → bounded source edit intent
+  → hash-checked save
+  → compile again
+```
+
+## Recommended path
+
+1. Read [Product status](/docs/product-status/) to establish the current boundary.
+2. Follow [Getting started](/docs/getting-started/) for the supported local workflow.
+3. Learn [Project anatomy](/docs/project-anatomy/) and the ownership rules.
+4. Study the [Authoring model](/docs/authoring-model/) for `.ui.tsx` and connectors.
+5. Read [Architecture](/docs/architecture/) before extending the compiler or native boundary.
+
+<LinkButton href="/docs/product-status/">Begin with product status</LinkButton>
