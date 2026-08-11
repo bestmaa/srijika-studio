@@ -10,7 +10,7 @@ export default defineConfig({
         'Product, authoring, architecture, and engineering documentation for Srijika Studio.',
       favicon: '/favicon.png',
       head: [
-        { tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } },
+        { tag: 'meta', attrs: { name: 'robots', content: 'index, follow' } },
         {
           tag: 'meta',
           attrs: {

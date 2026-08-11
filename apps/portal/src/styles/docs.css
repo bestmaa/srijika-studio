@@ -33,7 +33,7 @@ body {
   letter-spacing: -0.01em;
 }
 
-.private-ribbon {
+.alpha-ribbon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -51,7 +51,7 @@ body {
 }
 
 @media (max-width: 50rem) {
-  .private-ribbon {
+  .alpha-ribbon {
     justify-content: flex-start;
     margin-top: 0.75rem;
     padding-inline: 0.75rem;
@@ -59,7 +59,7 @@ body {
   }
 }
 
-.private-ribbon__dot {
+.alpha-ribbon__dot {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 999px;
