@@ -8,15 +8,15 @@ import type {
   ValueExpression,
   ValueShape,
   ValueType,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 const visualComponentTags = {
-  'sutra.avatar': 'SutraAvatar',
-  'sutra.badge': 'SutraBadge',
-  'sutra.chart': 'SutraChart',
-  'sutra.divider': 'SutraDivider',
-  'sutra.icon': 'SutraIcon',
-  'sutra.progress': 'SutraProgress',
+  'srijika.avatar': 'SrijikaAvatar',
+  'srijika.badge': 'SrijikaBadge',
+  'srijika.chart': 'SrijikaChart',
+  'srijika.divider': 'SrijikaDivider',
+  'srijika.icon': 'SrijikaIcon',
+  'srijika.progress': 'SrijikaProgress',
 } as const;
 
 const indent = (value: string, depth = 1): string => {
@@ -318,7 +318,7 @@ interface EmitContext {
   symbols: Readonly<Record<string, string>>;
 }
 
-function documentUsesSutraStyle(document: UiDocument): boolean {
+function documentUsesSrijikaStyle(document: UiDocument): boolean {
   return Object.values(document.nodes).some(
     (node) => node.kind === 'element' && node.props['style'] !== undefined,
   );
@@ -335,12 +335,12 @@ function documentUsesResponsiveStyle(document: UiDocument): boolean {
 }
 
 function responsiveStyleCode(node: ElementNode): string {
-  return `sutraResponsiveStyle(${JSON.stringify(node.style)}, sutraViewportWidth)`;
+  return `srijikaResponsiveStyle(${JSON.stringify(node.style)}, srijikaViewportWidth)`;
 }
 
 function documentUsesInputPartStyle(document: UiDocument): boolean {
   return Object.values(document.nodes).some(
-    (node) => node.kind === 'element' && node.componentId === 'sutra.input',
+    (node) => node.kind === 'element' && node.componentId === 'srijika.input',
   );
 }
 
@@ -385,6 +385,7 @@ function emitExpression(expression: ValueExpression, context: EmitContext): stri
         lessThanOrEqual: '<=',
         and: '&&',
         or: '||',
+        coalesce: '??',
         add: '+',
         subtract: '-',
         multiply: '*',
@@ -447,7 +448,7 @@ function styleAttribute(
 
   const parts: string[] = [...defaultProperties];
   if (staticStyle) parts.push(`...${staticStyle}`);
-  if (dynamicStyle) parts.push(`...sutraStyle(${emitExpression(dynamicStyle, context)})`);
+  if (dynamicStyle) parts.push(`...srijikaStyle(${emitExpression(dynamicStyle, context)})`);
   parts.push(...computedProperties);
   return `style={{ ${parts.join(', ')} }}`;
 }
@@ -504,23 +505,23 @@ function emitChildren(ids: readonly string[], context: EmitContext): string {
 
 function elementTag(node: ElementNode): string {
   switch (node.componentId) {
-    case 'sutra.page':
+    case 'srijika.page':
       return 'main';
-    case 'sutra.text':
+    case 'srijika.text':
       return 'p';
-    case 'sutra.button':
+    case 'srijika.button':
       return 'button';
-    case 'sutra.input':
+    case 'srijika.input':
       return 'label';
-    case 'sutra.image':
+    case 'srijika.image':
       return 'img';
-    case 'sutra.heading': {
+    case 'srijika.heading': {
       const level = node.props['level'];
       return level?.kind === 'literal' && typeof level.value === 'number'
         ? `h${Math.max(1, Math.min(6, level.value))}`
         : 'h2';
     }
-    case 'sutra.container': {
+    case 'srijika.container': {
       const semanticTag = node.props['as'];
       const value = semanticTag?.kind === 'literal' ? semanticTag.value : null;
       return typeof value === 'string' &&
@@ -528,8 +529,8 @@ function elementTag(node: ElementNode): string {
         ? value
         : 'div';
     }
-    case 'sutra.stack':
-    case 'sutra.grid':
+    case 'srijika.stack':
+    case 'srijika.grid':
       return 'div';
     default:
       if (node.componentId in visualComponentTags) {
@@ -554,12 +555,12 @@ function emitElement(node: ElementNode, context: EmitContext): string {
   };
 
   let content = emitChildren(Object.values(node.slots).flat(), context);
-  if (node.componentId === 'sutra.text' || node.componentId === 'sutra.heading') {
+  if (node.componentId === 'srijika.text' || node.componentId === 'srijika.heading') {
     content = `{${propValue('text', '""')}}`;
-  } else if (node.componentId === 'sutra.button') {
+  } else if (node.componentId === 'srijika.button') {
     computedClassParts.push(
-      JSON.stringify('sutra-button'),
-      `${JSON.stringify('sutra-button--')} + String(${propValue('variant', '"primary"')})`,
+      JSON.stringify('srijika-button'),
+      `${JSON.stringify('srijika-button--')} + String(${propValue('variant', '"primary"')})`,
     );
     attributes.push('type="button"');
     attributes.push(`disabled={Boolean(${propValue('disabled', 'false')})}`);
@@ -569,7 +570,7 @@ function emitElement(node: ElementNode, context: EmitContext): string {
       attributes.push(`onClick={() => ${call.code}}`);
     }
     content = `{${propValue('label', '"Button"')}}`;
-  } else if (node.componentId === 'sutra.grid') {
+  } else if (node.componentId === 'srijika.grid') {
     const columns = propValue('columns', '2');
     const columnsTemplate = propValue('columnsTemplate', '""');
     const rowsTemplate = propValue('rowsTemplate', '""');
@@ -583,7 +584,7 @@ function emitElement(node: ElementNode, context: EmitContext): string {
       `gridTemplateColumns: ${staticColumns} || String(${columnsTemplate}) || "repeat(" + Number(${columns}) + ", minmax(0, 1fr))"`,
       `gridTemplateRows: ${staticRows} || String(${rowsTemplate}) || undefined`,
     );
-  } else if (node.componentId === 'sutra.input') {
+  } else if (node.componentId === 'srijika.input') {
     const onChange = node.events['onChange'];
     let onChangeAttribute = '';
     if (onChange) {
@@ -620,8 +621,8 @@ function emitElement(node: ElementNode, context: EmitContext): string {
     const hideLabel = propValue('hideLabel', 'false');
     const labelStyle = propValue('labelStyle', '{}');
     const controlStyle = propValue('controlStyle', '{}');
-    content = `{!Boolean(${hideLabel}) ? <span style={sutraInputPartStyle(${labelStyle})}>{${label}}</span> : null}\n<input aria-label={Boolean(${hideLabel}) ? String(${label}) || undefined : undefined} type=${JSON.stringify(type)} name={String(${propValue('name', '""')}) || undefined} placeholder={String(${propValue('placeholder', '""')})} defaultValue={String(${propValue('defaultValue', '""')})} autoComplete={String(${propValue('autoComplete', '"off"')})} required={Boolean(${propValue('required', 'false')})} disabled={Boolean(${propValue('disabled', 'false')})} style={sutraInputPartStyle(${controlStyle})}${onChangeAttribute} />`;
-  } else if (node.componentId === 'sutra.image') {
+    content = `{!Boolean(${hideLabel}) ? <span style={srijikaInputPartStyle(${labelStyle})}>{${label}}</span> : null}\n<input aria-label={Boolean(${hideLabel}) ? String(${label}) || undefined : undefined} type=${JSON.stringify(type)} name={String(${propValue('name', '""')}) || undefined} placeholder={String(${propValue('placeholder', '""')})} defaultValue={String(${propValue('defaultValue', '""')})} autoComplete={String(${propValue('autoComplete', '"off"')})} required={Boolean(${propValue('required', 'false')})} disabled={Boolean(${propValue('disabled', 'false')})} style={srijikaInputPartStyle(${controlStyle})}${onChangeAttribute} />`;
+  } else if (node.componentId === 'srijika.image') {
     const requestedFit = node.props['fit'];
     const fit =
       requestedFit?.kind === 'literal' &&
@@ -637,32 +638,32 @@ function emitElement(node: ElementNode, context: EmitContext): string {
     attributes.push(`alt={String(${propValue('alt', '""')})}`);
     attributes.push(`loading=${JSON.stringify(loading)}`);
     computedStyleProperties.push(`objectFit: ${JSON.stringify(fit)}`);
-  } else if (node.componentId === 'sutra.icon') {
+  } else if (node.componentId === 'srijika.icon') {
     attributes.push(`name={${propValue('name', '"home"')}}`);
     attributes.push(`label={${propValue('label', '""')}}`);
     attributes.push(`size={${propValue('size', '24')}}`);
     attributes.push(`strokeWidth={${propValue('strokeWidth', '2')}}`);
-  } else if (node.componentId === 'sutra.divider') {
+  } else if (node.componentId === 'srijika.divider') {
     attributes.push(`orientation={${propValue('orientation', '"horizontal"')}}`);
     attributes.push(`color={${propValue('color', '"#d1d5db"')}}`);
     attributes.push(`thickness={${propValue('thickness', '1')}}`);
-  } else if (node.componentId === 'sutra.progress') {
+  } else if (node.componentId === 'srijika.progress') {
     attributes.push(`value={${propValue('value', '65')}}`);
     attributes.push(`max={${propValue('max', '100')}}`);
     attributes.push(`label={${propValue('label', '"Progress"')}}`);
     attributes.push(`fillColor={${propValue('fillColor', '"#6d5dfc"')}}`);
     attributes.push(`trackColor={${propValue('trackColor', '"#2a303b"')}}`);
-  } else if (node.componentId === 'sutra.badge') {
+  } else if (node.componentId === 'srijika.badge') {
     attributes.push(`label={${propValue('label', '"Badge"')}}`);
     attributes.push(`tone={${propValue('tone', '"neutral"')}}`);
     attributes.push(`dot={${propValue('dot', 'false')}}`);
-  } else if (node.componentId === 'sutra.avatar') {
+  } else if (node.componentId === 'srijika.avatar') {
     attributes.push(`src={${propValue('src', '""')}}`);
     attributes.push(`alt={${propValue('alt', '"Avatar"')}}`);
     attributes.push(`fallback={${propValue('fallback', '"A"')}}`);
     attributes.push(`size={${propValue('size', '40')}}`);
     attributes.push(`status={${propValue('status', '"none"')}}`);
-  } else if (node.componentId === 'sutra.chart') {
+  } else if (node.componentId === 'srijika.chart') {
     attributes.push(`chartType={${propValue('chartType', '"line"')}}`);
     attributes.push(`curve={${propValue('curve', '"linear"')}}`);
     attributes.push(`data={${propValue('data', '[]')}}`);
@@ -671,7 +672,7 @@ function emitElement(node: ElementNode, context: EmitContext): string {
     attributes.push(`showGrid={${propValue('showGrid', 'true')}}`);
     attributes.push(`strokeWidth={${propValue('strokeWidth', '3')}}`);
     attributes.push(`innerRadius={${propValue('innerRadius', '58')}}`);
-  } else if (node.componentId === 'sutra.container') {
+  } else if (node.componentId === 'srijika.container') {
     const ariaLabel = node.props['ariaLabel'];
     if (ariaLabel)
       attributes.push(`aria-label={String(${emitExpression(ariaLabel, context)}) || undefined}`);
@@ -685,7 +686,7 @@ function emitElement(node: ElementNode, context: EmitContext): string {
   }
 
   const defaultStyleProperties =
-    node.componentId === 'sutra.text' || node.componentId === 'sutra.heading'
+    node.componentId === 'srijika.text' || node.componentId === 'srijika.heading'
       ? ['...{ margin: 0 }']
       : [];
   const style = styleAttribute(node, context, computedStyleProperties, defaultStyleProperties);
@@ -751,14 +752,14 @@ export function generateTsx(document: UiDocument): string {
   const generatedComponentName = componentName(document.name);
   const body = emitNode(document.nodes[document.rootNodeId], { document, symbols });
   const rendererImports = [
-    ...(documentUsesSutraStyle(document) ? ['sutraStyle'] : []),
+    ...(documentUsesSrijikaStyle(document) ? ['srijikaStyle'] : []),
     ...(documentUsesResponsiveStyle(document)
-      ? ['sutraResponsiveStyle', 'useSutraViewportWidth']
+      ? ['srijikaResponsiveStyle', 'useSrijikaViewportWidth']
       : []),
   ].sort();
   const styleImport =
     rendererImports.length > 0
-      ? [`import { ${rendererImports.join(', ')} } from '@sutra/react-renderer';`, '']
+      ? [`import { ${rendererImports.join(', ')} } from '@srijika/react-renderer';`, '']
       : [];
   const usedCoreExports = [
     ...new Set(
@@ -768,11 +769,11 @@ export function generateTsx(document: UiDocument): string {
           : [],
       ),
     ),
-    ...(documentUsesInputPartStyle(document) ? ['sutraInputPartStyle'] : []),
+    ...(documentUsesInputPartStyle(document) ? ['srijikaInputPartStyle'] : []),
   ].sort();
   const coreImport =
     usedCoreExports.length > 0
-      ? [`import { ${usedCoreExports.join(', ')} } from '@sutra/core-components';`, '']
+      ? [`import { ${usedCoreExports.join(', ')} } from '@srijika/core-components';`, '']
       : [];
 
   return [
@@ -786,7 +787,7 @@ export function generateTsx(document: UiDocument): string {
     '',
     `export function ${generatedComponentName}(props: ${generatedComponentName}Props) {`,
     ...(documentUsesResponsiveStyle(document)
-      ? ['  const sutraViewportWidth = useSutraViewportWidth();']
+      ? ['  const srijikaViewportWidth = useSrijikaViewportWidth();']
       : []),
     '  return (',
     indent(body, 2),

@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
 import {
   createBlankDocument,
   createElementNode,
   type EventSignature,
   type PublicProp,
   type UiDocument,
-} from '@sutra/contracts';
-import { applyCommand, DocumentHistory } from '@sutra/document-engine';
+} from '@srijika/contracts';
+import { applyCommand, DocumentHistory } from '@srijika/document-engine';
 
 function eventProp(
   name = 'onSubmit',
@@ -32,7 +32,7 @@ function dataProp(name = 'title'): PublicProp {
     displayName: name,
     valueType: 'string',
     required: false,
-    defaultValue: 'Sutra',
+    defaultValue: 'Srijika',
   };
 }
 
@@ -177,7 +177,7 @@ describe('document event signatures', () => {
     const dataDocument = addPublicProp(createBlankDocument(), dataProp());
     const dataRoot = dataDocument.nodes[dataDocument.rootNodeId];
     if (!dataRoot || dataRoot.kind !== 'element') throw new Error('Expected element root');
-    const text = createElementNode('bound_text', 'sutra.text', 'Bound text', {
+    const text = createElementNode('bound_text', 'srijika.text', 'Bound text', {
       props: {
         text: {
           kind: 'template',
@@ -202,7 +202,7 @@ describe('document event signatures', () => {
     const eventDocument = addPublicProp(createBlankDocument(), eventProp());
     const eventRoot = eventDocument.nodes[eventDocument.rootNodeId];
     if (!eventRoot || eventRoot.kind !== 'element') throw new Error('Expected element root');
-    const button = createElementNode('bound_button', 'sutra.button', 'Bound button', {
+    const button = createElementNode('bound_button', 'srijika.button', 'Bound button', {
       props: { label: { kind: 'literal', value: 'Submit' } },
       events: {
         onClick: { kind: 'reference', symbolId: 'event_onSubmit', path: [] },

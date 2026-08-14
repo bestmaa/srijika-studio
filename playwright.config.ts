@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = Number(process.env['SUTRA_E2E_PORT'] ?? 4173);
+const port = Number(process.env['SRIJIKA_E2E_PORT'] ?? 4173);
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
@@ -38,7 +38,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm --filter @sutra/studio dev --host 127.0.0.1 --port ${port} --strictPort`,
+    command: `pnpm --filter @srijika/studio dev --host 127.0.0.1 --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: !process.env['CI'],
     timeout: 120_000,

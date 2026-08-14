@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { UiDocument } from '@sutra/contracts';
-import { SutraRenderer } from '@sutra/react-renderer';
+import type { UiDocument } from '@srijika/contracts';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { learningExampleById } from '../../apps/studio/src/lib/learning-examples';
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
@@ -20,7 +20,7 @@ function renderLesson(
   events: Record<string, (...args: unknown[]) => unknown> = {},
 ) {
   return render(
-    <SutraRenderer
+    <SrijikaRenderer
       document={document}
       registry={componentRegistry}
       mode="preview"
@@ -40,7 +40,7 @@ describe('Learning example runtimes', () => {
     expect(screen.getByText('Members: 24')).toBeVisible();
 
     rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={componentRegistry}
         mode="preview"
@@ -102,7 +102,7 @@ describe('Learning example runtimes', () => {
     expect(screen.queryByRole('heading', { name: 'Please sign in' })).not.toBeInTheDocument();
 
     rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={componentRegistry}
         mode="preview"
@@ -121,7 +121,7 @@ describe('Learning example runtimes', () => {
     const andRender = renderLesson(andDocument);
     expect(screen.getByText('Signed in AND has notifications')).toBeVisible();
     andRender.rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={andDocument}
         registry={componentRegistry}
         mode="preview"
@@ -137,7 +137,7 @@ describe('Learning example runtimes', () => {
     const orRender = renderLesson(orDocument);
     expect(screen.getByText('Edit access granted')).toBeVisible();
     orRender.rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={orDocument}
         registry={componentRegistry}
         mode="preview"
@@ -153,7 +153,7 @@ describe('Learning example runtimes', () => {
     const notRender = renderLesson(notDocument);
     expect(screen.getByText('Content is ready')).toBeVisible();
     notRender.rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={notDocument}
         registry={componentRegistry}
         mode="preview"
@@ -170,7 +170,7 @@ describe('Learning example runtimes', () => {
     const ternaryRender = renderLesson(ternaryDocument);
     expect(screen.getByText('FREE PLAN')).toBeVisible();
     ternaryRender.rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={ternaryDocument}
         registry={componentRegistry}
         mode="preview"
@@ -186,7 +186,7 @@ describe('Learning example runtimes', () => {
     const fallbackRender = renderLesson(fallbackDocument);
     expect(screen.getByRole('heading', { name: 'Default headline' })).toBeVisible();
     fallbackRender.rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={fallbackDocument}
         registry={componentRegistry}
         mode="preview"

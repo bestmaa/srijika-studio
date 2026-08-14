@@ -1,10 +1,10 @@
 # Component authoring
 
-A Sutra component separates serializable metadata from its React implementation. The manifest drives palette labels, default nodes, Inspector controls, binding compatibility, slot validation, semantic diagnostics, and editor behavior.
+A Srijika component separates serializable metadata from its React implementation. The manifest drives palette labels, default nodes, Inspector controls, binding compatibility, slot validation, semantic diagnostics, and editor behavior.
 
 ```ts
 interface ComponentManifest {
-  id: string; // namespaced, for example sutra.button
+  id: string; // namespaced, for example srijika.button
   version: number;
   displayName: string;
   category: string;

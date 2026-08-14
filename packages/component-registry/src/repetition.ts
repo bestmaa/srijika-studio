@@ -3,7 +3,7 @@ import {
   type RepeatedSiblingAnalysisOptions,
   type RepeatedSiblingCandidate,
   type UiDocument,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 /**
  * Finds conservative, contiguous sibling runs that can be represented by one

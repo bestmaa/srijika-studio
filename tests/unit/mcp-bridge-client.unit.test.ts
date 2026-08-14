@@ -6,10 +6,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  SutraBridgeClient,
+  SrijikaBridgeClient,
   descriptorCandidates,
 } from '../../packages/mcp-server/src/bridge-client';
-import type { SutraBridgeError } from '../../packages/mcp-server/src/bridge-client';
+import type { SrijikaBridgeError } from '../../packages/mcp-server/src/bridge-client';
 
 const servers: Array<ReturnType<typeof createServer>> = [];
 
@@ -41,7 +41,7 @@ async function descriptor(
   endpoint: string,
   overrides: Record<string, unknown> = {},
 ): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'sutra-bridge-client-'));
+  const directory = await mkdtemp(join(tmpdir(), 'srijika-bridge-client-'));
   const path = join(directory, 'codex-bridge-v1.json');
   await writeFile(
     path,
@@ -58,36 +58,36 @@ async function descriptor(
   return path;
 }
 
-describe('SutraBridgeClient', () => {
+describe('SrijikaBridgeClient', () => {
   it('discovers platform-specific user-private descriptor locations', () => {
     expect(
       descriptorCandidates({
         operatingSystem: 'linux',
-        homeDirectory: '/home/sutra',
+        homeDirectory: '/home/srijika',
         environment: {},
       }),
-    ).toEqual(['/home/sutra/.local/share/studio.sutra.desktop/codex-bridge-v1.json']);
+    ).toEqual(['/home/srijika/.local/share/studio.srijika.desktop/codex-bridge-v1.json']);
     expect(
       descriptorCandidates({
         operatingSystem: 'win32',
-        homeDirectory: 'C:\\Users\\sutra',
-        environment: { LOCALAPPDATA: 'C:\\Users\\sutra\\AppData\\Local' },
+        homeDirectory: 'C:\\Users\\srijika',
+        environment: { LOCALAPPDATA: 'C:\\Users\\srijika\\AppData\\Local' },
       }),
     ).toEqual([
-      'C:\\Users\\sutra\\AppData\\Local\\studio.sutra.desktop\\codex-bridge-v1.json',
-      '\\\\wsl.localhost\\Ubuntu\\home\\sutra\\.local\\share\\studio.sutra.desktop\\codex-bridge-v1.json',
+      'C:\\Users\\srijika\\AppData\\Local\\studio.srijika.desktop\\codex-bridge-v1.json',
+      '\\\\wsl.localhost\\Ubuntu\\home\\srijika\\.local\\share\\studio.srijika.desktop\\codex-bridge-v1.json',
     ]);
     expect(
       descriptorCandidates({
         operatingSystem: 'win32',
         homeDirectory: 'C:\\Users\\different-name',
         environment: {
-          SUTRA_STUDIO_WSL_DISTRO: 'Ubuntu-24.04',
-          SUTRA_STUDIO_WSL_USER: 'sutra',
+          SRIJIKA_STUDIO_WSL_DISTRO: 'Ubuntu-24.04',
+          SRIJIKA_STUDIO_WSL_USER: 'srijika',
         },
       }),
     ).toEqual([
-      '\\\\wsl.localhost\\Ubuntu-24.04\\home\\sutra\\.local\\share\\studio.sutra.desktop\\codex-bridge-v1.json',
+      '\\\\wsl.localhost\\Ubuntu-24.04\\home\\srijika\\.local\\share\\studio.srijika.desktop\\codex-bridge-v1.json',
     ]);
   });
 
@@ -123,15 +123,15 @@ describe('SutraBridgeClient', () => {
         );
       });
     });
-    const client = new SutraBridgeClient({ descriptorPath: await descriptor(endpoint) });
+    const client = new SrijikaBridgeClient({ descriptorPath: await descriptor(endpoint) });
 
-    await expect(client.call('sutra.getProjectSummary', { compact: true })).resolves.toEqual({
+    await expect(client.call('srijika.getProjectSummary', { compact: true })).resolves.toEqual({
       revision: 4,
     });
     expect(observed.authorization).toBe(`Bearer ${'a'.repeat(64)}`);
     expect(observed.body).toEqual({
       protocolVersion: '1.0',
-      method: 'sutra.getProjectSummary',
+      method: 'srijika.getProjectSummary',
       params: { compact: true },
     });
     expect(JSON.stringify(observed.body)).not.toContain('a'.repeat(64));
@@ -139,24 +139,24 @@ describe('SutraBridgeClient', () => {
 
   it('rejects non-loopback descriptors before making a request', async () => {
     const fetchImpl = vi.fn<typeof fetch>();
-    const client = new SutraBridgeClient({
+    const client = new SrijikaBridgeClient({
       descriptorPath: await descriptor('https://example.com'),
       fetchImpl,
     });
 
-    await expect(client.call('sutra.getCapabilities')).rejects.toMatchObject({
+    await expect(client.call('srijika.getCapabilities')).rejects.toMatchObject({
       code: 'unsafe_bridge_endpoint',
     });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('returns a stable retryable error when Studio has no descriptor', async () => {
-    const client = new SutraBridgeClient({
-      descriptorPath: join(tmpdir(), `missing-sutra-${Date.now()}.json`),
+    const client = new SrijikaBridgeClient({
+      descriptorPath: join(tmpdir(), `missing-srijika-${Date.now()}.json`),
     });
 
-    await expect(client.call('sutra.getCapabilities')).rejects.toEqual(
-      expect.objectContaining<SutraBridgeError>({
+    await expect(client.call('srijika.getCapabilities')).rejects.toEqual(
+      expect.objectContaining<SrijikaBridgeError>({
         code: 'studio_not_running',
         retryable: true,
       }),
@@ -205,9 +205,9 @@ describe('SutraBridgeClient', () => {
     });
     const stalePath = await descriptor(stale.endpoint);
     const healthyPath = await descriptor(healthy.endpoint);
-    const client = new SutraBridgeClient({ discoveryPaths: [stalePath, healthyPath] });
+    const client = new SrijikaBridgeClient({ discoveryPaths: [stalePath, healthyPath] });
 
-    await expect(client.call('sutra.getProjectSummary')).resolves.toEqual({
+    await expect(client.call('srijika.getProjectSummary')).resolves.toEqual({
       selectedPageId: 'page_home',
     });
     expect(staleHealthChecks).toBe(1);
@@ -237,20 +237,20 @@ describe('SutraBridgeClient', () => {
     const healthyPath = await descriptor(healthy.endpoint);
 
     await expect(
-      new SutraBridgeClient({
+      new SrijikaBridgeClient({
         descriptorPath: stalePath,
         discoveryPaths: [healthyPath],
-      }).call('sutra.getCapabilities'),
+      }).call('srijika.getCapabilities'),
     ).rejects.toMatchObject({ code: 'stale_bridge_descriptor' });
     expect(healthyRequests).toBe(0);
 
-    const malformedDirectory = await mkdtemp(join(tmpdir(), 'sutra-malformed-descriptor-'));
+    const malformedDirectory = await mkdtemp(join(tmpdir(), 'srijika-malformed-descriptor-'));
     const malformedPath = join(malformedDirectory, 'codex-bridge-v1.json');
     await writeFile(malformedPath, '{invalid json');
     await expect(
-      new SutraBridgeClient({
+      new SrijikaBridgeClient({
         discoveryPaths: [malformedPath, healthyPath],
-      }).call('sutra.getCapabilities'),
+      }).call('srijika.getCapabilities'),
     ).rejects.toMatchObject({ code: 'invalid_bridge_descriptor' });
     expect(healthyRequests).toBe(0);
   });

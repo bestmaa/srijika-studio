@@ -2,8 +2,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PROTOCOL_VERSION, SUTRA_RPC_METHODS, TOOL_VERSION } from '@sutra/automation-protocol';
-import { literal } from '@sutra/contracts';
+import { PROTOCOL_VERSION, SRIJIKA_RPC_METHODS, TOOL_VERSION } from '@srijika/automation-protocol';
+import { literal } from '@srijika/contracts';
 
 import {
   CODEX_BRIDGE_READY_COMMAND,
@@ -15,6 +15,11 @@ import {
   type StudioBridgeRpcError,
 } from '../../apps/studio/src/lib/codex-bridge';
 import { StudioApp } from '../../apps/studio/src/app/StudioApp';
+import {
+  DEFAULT_CODE_PROJECT_FILE_NAME,
+  DEFAULT_CODE_PROJECT_SOURCE,
+  useCodeProjectStore,
+} from '../../apps/studio/src/store/code-project-store';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
 
 function rpc(method: string, params: unknown = {}): Promise<unknown> {
@@ -39,7 +44,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
   });
 
   it('serves every compact read route without requiring Tauri', async () => {
-    const capabilities = resultRecord(await rpc(SUTRA_RPC_METHODS.getCapabilities));
+    const capabilities = resultRecord(await rpc(SRIJIKA_RPC_METHODS.getCapabilities));
     expect(capabilities).toMatchObject({
       protocolVersion: PROTOCOL_VERSION,
       runtime: {
@@ -49,29 +54,31 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       },
     });
 
-    const summary = resultRecord(await rpc(SUTRA_RPC_METHODS.getProjectSummary));
+    const summary = resultRecord(await rpc(SRIJIKA_RPC_METHODS.getProjectSummary));
     expect(summary).toMatchObject({
       selectedPageId: 'page_home',
       project: { pageCount: 1 },
       pages: [{ id: 'page_home', revision: 0, nodeCount: 1 }],
     });
-    expect(await rpc(SUTRA_RPC_METHODS.getProjectSummary, { includePages: false })).toMatchObject({
-      pages: [],
-    });
+    expect(await rpc(SRIJIKA_RPC_METHODS.getProjectSummary, { includePages: false })).toMatchObject(
+      {
+        pages: [],
+      },
+    );
 
     expect(
-      await rpc(SUTRA_RPC_METHODS.getPageOutline, {
+      await rpc(SRIJIKA_RPC_METHODS.getPageOutline, {
         pageId: 'page_home',
         maxDepth: 4,
         maxNodes: 20,
       }),
     ).toMatchObject({ documentId: 'page_home', rootNodeId: 'root', returnedNodeCount: 1 });
     expect(
-      await rpc(SUTRA_RPC_METHODS.getNode, { pageId: 'page_home', nodeId: 'root' }),
+      await rpc(SRIJIKA_RPC_METHODS.getNode, { pageId: 'page_home', nodeId: 'root' }),
     ).toMatchObject({ documentId: 'page_home', node: { id: 'root' }, parent: null });
 
     const catalog = resultRecord(
-      await rpc(SUTRA_RPC_METHODS.getComponentCatalog, {
+      await rpc(SRIJIKA_RPC_METHODS.getComponentCatalog, {
         query: 'container',
         category: 'Layout',
         limit: 10,
@@ -79,15 +86,15 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     );
     expect(catalog).toMatchObject({ returnedCount: 1, truncated: false });
     expect(catalog['components']).toEqual([
-      expect.objectContaining({ id: 'sutra.container', displayName: 'Container' }),
+      expect.objectContaining({ id: 'srijika.container', displayName: 'Container' }),
     ]);
     expect((catalog['components'] as Array<Record<string, unknown>>)[0]).not.toHaveProperty(
       'propSpecs',
     );
 
     const manifestCatalog = resultRecord(
-      await rpc(SUTRA_RPC_METHODS.getComponentCatalog, {
-        ids: ['sutra.container'],
+      await rpc(SRIJIKA_RPC_METHODS.getComponentCatalog, {
+        ids: ['srijika.container'],
         detail: 'manifest',
         limit: 5,
       }),
@@ -97,7 +104,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       totalCount: 1,
       components: [
         {
-          id: 'sutra.container',
+          id: 'srijika.container',
           propSpecs: {
             as: { type: 'string', defaultValue: 'div', required: true },
           },
@@ -105,7 +112,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
           editor: { dropStrategy: 'flex' },
           defaultNode: {
             id: '__catalog_default__',
-            componentId: 'sutra.container',
+            componentId: 'srijika.container',
             style: { base: { display: 'flex', flexDirection: 'column' } },
           },
         },
@@ -113,7 +120,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     });
 
     expect(
-      await rpc(SUTRA_RPC_METHODS.analyzeRepetitions, {
+      await rpc(SRIJIKA_RPC_METHODS.analyzeRepetitions, {
         minInstances: 2,
         maxCandidates: 10,
         includeValues: false,
@@ -125,21 +132,39 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       candidates: [],
     });
 
-    expect(await rpc(SUTRA_RPC_METHODS.validateDocument)).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.validateDocument)).toMatchObject({
       ok: true,
       pageId: 'page_home',
       diagnostics: [],
     });
-    expect(await rpc(SUTRA_RPC_METHODS.getDiagnostics)).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.getDiagnostics)).toMatchObject({
       pageId: 'page_home',
       totalCount: 0,
       diagnostics: [],
     });
   });
 
+  it('adapts the legacy Sutra RPC prefix without semantic loss', async () => {
+    const capabilities = resultRecord(await rpc('sutra.getCapabilities'));
+    expect(capabilities).toMatchObject({
+      protocolVersion: PROTOCOL_VERSION,
+      deprecatedRpcAliases: [
+        {
+          prefix: 'sutra.',
+          replacementPrefix: 'srijika.',
+          removalTarget: '2.0',
+        },
+      ],
+    });
+
+    expect(await rpc('sutra.getProjectSummary')).toEqual(
+      await rpc(SRIJIKA_RPC_METHODS.getProjectSummary),
+    );
+  });
+
   it('applies one atomic batch, commits once, and honors optimistic revision checks', async () => {
     const before = useStudioStore.getState().document;
-    const result = await rpc(SUTRA_RPC_METHODS.applyOperations, {
+    const result = await rpc(SRIJIKA_RPC_METHODS.applyOperations, {
       pageId: 'page_home',
       expectedRevision: 0,
       operations: [
@@ -147,7 +172,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
           kind: 'insertComponent',
           operationId: 'card',
           id: 'container_card',
-          componentId: 'sutra.container',
+          componentId: 'srijika.container',
           parentId: 'root',
           props: { ariaLabel: literal('Card') },
         },
@@ -177,7 +202,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(committed.nodes['container_card']).toBeDefined();
     expect(committed.nodes['text_copy']).toBeDefined();
 
-    const stale = await rpc(SUTRA_RPC_METHODS.applyOperations, {
+    const stale = await rpc(SRIJIKA_RPC_METHODS.applyOperations, {
       expectedRevision: 0,
       operations: [
         {
@@ -197,7 +222,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       fields: { label: { required: true, shape: { kind: 'string' } } },
       additionalProperties: false,
     } as const;
-    const applied = await rpc(SUTRA_RPC_METHODS.applyOperations, {
+    const applied = await rpc(SRIJIKA_RPC_METHODS.applyOperations, {
       expectedRevision: 0,
       operations: [
         {
@@ -236,7 +261,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     });
     expect(applied).toMatchObject({ ok: true, revision: 1 });
 
-    const summary = resultRecord(await rpc(SUTRA_RPC_METHODS.getGeneratedCode));
+    const summary = resultRecord(await rpc(SRIJIKA_RPC_METHODS.getGeneratedCode));
     expect(summary).toMatchObject({
       protocolVersion: PROTOCOL_VERSION,
       toolVersion: TOOL_VERSION,
@@ -261,7 +286,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(summary['publicPropInterface']).toContain('items?: ReadonlyArray<{ label: string; }>');
 
     const generated = resultRecord(
-      await rpc(SUTRA_RPC_METHODS.getGeneratedCode, { detail: 'full' }),
+      await rpc(SRIJIKA_RPC_METHODS.getGeneratedCode, { detail: 'full' }),
     );
     expect(generated).toMatchObject({
       protocolVersion: PROTOCOL_VERSION,
@@ -288,11 +313,11 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       secondPageId = useStudioStore.getState().createPage('Details Page');
     });
     if (!secondPageId) throw new Error('Expected the page to be created');
-    expect(await rpc(SUTRA_RPC_METHODS.getProjectSummary)).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.getProjectSummary)).toMatchObject({
       selectedPageId: secondPageId,
     });
 
-    const preview = await rpc(SUTRA_RPC_METHODS.renderPreview, {
+    const preview = await rpc(SRIJIKA_RPC_METHODS.renderPreview, {
       pageId: 'page_home',
       viewport: 'mobile',
       selectedNodeId: 'root',
@@ -312,7 +337,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       panel: 'canvas',
     });
 
-    const exactPreview = await rpc(SUTRA_RPC_METHODS.renderPreview, {
+    const exactPreview = await rpc(SRIJIKA_RPC_METHODS.renderPreview, {
       pageId: 'page_home',
       viewport: 'desktop',
       width: 1586,
@@ -326,11 +351,11 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(useStudioStore.getState()).toMatchObject({
       customViewportSize: { width: 1586, height: 992 },
     });
-    expect(await rpc(SUTRA_RPC_METHODS.getProjectSummary)).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.getProjectSummary)).toMatchObject({
       selectedPageId: 'page_home',
     });
 
-    await rpc(SUTRA_RPC_METHODS.applyOperations, {
+    await rpc(SRIJIKA_RPC_METHODS.applyOperations, {
       pageId: 'page_home',
       expectedRevision: 0,
       operations: [
@@ -342,13 +367,13 @@ describe('Studio Codex bridge RPC dispatcher', () => {
         },
       ],
     });
-    expect(await rpc(SUTRA_RPC_METHODS.undo, { expectedRevision: 1 })).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.undo, { expectedRevision: 1 })).toMatchObject({
       ok: true,
       changed: true,
       revision: 0,
     });
     expect(useStudioStore.getState().document.nodes['history_text']).toBeUndefined();
-    expect(await rpc(SUTRA_RPC_METHODS.redo, { expectedRevision: 0 })).toMatchObject({
+    expect(await rpc(SRIJIKA_RPC_METHODS.redo, { expectedRevision: 0 })).toMatchObject({
       ok: true,
       changed: true,
       revision: 1,
@@ -358,7 +383,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
 
   it('uses the same atomic executor for design plans and the deprecated image alias', async () => {
     await expect(
-      rpc(SUTRA_RPC_METHODS.importDesignPlan, {
+      rpc(SRIJIKA_RPC_METHODS.importDesignPlan, {
         expectedRevision: 0,
         source: { name: 'Too-wide.png', width: 5_000, height: 900 },
         operations: [
@@ -375,7 +400,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(useStudioStore.getState().document.nodes['must_not_commit']).toBeUndefined();
 
     await expect(
-      rpc(SUTRA_RPC_METHODS.importDesignPlan, {
+      rpc(SRIJIKA_RPC_METHODS.importDesignPlan, {
         expectedRevision: 0,
         source: { name: 'Incomplete-size.png', width: 1_440 },
         operations: [
@@ -392,7 +417,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(useStudioStore.getState().document.nodes['also_must_not_commit']).toBeUndefined();
 
     expect(
-      await rpc(SUTRA_RPC_METHODS.importDesignPlan, {
+      await rpc(SRIJIKA_RPC_METHODS.importDesignPlan, {
         expectedRevision: 0,
         planId: 'reference-pass-1',
         phase: 'geometry',
@@ -415,7 +440,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
           {
             kind: 'insertComponent',
             id: 'planned_container',
-            componentId: 'sutra.container',
+            componentId: 'srijika.container',
             parentId: 'root',
           },
         ],
@@ -434,7 +459,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
 
     useStudioStore.getState().resetProject();
     expect(
-      await rpc(SUTRA_RPC_METHODS.importDesignImage, {
+      await rpc(SRIJIKA_RPC_METHODS.importDesignImage, {
         expectedRevision: 0,
         source: { name: 'Legacy-reference.png' },
         assumptions: ['Compatibility path'],
@@ -451,7 +476,7 @@ describe('Studio Codex bridge RPC dispatcher', () => {
       ok: true,
       revision: 1,
       deprecated: true,
-      replacementMethod: SUTRA_RPC_METHODS.importDesignPlan,
+      replacementMethod: SRIJIKA_RPC_METHODS.importDesignPlan,
       source: { name: 'Legacy-reference.png' },
       assumptions: ['Compatibility path'],
     });
@@ -459,13 +484,13 @@ describe('Studio Codex bridge RPC dispatcher', () => {
 
   it('returns structured page and method errors', async () => {
     await expect(
-      rpc(SUTRA_RPC_METHODS.getPageOutline, { pageId: 'missing_page' }),
+      rpc(SRIJIKA_RPC_METHODS.getPageOutline, { pageId: 'missing_page' }),
     ).rejects.toMatchObject<StudioBridgeRpcError>({ code: 'page_not_found' });
-    await expect(rpc('sutra.unknown')).rejects.toMatchObject<StudioBridgeRpcError>({
+    await expect(rpc('srijika.unknown')).rejects.toMatchObject<StudioBridgeRpcError>({
       code: 'unsupported_method',
     });
     await expect(
-      rpc(SUTRA_RPC_METHODS.applyOperations, {
+      rpc(SRIJIKA_RPC_METHODS.applyOperations, {
         expectedRevision: 0,
         operations: [{ kind: 'unsafeUnknownOperation' }],
       }),
@@ -473,12 +498,16 @@ describe('Studio Codex bridge RPC dispatcher', () => {
     expect(useStudioStore.getState().document.revision).toBe(0);
   });
 
-  it('shows the bridge state subtly in the Studio status bar', () => {
+  it('keeps the active status bar on TSX authority without starting the legacy IR bridge', () => {
+    useCodeProjectStore.getState().loadSource({
+      fileName: DEFAULT_CODE_PROJECT_FILE_NAME,
+      source: DEFAULT_CODE_PROJECT_SOURCE,
+    });
     render(createElement(StudioApp));
 
-    expect(screen.getByLabelText('Codex bridge requires the desktop app')).toHaveTextContent(
-      'Codex bridge offline',
-    );
+    expect(screen.getByText('TSX → UiDocument')).toBeInTheDocument();
+    expect(screen.getByText('React Compiler project policy: enabled')).toBeInTheDocument();
+    expect(screen.queryByText(/Codex bridge/)).not.toBeInTheDocument();
   });
 });
 
@@ -514,7 +543,7 @@ describe('Tauri Codex bridge lifecycle', () => {
     sendEvent({
       requestId: 'request_success',
       protocolVersion: PROTOCOL_VERSION,
-      method: SUTRA_RPC_METHODS.getCapabilities,
+      method: SRIJIKA_RPC_METHODS.getCapabilities,
       params: {},
     });
     await waitFor(() =>
@@ -525,13 +554,13 @@ describe('Tauri Codex bridge lifecycle', () => {
         },
       }),
     );
-    expect(dispatcher).toHaveBeenCalledWith(SUTRA_RPC_METHODS.getCapabilities, {});
+    expect(dispatcher).toHaveBeenCalledWith(SRIJIKA_RPC_METHODS.getCapabilities, {});
     expect(statuses).toContain('connected');
 
     sendEvent({
       requestId: 'request_wrong_version',
       protocolVersion: '99.0',
-      method: SUTRA_RPC_METHODS.getCapabilities,
+      method: SRIJIKA_RPC_METHODS.getCapabilities,
       params: {},
     });
     await waitFor(() =>
@@ -540,7 +569,7 @@ describe('Tauri Codex bridge lifecycle', () => {
           requestId: 'request_wrong_version',
           error: {
             code: 'unsupported_protocol_version',
-            message: `Sutra Studio expects protocol ${PROTOCOL_VERSION}.`,
+            message: `Srijika Studio expects protocol ${PROTOCOL_VERSION}.`,
             details: { expected: PROTOCOL_VERSION, actual: '99.0' },
           },
         },

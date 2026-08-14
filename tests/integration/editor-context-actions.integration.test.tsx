@@ -1,8 +1,8 @@
 import { createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { validateDocumentGraph } from '@sutra/document-engine';
-import { generateTsx } from '@sutra/react-codegen';
+import { validateDocumentGraph } from '@srijika/document-engine';
+import { generateTsx } from '@srijika/react-codegen';
 
 import {
   CanvasSelectionToolbar,
@@ -23,7 +23,7 @@ function hierarchyRow(label: string): HTMLElement {
 
 function createContainer(name: string): string {
   const state = useStudioStore.getState();
-  const id = state.addComponent('sutra.container', state.document.rootNodeId);
+  const id = state.addComponent('srijika.container', state.document.rootNodeId);
   if (!id) throw new Error(`Expected ${name} to be created`);
   useStudioStore.getState().dispatch({ kind: 'renameNode', nodeId: id, name });
   return id;
@@ -31,7 +31,7 @@ function createContainer(name: string): string {
 
 function appendCanvasNode(surfaceRoot: HTMLElement, nodeId: string, rect: DOMRect): HTMLElement {
   const element = document.createElement('div');
-  element.setAttribute('data-sutra-node', nodeId);
+  element.setAttribute('data-srijika-node', nodeId);
   vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect);
   surfaceRoot.append(element);
   return element;
@@ -62,7 +62,7 @@ describe('editor contextual actions', () => {
 
   it('moves a static value to a typed page prop as one undoable edit', () => {
     const store = useStudioStore.getState();
-    const headingId = store.addComponent('sutra.heading', store.document.rootNodeId);
+    const headingId = store.addComponent('srijika.heading', store.document.rootNodeId);
     if (!headingId) throw new Error('Expected Heading to be created');
     useStudioStore
       .getState()
@@ -132,7 +132,7 @@ describe('editor contextual actions', () => {
     const secondId = createContainer('Second');
     const thirdId = createContainer('Third');
     const fourthId = createContainer('Fourth');
-    const nestedId = useStudioStore.getState().addComponent('sutra.container', secondId);
+    const nestedId = useStudioStore.getState().addComponent('srijika.container', secondId);
     if (!nestedId) throw new Error('Expected a nested Container');
 
     const surfaceRoot = document.createElement('div');
@@ -172,8 +172,8 @@ describe('editor contextual actions', () => {
 
   it('keeps generated page-prop names unique across similar components', () => {
     const rootId = useStudioStore.getState().document.rootNodeId;
-    const firstId = useStudioStore.getState().addComponent('sutra.text', rootId);
-    const secondId = useStudioStore.getState().addComponent('sutra.text', rootId);
+    const firstId = useStudioStore.getState().addComponent('srijika.text', rootId);
+    const secondId = useStudioStore.getState().addComponent('srijika.text', rootId);
     if (!firstId || !secondId) throw new Error('Expected both Text components');
     useStudioStore.getState().setLiteralProp(firstId, 'text', 'First');
     useStudioStore.getState().setLiteralProp(secondId, 'text', 'Second');
@@ -230,13 +230,13 @@ describe('editor contextual actions', () => {
 
   it('shows type-aware quick options and keeps formatting in the canonical document', () => {
     const rootId = useStudioStore.getState().document.rootNodeId;
-    const textId = useStudioStore.getState().addComponent('sutra.text', rootId);
+    const textId = useStudioStore.getState().addComponent('srijika.text', rootId);
     if (!textId) throw new Error('Expected Text to be created');
     useStudioStore.getState().setLiteralProp(textId, 'text', 'Editable copy');
 
     const surfaceRoot = document.createElement('div');
     const anchor = document.createElement('p');
-    anchor.setAttribute('data-sutra-node', textId);
+    anchor.setAttribute('data-srijika-node', textId);
     vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(new DOMRect(80, 120, 320, 42));
     surfaceRoot.append(anchor);
     document.body.append(surfaceRoot);
@@ -328,13 +328,13 @@ describe('editor contextual actions', () => {
     const prop = useStudioStore.getState().document.publicProps['message'];
     const textId = useStudioStore
       .getState()
-      .addComponent('sutra.text', useStudioStore.getState().document.rootNodeId);
+      .addComponent('srijika.text', useStudioStore.getState().document.rootNodeId);
     if (!textId || !prop) throw new Error('Expected bound Text fixture');
     useStudioStore.getState().bindProp(textId, 'text', prop.symbolId);
 
     const surfaceRoot = document.createElement('div');
     const anchor = document.createElement('p');
-    anchor.setAttribute('data-sutra-node', textId);
+    anchor.setAttribute('data-srijika-node', textId);
     vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(new DOMRect(20, 80, 240, 30));
     surfaceRoot.append(anchor);
     document.body.append(surfaceRoot);
@@ -359,7 +359,7 @@ describe('editor contextual actions', () => {
 
     const surfaceRoot = document.createElement('div');
     const anchor = document.createElement('div');
-    anchor.setAttribute('data-sutra-node', containerId);
+    anchor.setAttribute('data-srijika-node', containerId);
     vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue(new DOMRect(50, 90, 280, 160));
     surfaceRoot.append(anchor);
     document.body.append(surfaceRoot);
@@ -372,7 +372,7 @@ describe('editor contextual actions', () => {
     expect(useStudioStore.getState().selectedNodeId).toBe(rootId);
     expect(useStudioStore.getState().notice?.message).toBe('Deleted Disposable Container');
 
-    anchor.setAttribute('data-sutra-node', rootId);
+    anchor.setAttribute('data-srijika-node', rootId);
     rerender(<CanvasSelectionToolbar surfaceRoot={surfaceRoot} nodeId={rootId} />);
     expect(screen.getByRole('button', { name: 'Move Home Page', exact: true })).toBeDisabled();
     const directionGroup = screen.getByRole('group', { name: 'Move Home Page by direction' });
@@ -394,12 +394,12 @@ describe('editor contextual actions', () => {
   it('uses visible descendants to position structural nodes with display contents', () => {
     const surfaceRoot = document.createElement('div');
     const structure = document.createElement('div');
-    structure.setAttribute('data-sutra-node', 'if_example');
+    structure.setAttribute('data-srijika-node', 'if_example');
     vi.spyOn(structure, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 0, 0));
     const first = document.createElement('div');
     const second = document.createElement('div');
-    first.setAttribute('data-sutra-node', 'first');
-    second.setAttribute('data-sutra-node', 'second');
+    first.setAttribute('data-srijika-node', 'first');
+    second.setAttribute('data-srijika-node', 'second');
     vi.spyOn(first, 'getBoundingClientRect').mockReturnValue(new DOMRect(30, 50, 100, 40));
     vi.spyOn(second, 'getBoundingClientRect').mockReturnValue(new DOMRect(150, 70, 80, 60));
     structure.append(first, second);

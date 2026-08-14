@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "types": ["node", "vitest/globals"],
+    "paths": {
+      "@srijika/architecture-rules": ["../architecture-rules/src/index.ts"],
+      "@srijika/developer-engine": ["../developer-engine/src/index.ts"],
+      "@srijika/project-scaffold": ["../project-scaffold/src/index.ts"]
+    }
+  },
+  "include": ["src", "test", "scripts", "vitest.config.ts"]
+}

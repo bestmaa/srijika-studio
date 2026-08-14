@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { validateUiDocument } from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { validateUiDocument } from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { PreviewApp } from '../../apps/studio/src/app/PreviewApp';
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
@@ -56,10 +56,10 @@ describe('direct typed prop and dynamic style demo', () => {
     });
 
     const jsx = generateTsx(document);
-    expect(jsx).toContain("import { sutraStyle } from '@sutra/react-renderer';");
+    expect(jsx).toContain("import { srijikaStyle } from '@srijika/react-renderer';");
     expect(jsx).toContain('{(props.priceLabel ?? "₹499.00")}');
-    expect(jsx).toContain('...sutraStyle((props.cardStyle ?? {');
-    expect(jsx).not.toContain('const sutraStyle');
+    expect(jsx).toContain('...srijikaStyle((props.cardStyle ?? {');
+    expect(jsx).not.toContain('const srijikaStyle');
     expect(jsx).not.toContain("from './runtime-functions'");
     expect(jsx).not.toContain('formatPrice');
   });

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
+import { assertDocumentSemantics } from '@srijika/component-registry';
 import {
   resolveResponsiveStyle,
   validateUiDocument,
   type StyleProperties,
   type UiDocument,
-} from '@sutra/contracts';
-import { assertValidDocumentGraph } from '@sutra/document-engine';
-import { generateTsx } from '@sutra/react-codegen';
+} from '@srijika/contracts';
+import { assertValidDocumentGraph } from '@srijika/document-engine';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
 import {

@@ -4,7 +4,7 @@ import {
   type ElementNode,
   type StyleProperties,
   type UiDocument,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
 import { studioTemplateById } from '../../apps/studio/src/lib/templates';
@@ -111,7 +111,7 @@ function createStressFrame(spec: StressFrameSpec): UiDocument {
   const shell = attachElement(
     document,
     'root',
-    'sutra.container',
+    'srijika.container',
     `${spec.id}_shell`,
     `${spec.name} Shell`,
     {
@@ -145,7 +145,7 @@ function createStressFrame(spec: StressFrameSpec): UiDocument {
     const rail = attachElement(
       document,
       shell.id,
-      'sutra.container',
+      'srijika.container',
       `${spec.id}_rail`,
       `${spec.name} Rail`,
       {
@@ -166,7 +166,7 @@ function createStressFrame(spec: StressFrameSpec): UiDocument {
   const main = attachElement(
     document,
     shell.id,
-    'sutra.container',
+    'srijika.container',
     `${spec.id}_main`,
     `${spec.name} Main`,
     {
@@ -190,7 +190,7 @@ function createStressFrame(spec: StressFrameSpec): UiDocument {
   const grid = attachElement(
     document,
     main.id,
-    'sutra.grid',
+    'srijika.grid',
     `${spec.id}_layout`,
     `${spec.name} Responsive Layout`,
     {
@@ -219,7 +219,7 @@ function createStressFrame(spec: StressFrameSpec): UiDocument {
     attachElement(
       document,
       grid.id,
-      'sutra.container',
+      'srijika.container',
       `${spec.id}_block_${index}`,
       `${spec.name} Block ${index + 1}`,
       {

@@ -1,0 +1,16 @@
+.git
+.github
+.agents
+.sutra
+.srijika
+node_modules
+**/node_modules
+**/dist
+target
+coverage
+playwright-report
+test-results
+release-bundles
+design-references
+*.zip
+*.log

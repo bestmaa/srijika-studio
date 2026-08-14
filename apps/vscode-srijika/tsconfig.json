@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "paths": {
+      "@srijika/architecture-rules": ["../../packages/architecture-rules/src/index.ts"],
+      "@srijika/contracts": ["../../packages/contracts/src/index.ts"],
+      "@srijika/developer-engine": ["../../packages/developer-engine/src/index.ts"],
+      "@srijika/project-scaffold/ownership": ["../../packages/project-scaffold/src/ownership.ts"],
+      "@srijika/tsx-compiler": ["../../packages/tsx-compiler/src/index.ts"]
+    },
+    "types": ["node", "vscode"]
+  },
+  "include": ["src", "test", "scripts", "vitest.config.mts"]
+}

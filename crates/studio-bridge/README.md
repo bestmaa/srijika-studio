@@ -1,13 +1,13 @@
-# Sutra Studio bridge
+# Srijika Studio bridge
 
-`studio-bridge` is the authenticated local transport between the Sutra Studio desktop
+`studio-bridge` is the authenticated local transport between the Srijika Studio desktop
 process and external Codex/MCP tooling. It transports versioned RPC envelopes only;
 document behavior stays in the Studio frontend and document engine.
 
 ## Discovery and authentication
 
 Studio writes `codex-bridge-v1.json` beneath Tauri's per-user local app-data directory.
-Set `SUTRA_STUDIO_BRIDGE_DESCRIPTOR` to an absolute path when a launcher or test needs a
+Set `SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR` to an absolute path when a launcher or test needs a
 different location. The descriptor contains the ephemeral `http://127.0.0.1:<port>`
 endpoint, a process-unique 256-bit bearer token, protocol/app versions, pid, instance id,
 start time, and health path.
@@ -36,13 +36,13 @@ pending request count. It never returns the bearer token.
 ```json
 {
   "protocolVersion": "1.0",
-  "method": "sutra.getProjectSummary",
+  "method": "srijika.getProjectSummary",
   "params": {}
 }
 ```
 
 The bridge generates a collision-resistant request id and emits the Tauri event
-`sutra://bridge-rpc-request`. Once its listener is installed, the frontend invokes
+`srijika://bridge-rpc-request`. Once its listener is installed, the frontend invokes
 `set_bridge_frontend_ready` with `{ "ready": true }`. It completes an event by invoking
 `resolve_bridge_rpc` with one of these payloads:
 

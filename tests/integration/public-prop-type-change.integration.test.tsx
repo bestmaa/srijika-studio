@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { ElementNode, ValueType } from '@sutra/contracts';
+import type { ElementNode, ValueType } from '@srijika/contracts';
 
 import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { TopBar } from '../../apps/studio/src/components/TopBar';
@@ -98,7 +98,7 @@ describe('existing public prop type changes', () => {
 
     let textId: string | null = null;
     act(() => {
-      textId = useStudioStore.getState().addComponent('sutra.text');
+      textId = useStudioStore.getState().addComponent('srijika.text');
     });
     if (!textId) throw new Error('Expected Text to be created');
     await user.selectOptions(screen.getByLabelText('Text value source'), priceLabel.symbolId);
@@ -250,7 +250,7 @@ describe('existing public prop type changes', () => {
 
     let inputId: string | null = null;
     act(() => {
-      inputId = useStudioStore.getState().addComponent('sutra.input');
+      inputId = useStudioStore.getState().addComponent('srijika.input');
     });
     if (!inputId) throw new Error('Expected Input to be created');
     await user.click(screen.getByRole('button', { name: 'Events' }));
@@ -331,7 +331,7 @@ describe('existing public prop type changes', () => {
 
     let headingId: string | null = null;
     act(() => {
-      headingId = useStudioStore.getState().addComponent('sutra.heading');
+      headingId = useStudioStore.getState().addComponent('srijika.heading');
     });
     if (!headingId) throw new Error('Expected Heading to be created');
     await user.selectOptions(screen.getByLabelText('Text value source'), titleText.symbolId);

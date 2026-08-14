@@ -1,14 +1,15 @@
-# Sutra Studio architecture
+# Srijika Studio architecture
 
 ## Invariants
 
-1. A versioned `UiDocument` is the only persisted UI source of truth.
-2. The DOM is a projection. Editor code does not persist DOM mutations.
-3. Every persisted edit is a serializable semantic command with a document ID and base revision.
-4. Static TypeScript checks, runtime JSON Schema checks, graph invariants, and registry-aware semantic checks are separate layers and all matter.
-5. Editor session state is not application data.
-6. Ordinary expressions are interpreted data and never use `eval`; advanced custom code is represented by a typed reference.
-7. The editor UI, rendered project UI, native services, and future business logic keep explicit boundaries.
+1. Restricted, typed `.ui.tsx` is the only persisted UI source of truth.
+2. `UiDocument`, the hierarchy, Inspector, and rendered DOM are derived read models.
+3. Studio never reconstructs or overwrites a whole TSX file from derived IR.
+4. A Studio visual edit is allowed only when it can produce bounded source edits, recompile, and pass validation.
+5. Invalid source publishes diagnostics while preserving a visibly stale last-good preview.
+6. Static TypeScript rules, Srijika source rules, runtime JSON Schema checks, graph invariants, and registry semantic checks are separate layers.
+7. UI components stay pure; hooks, stores, resources, and business logic live in connectors.
+8. Editor session state is not application data.
 
 ## Repository and dependency direction
 
@@ -17,11 +18,17 @@ packages/contracts
 ├── packages/document-engine
 ├── packages/component-registry ── packages/core-components
 ├── packages/react-renderer
-└── packages/react-codegen
+├── packages/react-codegen (legacy/debug projection)
+├── packages/tsx-compiler
+└── packages/project-scaffold
 
 apps/studio
-├── React editor consuming all UI packages
+├── project explorer / read-only source viewer consuming all UI packages
+├── UI Nodes / source diagnostics / derived preview / Inspector
 └── src-tauri ── crates/studio-core ── crates/project-store
+
+apps/vscode-srijika
+└── VS Code diagnostics and source quick fixes using the same TSX compiler
 
 tests
 ├── contracts, unit, and integration
@@ -30,84 +37,125 @@ tests
 
 `react-renderer` has no dependency on the Studio editor. Rust deliberately validates the stable persistence envelope and graph identity, while TypeScript owns the complete versioned UI schema. This avoids maintaining two full AST implementations.
 
-## Canonical edit path
+## Canonical compile and edit path
 
 ```text
-Palette / hierarchy / Inspector
-              │
-              ▼
-revision-checked CommandEnvelope
-              │
-              ▼
-apply command to cloned document
-              │
-              ├── graph validation
-              └── component-registry semantic validation
-              │
-              ▼
-commit revision and bounded undo history
-              │
-       ┌──────┼───────────┬──────────────┐
-       ▼      ▼           ▼              ▼
- hierarchy  Inspector  React DOM      JSON / TSX
-                       renderer       projections
+.ui.tsx source ── parse restricted TSX ── Srijika diagnostics/source map
+       │                         │
+       │                         ├── invalid: keep last-good IR, mark stale
+       │                         │
+       │                         └── valid: derive and validate UiDocument
+       │                                      │
+       │                           ┌──────────┼──────────┐
+       │                           ▼          ▼          ▼
+       │                       hierarchy  Inspector  React DOM
+       │
+       └── source edit intent ← quick fix / supported visual edit
+                 │
+                 └── bounded AST edit → hash-checked save → compile again
 ```
 
-The Studio store uses the same `CommandEnvelope` intended for future AI and migration callers. A stale base revision or wrong document ID is rejected before mutation. Repeater creation is one atomic command: the structural node and its item/index scope symbols either all appear or none do.
+The existing command/history engine remains useful for derived-document tests and migration tooling, but it is not an authoring authority. Palette drops, hierarchy moves, old Inspector setters, JSON imports, and bridge operations that mutate `UiDocument` are absent from the active code-first shell. Future AI and visual tools must propose TSX source edits.
 
-The component registry's semantic analyzer checks component/version existence, prop and event types, required props, slots, missing symbols, boolean conditions, array repeat sources, repeat scope ownership, and public-prop/symbol synchronization. Documents are accepted into history only after that analyzer succeeds.
+## Persisted source versus derived/session state
 
-## Persisted document versus session state
+The source file contains JSX structure, the named props interface, conditions, attributes, and developer formatting/comments. The compiler emits a `UiDocument`, diagnostics, and stable node/prop spans. Selection, active diagnostic, preview-stale state, dirty state, and disk hash are Studio session state. The derived document is never independently saved.
 
-Persisted JSON contains nodes, expressions, symbols, public props, styling values, and the current revision used for command preconditions. Content-edit commands advance that revision; undo/redo and whole-document import restore their recorded document snapshots. Selection, hover, current panel, viewport preset, drop target, and the branch currently being authored are Studio session state.
+The desktop project session additionally owns one validated project root, a bounded
+flat file index, the active `.ui.tsx` path, hashes for every indexed UI source, and
+managed runtime status. Project Explorer shows real files; UI Nodes shows the
+compiled JSX hierarchy for the active UI file. They deliberately remain separate,
+matching the asset-versus-scene distinction in established visual studios.
 
-This distinction matters for `If`. Its `condition`, `whenTrue`, and `whenFalse` arrays are persisted, but `activeIfBranches[nodeId]` is transient. An author can inspect and drop content into the false branch without changing the condition that generated code will execute.
+Project-scoped creation uses a narrow `page | component` request rather than
+caller-supplied source text. The native boundary validates the PascalCase component
+name and contained relative path, preflights both sibling targets, and atomically
+creates a canonical pure `.ui.tsx`/Connector pair. Browser mode uses the same
+canonical TypeScript scaffold in its in-memory file map. After creation, the normal
+scan/load pipeline activates the new source; there is no second hierarchy authority.
+
+Manual text editing belongs to VS Code. The Studio source surface is read-only but
+retains exact diagnostic and node-range selection. Double-clicking a project, file,
+or UI node asks the native boundary to validate containment and launch VS Code with
+fixed arguments. Supported quick fixes and visual edits remain bounded AST source
+operations, not free-form editor mutations.
 
 ## Rendering and preview paths
 
-The design frame renders real React elements into an iframe with a React portal. Edit mode adds selection/drop metadata; preview mode omits those editor overlays. Props, events, named slots, structural nodes, and style values are evaluated from the AST without compiling TSX during normal editing.
+The code-first design surface renders the last successfully compiled `UiDocument` as real React elements. Edit mode adds selection metadata; preview mode omits editor overlays. Srijika parses TSX but does not execute arbitrary project code to construct the read model.
 
 During `pnpm dev`, Vite listens on strict port 5173:
 
 ```text
-editor document
+last valid derived document
 ├── localStorage snapshot ── initial /preview hydration
 └── BroadcastChannel ─────── live /preview updates
 ```
 
-`http://localhost:5173/preview` is therefore an interpreted, same-origin browser preview. It verifies the renderer, not a fresh Vite compilation of generated TSX. A packaged desktop loopback server that exposes an external browser port is future work.
+`http://localhost:5173/preview` remains an interpreted, same-origin renderer preview. Only successful compile results are published. When the active source becomes invalid, the Studio surface explicitly labels the retained preview as stale.
 
 ## Native persistence boundary
 
-In a Tauri window, Open and Save use `tauri-plugin-dialog` and invoke only two Rust commands:
+In a Tauri window, project/source operations use `tauri-plugin-dialog` and narrow code-first Rust commands:
 
 ```text
 native dialog
-  → load_ui_document / save_ui_document
-  → studio-core envelope and path validation
-  → project-store bounded JSON read or atomic write
+  → create_code_project / create_code_project_ui_source
+  → open_code_project / scan_code_project
+  → load_tsx_source / save_tsx_source / open_in_vscode / open_code_project_app
+  → studio-core path, extension, size, and conflict validation
+  → explicit project creation, deterministic indexing, or atomic source replacement
 ```
 
-The Rust store limits a UI document to 32 MiB. A save writes pretty JSON to a temporary file in the destination directory, flushes and syncs it, atomically renames it, preserves existing permissions, and syncs the parent directory where supported. Browser mode uses file upload/download instead of native commands.
+Project creation refuses roots, symlink targets, existing destinations, path traversal, oversized files, and excessive aggregate size. Tree scans are bounded, ignore generated/vendor directories, never follow symlinks, and hash indexed UI files. TSX reads are limited and accept only `.ui.tsx`. Saves use an expected content hash to reject concurrent VS Code changes and atomically replace the file. Editor targets must resolve inside the same validated project. Browser mode uses an in-memory file map and never receives native path or process authority.
+
+## Design preview and managed application runtime
+
+Browser demos and detached UI previews are dependency-free: Studio parses restricted
+TSX in-process and uses its bundled renderer. That fallback never evaluates project
+imports or mixes the project's React runtime into the editor. Configured CSS, SVG
+assets, and design-time prop values are read through a bounded native boundary and
+rendered in an isolated frame. An attached desktop project instead embeds the managed
+Vite application in the center preview after readiness, making the real project the
+fidelity path for CSS, dependencies, routes, Connector behavior, assets, and HMR.
+
+The independent application is a normal pinned React/Vite workspace. A generated
+project includes exact dependency versions, `packageManager`, `pnpm-lock.yaml`, and
+`srijika.toolchain.json`. Full Run/Build follows a separate lifecycle:
+
+```text
+validated project root
+  → runtime status
+  → pnpm install --frozen-lockfile (only when needed)
+  → pnpm dev on fixed loopback / pnpm run build
+  → tracked readiness, system-browser open, stop state, and capped diagnostics output
+```
+
+`Open App` accepts only a validated project root. Native code derives the URL from a
+Studio-tracked child and opens it only after `127.0.0.1:<port>` is accepting
+connections; the frontend cannot supply an arbitrary URL. Desktop `Browser preview`
+resolves that same native target and loads it in a dedicated webview, so it is the real
+Vite application rather than another derived renderer. The center desktop preview
+uses the same validated runtime URL inside a sandboxed iframe. Browser-mode and
+detached UI preview continue to use the dependency-free derived route. Native commands use fixed
+executables and argument arrays, never shell strings. The
+current development baseline resolves pnpm and VS Code from the host environment;
+the boundary is structured so signed platform builds can substitute verified bundled
+sidecars without changing project metadata or frontend behavior.
+
+The scaffold's serve-only Vite transform annotates rendered `.ui.tsx` elements with
+relative source locations. A versioned parent/iframe message bridge validates the
+tracked loopback origin and converts those locations through the compiler source map
+to stable node IDs. This keeps live-app clicks, UI Nodes, source selection, and the
+Inspector synchronized without granting the embedded project Tauri IPC capability or
+persisting instrumentation in production output.
 
 ## Node and desktop build model
 
-Node/Vite are development and build-time tools; they are not involved in drag/drop, Inspector edits, history, or interpreted preview rendering. A production Tauri bundle embeds the built web assets and does not need Node merely to run the editor UI.
+Node/Vite remain generated-project run/build tools. The Studio read model uses the TypeScript parser in-process and does not invoke a generated application or evaluate its imports. A production Tauri bundle embeds the built Studio assets and does not need Node merely to inspect source. Dependency and application tasks are managed separately and report toolchain availability explicitly.
 
-The current MVP does **not** bundle Node as a sidecar and does not implement Node download/version switching. That toolchain manager is planned for generated-project dependency installation and compilation. Windows, macOS, and Linux desktop artifacts must be built and signed on their native CI runners; a WSL build produces a Linux application.
-
-## Planned monolithic application boundary
-
-The future generated application target is:
-
-```text
-UiDocument ── TSX generator ── Vite assets ─────┐
-API/workflow documents ── Rust route generator ┼─ one deployable Rust binary
-project assets ─────────────────────────────────┘
-```
-
-The generated Rust server is intended to serve `/`, `/assets/*`, and `/api/*` on one configured port. This is an architectural boundary, not an implemented API generator in the UI MVP. UI events will reference stable typed action IDs; business logic will not be embedded in element JSON.
+The current repository does **not** check platform Node/pnpm binaries into source control. Development builds resolve the fixed commands from the host environment; release packaging can provide verified sidecars behind the same native runner. Windows, macOS, and Linux desktop artifacts must be built and signed on their native CI runners; a WSL build produces a Linux application.
 
 ## AI boundary
 
-The command envelope and semantic analyzer are the implemented foundation for AI features. A future AI layer will read schemas, manifests, diagnostics, and a project graph, then propose a base-revision transaction of typed commands. The normal engine will validate and apply that transaction as one undoable operation. There is no AI model or natural-language command UI in the current MVP.
+AI receives the same Srijika TSX rules and diagnostics as a developer. It should edit `.ui.tsx` and connector files, never mutate or persist derived `UiDocument`. Compiler quick fixes are machine-readable source edits, which gives future AI tools a bounded, reviewable correction path.

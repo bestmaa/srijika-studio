@@ -2,8 +2,8 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { EventSignature } from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+import type { EventSignature } from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
@@ -122,7 +122,7 @@ describe('Inspector instance extensions', () => {
     await user.type(name, 'style');
     expect(add).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Instance prop style is reserved by Sutra or React',
+      'Instance prop style is reserved by Srijika or React',
     );
 
     await user.clear(name);

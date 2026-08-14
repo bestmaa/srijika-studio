@@ -15,12 +15,12 @@ import type {
   ValueExpression,
   ValueShape,
   ValueType,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 import {
   findRepeatedSiblingCandidates,
   instancePropNameError,
   isApprovedInstanceEventSpec,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 import {
   assertValidDocumentGraph,

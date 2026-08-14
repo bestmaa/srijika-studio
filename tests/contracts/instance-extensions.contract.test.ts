@@ -5,7 +5,7 @@ import {
   createInstanceEventSpec,
   literal,
   validateUiDocument,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 describe('instance extension contracts', () => {
   it('preserves format-1 documents that do not declare instance extensions', () => {

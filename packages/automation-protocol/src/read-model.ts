@@ -1,6 +1,6 @@
-import { analyzeRepeatedSiblings, type ComponentRegistry } from '@sutra/component-registry';
-import type { SutraProject, UiDocument, UiNode, ValueExpression } from '@sutra/contracts';
-import { childLists, deriveParentIndex } from '@sutra/document-engine';
+import { analyzeRepeatedSiblings, type ComponentRegistry } from '@srijika/component-registry';
+import type { SrijikaProject, UiDocument, UiNode, ValueExpression } from '@srijika/contracts';
+import { childLists, deriveParentIndex } from '@srijika/document-engine';
 
 import type {
   ComponentCatalogEntry,
@@ -75,7 +75,7 @@ function childrenCount(node: UiNode): number {
 }
 
 export function buildProjectSummary(
-  project: SutraProject,
+  project: SrijikaProject,
   documents: Readonly<Record<string, UiDocument>>,
   selectedPageId: string = project.entryPageId,
 ): ProjectSummary {

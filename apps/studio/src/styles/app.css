@@ -24,7 +24,7 @@
   position: absolute;
   z-index: 4;
   right: 7px;
-  left: 7px;
+  left: var(--tree-drop-left, 7px);
   height: 2px;
   border-radius: 999px;
   background: #32d795;
@@ -615,6 +615,7 @@ h2 {
 }
 
 .hierarchy-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
 }
@@ -631,7 +632,16 @@ h2 {
   min-width: 0;
   max-width: 100%;
   overflow-x: hidden;
+  flex: 1 1 auto;
   padding: 0 7px 12px;
+}
+
+.tree-row[draggable='true'] {
+  cursor: grab;
+}
+
+.tree-row[draggable='true']:active {
+  cursor: grabbing;
 }
 
 .tree-row {
@@ -691,6 +701,75 @@ h2 {
 
 .tree-row:hover .tree-grip {
   opacity: 0.6;
+}
+
+.tree-level-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.tree-row:hover .tree-level-actions,
+.tree-row.is-selected .tree-level-actions,
+.tree-row:focus-within .tree-level-actions {
+  opacity: 1;
+}
+
+.tree-level-actions button {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border: 1px solid var(--chrome-border, #3a3a3f);
+  border-radius: 4px;
+  padding: 0;
+  color: var(--chrome-text-muted, #aaaab2);
+  background: var(--chrome-surface, #202022);
+  cursor: pointer;
+}
+
+.tree-level-actions button:hover:not(:disabled),
+.tree-level-actions button:focus-visible {
+  border-color: var(--chrome-accent, #77767b);
+  outline: none;
+  color: var(--chrome-text, #ededf0);
+  background: var(--chrome-hover, #2b2b2e);
+}
+
+.tree-level-actions button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.hierarchy-drop-guide {
+  position: absolute;
+  z-index: 8;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(50, 215, 149, 0.55);
+  border-radius: 7px;
+  padding: 7px 9px;
+  color: #d7f9eb;
+  background: rgba(20, 30, 27, 0.96);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.hierarchy-drop-guide strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hierarchy-drop-guide span {
+  color: #95b8aa;
+  font-size: 8px;
 }
 
 .workspace {

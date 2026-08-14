@@ -1,5 +1,5 @@
 {
-  "name": "sutra-studio-workspace",
+  "name": "srijika-studio-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "pnpm --filter @sutra/studio dev",
-    "dev:host": "pnpm --filter @sutra/studio dev --host 0.0.0.0",
+    "dev": "pnpm --filter @srijika/studio dev",
+    "dev:host": "pnpm --filter @srijika/studio dev --host 0.0.0.0",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint . --max-warnings 0",
@@ -29,9 +29,11 @@
     "test:mcp:tauri": "node tests/e2e/mcp-tauri-live-smoke.mjs",
     "test:mcp:tauri:orbit": "node tests/e2e/mcp-tauri-orbit-fidelity.mjs",
     "test:mcp:windows": "node tests/e2e/mcp-stdio-smoke.mjs --windows",
-    "plugin:build": "pnpm --filter @sutra/mcp-server build",
+    "plugin:build": "pnpm --filter @srijika/mcp-server build",
+    "cli:build": "pnpm --filter @srijika/cli build",
+    "srijika": "node packages/cli/dist/cli.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "tauri": "pnpm --filter @sutra/studio tauri"
+    "tauri": "pnpm --filter @srijika/studio tauri"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

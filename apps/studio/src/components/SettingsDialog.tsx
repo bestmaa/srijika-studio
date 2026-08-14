@@ -137,7 +137,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setCodeFont,
     setTranslucentSidebar,
     setContrast,
-    applySutraPreset,
+    applySrijikaPreset,
     replacePreferences,
     resetAppearance,
   } = useAppearance();
@@ -349,12 +349,12 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
                       aria-label="Theme preset"
                       value={preferences.preset}
                       onChange={(event) => {
-                        if (event.target.value === 'sutra') applySutraPreset();
+                        if (event.target.value === 'srijika') applySrijikaPreset();
                         else setThemeColors(resolvedScheme, {});
                         setMessage(null);
                       }}
                     >
-                      <option value="sutra">Sutra</option>
+                      <option value="srijika">Srijika</option>
                       <option value="custom">Custom</option>
                     </select>
                   </label>
@@ -442,7 +442,7 @@ export function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               className="secondary-button"
               onClick={() => {
                 resetAppearance();
-                setMessage('Restored Sutra defaults');
+                setMessage('Restored Srijika defaults');
               }}
             >
               <RotateCcw size={14} /> Reset defaults

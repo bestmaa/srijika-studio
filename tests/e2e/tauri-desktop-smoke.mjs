@@ -3,13 +3,13 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const driverUrl = process.env.SUTRA_TAURI_DRIVER_URL ?? 'http://127.0.0.1:4444';
+const driverUrl = process.env.SRIJIKA_TAURI_DRIVER_URL ?? 'http://127.0.0.1:4444';
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const application =
-  process.env.SUTRA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/sutra-studio');
-const keepApplicationOpen = process.env.SUTRA_KEEP_OPEN === '1';
+  process.env.SRIJIKA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/srijika-studio');
+const keepApplicationOpen = process.env.SRIJIKA_KEEP_OPEN === '1';
 const screenshotPath =
-  process.env.SUTRA_TAURI_SCREENSHOT ??
+  process.env.SRIJIKA_TAURI_SCREENSHOT ??
   resolve(repositoryRoot, 'test-results/tauri-desktop-final.png');
 const designInspectorScreenshotPath = resolve(
   repositoryRoot,
@@ -148,7 +148,7 @@ try {
   await clearAndType(await element('css selector', "input[aria-label='Gap']"), '24');
   const nativeRootGap = await command('POST', `${sessionPath}/execute/sync`, {
     script:
-      'const frame = document.querySelector("iframe[title=\\"Sutra DOM design surface\\"]"); const root = frame?.contentDocument?.querySelector("[data-sutra-component=\\"sutra.page\\"]"); return root ? getComputedStyle(root).gap : null;',
+      'const frame = document.querySelector("iframe[title=\\"Srijika DOM design surface\\"]"); const root = frame?.contentDocument?.querySelector("[data-srijika-component=\\"srijika.page\\"]"); return root ? getComputedStyle(root).gap : null;',
     args: [],
   });
   assert.equal(nativeRootGap, '24px');
@@ -172,18 +172,18 @@ try {
   );
   await click(containerButton);
 
-  const designIframe = await element('css selector', "iframe[title='Sutra DOM design surface']");
+  const designIframe = await element('css selector', "iframe[title='Srijika DOM design surface']");
   const iframeRect = await rect(designIframe);
   const nearTop = { x: 0, y: Math.round(-iframeRect.height / 2 + 85) };
   await drag(containerButton, designIframe, nearTop);
 
   await switchToFrame(designIframe);
-  await waitForElements("[data-sutra-component='sutra.container']", 2);
+  await waitForElements("[data-srijika-component='srijika.container']", 2);
   const [nestedContainer] = await waitForElements(
-    "[data-sutra-component='sutra.container'] [data-sutra-component='sutra.container']",
+    "[data-srijika-component='srijika.container'] [data-srijika-component='srijika.container']",
     1,
   );
-  assert.equal(await attribute(nestedContainer, 'data-sutra-selected'), 'true');
+  assert.equal(await attribute(nestedContainer, 'data-srijika-selected'), 'true');
   await switchToParentDocument();
 
   const textButton = await element(
@@ -194,10 +194,10 @@ try {
 
   await switchToFrame(designIframe);
   const [canvasText] = await waitForElements(
-    "[data-sutra-component='sutra.container'] [data-sutra-component='sutra.container'] > [data-sutra-component='sutra.text']",
+    "[data-srijika-component='srijika.container'] [data-srijika-component='srijika.container'] > [data-srijika-component='srijika.text']",
     1,
   );
-  assert.equal(await attribute(canvasText, 'data-sutra-selected'), 'true');
+  assert.equal(await attribute(canvasText, 'data-srijika-selected'), 'true');
   await switchToParentDocument();
   assert.match(
     await text(await element('css selector', "aside[aria-label='Inspector']")),
@@ -209,6 +209,67 @@ try {
   await switchToFrame(designIframe);
   assert.equal(await text(canvasText), 'Desktop text');
   await switchToParentDocument();
+
+  const progressButton = await element(
+    'xpath',
+    "//button[contains(@class,'component-tile') and normalize-space()='Progress']",
+  );
+  const nestedContainerRow = await element(
+    'xpath',
+    "(//*[@role='treeitem'][.//*[contains(@class,'tree-name') and normalize-space()='Container']])[last()]",
+  );
+  await drag(progressButton, nestedContainerRow);
+  const selectedProgressRow = await element(
+    'xpath',
+    "//*[@role='treeitem'][@aria-selected='true'][.//*[contains(@class,'tree-name') and normalize-space()='Progress']]",
+  );
+  assert.equal(await attribute(selectedProgressRow, 'aria-selected'), 'true');
+  assert.equal(
+    await attribute(
+      await element('css selector', "aside[aria-label='Inspector'] #node-name"),
+      'value',
+    ),
+    'Progress',
+  );
+  await switchToFrame(designIframe);
+  await waitForElements("[data-srijika-component='srijika.progress']", 1);
+  await waitForElements(
+    "[data-srijika-component='srijika.container'] [data-srijika-component='srijika.container'] > [data-srijika-component='srijika.progress']",
+    1,
+  );
+  await switchToParentDocument();
+
+  const nestedProgressLevel = Number(await attribute(selectedProgressRow, 'aria-level'));
+  await click(
+    await element(
+      'xpath',
+      "//*[@role='treeitem'][.//*[contains(@class,'tree-name') and normalize-space()='Progress']]//button[@aria-label='Move Progress out one level']",
+    ),
+  );
+  const outdentedProgressRow = await element(
+    'xpath',
+    "//*[@role='treeitem'][@aria-selected='true'][.//*[contains(@class,'tree-name') and normalize-space()='Progress']]",
+  );
+  assert.equal(
+    Number(await attribute(outdentedProgressRow, 'aria-level')),
+    nestedProgressLevel - 1,
+  );
+  await switchToFrame(designIframe);
+  await waitForElements(
+    "[data-srijika-component='srijika.container'] [data-srijika-component='srijika.container'] > [data-srijika-component='srijika.progress']",
+    0,
+  );
+  await waitForElements(
+    "[data-srijika-component='srijika.container'] > [data-srijika-component='srijika.progress']",
+    1,
+  );
+  await switchToParentDocument();
+  await click(await element('css selector', "button[title='Undo']"));
+  const restoredProgressRow = await element(
+    'xpath',
+    "//*[@role='treeitem'][@aria-selected='true'][.//*[contains(@class,'tree-name') and normalize-space()='Progress']]",
+  );
+  assert.equal(Number(await attribute(restoredProgressRow, 'aria-level')), nestedProgressLevel);
 
   await click(
     await element(
@@ -241,25 +302,25 @@ try {
   let code = await text(await element('css selector', '.code-panel code'));
   assert.match(code, /function DesktopTestPage/);
   assert.match(code, /title\?: string/);
-  assert.match(code, /\{props\.title\}/);
+  assert.match(code, /\{\(props\.title \?\? ""\)\}/);
   assert.match(code, /Desktop text/);
 
   await click(await element('xpath', "//*[@role='tab' and normalize-space()='JSON']"));
   code = await text(await element('css selector', '.code-panel code'));
   assert.match(code, /"name": "Desktop Test Page"/);
   assert.match(code, /"name": "title"/);
-  assert.match(code, /"componentId": "sutra\.heading"/);
+  assert.match(code, /"componentId": "srijika\.heading"/);
 
   await click(await element('xpath', "//*[@role='tab' and normalize-space()='UI']"));
   await click(await element('css selector', "button[aria-label='Delete Heading']"));
   const remountedDesignIframe = await element(
     'css selector',
-    "iframe[title='Sutra DOM design surface']",
+    "iframe[title='Srijika DOM design surface']",
   );
   await switchToFrame(remountedDesignIframe);
-  await waitForElements("[data-sutra-component='sutra.heading']", 0);
-  const [selectedPageRoot] = await waitForElements("[data-sutra-component='sutra.page']", 1);
-  assert.equal(await attribute(selectedPageRoot, 'data-sutra-selected'), 'true');
+  await waitForElements("[data-srijika-component='srijika.heading']", 0);
+  const [selectedPageRoot] = await waitForElements("[data-srijika-component='srijika.page']", 1);
+  assert.equal(await attribute(selectedPageRoot, 'data-srijika-selected'), 'true');
   await switchToParentDocument();
   assert.match(
     await text(await element('css selector', "aside[aria-label='Inspector']")),
@@ -269,10 +330,10 @@ try {
   await click(await element('css selector', "button[title='Reset demo']"));
   const demoDesignIframe = await element(
     'css selector',
-    "iframe[title='Sutra DOM design surface']",
+    "iframe[title='Srijika DOM design surface']",
   );
   await switchToFrame(demoDesignIframe);
-  const [demoPrice] = await waitForElements("[data-sutra-node='price_label']", 1);
+  const [demoPrice] = await waitForElements("[data-srijika-node='price_label']", 1);
   assert.equal(await text(demoPrice), '₹499.00');
   await switchToParentDocument();
 
@@ -349,10 +410,10 @@ try {
 
   await click(await element('xpath', "//*[@role='tab' and normalize-space()='JSX']"));
   code = await text(await element('css selector', '.code-panel code'));
-  assert.match(code, /import \{ sutraStyle \} from '@sutra\/react-renderer'/);
-  assert.match(code, /\{props\.priceLabel\}/);
+  assert.match(code, /import \{ srijikaStyle \} from '@srijika\/react-renderer'/);
+  assert.match(code, /\{\(props\.priceLabel \?\? "₹1,299\.00"\)\}/);
   assert.match(code, /quantity\?: number/);
-  assert.match(code, /sutraStyle\(props\.cardStyle\)/);
+  assert.match(code, /srijikaStyle\(\(props\.cardStyle \?\?/);
   assert.doesNotMatch(code, /registeredCall|formatPrice|runtimeFunctions/);
 
   await click(await element('xpath', "//*[@role='tab' and normalize-space()='UI']"));
@@ -610,7 +671,7 @@ try {
   await click(await element('xpath', "//*[@role='tab' and normalize-space()='UI']"));
 
   await command('POST', `${sessionPath}/execute/sync`, {
-    script: "localStorage.removeItem('sutra-studio.custom-templates.v1');",
+    script: "localStorage.removeItem('srijika-studio.custom-templates.v1');",
     args: [],
   });
   await click(await element('xpath', "//button[normalize-space()='Templates']"));
@@ -626,14 +687,14 @@ try {
 
   let templateDesignIframe = await element(
     'css selector',
-    "iframe[title='Sutra DOM design surface']",
+    "iframe[title='Srijika DOM design surface']",
   );
   await switchToFrame(templateDesignIframe);
-  await waitForElements("[data-sutra-node^='yt_card_']", 6);
-  await waitForElements("[data-sutra-component='sutra.image']", 10);
+  await waitForElements("[data-srijika-node^='yt_card_']", 6);
+  await waitForElements("[data-srijika-component='srijika.image']", 10);
   const templateImageSources = await command('POST', `${sessionPath}/execute/sync`, {
     script:
-      "return Array.from(document.querySelectorAll('[data-sutra-component=\"sutra.image\"]')).map((image) => image.getAttribute('src'));",
+      "return Array.from(document.querySelectorAll('[data-srijika-component=\"srijika.image\"]')).map((image) => image.getAttribute('src'));",
     args: [],
   });
   assert.equal(templateImageSources.length, 10);
@@ -641,9 +702,9 @@ try {
     templateImageSources.every((value) => value?.startsWith('https://images.unsplash.com/')),
   );
 
-  const templateTitle = await element('css selector', "[data-sutra-node='yt_title_0']");
+  const templateTitle = await element('css selector', "[data-srijika-node='yt_title_0']");
   await click(templateTitle);
-  assert.equal(await attribute(templateTitle, 'data-sutra-selected'), 'true');
+  assert.equal(await attribute(templateTitle, 'data-srijika-selected'), 'true');
   await switchToParentDocument();
   const railBounds = await command('POST', `${sessionPath}/execute/sync`, {
     script: `
@@ -704,7 +765,10 @@ try {
     'desktop-video-title',
   );
 
-  templateDesignIframe = await element('css selector', "iframe[title='Sutra DOM design surface']");
+  templateDesignIframe = await element(
+    'css selector',
+    "iframe[title='Srijika DOM design surface']",
+  );
   await switchToFrame(templateDesignIframe);
   await waitForElements("[data-testid='desktop-video-title']", 1);
   await switchToParentDocument();
@@ -766,6 +830,8 @@ try {
       application,
       pageCreation: 'passed',
       nestedDragAndDrop: 'passed',
+      paletteToHierarchyDrop: 'passed',
+      hierarchyOneLevelMove: 'passed',
       contextualInspector: 'passed',
       declaredPropBinding: 'passed',
       generatedViews: 'passed',

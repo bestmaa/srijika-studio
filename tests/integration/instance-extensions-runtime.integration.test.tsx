@@ -7,9 +7,9 @@ import {
   literal,
   type EventSignature,
   type UiDocument,
-} from '@sutra/contracts';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { SutraRenderer } from '@sutra/react-renderer';
+} from '@srijika/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 function addEventProp(document: UiDocument, name: string, signature: EventSignature): string {
   const symbolId = `event_${name}`;
@@ -37,7 +37,7 @@ describe('instance props and normalized event ports at runtime', () => {
   it('forwards added DOM props and invokes a Text click action without a browser event object', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_instance_runtime', 'Instance Runtime');
-    const text = registry.require('sutra.text').createNode('subject');
+    const text = registry.require('srijika.text').createNode('subject');
     if (text.kind !== 'element') throw new Error('Expected Text element');
     text.props['text'] = literal('Clickable text');
     text.instanceProps = {
@@ -58,7 +58,7 @@ describe('instance props and normalized event ports at runtime', () => {
     const onClick = vi.fn();
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -76,7 +76,7 @@ describe('instance props and normalized event ports at runtime', () => {
   it('normalizes key events to a serializable object before calling the connector action', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_key_runtime', 'Key Runtime');
-    const text = registry.require('sutra.text').createNode('key_subject');
+    const text = registry.require('srijika.text').createNode('key_subject');
     if (text.kind !== 'element') throw new Error('Expected Text element');
     text.props['text'] = literal('Press a key');
     text.instanceProps = {
@@ -98,7 +98,7 @@ describe('instance props and normalized event ports at runtime', () => {
     const onKey = vi.fn();
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -126,7 +126,7 @@ describe('instance props and normalized event ports at runtime', () => {
   it('applies added Input props to the native input and supports the expanded type manifest', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_input_runtime', 'Input Runtime');
-    const input = registry.require('sutra.input').createNode('email');
+    const input = registry.require('srijika.input').createNode('email');
     if (input.kind !== 'element') throw new Error('Expected Input element');
     input.props['label'] = literal('Email');
     input.props['type'] = literal('email');
@@ -148,7 +148,7 @@ describe('instance props and normalized event ports at runtime', () => {
     if (!root || root.kind !== 'element') throw new Error('Expected Page root');
     root.slots['children']!.push(input.id);
 
-    render(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    render(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
     const nativeInput = screen.getByTestId('email-input');
     expect(nativeInput).toHaveAttribute('type', 'email');
     expect(nativeInput).toHaveAttribute('name', 'email');
@@ -167,7 +167,7 @@ describe('instance props and normalized event ports at runtime', () => {
   it('can hide the visual Input label without losing its accessible name', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_hidden_input_label', 'Hidden input label');
-    const input = registry.require('sutra.input').createNode('search');
+    const input = registry.require('srijika.input').createNode('search');
     if (input.kind !== 'element') throw new Error('Expected Input element');
     input.props['label'] = literal('Search projects');
     input.props['hideLabel'] = literal(true);
@@ -176,7 +176,7 @@ describe('instance props and normalized event ports at runtime', () => {
     if (!root || root.kind !== 'element') throw new Error('Expected Page root');
     root.slots['children']!.push(input.id);
 
-    render(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    render(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
 
     expect(screen.queryByText('Search projects')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Search projects' })).toBeInTheDocument();

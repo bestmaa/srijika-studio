@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { validateUiDocument } from '@sutra/contracts';
-import { assertValidDocumentGraph } from '@sutra/document-engine';
-import { generateTsx } from '@sutra/react-codegen';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { validateUiDocument } from '@srijika/contracts';
+import { assertValidDocumentGraph } from '@srijika/document-engine';
+import { generateTsx } from '@srijika/react-codegen';
 
 import {
   learningExampleById,
@@ -165,7 +165,7 @@ describe('Studio learning examples', () => {
 
     expect(valuesJsx).toContain('props.headline');
     expect(valuesJsx).toContain('props.memberCount');
-    expect(styleJsx).toContain('sutraStyle');
+    expect(styleJsx).toContain('srijikaStyle');
     expect(styleJsx).not.toContain('.map((item, index)');
     expect(arrayJsx).toContain('.map((item, index)');
     expect(nestedJsx).toContain('.map((item, index)');

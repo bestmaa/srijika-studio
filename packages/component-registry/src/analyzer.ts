@@ -8,8 +8,8 @@ import type {
   ValueShape,
   ValueType,
   LiteralValue,
-} from '@sutra/contracts';
-import { instancePropNameError, isApprovedInstanceEventSpec } from '@sutra/contracts';
+} from '@srijika/contracts';
+import { instancePropNameError, isApprovedInstanceEventSpec } from '@srijika/contracts';
 
 import {
   isEventSignatureAssignable,
@@ -221,6 +221,11 @@ export function inferExpressionType(
         case 'and':
         case 'or':
           return 'boolean';
+        case 'coalesce': {
+          const left = inferExpressionType(expression.left, symbols);
+          const right = inferExpressionType(expression.right, symbols);
+          return left === right ? left : 'unknown';
+        }
         case 'add': {
           const left = inferExpressionType(expression.left, symbols);
           const right = inferExpressionType(expression.right, symbols);
@@ -846,7 +851,7 @@ export function assertDocumentSemantics<TImplementation>(
   );
   if (errors.length > 0) {
     throw new Error(
-      `Invalid Sutra document semantics: ${errors
+      `Invalid Srijika document semantics: ${errors
         .slice(0, 5)
         .map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`)
         .join('; ')}`,

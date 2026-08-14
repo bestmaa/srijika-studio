@@ -1,5 +1,5 @@
 {
-  "name": "@sutra/core-components",
+  "name": "@srijika/core-components",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sutra/component-registry": "workspace:*",
-    "@sutra/contracts": "workspace:*",
+    "@srijika/component-registry": "workspace:*",
+    "@srijika/contracts": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

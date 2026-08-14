@@ -2,15 +2,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createCoreComponentRegistry } from '@sutra/core-components';
+import { createCoreComponentRegistry } from '@srijika/core-components';
 import {
   createBlankDocument,
   createElementNode,
   eventExpressionArgument,
   literal,
   type IfNode,
-} from '@sutra/contracts';
-import { evaluateExpression, SutraRenderer } from '@sutra/react-renderer';
+} from '@srijika/contracts';
+import { evaluateExpression, SrijikaRenderer } from '@srijika/react-renderer';
 
 function createRendererFixture() {
   const registry = createCoreComponentRegistry();
@@ -26,14 +26,14 @@ function createRendererFixture() {
     whenTrue: ['button'],
     whenFalse: ['fallback'],
   };
-  const button = createElementNode('button', 'sutra.button', 'Save button', {
+  const button = createElementNode('button', 'srijika.button', 'Save button', {
     props: { label: literal('Save'), disabled: literal(false) },
     events: {
       onClick: { kind: 'reference', symbolId: 'save', path: [] },
     },
     slots: {},
   });
-  const fallback = createElementNode('fallback', 'sutra.text', 'Fallback', {
+  const fallback = createElementNode('fallback', 'srijika.text', 'Fallback', {
     props: { text: literal('Hidden') },
     slots: {},
   });
@@ -54,14 +54,14 @@ function createRendererFixture() {
   return { registry, document };
 }
 
-describe('SutraRenderer', () => {
+describe('SrijikaRenderer', () => {
   it('renders conditions and dispatches typed preview events', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();
     const { registry, document } = createRendererFixture();
 
     const { rerender } = render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -70,13 +70,13 @@ describe('SutraRenderer', () => {
       />,
     );
     const button = screen.getByRole('button', { name: 'Save' });
-    expect(button).not.toHaveAttribute('data-sutra-node');
+    expect(button).not.toHaveAttribute('data-srijika-node');
     await user.click(button);
     expect(onSave).toHaveBeenCalledOnce();
     expect(onSave).toHaveBeenCalledWith();
 
     rerender(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -95,7 +95,7 @@ describe('SutraRenderer', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
 
-    const input = registry.require('sutra.input').createNode('name_input');
+    const input = registry.require('srijika.input').createNode('name_input');
     if (input.kind !== 'element') throw new Error('Expected input element');
     input.props['label'] = literal('Name');
     input.events['onChange'] = { kind: 'reference', symbolId: 'name_changed', path: [] };
@@ -114,7 +114,7 @@ describe('SutraRenderer', () => {
 
     const onNameChanged = vi.fn();
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -122,9 +122,9 @@ describe('SutraRenderer', () => {
       />,
     );
 
-    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Sutra');
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Srijika');
 
-    expect(onNameChanged).toHaveBeenLastCalledWith('Sutra');
+    expect(onNameChanged).toHaveBeenLastCalledWith('Srijika');
     expect(onNameChanged.mock.lastCall).toHaveLength(1);
   });
 
@@ -135,7 +135,7 @@ describe('SutraRenderer', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
 
-    const button = registry.require('sutra.button').createNode('count_button');
+    const button = registry.require('srijika.button').createNode('count_button');
     if (button.kind !== 'element') throw new Error('Expected button element');
     button.props['label'] = literal('Set count');
     button.events['onClick'] = { kind: 'reference', symbolId: 'count_changed', path: [] };
@@ -156,7 +156,7 @@ describe('SutraRenderer', () => {
 
     const onCountChanged = vi.fn();
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -177,7 +177,7 @@ describe('SutraRenderer', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
 
-    const input = registry.require('sutra.input').createNode('quantity_input');
+    const input = registry.require('srijika.input').createNode('quantity_input');
     if (input.kind !== 'element') throw new Error('Expected input element');
     input.props['label'] = literal('Quantity');
     input.events['onChange'] = { kind: 'reference', symbolId: 'quantity_changed', path: [] };
@@ -211,7 +211,7 @@ describe('SutraRenderer', () => {
 
     const onQuantityChanged = vi.fn();
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -232,7 +232,7 @@ describe('SutraRenderer', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
 
-    const input = registry.require('sutra.input').createNode('search_input');
+    const input = registry.require('srijika.input').createNode('search_input');
     if (input.kind !== 'element') throw new Error('Expected input element');
     input.props['label'] = literal('Search');
     input.events['onChange'] = { kind: 'reference', symbolId: 'search_changed', path: [] };
@@ -250,7 +250,7 @@ describe('SutraRenderer', () => {
 
     const onSearchChanged = vi.fn();
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -270,7 +270,7 @@ describe('SutraRenderer', () => {
     const { registry, document } = createRendererFixture();
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="edit"
@@ -282,8 +282,8 @@ describe('SutraRenderer', () => {
     );
     const button = screen.getByRole('button', { name: 'Save' });
 
-    expect(button).toHaveAttribute('data-sutra-node', 'button');
-    expect(button).toHaveAttribute('data-sutra-selected', 'true');
+    expect(button).toHaveAttribute('data-srijika-node', 'button');
+    expect(button).toHaveAttribute('data-srijika-selected', 'true');
     await user.click(button);
     expect(onSelectNode).toHaveBeenCalledWith('button');
     expect(onSave).not.toHaveBeenCalled();
@@ -310,7 +310,7 @@ describe('SutraRenderer', () => {
     };
 
     const { container, rerender } = render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="edit"
@@ -319,14 +319,14 @@ describe('SutraRenderer', () => {
       />,
     );
     const textAnchor = screen.getByText('Selectable text');
-    expect(textAnchor).toHaveAttribute('data-sutra-node', 'direct_text');
-    expect(textAnchor).toHaveAttribute('data-sutra-selected', 'true');
+    expect(textAnchor).toHaveAttribute('data-srijika-node', 'direct_text');
+    expect(textAnchor).toHaveAttribute('data-srijika-selected', 'true');
     await user.click(screen.getByText('Selectable expression'));
     expect(onSelectNode).toHaveBeenCalledWith('direct_expression');
 
-    rerender(<SutraRenderer document={document} registry={registry} mode="preview" />);
-    expect(container.querySelector('[data-sutra-node="direct_text"]')).toBeNull();
-    expect(container.querySelector('[data-sutra-node="direct_expression"]')).toBeNull();
+    rerender(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
+    expect(container.querySelector('[data-srijika-node="direct_text"]')).toBeNull();
+    expect(container.querySelector('[data-srijika-node="direct_expression"]')).toBeNull();
     expect(container).toHaveTextContent('Selectable textSelectable expression');
   });
 
@@ -348,7 +348,7 @@ describe('SutraRenderer', () => {
         name: 'Direct expression',
         expression: {
           kind: 'template',
-          parts: [literal('Sutra'), ' Studio'],
+          parts: [literal('Srijika'), ' Studio'],
         },
       },
       slot: {
@@ -382,7 +382,7 @@ describe('SutraRenderer', () => {
     });
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"
@@ -391,7 +391,7 @@ describe('SutraRenderer', () => {
     );
 
     const renderedPage = screen.getByRole('main');
-    expect(renderedPage).toHaveTextContent('Sutra Studio');
+    expect(renderedPage).toHaveTextContent('Srijika Studio');
     expect(renderedPage).toHaveTextContent('Fallback content');
     expect(renderedPage).toHaveTextContent('Ada');
     expect(renderedPage).toHaveTextContent('Grace');
@@ -438,18 +438,18 @@ describe('SutraRenderer', () => {
     if (card.kind !== 'element') throw new Error('Expected card element');
     card.slots['header'] = ['card_title'];
     card.slots['body'] = ['card_copy'];
-    const title = createElementNode('card_title', 'sutra.heading', 'Card title', {
+    const title = createElementNode('card_title', 'srijika.heading', 'Card title', {
       props: { text: literal('Named header'), level: literal(2) },
       slots: {},
     });
-    const copy = createElementNode('card_copy', 'sutra.text', 'Card copy', {
+    const copy = createElementNode('card_copy', 'srijika.text', 'Card copy', {
       props: { text: literal('Named body') },
       slots: {},
     });
     root.slots['children'] = ['card'];
     Object.assign(document.nodes, { card, card_title: title, card_copy: copy });
 
-    render(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    render(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
 
     expect(screen.getByTestId('card-header')).toHaveTextContent('Named header');
     expect(screen.getByTestId('card-body')).toHaveTextContent('Named body');
@@ -466,11 +466,11 @@ describe('SutraRenderer', () => {
     document.nodes[missing.id] = missing;
 
     const { rerender } = render(
-      <SutraRenderer document={document} registry={registry} mode="edit" />,
+      <SrijikaRenderer document={document} registry={registry} mode="edit" />,
     );
     expect(screen.getByText('Missing component: custom.missing')).toBeInTheDocument();
 
-    rerender(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    rerender(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
     expect(screen.queryByText('Missing component: custom.missing')).not.toBeInTheDocument();
   });
 
@@ -478,7 +478,7 @@ describe('SutraRenderer', () => {
     const { registry, document } = createRendererFixture();
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
-    const heading = createElementNode('mobile_heading', 'sutra.heading', 'Mobile heading', {
+    const heading = createElementNode('mobile_heading', 'srijika.heading', 'Mobile heading', {
       props: {
         text: literal('AnUninterruptedHeadingThatMustStayInsideItsViewport'),
         level: literal(1),
@@ -496,7 +496,7 @@ describe('SutraRenderer', () => {
     root.slots['children'] = [heading.id];
     document.nodes[heading.id] = heading;
 
-    render(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    render(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveStyle({
       minWidth: 0,
@@ -509,11 +509,11 @@ describe('SutraRenderer', () => {
     const { registry, document } = createRendererFixture();
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
-    const text = createElementNode('neutral_text', 'sutra.text', 'Neutral text', {
+    const text = createElementNode('neutral_text', 'srijika.text', 'Neutral text', {
       props: { text: literal('Neutral paragraph') },
       slots: {},
     });
-    const heading = createElementNode('authored_heading', 'sutra.heading', 'Authored heading', {
+    const heading = createElementNode('authored_heading', 'srijika.heading', 'Authored heading', {
       props: { text: literal('Authored heading'), level: literal(2) },
       slots: {},
       style: {
@@ -526,7 +526,7 @@ describe('SutraRenderer', () => {
     document.nodes[text.id] = text;
     document.nodes[heading.id] = heading;
 
-    render(<SutraRenderer document={document} registry={registry} mode="preview" />);
+    render(<SrijikaRenderer document={document} registry={registry} mode="preview" />);
 
     expect(screen.getByText('Neutral paragraph')).toHaveStyle({ margin: '0px' });
     expect(screen.getByRole('heading', { level: 2 })).toHaveStyle({
@@ -539,7 +539,7 @@ describe('SutraRenderer', () => {
     const document = createBlankDocument('page_semantic', 'Semantic');
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
-    const container = registry.require('sutra.container').createNode('semantic_container');
+    const container = registry.require('srijika.container').createNode('semantic_container');
     if (container.kind !== 'element') throw new Error('Expected container element');
     container.props['as'] = literal('section');
     container.props['ariaLabel'] = literal('Bound surface');
@@ -559,7 +559,7 @@ describe('SutraRenderer', () => {
     document.nodes[container.id] = container;
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={registry}
         mode="preview"

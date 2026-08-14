@@ -4,7 +4,7 @@ import {
   type UiDocument,
   type ValueExpression,
   type ValueShape,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 import { ref, spacing, TemplateBuilder } from './templates';
 
@@ -180,7 +180,7 @@ function finishLesson(builder: TemplateBuilder, instruction: string): UiDocument
     borderRadius: 12,
     backgroundColor: '#091525',
   });
-  builder.text('lesson_try', 'lesson_try_label', 'Try This Label', 'TRY IT IN SUTRA', {
+  builder.text('lesson_try', 'lesson_try_label', 'Try This Label', 'TRY IT IN SRIJIKA', {
     color: '#9e8cff',
     fontSize: 10,
     fontWeight: 800,
@@ -264,8 +264,8 @@ function createPropsStyleLesson(pageId = 'example_props_style'): UiDocument {
     pageId,
     'Colors & Style from Props',
     'Props',
-    'Pass validated style objects through props and let sutraStyle safely merge them.',
-    ['sutraStyle(props.theme.cardStyle)', 'sutraStyle(props.theme.accentStyle)'],
+    'Pass validated style objects through props and let srijikaStyle safely merge them.',
+    ['srijikaStyle(props.theme.cardStyle)', 'srijikaStyle(props.theme.accentStyle)'],
     '#7c6cff',
   );
   const title = builder.publicValue('title', 'string', 'A prop-styled component', {
@@ -790,7 +790,7 @@ function createNullishFallbackLesson(pageId = 'example_nullish_fallback'): UiDoc
     stage.id,
     'nullish_rule',
     'Nullish Fallback Explanation',
-    'Sutra keeps the typed default on the optional page prop. Open JSX to see ?? emitted automatically.',
+    'Srijika keeps the typed default on the optional page prop. Open JSX to see ?? emitted automatically.',
     { maxWidth: 650, color: '#b5a6c7', fontSize: 13, lineHeight: 1.55 },
   );
 
@@ -893,8 +893,8 @@ export const studioLearningExamples: readonly LearningExample[] = [
     description: 'Change a card and button through validated style-object props.',
     category: 'Props',
     accent: '#7c6cff',
-    concepts: ['Typed object style prop', 'Safe sutraStyle merge'],
-    syntax: ['sutraStyle(props.theme.cardStyle)'],
+    concepts: ['Typed object style prop', 'Safe srijikaStyle merge'],
+    syntax: ['srijikaStyle(props.theme.cardStyle)'],
     createDocument: createPropsStyleLesson,
   },
   {

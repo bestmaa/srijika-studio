@@ -103,7 +103,7 @@ export function instancePropNameError(name: string): string | null {
     return `Instance prop ${name} is not a valid React prop name`;
   }
   if (reservedInstancePropNames.has(name)) {
-    return `Instance prop ${name} is reserved by Sutra or React`;
+    return `Instance prop ${name} is reserved by Srijika or React`;
   }
   if (/^on/i.test(name)) {
     return `Instance prop ${name} looks like a raw event; add an approved event port instead`;

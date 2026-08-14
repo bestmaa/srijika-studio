@@ -5,7 +5,7 @@ function inspector(page: Page): Locator {
 }
 
 function designFrame(page: Page): FrameLocator {
-  return page.frameLocator('iframe[title="Sutra DOM design surface"]');
+  return page.frameLocator('iframe[title="Srijika DOM design surface"]');
 }
 
 test('changes an unused prop type and atomically rejects an incompatible referenced change', async ({

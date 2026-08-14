@@ -1,9 +1,9 @@
-import type { UiDocument } from '@sutra/contracts';
+import type { UiDocument } from '@srijika/contracts';
 
-const CHANNEL_NAME = 'sutra-studio-preview-v1';
-const STORAGE_KEY = 'sutra-studio:active-document';
-const VIEWPORT_CHANNEL_NAME = 'sutra-studio-preview-viewport-v1';
-const VIEWPORT_STORAGE_KEY = 'sutra-studio:preview-viewport';
+const CHANNEL_NAME = 'srijika-studio-preview-v1';
+const STORAGE_KEY = 'srijika-studio:active-document';
+const VIEWPORT_CHANNEL_NAME = 'srijika-studio-preview-viewport-v1';
+const VIEWPORT_STORAGE_KEY = 'srijika-studio:preview-viewport';
 
 export interface PreviewViewportSize {
   width: number;

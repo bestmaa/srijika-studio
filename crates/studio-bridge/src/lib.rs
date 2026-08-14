@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-//! Authenticated, process-local bridge between Sutra Studio's webview and Codex tools.
+//! Authenticated, process-local bridge between Srijika Studio's webview and Codex tools.
 //!
 //! The HTTP surface is deliberately small. The server binds an ephemeral IPv4 loopback
 //! port, authenticates every route, and relays generic RPC envelopes to a frontend event
@@ -40,7 +40,7 @@ use tokio::{
 };
 
 pub const PROTOCOL_VERSION: &str = "1.0";
-pub const BRIDGE_RPC_EVENT: &str = "sutra://bridge-rpc-request";
+pub const BRIDGE_RPC_EVENT: &str = "srijika://bridge-rpc-request";
 pub const DEFAULT_DESCRIPTOR_FILE_NAME: &str = "codex-bridge-v1.json";
 
 const DEFAULT_BODY_LIMIT_BYTES: usize = 256 * 1024;
@@ -398,7 +398,7 @@ impl BridgeRelay {
                     String::new(),
                     BridgeErrorBody::new(
                         "frontend_not_ready",
-                        "Sutra Studio has not registered its bridge handler yet.",
+                        "Srijika Studio has not registered its bridge handler yet.",
                     ),
                 ),
             );
@@ -411,7 +411,7 @@ impl BridgeRelay {
                     String::new(),
                     BridgeErrorBody::new(
                         "bridge_busy",
-                        "Sutra Studio is already processing the maximum number of bridge requests.",
+                        "Srijika Studio is already processing the maximum number of bridge requests.",
                     ),
                 ),
             );
@@ -440,7 +440,7 @@ impl BridgeRelay {
                     request_id,
                     BridgeErrorBody::new(
                         "frontend_emit_failed",
-                        "The bridge could not deliver the request to Sutra Studio.",
+                        "The bridge could not deliver the request to Srijika Studio.",
                     ),
                 ),
             );
@@ -464,7 +464,7 @@ impl BridgeRelay {
                             request_id,
                             BridgeErrorBody::new(
                                 "invalid_frontend_response",
-                                "Sutra Studio returned an invalid bridge response.",
+                                "Srijika Studio returned an invalid bridge response.",
                             ),
                         ),
                     ),
@@ -476,7 +476,7 @@ impl BridgeRelay {
                     request_id,
                     BridgeErrorBody::new(
                         "frontend_response_dropped",
-                        "Sutra Studio dropped the bridge response channel.",
+                        "Srijika Studio dropped the bridge response channel.",
                     ),
                 ),
             ),
@@ -486,7 +486,7 @@ impl BridgeRelay {
                     request_id,
                     BridgeErrorBody::new(
                         "frontend_timeout",
-                        "Sutra Studio did not answer the bridge request before the deadline.",
+                        "Srijika Studio did not answer the bridge request before the deadline.",
                     ),
                 ),
             ),
@@ -643,7 +643,7 @@ impl BridgeServer {
                 })
                 .await;
             if let Err(error) = result {
-                eprintln!("Sutra Studio bridge server stopped unexpectedly: {error}");
+                eprintln!("Srijika Studio bridge server stopped unexpectedly: {error}");
             }
             cleanup_descriptor_if_owned(&descriptor_path, &instance_for_cleanup);
         });
@@ -725,7 +725,7 @@ async fn request_guard(
         return ApiErrorResponse::response(
             StatusCode::UNAUTHORIZED,
             "unauthorized",
-            "A valid Sutra Studio bridge bearer token is required.",
+            "A valid Srijika Studio bridge bearer token is required.",
         );
     }
     if request.method() == axum::http::Method::POST && !is_json(request.headers()) {
@@ -946,8 +946,8 @@ mod tests {
     fn test_state(response_timeout: Duration) -> (HttpState, Arc<RecordingSink>) {
         let sink = Arc::new(RecordingSink::default());
         let mut config = BridgeServerConfig::new(
-            std::env::temp_dir().join("sutra-bridge-test.json"),
-            "Sutra Studio",
+            std::env::temp_dir().join("srijika-bridge-test.json"),
+            "Srijika Studio",
             "0.1.0",
         );
         config.response_timeout = response_timeout;
@@ -959,7 +959,7 @@ mod tests {
             token: "a".repeat(64),
             instance_id: "instance".to_owned(),
             pid: 42,
-            app_name: "Sutra Studio".to_owned(),
+            app_name: "Srijika Studio".to_owned(),
             app_version: "0.1.0".to_owned(),
             started_at_unix_ms: 1,
             health_path: "/v1/health".to_owned(),
@@ -1053,7 +1053,7 @@ mod tests {
                     .body(Body::from(
                         serde_json::to_vec(&json!({
                             "protocolVersion": PROTOCOL_VERSION,
-                            "method": "sutra.getProjectSummary",
+                            "method": "srijika.getProjectSummary",
                             "params": {}
                         }))
                         .unwrap(),
@@ -1088,7 +1088,7 @@ mod tests {
                         .body(Body::from(
                             serde_json::to_vec(&json!({
                                 "protocolVersion": PROTOCOL_VERSION,
-                                "method": "sutra.validateDocument",
+                                "method": "srijika.validateDocument",
                                 "params": {"revision": 7}
                             }))
                             .unwrap(),
@@ -1168,7 +1168,7 @@ mod tests {
     async fn real_server_binds_only_loopback_and_serves_authenticated_health() {
         let directory = tempfile::tempdir().unwrap();
         let descriptor_path = directory.path().join(DEFAULT_DESCRIPTOR_FILE_NAME);
-        let config = BridgeServerConfig::new(&descriptor_path, "Sutra Studio", "0.1.0");
+        let config = BridgeServerConfig::new(&descriptor_path, "Srijika Studio", "0.1.0");
         let server = BridgeServer::start(config, Arc::new(RecordingSink::default()))
             .await
             .unwrap();
@@ -1209,7 +1209,7 @@ mod tests {
             token: "secret".to_owned(),
             instance_id: "current".to_owned(),
             pid: 1,
-            app_name: "Sutra Studio".to_owned(),
+            app_name: "Srijika Studio".to_owned(),
             app_version: "0.1.0".to_owned(),
             started_at_unix_ms: 1,
             health_path: "/v1/health".to_owned(),

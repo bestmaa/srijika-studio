@@ -1,7 +1,7 @@
 import { CheckCircle2, Copy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { generateTsx } from '@sutra/react-codegen';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { useStudioStore } from '../store/studio-store';
 

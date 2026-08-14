@@ -14,6 +14,6 @@ test-results/
 target/
 apps/studio/src-tauri/gen/
 apps/studio/src-tauri/target/
-*.sutra.tmp
-.sutra/cache/
-.sutra/generated/
+*.srijika.tmp
+.srijika/cache/
+.srijika/generated/

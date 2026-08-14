@@ -67,7 +67,9 @@ test('maps a Button click to a typed number argument in JSON, JSX, and preview',
   expect(onCount?.eventSignature).toEqual({
     payload: { name: 'count', shape: { kind: 'number' } },
   });
-  const button = Object.values(document.nodes).find((node) => node.componentId === 'sutra.button');
+  const button = Object.values(document.nodes).find(
+    (node) => node.componentId === 'srijika.button',
+  );
   expect(button?.events?.['onClick']).toEqual({
     kind: 'reference',
     path: [],

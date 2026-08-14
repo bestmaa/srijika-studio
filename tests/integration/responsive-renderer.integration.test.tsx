@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { createBlankDocument } from '@sutra/contracts';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { SutraRenderer } from '@sutra/react-renderer';
+import { createBlankDocument } from '@srijika/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 describe('responsive renderer', () => {
   it('evaluates the same canonical document at desktop, tablet, mobile and wide widths', () => {
@@ -35,7 +35,12 @@ describe('responsive renderer', () => {
     const registry = createCoreComponentRegistry();
 
     const { container, rerender } = render(
-      <SutraRenderer document={document} registry={registry} mode="preview" viewportWidth={1180} />,
+      <SrijikaRenderer
+        document={document}
+        registry={registry}
+        mode="preview"
+        viewportWidth={1180}
+      />,
     );
     const page = container.querySelector('main');
     expect(page).toHaveStyle({
@@ -44,7 +49,12 @@ describe('responsive renderer', () => {
     });
 
     rerender(
-      <SutraRenderer document={document} registry={registry} mode="preview" viewportWidth={800} />,
+      <SrijikaRenderer
+        document={document}
+        registry={registry}
+        mode="preview"
+        viewportWidth={800}
+      />,
     );
     expect(page).toHaveStyle({
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -52,12 +62,22 @@ describe('responsive renderer', () => {
     });
 
     rerender(
-      <SutraRenderer document={document} registry={registry} mode="preview" viewportWidth={390} />,
+      <SrijikaRenderer
+        document={document}
+        registry={registry}
+        mode="preview"
+        viewportWidth={390}
+      />,
     );
     expect(page).toHaveStyle({ gridTemplateColumns: 'minmax(0, 1fr)', gap: '10px' });
 
     rerender(
-      <SutraRenderer document={document} registry={registry} mode="preview" viewportWidth={1600} />,
+      <SrijikaRenderer
+        document={document}
+        registry={registry}
+        mode="preview"
+        viewportWidth={1600}
+      />,
     );
     expect(page).toHaveStyle({
       gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
@@ -70,7 +90,7 @@ describe('responsive renderer', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
     const registry = createCoreComponentRegistry();
-    const grid = registry.require('sutra.grid').createNode('cards');
+    const grid = registry.require('srijika.grid').createNode('cards');
     if (grid.kind !== 'element') throw new Error('Expected grid element');
     grid.props['columnsTemplate'] = {
       kind: 'literal',
@@ -84,7 +104,12 @@ describe('responsive renderer', () => {
     document.nodes[grid.id] = grid;
 
     const { container } = render(
-      <SutraRenderer document={document} registry={registry} mode="preview" viewportWidth={390} />,
+      <SrijikaRenderer
+        document={document}
+        registry={registry}
+        mode="preview"
+        viewportWidth={390}
+      />,
     );
 
     expect(container.querySelector('main > div')).toHaveStyle({

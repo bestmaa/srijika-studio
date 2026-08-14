@@ -10,9 +10,9 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const workspace = fileURLToPath(new URL('../../', import.meta.url));
-const bundle = join(workspace, 'plugins/sutra-studio/mcp-server/sutra-mcp.mjs');
+const bundle = join(workspace, 'plugins/srijika-studio/mcp-server/srijika-mcp.mjs');
 const useWindowsLauncher = process.argv.includes('--windows');
-const temporary = await mkdtemp(join(tmpdir(), 'sutra-mcp-stdio-'));
+const temporary = await mkdtemp(join(tmpdir(), 'srijika-mcp-stdio-'));
 const descriptorPath = join(temporary, 'codex-bridge-v1.json');
 const token = 'b'.repeat(64);
 const instanceId = 'stdio-smoke-instance';
@@ -71,7 +71,7 @@ await writeFile(
     token,
     instanceId,
     pid: process.pid,
-    appName: 'Sutra Studio smoke',
+    appName: 'Srijika Studio smoke',
     appVersion: '0.1.0',
     startedAtUnixMs: Date.now(),
     healthPath: '/v1/health',
@@ -80,8 +80,8 @@ await writeFile(
 
 const windowsPath = (path) => execFileSync('wslpath', ['-w', path], { encoding: 'utf8' }).trim();
 const windowsLauncherSource =
-  process.env['SUTRA_STUDIO_MCP_WINDOWS_LAUNCHER'] ??
-  join(workspace, 'plugins/sutra-studio/scripts/run-mcp.cmd');
+  process.env['SRIJIKA_STUDIO_MCP_WINDOWS_LAUNCHER'] ??
+  join(workspace, 'plugins/srijika-studio/scripts/run-mcp.cmd');
 const windowsLauncher = windowsLauncherSource.startsWith('/')
   ? windowsPath(windowsLauncherSource)
   : windowsLauncherSource;
@@ -93,10 +93,12 @@ const transport = new StdioClientTransport({
     ...process.env,
     ...(useWindowsLauncher
       ? {
-          WSLENV: [process.env.WSLENV, 'SUTRA_STUDIO_BRIDGE_DESCRIPTOR'].filter(Boolean).join(':'),
+          WSLENV: [process.env.WSLENV, 'SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR']
+            .filter(Boolean)
+            .join(':'),
         }
       : {}),
-    SUTRA_STUDIO_BRIDGE_DESCRIPTOR: useWindowsLauncher
+    SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR: useWindowsLauncher
       ? windowsPath(descriptorPath)
       : descriptorPath,
   },
@@ -106,35 +108,36 @@ let transportStderr = '';
 transport.stderr?.on('data', (chunk) => {
   transportStderr += chunk.toString('utf8');
 });
-const client = new Client({ name: 'sutra-stdio-smoke', version: '1.0.0' });
+const client = new Client({ name: 'srijika-stdio-smoke', version: '1.0.0' });
 
 try {
   await client.connect(transport);
   const tools = await client.listTools();
   assert.equal(tools.tools.length, 17);
-  assert(tools.tools.some(({ name }) => name === 'sutra_apply_operations'));
-  assert(tools.tools.some(({ name }) => name === 'sutra_analyze_repetitions'));
-  assert(tools.tools.some(({ name }) => name === 'sutra_get_generated_code'));
-  assert(tools.tools.some(({ name }) => name === 'sutra_get_layout_snapshot'));
-  assert(tools.tools.some(({ name }) => name === 'sutra_capture_preview'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_apply_operations'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_analyze_repetitions'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_get_generated_code'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_get_layout_snapshot'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_capture_preview'));
   const resources = await client.listResources();
-  assert.equal(resources.resources.length, 3);
+  assert.equal(resources.resources.length, 4);
+  assert(resources.resources.some(({ uri }) => uri === 'srijika://docs/code-first-architecture'));
 
-  const result = await client.callTool({ name: 'sutra_get_capabilities', arguments: {} });
+  const result = await client.callTool({ name: 'srijika_get_capabilities', arguments: {} });
   assert.equal(result.isError, undefined, JSON.stringify(result));
   assert.deepEqual(result.structuredContent, {
     ok: true,
     result: { protocolVersion: '1.0', toolVersion: '0.1.0', frontendReady: true },
   });
   assert.deepEqual(observed, [
-    { protocolVersion: '1.0', method: 'sutra.getCapabilities', params: {} },
+    { protocolVersion: '1.0', method: 'srijika.getCapabilities', params: {} },
   ]);
   process.stdout.write(
-    `Sutra MCP ${useWindowsLauncher ? 'Windows launcher' : 'stdio bundle'} smoke passed\n`,
+    `Srijika MCP ${useWindowsLauncher ? 'Windows launcher' : 'stdio bundle'} smoke passed\n`,
   );
 } catch (error) {
   if (transportStderr) {
-    process.stderr.write(`Sutra MCP transport stderr:\n${transportStderr}\n`);
+    process.stderr.write(`Srijika MCP transport stderr:\n${transportStderr}\n`);
   }
   throw error;
 } finally {

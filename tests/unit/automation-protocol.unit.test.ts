@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { createBlankDocument, literal, type SutraProject } from '@sutra/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { createBlankDocument, literal, type SrijikaProject } from '@srijika/contracts';
 
 import {
   CAPABILITIES,
   DOCUMENT_FORMAT_VERSION,
   PROTOCOL_VERSION,
   ProtocolAdapterRegistry,
-  SUTRA_RPC_METHODS,
-  SUTRA_TOOL_NAMES,
+  SRIJIKA_RPC_METHODS,
+  SRIJIKA_TOOL_NAMES,
   TOOL_VERSION,
   applyOperations,
   buildComponentCatalog,
@@ -18,7 +18,7 @@ import {
   buildProjectSummary,
   validateAutomationDocument,
   type AutomationIdFactory,
-  type SutraOperation,
+  type SrijikaOperation,
 } from '../../packages/automation-protocol/src/index';
 
 function idFactory(): AutomationIdFactory {
@@ -26,11 +26,11 @@ function idFactory(): AutomationIdFactory {
   return ({ hint }) => `${hint.replace(/[^A-Za-z0-9_-]/g, '_')}_${sequence++}`;
 }
 
-function project(pageIds: string[]): SutraProject {
+function project(pageIds: string[]): SrijikaProject {
   return {
     formatVersion: 1,
-    id: 'sutra_test',
-    name: 'Sutra Test',
+    id: 'srijika_test',
+    name: 'Srijika Test',
     entryPageId: pageIds[0] ?? 'page_home',
     pages: pageIds,
     components: ['component_card'],
@@ -64,23 +64,23 @@ describe('automation protocol versions and capabilities', () => {
       capture: { minPixelRatio: 1, maxPixelRatio: 2 },
       repetitions: { minInstances: 2, maxInstances: 100, maxCandidates: 500 },
     });
-    expect(SUTRA_RPC_METHODS).toMatchObject({
-      applyOperations: 'sutra.applyOperations',
-      analyzeRepetitions: 'sutra.analyzeRepetitions',
-      getGeneratedCode: 'sutra.getGeneratedCode',
-      importDesignPlan: 'sutra.importDesignPlan',
-      undo: 'sutra.undo',
-      redo: 'sutra.redo',
+    expect(SRIJIKA_RPC_METHODS).toMatchObject({
+      applyOperations: 'srijika.applyOperations',
+      analyzeRepetitions: 'srijika.analyzeRepetitions',
+      getGeneratedCode: 'srijika.getGeneratedCode',
+      importDesignPlan: 'srijika.importDesignPlan',
+      undo: 'srijika.undo',
+      redo: 'srijika.redo',
     });
-    expect(SUTRA_TOOL_NAMES).toMatchObject({
-      applyOperations: 'sutra_apply_operations',
-      analyzeRepetitions: 'sutra_analyze_repetitions',
-      getGeneratedCode: 'sutra_get_generated_code',
-      importDesignPlan: 'sutra_import_design_plan',
-      undo: 'sutra_undo',
-      redo: 'sutra_redo',
+    expect(SRIJIKA_TOOL_NAMES).toMatchObject({
+      applyOperations: 'srijika_apply_operations',
+      analyzeRepetitions: 'srijika_analyze_repetitions',
+      getGeneratedCode: 'srijika_get_generated_code',
+      importDesignPlan: 'srijika_import_design_plan',
+      undo: 'srijika_undo',
+      redo: 'srijika_redo',
     });
-    expect(CAPABILITIES.deprecated.rpcMethods).toContain('sutra.importDesignImage');
+    expect(CAPABILITIES.deprecated.rpcMethods).toContain('srijika.importDesignImage');
   });
 });
 
@@ -96,8 +96,8 @@ describe('compact automation read models', () => {
       documentFormatVersion: 1,
       selectedPageId: 'page_home',
       project: {
-        id: 'sutra_test',
-        name: 'Sutra Test',
+        id: 'srijika_test',
+        name: 'Srijika Test',
         entryPageId: 'page_home',
         pageCount: 2,
         componentCount: 1,
@@ -126,14 +126,14 @@ describe('compact automation read models', () => {
           kind: 'insertComponent',
           operationId: 'container',
           id: 'container_a',
-          componentId: 'sutra.container',
+          componentId: 'srijika.container',
           parentId: 'root',
         },
         {
           kind: 'insertComponent',
           operationId: 'heading',
           id: 'heading_a',
-          componentId: 'sutra.heading',
+          componentId: 'srijika.heading',
           parentId: 'container_a',
         },
       ],
@@ -162,7 +162,7 @@ describe('compact automation read models', () => {
     expect(detail).toMatchObject({
       documentId: 'page_home',
       revision: 1,
-      node: { id: 'heading_a', componentId: 'sutra.heading' },
+      node: { id: 'heading_a', componentId: 'srijika.heading' },
       parent: { nodeId: 'container_a', slot: 'children', index: 0 },
       children: [],
     });
@@ -171,7 +171,7 @@ describe('compact automation read models', () => {
 
   it('returns a sorted, compact registry catalog', () => {
     const catalog = buildComponentCatalog(createCoreComponentRegistry());
-    const container = catalog.find(({ id }) => id === 'sutra.container');
+    const container = catalog.find(({ id }) => id === 'srijika.container');
     expect(container).toMatchObject({
       displayName: 'Container',
       slots: ['children'],
@@ -197,7 +197,7 @@ describe('atomic high-level operations', () => {
   it('applies a rich batch through the document engine with one revision increment', () => {
     const registry = createCoreComponentRegistry();
     const original = createBlankDocument('page_home', 'Home');
-    const operations: SutraOperation[] = [
+    const operations: SrijikaOperation[] = [
       {
         kind: 'addPublicProp',
         operationId: 'title_prop',
@@ -212,7 +212,7 @@ describe('atomic high-level operations', () => {
       {
         kind: 'insertComponent',
         operationId: 'surface',
-        componentId: 'sutra.container',
+        componentId: 'srijika.container',
         parentId: 'root',
         name: 'Hero surface',
       },
@@ -225,7 +225,7 @@ describe('atomic high-level operations', () => {
         kind: 'insertComponent',
         operationId: 'title',
         id: 'title_node',
-        componentId: 'sutra.heading',
+        componentId: 'srijika.heading',
         parentId: { createdBy: 'surface' },
       },
       {
@@ -267,7 +267,7 @@ describe('atomic high-level operations', () => {
     expect(result.document.revision).toBe(1);
     expect(result.appliedOperationCount).toBe(operations.length);
     expect(result.createdIds).toMatchObject({
-      surface: 'sutra_container_0',
+      surface: 'srijika_container_0',
       title: 'title_node',
       raw_text: 'raw_text_node',
       condition: 'condition_node',
@@ -275,7 +275,7 @@ describe('atomic high-level operations', () => {
       'rows.itemSymbol': 'repeat_node_item_1',
       'rows.indexSymbol': 'repeat_node_index_2',
     });
-    expect(result.document.nodes['sutra_container_0']).toMatchObject({
+    expect(result.document.nodes['srijika_container_0']).toMatchObject({
       name: 'Hero surface',
       style: { base: { display: 'flex', flexDirection: 'column', gap: 24 } },
       slots: {
@@ -305,19 +305,19 @@ describe('atomic high-level operations', () => {
         {
           kind: 'insertComponent',
           id: 'first_container',
-          componentId: 'sutra.container',
+          componentId: 'srijika.container',
           parentId: 'root',
         },
         {
           kind: 'insertComponent',
           id: 'second_container',
-          componentId: 'sutra.container',
+          componentId: 'srijika.container',
           parentId: 'root',
         },
         {
           kind: 'insertComponent',
           id: 'button_node',
-          componentId: 'sutra.button',
+          componentId: 'srijika.button',
           parentId: 'first_container',
         },
         {
@@ -380,7 +380,7 @@ describe('atomic high-level operations', () => {
       [
         {
           kind: 'insertComponent',
-          componentId: 'sutra.container',
+          componentId: 'srijika.container',
           parentId: 'root',
         },
       ],
@@ -411,7 +411,7 @@ describe('atomic high-level operations', () => {
         {
           kind: 'insertComponent',
           operationId: 'unknown',
-          componentId: 'sutra.missing',
+          componentId: 'srijika.missing',
           parentId: 'root',
         },
       ],
@@ -437,7 +437,7 @@ describe('atomic high-level operations', () => {
         {
           kind: 'insertComponent',
           id: 'heading_node',
-          componentId: 'sutra.heading',
+          componentId: 'srijika.heading',
           parentId: 'root',
         },
         {
@@ -463,7 +463,7 @@ describe('atomic high-level operations', () => {
       kind: 'setStyle',
       nodeId: 'root',
       style: { imaginaryCssProperty: 'nope' },
-    } as unknown as SutraOperation;
+    } as unknown as SrijikaOperation;
 
     const result = applyOperations(
       createBlankDocument('page_home', 'Home'),

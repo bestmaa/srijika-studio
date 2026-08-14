@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { literal, type RepeatNode, type SymbolDeclaration } from '@sutra/contracts';
+import { literal, type RepeatNode, type SymbolDeclaration } from '@srijika/contracts';
 import {
   DocumentHistory,
   applyCommand,
   dispatchCommand,
   validateDocumentGraph,
-} from '@sutra/document-engine';
+} from '@srijika/document-engine';
 
 import { createContainer, createEngineDocument } from '../helpers/documents';
 
@@ -212,7 +212,7 @@ describe('document commands', () => {
       displayName: 'Title',
       valueType: 'string' as const,
       required: false,
-      defaultValue: 'Sutra',
+      defaultValue: 'Srijika',
     };
     const added = applyCommand(document, { kind: 'addPublicProp', prop }).document;
 
@@ -220,7 +220,7 @@ describe('document commands', () => {
     expect(added.symbols['prop_title']).toMatchObject({
       provider: 'prop',
       valueType: 'string',
-      defaultValue: 'Sutra',
+      defaultValue: 'Srijika',
     });
     expect(() => applyCommand(added, { kind: 'addPublicProp', prop })).toThrow(/already exists/);
 
@@ -504,7 +504,7 @@ describe('graph diagnostics', () => {
     expect(validateDocumentGraph(document).map((diagnostic) => diagnostic.code)).toContain(
       'missing-root',
     );
-    const { assertValidDocumentGraph } = await import('@sutra/document-engine');
+    const { assertValidDocumentGraph } = await import('@srijika/document-engine');
     expect(() => assertValidDocumentGraph(document)).toThrow(/does not exist/);
   });
 });

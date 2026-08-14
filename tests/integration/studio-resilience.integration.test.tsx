@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { validateUiDocument } from '@sutra/contracts';
+import { validateUiDocument } from '@srijika/contracts';
 
 import { PreviewApp } from '../../apps/studio/src/app/PreviewApp';
 import { StudioApp } from '../../apps/studio/src/app/StudioApp';
@@ -13,6 +13,11 @@ import {
   isTauriDesktop,
   openBrowserPreview,
 } from '../../apps/studio/src/lib/project-service';
+import {
+  DEFAULT_CODE_PROJECT_FILE_NAME,
+  DEFAULT_CODE_PROJECT_SOURCE,
+  useCodeProjectStore,
+} from '../../apps/studio/src/store/code-project-store';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
 
 vi.mock('../../apps/studio/src/lib/project-service', () => ({
@@ -28,7 +33,7 @@ const isTauriDesktopMock = vi.mocked(isTauriDesktop);
 const openBrowserPreviewMock = vi.mocked(openBrowserPreview);
 
 function uploadedJson(contents: string): File {
-  const file = new File([contents], 'document.sutra.json', { type: 'application/json' });
+  const file = new File([contents], 'document.srijika.json', { type: 'application/json' });
   Object.defineProperty(file, 'text', {
     configurable: true,
     value: vi.fn().mockResolvedValue(contents),
@@ -74,7 +79,7 @@ describe('Studio file and command resilience', () => {
     await user.upload(fileInput(), uploadedJson(JSON.stringify(invalid)));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The selected file is not a valid Sutra document',
+      'The selected file is not a valid Srijika document',
     );
     expect(useStudioStore.getState().document).toBe(original);
   });
@@ -139,6 +144,10 @@ describe('Studio file and command resilience', () => {
   });
 
   it('surfaces unexpected editor errors without replacing the shell', async () => {
+    useCodeProjectStore.getState().loadSource({
+      fileName: DEFAULT_CODE_PROJECT_FILE_NAME,
+      source: DEFAULT_CODE_PROJECT_SOURCE,
+    });
     render(<StudioApp />);
 
     act(() => {
@@ -162,7 +171,7 @@ describe('Studio file and command resilience', () => {
     const root = invalid.nodes[invalid.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected an element root');
     root.componentId = 'missing.component';
-    localStorage.setItem('sutra-studio:active-document', JSON.stringify(invalid));
+    localStorage.setItem('srijika-studio:active-document', JSON.stringify(invalid));
 
     render(<PreviewApp />);
 

@@ -131,7 +131,7 @@ export function TopBar({ onEnterFullscreenPreview }: TopBarProps) {
       try {
         const anchor = window.document.createElement('a');
         anchor.href = url;
-        anchor.download = `${document.id}.sutra.json`;
+        anchor.download = `${document.id}.srijika.json`;
         anchor.click();
       } finally {
         URL.revokeObjectURL(url);
@@ -215,12 +215,12 @@ export function TopBar({ onEnterFullscreenPreview }: TopBarProps) {
 
   return (
     <header className="topbar">
-      <div className="brand" aria-label="Sutra Studio">
+      <div className="brand" aria-label="Srijika Studio">
         <span className="brand-mark" aria-hidden="true">
           S
         </span>
         <span className="brand-copy">
-          <strong>Sutra</strong>
+          <strong>Srijika</strong>
           <small>Studio</small>
         </span>
         <span className="mvp-badge">UI MVP</span>
@@ -481,7 +481,7 @@ export function TopBar({ onEnterFullscreenPreview }: TopBarProps) {
         ref={importRef}
         hidden
         type="file"
-        accept=".json,.sutra.json,application/json"
+        accept=".json,.srijika.json,application/json"
         onChange={(event) => {
           void importDocument(event.target.files?.[0]);
           event.target.value = '';

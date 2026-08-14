@@ -1,6 +1,8 @@
 # UI document format
 
-`UiDocument` is a normalized, versioned, JSON-serializable graph designed to preserve JSX semantics without storing source-code offsets. Child relationships live only in element slots or structural-node child arrays; `parentId` is derived so the document cannot contain two competing parent relationships.
+`UiDocument` is Srijika's normalized, versioned renderer IR. In the code-first architecture it is compiled from `.ui.tsx` and is **not** the persisted authoring source. Source offsets live in the compiler's separate `SrijikaSourceMap`; Studio keeps the last valid document only as a derived preview/read model. Legacy engine and migration tests may still serialize this schema.
+
+Child relationships live only in element slots or structural-node child arrays; `parentId` is derived so the graph cannot contain two competing parent relationships.
 
 ## Version 1 envelope
 
@@ -41,7 +43,7 @@ Expressions are tagged data:
 - literal;
 - stable symbol reference plus safe path segments;
 - unary `not` or numeric negation;
-- equality, comparison, boolean, and arithmetic binary operations;
+- equality, comparison, boolean, nullish-coalescing, and arithmetic binary operations;
 - conditional expression;
 - interpolated template; or
 - custom module/export reference for a future connector extension.

@@ -6,8 +6,8 @@ function inspector(page: Page) {
 
 function pageRoot(page: Page) {
   return page
-    .frameLocator('iframe[title="Sutra DOM design surface"]')
-    .locator('[data-sutra-component="sutra.page"]');
+    .frameLocator('iframe[title="Srijika DOM design surface"]')
+    .locator('[data-srijika-component="srijika.page"]');
 }
 
 test('keeps design fields compact and supports an add, edit, and remove lifecycle', async ({

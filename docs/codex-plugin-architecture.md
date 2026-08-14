@@ -1,4 +1,4 @@
-# Sutra Studio Codex plugin architecture
+# Srijika Studio Codex plugin architecture
 
 ## Purpose
 
@@ -6,7 +6,7 @@ The plugin lets Codex read and change the same canonical `UiDocument` used by th
 
 ```mermaid
 flowchart LR
-  C["Codex task"] --> S["Sutra workflow skill"]
+  C["Codex task"] --> S["Srijika workflow skill"]
   S --> M["Bundled MCP stdio server"]
   M --> B["Authenticated bridge client"]
   B --> H["Tauri loopback HTTP relay"]
@@ -20,7 +20,7 @@ flowchart LR
 
 | Layer               | Source                                | Responsibility                                                                      |
 | ------------------- | ------------------------------------- | ----------------------------------------------------------------------------------- |
-| Plugin package      | `plugins/sutra-studio`                | Install metadata, skill, launcher, MCP bundle, protocol manifest                    |
+| Plugin package      | `plugins/srijika-studio`              | Install metadata, skill, launcher, MCP bundle, protocol manifest                    |
 | MCP server          | `packages/mcp-server`                 | Focused tools/resources, schemas, structured errors, bridge discovery               |
 | Automation protocol | `packages/automation-protocol`        | Version constants, read models, high-level operations, atomic executor, adapters    |
 | Tauri relay         | `crates/studio-bridge`                | Per-process auth, bounded loopback HTTP, frontend event relay                       |
@@ -39,6 +39,29 @@ flowchart LR
 
 This makes a batch one undoable history entry and prevents stale agents from overwriting newer user work.
 
+## Code-first architecture guidance
+
+The MCP server exposes `srijika://docs/code-first-architecture` as a compact,
+read-only JSON contract. It gives Codex the same Feature → Slot → Part rules as
+Studio, VS Code, and generated-project validation:
+
+```text
+UI ← Connector → Hook → Store → Logic → API
+```
+
+UI and Connector are required for every owner. The remaining capabilities are
+optional, but an existing intermediate capability cannot be skipped for the
+same behavior. The resource also publishes the deterministic v1 recommendation
+IDs and thresholds, cache/state ownership, child-Connector composition, and
+Part → Slot → Feature → `src/shared` promotion rules. This is a documentation
+resource only; it does not change the bridge protocol or document format.
+
+The companion `srijika://docs/cli-runtime` resource publishes the shared
+developer-workflow contract. Codex should prefer `srijika init`, `add`, `check`,
+`doctor`, `dev`, `build`, and `studio` instead of reconstructing package-manager
+or runtime decisions. Node is the compatibility default; Bun is explicit,
+Vite-only, and never changes dependency resolution.
+
 ## Authentication and local security
 
 - Studio binds only `127.0.0.1` on an OS-selected ephemeral port.
@@ -51,7 +74,7 @@ This makes a batch one undoable history entry and prevents stale agents from ove
 
 ## Image-to-UI path
 
-Codex uses its existing image understanding to inspect a screenshot. It queries the compact component catalog, decomposes the layout, and calls `sutra_import_design_plan` with versioned JSON operations. The bridge does not upload the image and does not require a separate vision API key.
+Codex uses its existing image understanding to inspect a screenshot. It queries the compact component catalog, decomposes the layout, and calls `srijika_import_design_plan` with versioned JSON operations. The bridge does not upload the image and does not require a separate vision API key.
 
 The first release reports render-ready preview metadata and focuses the requested Studio viewport. Pixel comparison uses an available Codex browser/screenshot capability. Native webview bitmap capture can be added later behind a capability flag without changing operation semantics.
 
@@ -71,19 +94,19 @@ Compatible changes add optional response fields, new operation kinds, or capabil
 
 ```bash
 pnpm install
-pnpm --filter @sutra/mcp-server build
+pnpm --filter @srijika/mcp-server build
 pnpm verify
-cargo test -p studio-bridge -p sutra-studio
+cargo test -p studio-bridge -p srijika-studio
 ```
 
 Plugin and skill validation use the Codex-bundled creators:
 
 ```bash
-python3 "$CODEX_HOME/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/sutra-studio
-python3 "$CODEX_HOME/skills/.system/skill-creator/scripts/quick_validate.py" plugins/sutra-studio/skills/sutra-studio
+python3 "$CODEX_HOME/skills/.system/plugin-creator/scripts/validate_plugin.py" plugins/srijika-studio
+python3 "$CODEX_HOME/skills/.system/skill-creator/scripts/quick_validate.py" plugins/srijika-studio/skills/srijika-studio
 ```
 
-The repository marketplace is `.agents/plugins/marketplace.json`. After adding that marketplace to Codex, install `sutra-studio@sutra-studio-local` and restart or reload MCP servers. The checked-in `.mcp.json` uses the Windows command launcher so stdio stays byte-for-byte transparent. Its Node bootstrap keeps MCP in Windows for a native Studio descriptor and re-executes the bundled server inside WSL for a WSL descriptor, preserving loopback isolation on both sides. WSL defaults are distribution `Ubuntu` and the Windows username; environment overrides cover different installations. `scripts/run-mcp.sh` is the Unix launcher for future platform-specific packaging.
+The repository marketplace is `.agents/plugins/marketplace.json`. After adding that marketplace to Codex, install `srijika-studio@srijika-studio-local` and restart or reload MCP servers. The checked-in `.mcp.json` uses the Windows command launcher so stdio stays byte-for-byte transparent. Its Node bootstrap keeps MCP in Windows for a native Studio descriptor and re-executes the bundled server inside WSL for a WSL descriptor, preserving loopback isolation on both sides. WSL defaults are distribution `Ubuntu` and the Windows username; environment overrides cover different installations. `scripts/run-mcp.sh` is the Unix launcher for future platform-specific packaging.
 
 ## Evolution checklist
 

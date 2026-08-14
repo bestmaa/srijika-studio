@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-import '@sutra/core-components/styles.css';
+import '@srijika/core-components/styles.css';
 
 import { PreviewApp } from './app/PreviewApp';
 import { AppearanceProvider } from './app/AppearanceProvider';
@@ -13,9 +13,10 @@ import {
 } from './lib/appearance';
 import './styles/app.css';
 import './styles/appearance.css';
+import './styles/code-first.css';
 
 const root = document.getElementById('root');
-if (!root) throw new Error('Sutra Studio root element was not found');
+if (!root) throw new Error('Srijika Studio root element was not found');
 
 const initialAppearance = loadAppearancePreferences();
 const initialScheme = resolveColorScheme(

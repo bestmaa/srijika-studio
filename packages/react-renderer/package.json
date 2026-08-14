@@ -1,5 +1,5 @@
 {
-  "name": "@sutra/react-renderer",
+  "name": "@srijika/react-renderer",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sutra/component-registry": "workspace:*",
-    "@sutra/contracts": "workspace:*",
-    "@sutra/core-components": "workspace:*",
+    "@srijika/component-registry": "workspace:*",
+    "@srijika/contracts": "workspace:*",
+    "@srijika/core-components": "workspace:*",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

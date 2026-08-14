@@ -1,21 +1,32 @@
 import { Focus, Minimize2, Radio, Scaling } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { SutraRenderer } from '@sutra/react-renderer';
+import type { UiDocument } from '@srijika/contracts';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { componentRegistry } from '../lib/registry';
 import { VIEWPORT_PRESET_SIZES, defaultSymbolValues, useStudioStore } from '../store/studio-store';
 
 interface FullscreenPreviewProps {
+  documentOverride?: UiDocument;
+  symbolValuesOverride?: Record<string, unknown>;
   onClose: () => void;
 }
 
-export function FullscreenPreview({ onClose }: FullscreenPreviewProps) {
-  const document = useStudioStore((state) => state.document);
+export function FullscreenPreview({
+  documentOverride,
+  symbolValuesOverride,
+  onClose,
+}: FullscreenPreviewProps) {
+  const storedDocument = useStudioStore((state) => state.document);
+  const document = documentOverride ?? storedDocument;
   const viewport = useStudioStore((state) => state.viewport);
   const customViewportSize = useStudioStore((state) => state.customViewportSize);
   const viewportSize = customViewportSize ?? VIEWPORT_PRESET_SIZES[viewport];
-  const symbols = useMemo(() => defaultSymbolValues(document), [document]);
+  const symbols = useMemo(
+    () => ({ ...defaultSymbolValues(document), ...symbolValuesOverride }),
+    [document, symbolValuesOverride],
+  );
   const [lastEvent, setLastEvent] = useState<string | null>(null);
   const [sizingMode, setSizingMode] = useState<'responsive' | 'exact'>('responsive');
   const [windowSize, setWindowSize] = useState(() => ({
@@ -91,7 +102,7 @@ export function FullscreenPreview({ onClose }: FullscreenPreviewProps) {
                 : undefined
             }
           >
-            <SutraRenderer
+            <SrijikaRenderer
               document={document}
               registry={componentRegistry}
               mode="preview"

@@ -1,13 +1,20 @@
 import { Braces, ChevronDown, Component, GitBranch, Layers3, Repeat2, Search } from 'lucide-react';
-import { useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import {
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+} from 'react';
 
-import type { ComponentManifest } from '@sutra/component-registry';
+import type { ComponentManifest } from '@srijika/component-registry';
 
 import { componentRegistry } from '../lib/registry';
 import { useStudioStore } from '../store/studio-store';
 
-const DRAG_COMPONENT = 'application/x-sutra-component';
-const DRAG_STRUCTURE = 'application/x-sutra-structure';
+const DRAG_COMPONENT = 'application/x-srijika-component';
+const DRAG_STRUCTURE = 'application/x-srijika-structure';
 
 export function Palette() {
   const [query, setQuery] = useState('');
@@ -25,12 +32,11 @@ export function Palette() {
     payload: Parameters<typeof beginDrag>[0];
     moved: boolean;
   } | null>(null);
-  const suppressClickTarget = useRef<EventTarget | null>(null);
 
   const grouped = useMemo(() => {
     const manifests = componentRegistry
       .manifests()
-      .filter((manifest) => manifest.id !== 'sutra.page')
+      .filter((manifest) => manifest.id !== 'srijika.page')
       .filter((manifest) =>
         `${manifest.displayName} ${manifest.category}`.toLowerCase().includes(query.toLowerCase()),
       );
@@ -47,6 +53,7 @@ export function Palette() {
     payload: Parameters<typeof beginDrag>[0],
   ): void => {
     if (event.button !== 0) return;
+    delete event.currentTarget.dataset['srijikaSuppressClick'];
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerDrag.current = {
       pointerId: event.pointerId,
@@ -75,12 +82,14 @@ export function Palette() {
     if (!session || session.pointerId !== event.pointerId) return;
     if (session.moved) {
       if (cancelled) endDrag();
-      else releaseDrag(event.clientX, event.clientY);
-      const target = event.currentTarget;
-      suppressClickTarget.current = target;
-      window.setTimeout(() => {
-        if (suppressClickTarget.current === target) suppressClickTarget.current = null;
-      }, 0);
+      else {
+        releaseDrag(event.clientX, event.clientY);
+        window.setTimeout(() => {
+          const state = useStudioStore.getState();
+          if (state.dragPointer?.phase === 'drop') state.endDrag();
+        }, 0);
+      }
+      event.currentTarget.dataset['srijikaSuppressClick'] = 'true';
     }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -89,11 +98,15 @@ export function Palette() {
   };
 
   const runClick = (event: MouseEvent<HTMLElement>, action: () => void): void => {
-    if (suppressClickTarget.current === event.currentTarget) {
-      suppressClickTarget.current = null;
+    if (event.currentTarget.dataset['srijikaSuppressClick'] === 'true') {
+      delete event.currentTarget.dataset['srijikaSuppressClick'];
       return;
     }
     action();
+  };
+
+  const prepareKeyboardClick = (event: KeyboardEvent<HTMLElement>): void => {
+    delete event.currentTarget.dataset['srijikaSuppressClick'];
   };
 
   return (
@@ -129,6 +142,7 @@ export function Palette() {
                   key={manifest.id}
                   type="button"
                   title={manifest.description}
+                  onKeyDown={prepareKeyboardClick}
                   onClick={(event) => runClick(event, () => addComponent(manifest.id))}
                   onPointerDown={(event) =>
                     startPointerDrag(event, { kind: 'component', componentId: manifest.id })
@@ -156,6 +170,7 @@ export function Palette() {
             <button
               className="structure-item"
               type="button"
+              onKeyDown={prepareKeyboardClick}
               onClick={(event) => runClick(event, () => addIfNode())}
               onPointerDown={(event) =>
                 startPointerDrag(event, { kind: 'structure', structure: 'if' })
@@ -173,6 +188,7 @@ export function Palette() {
             <button
               className="structure-item"
               type="button"
+              onKeyDown={prepareKeyboardClick}
               onClick={(event) => runClick(event, () => addRepeatNode())}
               onPointerDown={(event) =>
                 startPointerDrag(event, { kind: 'structure', structure: 'repeat' })
@@ -194,8 +210,8 @@ export function Palette() {
   );
 }
 
-export const sutraDragTypes = {
+export const srijikaDragTypes = {
   component: DRAG_COMPONENT,
   structure: DRAG_STRUCTURE,
-  node: 'application/x-sutra-node',
+  node: 'application/x-srijika-node',
 } as const;

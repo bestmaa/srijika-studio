@@ -6,7 +6,7 @@ import {
   eventPayloadArgument,
   literal,
   validateUiDocument,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 describe('event argument mapping contract', () => {
   it('keeps legacy direct event references valid when no argument mapping exists', () => {

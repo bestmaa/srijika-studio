@@ -4,7 +4,7 @@ import {
   activeResponsiveBreakpointKeys,
   resolveResponsiveStyle,
   type StyleDeclaration,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 describe('responsive style resolution', () => {
   const declaration: StyleDeclaration = {

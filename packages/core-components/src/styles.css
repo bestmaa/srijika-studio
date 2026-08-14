@@ -1,4 +1,4 @@
-.sutra-button {
+.srijika-button {
   box-sizing: border-box;
   min-height: 38px;
   padding: 0 16px;
@@ -11,44 +11,44 @@
     transform 120ms ease;
 }
 
-.sutra-button:active {
+.srijika-button:active {
   transform: translateY(1px);
 }
 
-.sutra-button--primary {
+.srijika-button--primary {
   background: #6d5dfc;
   color: #fff;
 }
 
-.sutra-button--secondary {
+.srijika-button--secondary {
   background: #eef0ff;
   color: #4235bb;
   border-color: #d9dcff;
 }
 
-.sutra-button--ghost {
+.srijika-button--ghost {
   background: transparent;
   color: #374151;
   border-color: #d1d5db;
 }
 
-.sutra-button--danger {
+.srijika-button--danger {
   background: #dc2626;
   color: #fff;
 }
 
-.sutra-button:disabled {
+.srijika-button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
 
-.sutra-field > span {
+.srijika-field > span {
   color: inherit;
   font-size: 13px;
   font-weight: 600;
 }
 
-.sutra-field > input {
+.srijika-field > input {
   box-sizing: border-box;
   width: 100%;
   min-height: 40px;

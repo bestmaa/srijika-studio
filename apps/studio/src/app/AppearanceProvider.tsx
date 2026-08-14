@@ -10,7 +10,7 @@ import {
 
 import {
   APPEARANCE_STORAGE_KEY,
-  SUTRA_THEME_COLORS,
+  SRIJIKA_THEME_COLORS,
   applyAppearanceToElement,
   cloneDefaultAppearance,
   loadAppearancePreferences,
@@ -34,7 +34,7 @@ interface AppearanceContextValue {
   setCodeFont: (font: string) => void;
   setTranslucentSidebar: (enabled: boolean) => void;
   setContrast: (contrast: number) => void;
-  applySutraPreset: () => void;
+  applySrijikaPreset: () => void;
   replacePreferences: (preferences: StudioAppearancePreferences) => void;
   resetAppearance: () => void;
 }
@@ -140,14 +140,15 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
     (contrast: number): void => updatePreferences((current) => ({ ...current, contrast })),
     [updatePreferences],
   );
-  const applySutraPreset = useCallback(
+  const applySrijikaPreset = useCallback(
     (): void =>
       updatePreferences((current) => ({
         ...current,
-        preset: 'sutra',
+        mode: 'dark',
+        preset: 'srijika',
         themes: {
-          dark: { ...SUTRA_THEME_COLORS.dark },
-          light: { ...SUTRA_THEME_COLORS.light },
+          dark: { ...SRIJIKA_THEME_COLORS.dark },
+          light: { ...SRIJIKA_THEME_COLORS.light },
         },
       })),
     [updatePreferences],
@@ -169,12 +170,12 @@ export function AppearanceProvider({ children }: { children: ReactNode }) {
       setCodeFont,
       setTranslucentSidebar,
       setContrast,
-      applySutraPreset,
+      applySrijikaPreset,
       replacePreferences,
       resetAppearance,
     }),
     [
-      applySutraPreset,
+      applySrijikaPreset,
       preferences,
       replacePreferences,
       resetAppearance,

@@ -12,8 +12,8 @@ import {
   type PublicProp,
   type RepeatNode,
   type UiDocument,
-} from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+} from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 function createCodegenFixture(): UiDocument {
   const document = createBlankDocument('page_codegen', 'Generated home');
@@ -48,7 +48,7 @@ function createCodegenFixture(): UiDocument {
     whenTrue: ['save_button'],
     whenFalse: ['empty_text'],
   };
-  const saveButton = createElementNode('save_button', 'sutra.button', 'Save button', {
+  const saveButton = createElementNode('save_button', 'srijika.button', 'Save button', {
     props: {
       label: literal('Save </script> safely'),
       disabled: literal(false),
@@ -58,7 +58,7 @@ function createCodegenFixture(): UiDocument {
     },
     slots: {},
   });
-  const emptyText = createElementNode('empty_text', 'sutra.text', 'Empty text', {
+  const emptyText = createElementNode('empty_text', 'srijika.text', 'Empty text', {
     props: { text: literal('Nothing to show') },
     slots: {},
   });
@@ -129,11 +129,11 @@ function createStructuralFixture(): UiDocument {
     indexSymbolId: 'index',
     children: ['repeat_expression'],
   };
-  const input = createElementNode('input', 'sutra.input', 'Input', {
+  const input = createElementNode('input', 'srijika.input', 'Input', {
     props: { label: literal('Name'), placeholder: literal('Enter name') },
     slots: {},
   });
-  const heading = createElementNode('heading', 'sutra.heading', 'Heading', {
+  const heading = createElementNode('heading', 'srijika.heading', 'Heading', {
     props: { text: literal('Heading'), level: literal(9) },
     slots: {},
     style: {
@@ -144,11 +144,11 @@ function createStructuralFixture(): UiDocument {
       },
     },
   });
-  const grid = createElementNode('grid', 'sutra.grid', 'Grid', {
+  const grid = createElementNode('grid', 'srijika.grid', 'Grid', {
     props: { columns: literal(3) },
     slots: { children: [] },
   });
-  const container = createElementNode('container', 'sutra.container', 'Container', {
+  const container = createElementNode('container', 'srijika.container', 'Container', {
     props: { ariaLabel: literal('Content') },
     slots: { children: [] },
     classRefs: ['surface', 'rounded'],
@@ -273,7 +273,7 @@ function createBoundContainerFixture(): UiDocument {
     required: true,
   };
 
-  const container = createElementNode('surface', 'sutra.container', 'Surface', {
+  const container = createElementNode('surface', 'srijika.container', 'Surface', {
     props: {
       as: literal('section'),
       ariaLabel: literal('Customers'),
@@ -292,7 +292,7 @@ function createBoundContainerFixture(): UiDocument {
     indexSymbolId: 'index',
     children: ['customer_name'],
   };
-  const text = createElementNode('customer_name', 'sutra.text', 'Customer name', {
+  const text = createElementNode('customer_name', 'srijika.text', 'Customer name', {
     props: {
       text: { kind: 'reference', symbolId: 'item', path: ['name'] },
     },
@@ -308,15 +308,15 @@ function createBoundContainerFixture(): UiDocument {
 }
 
 function expectStrictTsxToCompile(output: string): void {
-  const temporaryDirectory = mkdtempSync(join(process.cwd(), '.sutra-codegen-'));
+  const temporaryDirectory = mkdtempSync(join(process.cwd(), '.srijika-codegen-'));
   const generatedFile = join(temporaryDirectory, 'GeneratedPage.tsx');
-  const rendererDeclaration = join(temporaryDirectory, 'sutra-react-renderer.d.ts');
+  const rendererDeclaration = join(temporaryDirectory, 'srijika-react-renderer.d.ts');
   writeFileSync(generatedFile, output, 'utf8');
   writeFileSync(
     rendererDeclaration,
     [
-      "declare module '@sutra/react-renderer' { import type { CSSProperties } from 'react'; export function sutraStyle(value: unknown): CSSProperties; export function sutraResponsiveStyle(value: unknown, viewportWidth: number): CSSProperties; export function useSutraViewportWidth(explicitWidth?: number): number; }",
-      "declare module '@sutra/core-components' { import type { CSSProperties, ReactNode } from 'react'; interface VisualProps { [key: string]: unknown; className?: string; style?: CSSProperties; } export function sutraInputPartStyle(value: unknown): CSSProperties; export function SutraAvatar(props: VisualProps): ReactNode; export function SutraBadge(props: VisualProps): ReactNode; export function SutraChart(props: VisualProps): ReactNode; export function SutraDivider(props: VisualProps): ReactNode; export function SutraIcon(props: VisualProps): ReactNode; export function SutraProgress(props: VisualProps): ReactNode; }",
+      "declare module '@srijika/react-renderer' { import type { CSSProperties } from 'react'; export function srijikaStyle(value: unknown): CSSProperties; export function srijikaResponsiveStyle(value: unknown, viewportWidth: number): CSSProperties; export function useSrijikaViewportWidth(explicitWidth?: number): number; }",
+      "declare module '@srijika/core-components' { import type { CSSProperties, ReactNode } from 'react'; interface VisualProps { [key: string]: unknown; className?: string; style?: CSSProperties; } export function srijikaInputPartStyle(value: unknown): CSSProperties; export function SrijikaAvatar(props: VisualProps): ReactNode; export function SrijikaBadge(props: VisualProps): ReactNode; export function SrijikaChart(props: VisualProps): ReactNode; export function SrijikaDivider(props: VisualProps): ReactNode; export function SrijikaIcon(props: VisualProps): ReactNode; export function SrijikaProgress(props: VisualProps): ReactNode; }",
       '',
     ].join('\n'),
     'utf8',
@@ -364,10 +364,10 @@ describe('React TSX code generator', () => {
     expect(first).toContain('show: boolean;');
     expect(first).toContain('props.show ? (');
     expect(first).toContain('onClick={() => props.onSave?.()}');
-    expect(first).toContain('sutra-button--');
+    expect(first).toContain('srijika-button--');
     expect(first).toContain('Save </script> safely');
-    expect(first).not.toContain('data-sutra-node');
-    expect(first).not.toContain('data-sutra-selected');
+    expect(first).not.toContain('data-srijika-node');
+    expect(first).not.toContain('data-srijika-selected');
   });
 
   it('emits syntactically valid TSX', () => {
@@ -393,7 +393,7 @@ describe('React TSX code generator', () => {
       id: eventProp.symbolId,
       provider: 'event',
     };
-    const input = createElementNode('name_input', 'sutra.input', 'Name input', {
+    const input = createElementNode('name_input', 'srijika.input', 'Name input', {
       props: {
         label: literal('Name'),
         hideLabel: literal(true),
@@ -414,9 +414,9 @@ describe('React TSX code generator', () => {
     expect(output).toContain(
       'onChange={(event) => props.onValueChanged?.(event.currentTarget.value)}',
     );
-    expect(output).toContain("import { sutraInputPartStyle } from '@sutra/core-components';");
+    expect(output).toContain("import { srijikaInputPartStyle } from '@srijika/core-components';");
     expect(output).toContain(
-      'style={sutraInputPartStyle({"backgroundColor":"#111827","color":"#f9fafb","borderRadius":12})}',
+      'style={srijikaInputPartStyle({"backgroundColor":"#111827","color":"#f9fafb","borderRadius":12})}',
     );
     expect(output).toContain(
       'aria-label={Boolean(true) ? String("Name") || undefined : undefined}',
@@ -471,7 +471,7 @@ describe('React TSX code generator', () => {
       ]),
     );
 
-    const button = createElementNode('fixed_count_button', 'sutra.button', 'Fixed count', {
+    const button = createElementNode('fixed_count_button', 'srijika.button', 'Fixed count', {
       props: { label: literal('Use five') },
       events: {
         onClick: { kind: 'reference', symbolId: fixedEvent.symbolId, path: [] },
@@ -481,7 +481,7 @@ describe('React TSX code generator', () => {
       },
       slots: {},
     });
-    const input = createElementNode('current_count_input', 'sutra.input', 'Current count', {
+    const input = createElementNode('current_count_input', 'srijika.input', 'Current count', {
       props: { label: literal('Current count') },
       events: {
         onChange: { kind: 'reference', symbolId: currentEvent.symbolId, path: [] },
@@ -541,11 +541,11 @@ describe('React TSX code generator', () => {
       [titleProp.symbolId]: { ...titleProp, id: titleProp.symbolId, provider: 'prop' },
       [cardProp.symbolId]: { ...cardProp, id: cardProp.symbolId, provider: 'prop' },
     };
-    const title = createElementNode('default_title', 'sutra.heading', 'Default title', {
+    const title = createElementNode('default_title', 'srijika.heading', 'Default title', {
       props: { text: { kind: 'reference', symbolId: titleProp.symbolId, path: [] } },
       slots: {},
     });
-    const label = createElementNode('default_label', 'sutra.text', 'Default label', {
+    const label = createElementNode('default_label', 'srijika.text', 'Default label', {
       props: {
         text: { kind: 'reference', symbolId: cardProp.symbolId, path: ['label'] },
       },
@@ -633,7 +633,7 @@ describe('React TSX code generator', () => {
       indexSymbolId: 'repeat_index',
       children: ['select_button'],
     };
-    const button = createElementNode('select_button', 'sutra.button', 'Select item', {
+    const button = createElementNode('select_button', 'srijika.button', 'Select item', {
       props: { label: literal('Select') },
       events: {
         onClick: { kind: 'reference', symbolId: selectEvent.symbolId, path: [] },
@@ -718,7 +718,7 @@ describe('React TSX code generator', () => {
     const document = createBlankDocument('page_responsive_codegen', 'Responsive export');
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
-    root.componentId = 'sutra.grid';
+    root.componentId = 'srijika.grid';
     root.props = {
       columns: literal(4),
       columnsTemplate: literal('repeat(4, minmax(0, 1fr))'),
@@ -742,12 +742,12 @@ describe('React TSX code generator', () => {
     const output = generateTsx(document);
 
     expect(output).toContain(
-      "import { sutraResponsiveStyle, useSutraViewportWidth } from '@sutra/react-renderer';",
+      "import { srijikaResponsiveStyle, useSrijikaViewportWidth } from '@srijika/react-renderer';",
     );
-    expect(output).toContain('const sutraViewportWidth = useSutraViewportWidth();');
-    expect(output).toContain('style={{ ...sutraResponsiveStyle(');
+    expect(output).toContain('const srijikaViewportWidth = useSrijikaViewportWidth();');
+    expect(output).toContain('style={{ ...srijikaResponsiveStyle(');
     expect(output).toContain('"breakpoints":{"tablet"');
-    expect(output).toContain('gridTemplateColumns: sutraResponsiveStyle(');
+    expect(output).toContain('gridTemplateColumns: srijikaResponsiveStyle(');
     expect(output).toContain(
       '.gridTemplateColumns || String("repeat(4, minmax(0, 1fr))") || "repeat(" + Number(4)',
     );
@@ -775,7 +775,7 @@ describe('React TSX code generator', () => {
       valueShape: { kind: 'object', fields: {}, additionalProperties: true },
       required: true,
     };
-    const text = createElementNode('text', 'sutra.text', 'Text', {
+    const text = createElementNode('text', 'srijika.text', 'Text', {
       props: {
         text: literal('Paragraph'),
         style: { kind: 'reference', symbolId: 'prop_text_style', path: [] },
@@ -788,7 +788,7 @@ describe('React TSX code generator', () => {
         },
       },
     });
-    const heading = createElementNode('heading', 'sutra.heading', 'Heading', {
+    const heading = createElementNode('heading', 'srijika.heading', 'Heading', {
       props: { text: literal('Heading'), level: literal(2) },
       slots: {},
     });
@@ -801,12 +801,12 @@ describe('React TSX code generator', () => {
 
     expect(textElement).toContain('margin: 0');
     expect(textElement).toContain('margin: "8px 7px 6px 5px"');
-    expect(textElement).toContain('...sutraStyle(props.textStyle)');
+    expect(textElement).toContain('...srijikaStyle(props.textStyle)');
     expect(textElement.indexOf('margin: 0')).toBeLessThan(
       textElement.indexOf('margin: "8px 7px 6px 5px"'),
     );
     expect(textElement.indexOf('margin: "8px 7px 6px 5px"')).toBeLessThan(
-      textElement.indexOf('...sutraStyle(props.textStyle)'),
+      textElement.indexOf('...srijikaStyle(props.textStyle)'),
     );
     expect(output).toContain('<h2 style={{ ...{ margin: 0 } }}>');
     expectStrictTsxToCompile(output);
@@ -821,8 +821,8 @@ describe('React TSX code generator', () => {
     expect(output).toContain(
       'className={["surface", String(props.containerClass ?? "")].filter(Boolean).join(" ")}',
     );
-    expect(output).toContain("import { sutraStyle } from '@sutra/react-renderer';");
-    expect(output).toContain('...sutraStyle(props.containerStyle)');
+    expect(output).toContain("import { srijikaStyle } from '@srijika/react-renderer';");
+    expect(output).toContain('...srijikaStyle(props.containerStyle)');
     expect(output).toContain('<Fragment key={index}>');
     expect(output).toContain('{item?.["name"]}');
     expectStrictTsxToCompile(output);
@@ -833,7 +833,7 @@ describe('React TSX code generator', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected root element');
 
-    const grid = createElementNode('visual_grid', 'sutra.grid', 'Visual grid', {
+    const grid = createElementNode('visual_grid', 'srijika.grid', 'Visual grid', {
       props: {
         columns: literal(2),
         columnsTemplate: literal('264px minmax(0, 1fr)'),
@@ -844,7 +844,7 @@ describe('React TSX code generator', () => {
       },
     });
     const nodes = [
-      createElementNode('icon', 'sutra.icon', 'Overview icon', {
+      createElementNode('icon', 'srijika.icon', 'Overview icon', {
         props: {
           name: literal('home'),
           label: literal('Overview'),
@@ -853,7 +853,7 @@ describe('React TSX code generator', () => {
         },
         slots: {},
       }),
-      createElementNode('divider', 'sutra.divider', 'Divider', {
+      createElementNode('divider', 'srijika.divider', 'Divider', {
         props: {
           orientation: literal('horizontal'),
           color: literal('#27313b'),
@@ -861,7 +861,7 @@ describe('React TSX code generator', () => {
         },
         slots: {},
       }),
-      createElementNode('progress', 'sutra.progress', 'Storage progress', {
+      createElementNode('progress', 'srijika.progress', 'Storage progress', {
         props: {
           value: literal(68),
           max: literal(100),
@@ -871,11 +871,11 @@ describe('React TSX code generator', () => {
         },
         slots: {},
       }),
-      createElementNode('badge', 'sutra.badge', 'Status badge', {
+      createElementNode('badge', 'srijika.badge', 'Status badge', {
         props: { label: literal('On track'), tone: literal('success'), dot: literal(true) },
         slots: {},
       }),
-      createElementNode('avatar', 'sutra.avatar', 'Alex avatar', {
+      createElementNode('avatar', 'srijika.avatar', 'Alex avatar', {
         props: {
           src: literal(''),
           alt: literal('Alex Johnson'),
@@ -885,7 +885,7 @@ describe('React TSX code generator', () => {
         },
         slots: {},
       }),
-      createElementNode('chart', 'sutra.chart', 'Activity chart', {
+      createElementNode('chart', 'srijika.chart', 'Activity chart', {
         props: {
           chartType: literal('line'),
           curve: literal('smooth'),
@@ -911,20 +911,20 @@ describe('React TSX code generator', () => {
     const output = generateTsx(document);
 
     expect(output).toContain(
-      "import { SutraAvatar, SutraBadge, SutraChart, SutraDivider, SutraIcon, SutraProgress } from '@sutra/core-components';",
+      "import { SrijikaAvatar, SrijikaBadge, SrijikaChart, SrijikaDivider, SrijikaIcon, SrijikaProgress } from '@srijika/core-components';",
     );
     expect(output).toContain('gridTemplateColumns: String("") || String("264px minmax(0, 1fr)")');
     expect(output).toContain('gridTemplateRows: String("") || String("77px minmax(0, 1fr)")');
-    expect(output).toContain('<SutraIcon');
+    expect(output).toContain('<SrijikaIcon');
     expect(output).toContain('name={"home"}');
-    expect(output).toContain('<SutraDivider');
-    expect(output).toContain('<SutraProgress');
+    expect(output).toContain('<SrijikaDivider');
+    expect(output).toContain('<SrijikaProgress');
     expect(output).toContain('value={68}');
-    expect(output).toContain('<SutraBadge');
+    expect(output).toContain('<SrijikaBadge');
     expect(output).toContain('tone={"success"}');
-    expect(output).toContain('<SutraAvatar');
+    expect(output).toContain('<SrijikaAvatar');
     expect(output).toContain('fallback={"AJ"}');
-    expect(output).toContain('<SutraChart');
+    expect(output).toContain('<SrijikaChart');
     expect(output).toContain('curve={"smooth"}');
     expect(output).toContain('data={[[30,48,39,69],[14,27,21,42]]}');
     expectStrictTsxToCompile(output);

@@ -1,0 +1,104 @@
+:root {
+  --sl-color-accent-low: #262052;
+  --sl-color-accent: #8b7cff;
+  --sl-color-accent-high: #ded9ff;
+  --sl-color-white: #f7f6ff;
+  --sl-color-gray-1: #e5e2ef;
+  --sl-color-gray-2: #b8b3c6;
+  --sl-color-gray-3: #827d91;
+  --sl-color-gray-4: #514d5c;
+  --sl-color-gray-5: #2c2933;
+  --sl-color-gray-6: #1b191f;
+  --sl-color-black: #0e0d11;
+  --sl-font: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+:root[data-theme='light'] {
+  --sl-color-accent-low: #e9e5ff;
+  --sl-color-accent: #5d49e8;
+  --sl-color-accent-high: #251c63;
+  --sl-color-white: #17141f;
+  --sl-color-gray-1: #2d2938;
+  --sl-color-gray-2: #514b60;
+  --sl-color-gray-3: #716a7f;
+  --sl-color-gray-4: #a29cab;
+  --sl-color-gray-5: #d9d5df;
+  --sl-color-gray-6: #eeecf2;
+  --sl-color-gray-7: #f7f6f9;
+  --sl-color-black: #ffffff;
+}
+
+body {
+  letter-spacing: -0.01em;
+}
+
+.private-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  margin: 1rem var(--sl-content-pad-x) 0;
+  border: 1px solid rgba(139, 124, 255, 0.2);
+  border-radius: 0.55rem;
+  background: linear-gradient(90deg, rgba(139, 124, 255, 0.09), rgba(244, 197, 96, 0.08));
+  color: var(--sl-color-gray-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 50rem) {
+  .private-ribbon {
+    justify-content: flex-start;
+    margin-top: 0.75rem;
+    padding-inline: 0.75rem;
+    font-size: 0.65rem;
+  }
+}
+
+.private-ribbon__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #f4c560;
+  box-shadow: 0 0 0 0.2rem rgba(244, 197, 96, 0.1);
+}
+
+header.header {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+  background: color-mix(in srgb, var(--sl-color-black) 90%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.site-title {
+  font-weight: 760;
+  letter-spacing: -0.03em;
+}
+
+.content-panel + .content-panel,
+.sl-markdown-content > :is(h2, h3) {
+  scroll-margin-top: 8rem;
+}
+
+.sl-markdown-content h2 {
+  border-top: 1px solid color-mix(in srgb, var(--sl-color-gray-5) 60%, transparent);
+  padding-top: 2rem;
+}
+
+.sl-markdown-content table {
+  font-size: 0.9rem;
+}
+
+.sl-markdown-content code:not(:where(.expressive-code *)) {
+  border: 1px solid color-mix(in srgb, var(--sl-color-accent) 26%, transparent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--sl-color-accent-low) 72%, transparent);
+  padding: 0.12em 0.35em;
+}
+
+.sidebar-pane {
+  border-inline-end-color: rgba(255, 255, 255, 0.07);
+}

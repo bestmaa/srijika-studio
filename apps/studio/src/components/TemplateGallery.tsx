@@ -76,7 +76,7 @@ export function TemplateGallery({ open, onClose, onUseBuiltIn, onUseSaved }: Tem
           <div className="template-gallery-section-heading">
             <div>
               <h3>Built-in templates</h3>
-              <p>Real Sutra AST examples with editable hierarchy, props, events and styles.</p>
+              <p>Real Srijika AST examples with editable hierarchy, props, events and styles.</p>
             </div>
             <span>{builtIns.length} templates</span>
           </div>

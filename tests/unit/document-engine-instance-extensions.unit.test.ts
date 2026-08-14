@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createInstanceEventSpec, literal } from '@sutra/contracts';
-import { applyCommand } from '@sutra/document-engine';
+import { createInstanceEventSpec, literal } from '@srijika/contracts';
+import { applyCommand } from '@srijika/document-engine';
 
 import { createEngineDocument } from '../helpers/documents';
 

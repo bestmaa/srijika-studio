@@ -7,19 +7,19 @@ import {
   type SyntheticEvent,
 } from 'react';
 
-import type { ComponentRegistry } from '@sutra/component-registry';
-import type { ElementNode, UiDocument, UiNode } from '@sutra/contracts';
-import type { CoreComponentRenderer } from '@sutra/core-components';
+import type { ComponentRegistry } from '@srijika/component-registry';
+import type { ElementNode, UiDocument, UiNode } from '@srijika/contracts';
+import type { CoreComponentRenderer } from '@srijika/core-components';
 
 import { evaluateExpression, type EvaluationScope } from './expressions';
 import {
-  SUTRA_DEFAULT_VIEWPORT_WIDTH,
-  sutraResponsiveStyle,
-  sutraStyle,
-  useSutraViewportWidth,
+  SRIJIKA_DEFAULT_VIEWPORT_WIDTH,
+  srijikaResponsiveStyle,
+  srijikaStyle,
+  useSrijikaViewportWidth,
 } from './styles';
 
-export interface SutraRendererProps {
+export interface SrijikaRendererProps {
   document: UiDocument;
   registry: ComponentRegistry<CoreComponentRenderer>;
   mode: 'edit' | 'preview';
@@ -33,7 +33,7 @@ export interface SutraRendererProps {
   viewportWidth?: number;
 }
 
-interface NodeRendererProps extends SutraRendererProps {
+interface NodeRendererProps extends SrijikaRendererProps {
   nodeId: string;
   scope: EvaluationScope;
 }
@@ -124,17 +124,21 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
 
   const editStructure = (label: string, content: ReactNode, hasContent: boolean): ReactNode => (
     <div
-      className="sutra-structure-node"
-      data-sutra-node={node.id}
-      data-sutra-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
-      data-sutra-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
+      className="srijika-structure-node"
+      data-srijika-node={node.id}
+      data-srijika-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
+      data-srijika-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
       style={{ display: 'contents' }}
       tabIndex={-1}
       onClick={selectStructuralNode}
     >
-      <span className="sutra-structure-label">{label}</span>
-      <div className="sutra-structure-content" style={{ display: 'contents' }}>
-        {hasContent ? content : <span className="sutra-empty-structure">Drop components here</span>}
+      <span className="srijika-structure-label">{label}</span>
+      <div className="srijika-structure-content" style={{ display: 'contents' }}>
+        {hasContent ? (
+          content
+        ) : (
+          <span className="srijika-empty-structure">Drop components here</span>
+        )}
       </div>
     </div>
   );
@@ -145,10 +149,10 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
     );
     return props.mode === 'edit' ? (
       <span
-        className="sutra-inline-node"
-        data-sutra-node={node.id}
-        data-sutra-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
-        data-sutra-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
+        className="srijika-inline-node"
+        data-srijika-node={node.id}
+        data-srijika-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
+        data-srijika-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
         tabIndex={-1}
         onClick={selectStructuralNode}
       >
@@ -244,10 +248,10 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
   if (!definition) {
     return props.mode === 'edit' ? (
       <div
-        className="sutra-missing-component"
-        data-sutra-node={node.id}
-        data-sutra-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
-        data-sutra-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
+        className="srijika-missing-component"
+        data-srijika-node={node.id}
+        data-srijika-selected={props.selectedNodeId === node.id ? 'true' : 'false'}
+        data-srijika-drop-target={props.dropTargetNodeId === node.id ? 'true' : 'false'}
         tabIndex={-1}
         onClick={selectStructuralNode}
       >
@@ -320,8 +324,8 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
     typeof values['className'] === 'string' ? values['className'].trim() : '';
   const className = [staticClassName, dynamicClassName].filter(Boolean).join(' ');
   const style = {
-    ...sutraResponsiveStyle(node.style, props.viewportWidth ?? SUTRA_DEFAULT_VIEWPORT_WIDTH),
-    ...sutraStyle(values['style']),
+    ...srijikaResponsiveStyle(node.style, props.viewportWidth ?? SRIJIKA_DEFAULT_VIEWPORT_WIDTH),
+    ...srijikaStyle(values['style']),
   };
   const addedAttributes = instanceAttributes(node, values, events);
 
@@ -337,11 +341,11 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
     editorAttributes:
       props.mode === 'edit'
         ? {
-            'data-sutra-node': node.id,
-            'data-sutra-component': node.componentId,
-            'data-sutra-selected': props.selectedNodeId === node.id ? 'true' : 'false',
-            'data-sutra-drop-target': props.dropTargetNodeId === node.id ? 'true' : 'false',
-            'data-sutra-empty-container':
+            'data-srijika-node': node.id,
+            'data-srijika-component': node.componentId,
+            'data-srijika-selected': props.selectedNodeId === node.id ? 'true' : 'false',
+            'data-srijika-drop-target': props.dropTargetNodeId === node.id ? 'true' : 'false',
+            'data-srijika-empty-container':
               node.slots['children'] && node.slots['children'].length === 0 ? 'true' : 'false',
             tabIndex: -1,
             onClick: onEditorClick,
@@ -350,9 +354,9 @@ function NodeRenderer(props: NodeRendererProps): ReactNode {
   });
 }
 
-export function SutraRenderer(props: SutraRendererProps): ReactNode {
+export function SrijikaRenderer(props: SrijikaRendererProps): ReactNode {
   const scope: EvaluationScope = { symbols: props.symbols ?? {} };
-  const viewportWidth = useSutraViewportWidth(props.viewportWidth);
+  const viewportWidth = useSrijikaViewportWidth(props.viewportWidth);
   return (
     <NodeRenderer
       {...props}

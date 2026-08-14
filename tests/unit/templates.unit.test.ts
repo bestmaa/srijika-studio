@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { validateUiDocument } from '@sutra/contracts';
-import { assertValidDocumentGraph } from '@sutra/document-engine';
-import { generateTsx } from '@sutra/react-codegen';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { validateUiDocument } from '@srijika/contracts';
+import { assertValidDocumentGraph } from '@srijika/document-engine';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
 import {
@@ -15,7 +15,7 @@ import {
 
 function memoryStorage(initial?: string): Pick<Storage, 'getItem' | 'setItem'> {
   const values = new Map<string, string>();
-  if (initial !== undefined) values.set('sutra-studio.custom-templates.v1', initial);
+  if (initial !== undefined) values.set('srijika-studio.custom-templates.v1', initial);
   return {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value),
@@ -53,13 +53,13 @@ describe('Studio template catalog', () => {
     });
     expect(document.nodes['yt_video_grid']).toMatchObject({
       kind: 'element',
-      componentId: 'sutra.grid',
+      componentId: 'srijika.grid',
     });
     expect(Object.values(document.nodes).some((node) => node.kind === 'if')).toBe(true);
     expect(Object.values(document.nodes).some((node) => node.kind === 'repeat')).toBe(true);
     expect(
       Object.values(document.nodes).filter(
-        (node) => node.kind === 'element' && node.componentId === 'sutra.image',
+        (node) => node.kind === 'element' && node.componentId === 'srijika.image',
       ),
     ).toHaveLength(10);
     expect(generateTsx(document)).toContain('props.onOpenVideo?.("video-1")');
@@ -72,7 +72,7 @@ describe('Studio template catalog', () => {
 
     expect(document.nodes['orbit_shell']).toMatchObject({
       kind: 'element',
-      componentId: 'sutra.grid',
+      componentId: 'srijika.grid',
       props: {
         columnsTemplate: { kind: 'literal', value: '264px minmax(0, 1fr)' },
       },
@@ -87,7 +87,7 @@ describe('Studio template catalog', () => {
     });
     expect(document.nodes['orbit_activity_chart']).toMatchObject({
       kind: 'element',
-      componentId: 'sutra.chart',
+      componentId: 'srijika.chart',
       props: {
         chartType: { kind: 'literal', value: 'line' },
         curve: { kind: 'literal', value: 'smooth' },
@@ -95,7 +95,7 @@ describe('Studio template catalog', () => {
     });
     expect(document.nodes['orbit_task_donut']).toMatchObject({
       kind: 'element',
-      componentId: 'sutra.chart',
+      componentId: 'srijika.chart',
       props: { chartType: { kind: 'literal', value: 'donut' } },
     });
 
@@ -105,12 +105,12 @@ describe('Studio template catalog', () => {
       ),
     );
     for (const componentId of [
-      'sutra.icon',
-      'sutra.chart',
-      'sutra.progress',
-      'sutra.badge',
-      'sutra.avatar',
-      'sutra.divider',
+      'srijika.icon',
+      'srijika.chart',
+      'srijika.progress',
+      'srijika.badge',
+      'srijika.avatar',
+      'srijika.divider',
     ]) {
       expect(componentIds.has(componentId), componentId).toBe(true);
     }
@@ -119,7 +119,7 @@ describe('Studio template catalog', () => {
       events: { onClick: { kind: 'reference', symbolId: 'event_onOpenReport' } },
     });
     expect(Object.values(document.nodes).filter((node) => node.kind === 'if')).toHaveLength(2);
-    expect(generateTsx(document)).toContain('SutraChart');
+    expect(generateTsx(document)).toContain('SrijikaChart');
   });
 
   it('creates independent documents and persists custom template snapshots safely', () => {

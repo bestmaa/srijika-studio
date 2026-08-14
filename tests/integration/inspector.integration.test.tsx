@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { SutraRenderer } from '@sutra/react-renderer';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { Hierarchy } from '../../apps/studio/src/components/Hierarchy';
 import { Inspector } from '../../apps/studio/src/components/Inspector';
@@ -12,7 +12,7 @@ import { defaultSymbolValues, useStudioStore } from '../../apps/studio/src/store
 function LivePreview() {
   const document = useStudioStore((state) => state.document);
   return (
-    <SutraRenderer
+    <SrijikaRenderer
       document={document}
       registry={componentRegistry}
       mode="preview"
@@ -109,7 +109,7 @@ describe('hierarchy and schema-driven Inspector', () => {
 
     let inputId: string | null = null;
     act(() => {
-      inputId = useStudioStore.getState().addComponent('sutra.input');
+      inputId = useStudioStore.getState().addComponent('srijika.input');
     });
     if (!inputId) throw new Error('Expected Input to be created');
     actionSelect = screen.getByLabelText('On change action');

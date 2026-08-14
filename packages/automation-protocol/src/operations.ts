@@ -1,4 +1,4 @@
-import type { ComponentRegistry } from '@sutra/component-registry';
+import type { ComponentRegistry } from '@srijika/component-registry';
 import type {
   ElementNode,
   RepeatNode,
@@ -7,8 +7,8 @@ import type {
   TextNode,
   UiDocument,
   UiNode,
-} from '@sutra/contracts';
-import { applyCommand, type DocumentCommand } from '@sutra/document-engine';
+} from '@srijika/contracts';
+import { applyCommand, type DocumentCommand } from '@srijika/document-engine';
 
 import { hasAutomationErrors, validateAutomationDocument } from './diagnostics';
 import type { AutomationDiagnostic } from './diagnostics';
@@ -22,7 +22,7 @@ import type {
   InsertIfOperation,
   InsertRepeatOperation,
   InsertTextOperation,
-  SutraOperation,
+  SrijikaOperation,
 } from './types';
 import { DOCUMENT_FORMAT_VERSION } from './version';
 
@@ -40,7 +40,7 @@ function failure(
   };
 }
 
-function operationKey(operation: SutraOperation, index: number): string {
+function operationKey(operation: SrijikaOperation, index: number): string {
   return operation.operationId ?? `operation_${index}`;
 }
 
@@ -210,7 +210,7 @@ function applyEngineCommand(document: UiDocument, command: DocumentCommand): UiD
 export function applyOperations<TImplementation>(
   document: UiDocument,
   expectedRevision: number,
-  operations: readonly SutraOperation[],
+  operations: readonly SrijikaOperation[],
   registry: ComponentRegistry<TImplementation>,
   idFactory: AutomationIdFactory,
 ): ApplyOperationsResult {
@@ -517,7 +517,7 @@ export function applyOperations<TImplementation>(
           ? 'graph-validation-failed'
           : 'semantic-validation-failed',
         severity: 'error',
-        message: 'The atomic batch produced an invalid Sutra document and was not committed',
+        message: 'The atomic batch produced an invalid Srijika document and was not committed',
       },
       ...diagnostics,
     ]);

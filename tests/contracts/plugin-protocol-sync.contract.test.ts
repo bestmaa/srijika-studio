@@ -7,7 +7,7 @@ import {
   CAPABILITIES,
   DOCUMENT_FORMAT_VERSION,
   PROTOCOL_VERSION,
-  SUTRA_TOOL_NAMES,
+  SRIJIKA_TOOL_NAMES,
   TOOL_VERSION,
 } from '../../packages/automation-protocol/src/index';
 
@@ -23,7 +23,7 @@ interface PluginProtocolManifest {
 describe('installed plugin protocol metadata', () => {
   it('stays synchronized with the canonical automation package', () => {
     const manifest = JSON.parse(
-      readFileSync(resolve('plugins/sutra-studio/assets/protocol-manifest.json'), 'utf8'),
+      readFileSync(resolve('plugins/srijika-studio/assets/protocol-manifest.json'), 'utf8'),
     ) as PluginProtocolManifest;
 
     expect(manifest.protocolVersion).toBe(PROTOCOL_VERSION);
@@ -31,7 +31,7 @@ describe('installed plugin protocol metadata', () => {
     expect(manifest.documentFormatVersions).toEqual([DOCUMENT_FORMAT_VERSION]);
     expect(manifest.features).toMatchObject(CAPABILITIES.features);
     expect(manifest.canonicalTools).toEqual(
-      Object.values(SUTRA_TOOL_NAMES).filter(
+      Object.values(SRIJIKA_TOOL_NAMES).filter(
         (toolName) => !CAPABILITIES.deprecated.toolNames.includes(toolName as never),
       ),
     );

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { SutraRenderer } from '@sutra/react-renderer';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
 import { studioTemplateById } from '../../apps/studio/src/lib/templates';
@@ -13,7 +13,7 @@ describe('Orbit Analytics template', () => {
     const document = template!.createDocument('page_orbit_render');
 
     render(
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         mode="preview"
         registry={componentRegistry}

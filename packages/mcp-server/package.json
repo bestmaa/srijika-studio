@@ -1,5 +1,5 @@
 {
-  "name": "@sutra/mcp-server",
+  "name": "@srijika/mcp-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "bin": {
-    "sutra-mcp": "./dist/cli.mjs"
+    "srijika-mcp": "./dist/cli.mjs"
   },
   "scripts": {
     "build": "node ./scripts/build.mjs",
@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@sutra/automation-protocol": "workspace:*",
+    "@srijika/architecture-rules": "workspace:*",
+    "@srijika/automation-protocol": "workspace:*",
     "zod": "4.4.3"
   },
   "devDependencies": {

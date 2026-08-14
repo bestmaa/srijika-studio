@@ -7,7 +7,7 @@ use studio_bridge::{
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 
-pub const DESCRIPTOR_OVERRIDE_ENV: &str = "SUTRA_STUDIO_BRIDGE_DESCRIPTOR";
+pub const DESCRIPTOR_OVERRIDE_ENV: &str = "SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR";
 
 struct TauriFrontendSink {
     app: AppHandle,

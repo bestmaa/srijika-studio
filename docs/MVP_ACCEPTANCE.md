@@ -1,6 +1,6 @@
 # UI MVP acceptance checklist
 
-This checklist defines the first Sutra Studio milestone. “Done” means implemented and covered by the repository's automated checks; it does not pull later API, AI, or release-platform work into the UI MVP.
+This checklist defines the first Srijika Studio milestone. “Done” means implemented and covered by the repository's automated checks; it does not pull later API, AI, or release-platform work into the UI MVP.
 
 | Capability                     | Status               | Acceptance evidence                                                                                                        |
 | ------------------------------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -34,7 +34,7 @@ After the packages in [Development setup](DEVELOPMENT.md) are installed:
 ```bash
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
-cargo check -p sutra-studio --locked
+cargo check -p srijika-studio --locked
 pnpm tauri dev
 ```
 

@@ -1,4 +1,4 @@
-import type { UiDocument } from '@sutra/contracts';
+import type { UiDocument } from '@srijika/contracts';
 
 import {
   applyCommand,

@@ -20,7 +20,7 @@ test('@orbit recreates the complete Orbit page at its exact source viewport', as
   await page.goto('/');
   const document = loadOrbitFidelityDocument();
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'orbit-fidelity.sutra.json',
+    name: 'orbit-fidelity.srijika.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(document)),
   });
@@ -33,13 +33,15 @@ test('@orbit recreates the complete Orbit page at its exact source viewport', as
   const iframe = page.getByTestId('design-iframe');
   await expect(iframe).toHaveAttribute('width', '1586');
   await expect(iframe).toHaveAttribute('height', '992');
-  const frame = page.frameLocator('iframe[title="Sutra DOM design surface"]');
-  const surface = frame.locator('.sutra-edit-surface');
+  const frame = page.frameLocator('iframe[title="Srijika DOM design surface"]');
+  const surface = frame.locator('.srijika-edit-surface');
   await expect(surface).toBeVisible();
-  await expect.poll(() => frame.locator('[data-sutra-node="stat_card_template"]').count()).toBe(4);
+  await expect
+    .poll(() => frame.locator('[data-srijika-node="stat_card_template"]').count())
+    .toBe(4);
 
   await surface.evaluate(async (element) => {
-    element.classList.add('sutra-capture-mode');
+    element.classList.add('srijika-capture-mode');
     await Promise.all(
       [...element.querySelectorAll('img')]
         .filter((image) => !image.complete)
@@ -61,7 +63,7 @@ test('@orbit recreates the complete Orbit page at its exact source viewport', as
 
   const rect = (nodeId: string): Promise<Rect> =>
     frame
-      .locator(`[data-sutra-node="${nodeId}"]`)
+      .locator(`[data-srijika-node="${nodeId}"]`)
       .first()
       .evaluate((element) => {
         const value = element.getBoundingClientRect();
@@ -78,7 +80,7 @@ test('@orbit recreates the complete Orbit page at its exact source viewport', as
   await expect(rect('sidebar')).resolves.toMatchObject({ x: 0, width: 264, height: 992 });
   await expect(rect('top_header')).resolves.toMatchObject({ x: 264, y: 0, height: 77 });
   const statRects = await frame
-    .locator('[data-sutra-node="stat_card_template"]')
+    .locator('[data-srijika-node="stat_card_template"]')
     .evaluateAll((elements) =>
       elements.map((element) => {
         const value = element.getBoundingClientRect();

@@ -26,8 +26,8 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { ElementNode, UiDocument, UiNode } from '@sutra/contracts';
-import { childLists, deriveParentIndex } from '@sutra/document-engine';
+import type { ElementNode, UiDocument, UiNode } from '@srijika/contracts';
+import { childLists, deriveParentIndex } from '@srijika/document-engine';
 
 import { componentRegistry } from '../lib/registry';
 import { useStudioStore } from '../store/studio-store';
@@ -57,29 +57,29 @@ const estimatedMenuWidth = 288;
 const estimatedMenuHeight = 300;
 
 const quickContentByComponent: Readonly<Record<string, QuickContentDefinition>> = {
-  'sutra.text': { propName: 'text', label: 'Text' },
-  'sutra.heading': { propName: 'text', label: 'Heading text' },
-  'sutra.button': { propName: 'label', label: 'Button label' },
-  'sutra.input': { propName: 'label', label: 'Input label' },
-  'sutra.badge': { propName: 'label', label: 'Badge label' },
-  'sutra.image': { propName: 'alt', label: 'Alternative text' },
-  'sutra.avatar': { propName: 'alt', label: 'Alternative text' },
-  'sutra.icon': { propName: 'label', label: 'Accessible label' },
+  'srijika.text': { propName: 'text', label: 'Text' },
+  'srijika.heading': { propName: 'text', label: 'Heading text' },
+  'srijika.button': { propName: 'label', label: 'Button label' },
+  'srijika.input': { propName: 'label', label: 'Input label' },
+  'srijika.badge': { propName: 'label', label: 'Badge label' },
+  'srijika.image': { propName: 'alt', label: 'Alternative text' },
+  'srijika.avatar': { propName: 'alt', label: 'Alternative text' },
+  'srijika.icon': { propName: 'label', label: 'Accessible label' },
 };
 
 const typographyComponents = new Set([
-  'sutra.text',
-  'sutra.heading',
-  'sutra.button',
-  'sutra.input',
-  'sutra.badge',
+  'srijika.text',
+  'srijika.heading',
+  'srijika.button',
+  'srijika.input',
+  'srijika.badge',
 ]);
 
-const flexLayoutComponents = new Set(['sutra.page', 'sutra.container', 'sutra.stack']);
+const flexLayoutComponents = new Set(['srijika.page', 'srijika.container', 'srijika.stack']);
 
 function exactNodeElements(surfaceRoot: HTMLElement, nodeId: string): HTMLElement[] {
-  return [...surfaceRoot.querySelectorAll<HTMLElement>('[data-sutra-node]')].filter(
-    (element) => element.getAttribute('data-sutra-node') === nodeId,
+  return [...surfaceRoot.querySelectorAll<HTMLElement>('[data-srijika-node]')].filter(
+    (element) => element.getAttribute('data-srijika-node') === nodeId,
   );
 }
 
@@ -103,7 +103,7 @@ export function selectedNodeBounds(
   preferredAnchor?: HTMLElement | null,
 ): DOMRect | null {
   const preferredIsCurrent =
-    preferredAnchor?.isConnected && preferredAnchor.getAttribute('data-sutra-node') === nodeId;
+    preferredAnchor?.isConnected && preferredAnchor.getAttribute('data-srijika-node') === nodeId;
   const candidates = exactNodeElements(surfaceRoot, nodeId);
   const ordered = preferredIsCurrent
     ? [preferredAnchor, ...candidates.filter((element) => element !== preferredAnchor)]
@@ -118,7 +118,7 @@ export function selectedNodeBounds(
   // the toolbar to the visible branch/template rendered below that wrapper.
   for (const element of ordered) {
     const descendantRects = [
-      ...element.querySelectorAll<HTMLElement>('[data-sutra-node], .sutra-empty-structure'),
+      ...element.querySelectorAll<HTMLElement>('[data-srijika-node], .srijika-empty-structure'),
     ].map((descendant) => descendant.getBoundingClientRect());
     const union = unionRects(descendantRects);
     if (union) return union;
@@ -164,7 +164,7 @@ function visibleNodeBounds(surfaceRoot: HTMLElement, nodeId: string): DOMRect[] 
       return;
     }
     const descendantBounds = [
-      ...element.querySelectorAll<HTMLElement>('[data-sutra-node], .sutra-empty-structure'),
+      ...element.querySelectorAll<HTMLElement>('[data-srijika-node], .srijika-empty-structure'),
     ].map((descendant) => descendant.getBoundingClientRect());
     const union = unionRects(descendantBounds);
     if (union) bounds.push(union);
@@ -343,7 +343,7 @@ function ToolbarIconButton({
 }) {
   return (
     <button
-      className="sutra-selection-option-button"
+      className="srijika-selection-option-button"
       type="button"
       aria-label={label}
       aria-pressed={active}
@@ -461,7 +461,7 @@ export function CanvasSelectionToolbar({
     ownerWindow?.requestAnimationFrame(() => {
       const anchor =
         preferredAnchor?.isConnected &&
-        preferredAnchor.getAttribute('data-sutra-node') === node.id
+        preferredAnchor.getAttribute('data-srijika-node') === node.id
           ? preferredAnchor
           : exactNodeElements(surfaceRoot, node.id)[0];
       anchor?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
@@ -477,10 +477,10 @@ export function CanvasSelectionToolbar({
   return (
     <div
       ref={toolbarRef}
-      className={`sutra-selection-toolbar${activeDrag ? ' is-dragging' : ''}`}
+      className={`srijika-selection-toolbar${activeDrag ? ' is-dragging' : ''}`}
       data-menu-align={position.menuAlign}
       data-menu-placement={position.menuPlacement}
-      data-sutra-editor-ui="true"
+      data-srijika-editor-ui="true"
       data-testid="canvas-selection-toolbar"
       style={{ left: position.left, top: position.top }}
       role="toolbar"
@@ -489,7 +489,7 @@ export function CanvasSelectionToolbar({
       onPointerDownCapture={(event) => {
         const target = event.target as Element;
         const button = target.closest('button');
-        if (button && !button.matches('[data-sutra-move-handle="true"]')) {
+        if (button && !button.matches('[data-srijika-move-handle="true"]')) {
           // Keep compact iframe toolbars from scrolling the outer design
           // viewport merely because a mouse click focuses a button.
           event.preventDefault();
@@ -497,17 +497,17 @@ export function CanvasSelectionToolbar({
       }}
       onClick={(event) => event.stopPropagation()}
     >
-      <span className="sutra-selection-toolbar-name" title={node.name}>
+      <span className="srijika-selection-toolbar-name" title={node.name}>
         {node.name}
       </span>
       <button
-        className="sutra-selection-toolbar-button sutra-selection-move-handle"
+        className="srijika-selection-toolbar-button srijika-selection-move-handle"
         type="button"
         aria-label={`Move ${node.name}`}
         title={isRoot ? 'The Page root cannot be moved' : 'Drag to move or reorder'}
         disabled={isRoot}
-        data-sutra-move-handle={isRoot ? undefined : 'true'}
-        data-sutra-toolbar-node={node.id}
+        data-srijika-move-handle={isRoot ? undefined : 'true'}
+        data-srijika-toolbar-node={node.id}
         onClick={() => {
           if (!isRoot)
             showStatus(`Drag the Move handle to place ${node.name} anywhere in the page`);
@@ -516,7 +516,7 @@ export function CanvasSelectionToolbar({
         <GripVertical size={15} />
       </button>
       <div
-        className="sutra-selection-direction-group"
+        className="srijika-selection-direction-group"
         role="group"
         aria-label={`Move ${node.name} by direction`}
       >
@@ -536,7 +536,7 @@ export function CanvasSelectionToolbar({
           return (
             <button
               key={direction}
-              className="sutra-selection-toolbar-button sutra-selection-direction-button"
+              className="srijika-selection-toolbar-button srijika-selection-direction-button"
               type="button"
               aria-label={label}
               title={target ? label : `No sibling ${direction} of ${node.name}`}
@@ -550,18 +550,18 @@ export function CanvasSelectionToolbar({
       </div>
       <button
         ref={optionsButtonRef}
-        className={`sutra-selection-toolbar-button${optionsOpen ? ' is-active' : ''}`}
+        className={`srijika-selection-toolbar-button${optionsOpen ? ' is-active' : ''}`}
         type="button"
         aria-label={`Edit ${node.name}`}
         aria-expanded={optionsOpen}
-        aria-controls={`sutra-options-${node.id}`}
+        aria-controls={`srijika-options-${node.id}`}
         title="Edit and quick options"
         onClick={() => setOptionsNodeId((current) => (current === node.id ? null : node.id))}
       >
         <SlidersHorizontal size={15} />
       </button>
       <button
-        className="sutra-selection-toolbar-button is-danger"
+        className="srijika-selection-toolbar-button is-danger"
         type="button"
         aria-label={`Delete ${node.name}`}
         title={isRoot ? 'The Page root cannot be deleted' : 'Delete immediately'}
@@ -576,12 +576,12 @@ export function CanvasSelectionToolbar({
 
       {optionsOpen && (
         <div
-          className="sutra-selection-options"
-          id={`sutra-options-${node.id}`}
+          className="srijika-selection-options"
+          id={`srijika-options-${node.id}`}
           role="dialog"
           aria-label={`Edit ${node.name}`}
         >
-          <div className="sutra-selection-options-heading">
+          <div className="srijika-selection-options-heading">
             <div>
               <span>{displayName(node)}</span>
               <strong>Quick edit</strong>
@@ -600,7 +600,7 @@ export function CanvasSelectionToolbar({
           </div>
 
           {!isRoot && (
-            <label className="sutra-selection-field">
+            <label className="srijika-selection-field">
               <span>Layer name</span>
               <input
                 key={node.name}
@@ -624,7 +624,7 @@ export function CanvasSelectionToolbar({
           )}
 
           {node.kind === 'element' && quickContent && (
-            <label className="sutra-selection-field">
+            <label className="srijika-selection-field">
               <span>{quickContent.label}</span>
               <input
                 value={quickText ?? ''}
@@ -641,9 +641,9 @@ export function CanvasSelectionToolbar({
           )}
 
           {node.kind === 'element' && supportsTypography && style && (
-            <div className="sutra-selection-option-group">
+            <div className="srijika-selection-option-group">
               <span>Text format</span>
-              <div className="sutra-selection-option-row">
+              <div className="srijika-selection-option-row">
                 <ToolbarIconButton
                   label="Bold"
                   active={(style.fontWeight ?? 400) >= 600}
@@ -679,7 +679,7 @@ export function CanvasSelectionToolbar({
                 >
                   <Underline size={15} />
                 </ToolbarIconButton>
-                <span className="sutra-selection-option-divider" />
+                <span className="srijika-selection-option-divider" />
                 <ToolbarIconButton
                   label="Align left"
                   active={(style.textAlign ?? 'left') === 'left'}
@@ -706,9 +706,9 @@ export function CanvasSelectionToolbar({
           )}
 
           {node.kind === 'element' && supportsFlexLayout && style && (
-            <div className="sutra-selection-option-group">
+            <div className="srijika-selection-option-group">
               <span>Layout direction</span>
-              <div className="sutra-selection-option-row is-wide">
+              <div className="srijika-selection-option-row is-wide">
                 <button
                   type="button"
                   className={style.flexDirection === 'row' ? 'is-active' : ''}

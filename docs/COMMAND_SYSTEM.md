@@ -1,6 +1,8 @@
 # Command and history system
 
-Every persisted editor change is represented by a serializable `DocumentCommand`. The Studio dispatches it through a versioned envelope:
+> This document describes the retained `UiDocument` command engine used by legacy component tests, migrations, and derived-IR tooling. The active code-first Studio does not use these commands for authoring. It edits `.ui.tsx`, recompiles, and replaces the derived read model only after successful validation.
+
+Every legacy IR change is represented by a serializable `DocumentCommand` and dispatched through a versioned envelope:
 
 ```ts
 interface CommandEnvelope {
@@ -55,8 +57,8 @@ Undo/redo is editor session history; it is not persisted into the UI document. I
 
 Selection, hover, panel sizes, viewport preset, drop target, and `activeIfBranches` do not use document commands because they must not alter generated application behavior. Choosing the false authoring branch changes only session state; adding a child to that branch is a normal persisted command.
 
-Project save is explicit in the MVP. The preview's localStorage snapshot is a browser synchronization cache, not an autosave replacement for a `.sutra.json` project file.
+Code-first project save atomically writes the active `.ui.tsx` with an expected disk hash. The preview's localStorage snapshot is a browser synchronization cache, not an autosave replacement for source.
 
 ## Future callers
 
-The `origin` field already reserves `ai` and `migration`, but transaction batches, collaborative transport, durable command logs, and AI proposal review are not implemented. Those callers must continue to use base revisions and the same graph/semantic validation rather than editing raw JSON offsets.
+The `origin` field remains useful for migrations. New AI and visual-authoring callers must produce reviewable TSX source edits rather than dispatching IR commands; compilation and semantic validation remain the acceptance boundary.

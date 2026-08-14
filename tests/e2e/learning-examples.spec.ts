@@ -19,7 +19,7 @@ function inspector(page: Page): Locator {
 }
 
 function designFrame(page: Page): FrameLocator {
-  return page.frameLocator('iframe[title="Sutra DOM design surface"]');
+  return page.frameLocator('iframe[title="Srijika DOM design surface"]');
 }
 
 function gallery(page: Page): Locator {
@@ -84,9 +84,9 @@ test.describe('Learn working examples', () => {
     await expect(pages.getByText('Home Page', { exact: true })).toBeVisible();
     await expect(pages.getByText('Nested Object + Array Loop', { exact: true })).toBeVisible();
     await expect(
-      designFrame(page).locator('[data-sutra-node="nested_group_repeat"]'),
+      designFrame(page).locator('[data-srijika-node="nested_group_repeat"]'),
     ).toBeVisible();
-    await expect(designFrame(page).locator('[data-sutra-node="nested_item_repeat"]')).toHaveCount(
+    await expect(designFrame(page).locator('[data-srijika-node="nested_item_repeat"]')).toHaveCount(
       2,
     );
 
@@ -95,13 +95,15 @@ test.describe('Learn working examples', () => {
     await expect(pages.locator('button')).toHaveCount(initialPageCount + 2);
     await expect(pages.getByText('Nested Object + Array Loop', { exact: true })).toBeVisible();
     await expect(pages.getByText('If / Else Branches', { exact: true })).toBeVisible();
-    await expect(designFrame(page).locator('[data-sutra-node="if_else_condition"]')).toBeVisible();
+    await expect(
+      designFrame(page).locator('[data-srijika-node="if_else_condition"]'),
+    ).toBeVisible();
     await expect(
       page.getByRole('tree', { name: 'Page content hierarchy' }).getByText('Signed In If Else'),
     ).toBeVisible();
-    await expect(designFrame(page).locator('[data-sutra-node="nested_group_repeat"]')).toHaveCount(
-      0,
-    );
+    await expect(
+      designFrame(page).locator('[data-srijika-node="nested_group_repeat"]'),
+    ).toHaveCount(0);
   });
 
   test('edits the focused style example and shows only its generated pattern', async ({ page }) => {
@@ -123,14 +125,14 @@ test.describe('Learn working examples', () => {
       .getByRole('button', { name: 'Apply design value' })
       .click();
 
-    await expect(designFrame(page).locator('[data-sutra-node="lesson_stage"]')).toHaveCSS(
+    await expect(designFrame(page).locator('[data-srijika-node="lesson_stage"]')).toHaveCSS(
       'background-color',
       'rgb(18, 53, 44)',
     );
 
     await page.getByRole('tab', { name: 'JSX', exact: true }).click();
     const jsx = page.locator('.code-panel code');
-    await expect(jsx).toContainText('sutraStyle');
+    await expect(jsx).toContainText('srijikaStyle');
     await expect(jsx).not.toContainText('.map((item, index)');
     await expect(jsx).not.toContainText('props.isSignedIn');
   });

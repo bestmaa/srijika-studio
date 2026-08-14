@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import {
   CAPABILITIES,
   PROTOCOL_VERSION,
-  SUTRA_RPC_METHODS,
+  SRIJIKA_RPC_METHODS,
   applyOperations,
   buildComponentCatalog,
   buildGeneratedCodeResult,
@@ -15,10 +15,10 @@ import {
   validateAutomationDocument,
   type ApplyOperationsResult,
   type AutomationIdFactory,
-  type SutraOperation,
-} from '@sutra/automation-protocol';
-import type { SutraProject, UiDocument } from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+  type SrijikaOperation,
+} from '@srijika/automation-protocol';
+import type { SrijikaProject, UiDocument } from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { componentRegistry } from './registry';
 import { isTauriDesktop } from './project-service';
@@ -29,11 +29,24 @@ import {
 } from './render-inspection';
 import { useStudioStore, type StudioPanel, type ViewportPreset } from '../store/studio-store';
 
-export const CODEX_BRIDGE_REQUEST_EVENT = 'sutra://bridge-rpc-request';
+export const CODEX_BRIDGE_REQUEST_EVENT = 'srijika://bridge-rpc-request';
 export const CODEX_BRIDGE_RESOLVE_COMMAND = 'resolve_bridge_rpc';
 export const CODEX_BRIDGE_READY_COMMAND = 'set_bridge_frontend_ready';
 
 type StudioStoreSnapshot = ReturnType<typeof useStudioStore.getState>;
+
+const LEGACY_RPC_PREFIX = 'sutra.';
+const CANONICAL_RPC_PREFIX = 'srijika.';
+
+function canonicalRpcMethod(method: string): string {
+  if (!method.startsWith(LEGACY_RPC_PREFIX)) return method;
+  const candidate = `${CANONICAL_RPC_PREFIX}${method.slice(LEGACY_RPC_PREFIX.length)}`;
+  return Object.values(SRIJIKA_RPC_METHODS).includes(
+    candidate as (typeof SRIJIKA_RPC_METHODS)[keyof typeof SRIJIKA_RPC_METHODS],
+  )
+    ? candidate
+    : method;
+}
 
 export interface StudioBridgeDispatcherDependencies {
   getState: () => StudioStoreSnapshot;
@@ -216,12 +229,12 @@ function resolvePage(
   return { pageId, document: selected.document };
 }
 
-function projectFromState(state: StudioStoreSnapshot): SutraProject {
+function projectFromState(state: StudioStoreSnapshot): SrijikaProject {
   const pageIds = state.pages.map((page) => page.id);
   return {
     formatVersion: 1,
-    id: 'sutra_studio_project',
-    name: 'Sutra Studio Project',
+    id: 'srijika_studio_project',
+    name: 'Srijika Studio Project',
     entryPageId: pageIds[0] ?? state.selectedPageId,
     pages: pageIds,
     components: [],
@@ -284,7 +297,7 @@ function executeAtomicOperations(
     result = applyOperations(
       document,
       expectedRevision,
-      rawOperations as SutraOperation[],
+      rawOperations as SrijikaOperation[],
       componentRegistry,
       adapter.createId,
     );
@@ -303,7 +316,7 @@ function executeAtomicOperations(
   if (!committed) {
     throw new StudioBridgeRpcError(
       'commit_failed',
-      'Sutra Studio rejected the validated operation batch before commit.',
+      'Srijika Studio rejected the validated operation batch before commit.',
       { pageId, expectedRevision, currentRevision: adapter.getState().document.revision },
     );
   }
@@ -382,8 +395,8 @@ function renderPreview(
     renderer: 'react-dom',
     captureSupported: true,
     capture: null,
-    captureTool: SUTRA_RPC_METHODS.capturePreview,
-    layoutInspectionTool: SUTRA_RPC_METHODS.getLayoutSnapshot,
+    captureTool: SRIJIKA_RPC_METHODS.capturePreview,
+    layoutInspectionTool: SRIJIKA_RPC_METHODS.getLayoutSnapshot,
     message:
       'The page is open at the requested viewport. Capture or inspect it with the dedicated tools.',
   };
@@ -449,7 +462,7 @@ async function capturePreview(
   } catch (error) {
     throw new StudioBridgeRpcError(
       'preview_capture_failed',
-      errorMessage(error, 'Sutra Studio could not capture the preview.'),
+      errorMessage(error, 'Srijika Studio could not capture the preview.'),
     );
   }
 }
@@ -465,9 +478,10 @@ export function dispatchStudioBridgeRpc(
 ): unknown {
   const params = paramsRecord(rawParams);
   const adapter = dependencies(overrides);
+  const resolvedMethod = canonicalRpcMethod(method);
 
-  switch (method) {
-    case SUTRA_RPC_METHODS.getCapabilities: {
+  switch (resolvedMethod) {
+    case SRIJIKA_RPC_METHODS.getCapabilities: {
       const state = adapter.getState();
       return {
         ...CAPABILITIES,
@@ -479,9 +493,16 @@ export function dispatchStudioBridgeRpc(
           layoutInspectionSupported: true,
           viewportSize: activeViewportSize(state),
         },
+        deprecatedRpcAliases: [
+          {
+            prefix: LEGACY_RPC_PREFIX,
+            replacementPrefix: CANONICAL_RPC_PREFIX,
+            removalTarget: '2.0',
+          },
+        ],
       };
     }
-    case SUTRA_RPC_METHODS.getProjectSummary: {
+    case SRIJIKA_RPC_METHODS.getProjectSummary: {
       const state = adapter.getState();
       const summary = buildProjectSummary(
         projectFromState(state),
@@ -490,7 +511,7 @@ export function dispatchStudioBridgeRpc(
       );
       return optionalBoolean(params, 'includePages', true) ? summary : { ...summary, pages: [] };
     }
-    case SUTRA_RPC_METHODS.getPageOutline: {
+    case SRIJIKA_RPC_METHODS.getPageOutline: {
       const { document } = resolvePage(params, adapter);
       const maxDepth = integerParam(params, 'maxDepth', 12);
       const maxNodes = integerParam(params, 'maxNodes', 300);
@@ -499,7 +520,7 @@ export function dispatchStudioBridgeRpc(
       }
       return buildPageOutline(document, { maxDepth, maxNodes });
     }
-    case SUTRA_RPC_METHODS.getNode: {
+    case SRIJIKA_RPC_METHODS.getNode: {
       const { pageId, document } = resolvePage(params, adapter);
       const nodeId = optionalString(params, 'nodeId');
       if (!nodeId) {
@@ -517,7 +538,7 @@ export function dispatchStudioBridgeRpc(
       }
       return detail;
     }
-    case SUTRA_RPC_METHODS.getComponentCatalog: {
+    case SRIJIKA_RPC_METHODS.getComponentCatalog: {
       const query = optionalString(params, 'query')?.toLocaleLowerCase();
       const category = optionalString(params, 'category');
       const detail = optionalString(params, 'detail') ?? 'summary';
@@ -561,7 +582,7 @@ export function dispatchStudioBridgeRpc(
         }),
       };
     }
-    case SUTRA_RPC_METHODS.analyzeRepetitions: {
+    case SRIJIKA_RPC_METHODS.analyzeRepetitions: {
       const { document } = resolvePage(params, adapter);
       const minInstances = integerParam(params, 'minInstances', 2);
       const maxCandidates = integerParam(params, 'maxCandidates', 50);
@@ -583,7 +604,7 @@ export function dispatchStudioBridgeRpc(
         ...(candidateId === undefined ? {} : { candidateId }),
       });
     }
-    case SUTRA_RPC_METHODS.getGeneratedCode: {
+    case SRIJIKA_RPC_METHODS.getGeneratedCode: {
       const { document } = resolvePage(params, adapter);
       const detail = optionalString(params, 'detail') ?? 'summary';
       if (detail !== 'summary' && detail !== 'full') {
@@ -593,9 +614,9 @@ export function dispatchStudioBridgeRpc(
       }
       return buildGeneratedCodeResult(document, generateTsx(document), detail);
     }
-    case SUTRA_RPC_METHODS.applyOperations:
+    case SRIJIKA_RPC_METHODS.applyOperations:
       return executeAtomicOperations(params, adapter);
-    case SUTRA_RPC_METHODS.validateDocument: {
+    case SRIJIKA_RPC_METHODS.validateDocument: {
       const { pageId, document } = resolvePage(params, adapter);
       const diagnostics = validateAutomationDocument(document, componentRegistry);
       return {
@@ -605,7 +626,7 @@ export function dispatchStudioBridgeRpc(
         diagnostics,
       };
     }
-    case SUTRA_RPC_METHODS.getDiagnostics: {
+    case SRIJIKA_RPC_METHODS.getDiagnostics: {
       const { pageId, document } = resolvePage(params, adapter);
       const nodeId = optionalString(params, 'nodeId');
       const severity = optionalString(params, 'severity');
@@ -629,17 +650,17 @@ export function dispatchStudioBridgeRpc(
         diagnostics: matching.slice(0, limit),
       };
     }
-    case SUTRA_RPC_METHODS.renderPreview:
+    case SRIJIKA_RPC_METHODS.renderPreview:
       return renderPreview(params, adapter);
-    case SUTRA_RPC_METHODS.getLayoutSnapshot:
+    case SRIJIKA_RPC_METHODS.getLayoutSnapshot:
       return getLayoutSnapshot(params, adapter);
-    case SUTRA_RPC_METHODS.capturePreview:
+    case SRIJIKA_RPC_METHODS.capturePreview:
       return capturePreview(params, adapter);
-    case SUTRA_RPC_METHODS.undo:
+    case SRIJIKA_RPC_METHODS.undo:
       return historyResult('undo', params, adapter);
-    case SUTRA_RPC_METHODS.redo:
+    case SRIJIKA_RPC_METHODS.redo:
       return historyResult('redo', params, adapter);
-    case SUTRA_RPC_METHODS.importDesignPlan: {
+    case SRIJIKA_RPC_METHODS.importDesignPlan: {
       const source = isRecord(params['source']) ? params['source'] : null;
       const hasSourceWidth = source ? Object.hasOwn(source, 'width') : false;
       const hasSourceHeight = source ? Object.hasOwn(source, 'height') : false;
@@ -668,20 +689,20 @@ export function dispatchStudioBridgeRpc(
         assumptions: Array.isArray(params['assumptions']) ? params['assumptions'] : [],
       };
     }
-    case SUTRA_RPC_METHODS.importDesignImage: {
+    case SRIJIKA_RPC_METHODS.importDesignImage: {
       const result = executeAtomicOperations(params, adapter);
       return {
         ...(isRecord(result) ? result : { result }),
         source: isRecord(params['source']) ? params['source'] : null,
         assumptions: Array.isArray(params['assumptions']) ? params['assumptions'] : [],
         deprecated: true,
-        replacementMethod: SUTRA_RPC_METHODS.importDesignPlan,
+        replacementMethod: SRIJIKA_RPC_METHODS.importDesignPlan,
       };
     }
     default:
       throw new StudioBridgeRpcError('unsupported_method', `Unsupported RPC method: ${method}`, {
         method,
-        supportedMethods: Object.values(SUTRA_RPC_METHODS),
+        supportedMethods: Object.values(SRIJIKA_RPC_METHODS),
       });
   }
 }
@@ -723,7 +744,8 @@ function bridgeError(error: unknown): { code: string; message: string; details?:
   }
   return {
     code: 'internal_error',
-    message: error instanceof Error ? error.message : 'Sutra Studio could not process the request.',
+    message:
+      error instanceof Error ? error.message : 'Srijika Studio could not process the request.',
   };
 }
 
@@ -869,7 +891,7 @@ export class CodexBridgeLifecycle {
       if (value['protocolVersion'] !== PROTOCOL_VERSION) {
         throw new StudioBridgeRpcError(
           'unsupported_protocol_version',
-          `Sutra Studio expects protocol ${PROTOCOL_VERSION}.`,
+          `Srijika Studio expects protocol ${PROTOCOL_VERSION}.`,
           { expected: PROTOCOL_VERSION, actual: value['protocolVersion'] },
         );
       }

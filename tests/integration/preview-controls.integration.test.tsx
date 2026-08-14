@@ -1,9 +1,17 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createBlankDocument, createElementNode } from '@srijika/contracts';
+
 import { StudioApp } from '../../apps/studio/src/app/StudioApp';
 import { PreviewApp } from '../../apps/studio/src/app/PreviewApp';
+import { FullscreenPreview } from '../../apps/studio/src/components/FullscreenPreview';
 import { openBrowserPreview } from '../../apps/studio/src/lib/project-service';
+import {
+  DEFAULT_CODE_PROJECT_FILE_NAME,
+  DEFAULT_CODE_PROJECT_SOURCE,
+  useCodeProjectStore,
+} from '../../apps/studio/src/store/code-project-store';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
 
 vi.mock('../../apps/studio/src/lib/project-service', () => ({
@@ -18,6 +26,10 @@ const openBrowserPreviewMock = vi.mocked(openBrowserPreview);
 describe('preview controls', () => {
   beforeEach(() => {
     useStudioStore.getState().resetDocument();
+    useCodeProjectStore.getState().loadSource({
+      fileName: DEFAULT_CODE_PROJECT_FILE_NAME,
+      source: DEFAULT_CODE_PROJECT_SOURCE,
+    });
     useStudioStore.setState({ viewport: 'desktop', customViewportSize: null });
     openBrowserPreviewMock.mockReset();
     openBrowserPreviewMock.mockResolvedValue();
@@ -60,6 +72,36 @@ describe('preview controls', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders a code-first document override instead of the unrelated design-store document', () => {
+    const document = createBlankDocument('code_first_preview', 'Code-first preview');
+    const text = createElementNode('code_first_text', 'srijika.text', 'Code-first text', {
+      props: { text: { kind: 'reference', symbolId: 'prop_label', path: [] } },
+      slots: {},
+    });
+    const root = document.nodes[document.rootNodeId];
+    if (root?.kind !== 'element') throw new Error('Expected an element root');
+    root.slots.children = [text.id];
+    document.nodes[text.id] = text;
+    document.symbols.prop_label = {
+      id: 'prop_label',
+      name: 'label',
+      displayName: 'label',
+      provider: 'prop',
+      valueType: 'string',
+      required: true,
+    };
+
+    render(
+      <FullscreenPreview
+        documentOverride={document}
+        symbolValuesOverride={{ prop_label: 'Selected code-first UI' }}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Selected code-first UI')).toBeInTheDocument();
+  });
+
   it('routes Browser preview through the environment-aware preview service', () => {
     render(<StudioApp />);
 
@@ -71,11 +113,11 @@ describe('preview controls', () => {
   it('syncs preset and custom design viewport dimensions without changing document storage', () => {
     render(<StudioApp />);
 
-    expect(JSON.parse(localStorage.getItem('sutra-studio:preview-viewport') ?? 'null')).toEqual({
+    expect(JSON.parse(localStorage.getItem('srijika-studio:preview-viewport') ?? 'null')).toEqual({
       width: 1180,
       height: 820,
     });
-    const initialDocumentStorage = localStorage.getItem('sutra-studio:active-document');
+    const initialDocumentStorage = localStorage.getItem('srijika-studio:active-document');
     expect(initialDocumentStorage).toContain('"formatVersion":1');
     expect(initialDocumentStorage).toContain(
       `"rootNodeId":"${useStudioStore.getState().document.rootNodeId}"`,
@@ -83,11 +125,11 @@ describe('preview controls', () => {
 
     act(() => useStudioStore.getState().setCustomViewportSize(1440, 900));
 
-    expect(JSON.parse(localStorage.getItem('sutra-studio:preview-viewport') ?? 'null')).toEqual({
+    expect(JSON.parse(localStorage.getItem('srijika-studio:preview-viewport') ?? 'null')).toEqual({
       width: 1440,
       height: 900,
     });
-    const customViewportDocumentStorage = localStorage.getItem('sutra-studio:active-document');
+    const customViewportDocumentStorage = localStorage.getItem('srijika-studio:active-document');
     expect(customViewportDocumentStorage).toContain('"formatVersion":1');
     expect(customViewportDocumentStorage).toContain(
       `"rootNodeId":"${useStudioStore.getState().document.rootNodeId}"`,
@@ -96,7 +138,7 @@ describe('preview controls', () => {
 
   it('switches Browser preview between its real content area and the synced exact design size', () => {
     localStorage.setItem(
-      'sutra-studio:preview-viewport',
+      'srijika-studio:preview-viewport',
       JSON.stringify({ width: 1440, height: 900 }),
     );
     const { container } = render(<PreviewApp />);

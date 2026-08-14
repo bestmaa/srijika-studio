@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-const appearanceStorageKey = 'sutra-studio:appearance.v1';
+const appearanceStorageKey = 'srijika-studio:appearance.v1';
 
 async function openWithEmptyAppearance(page: Page): Promise<void> {
   await page.goto('/');
@@ -21,7 +21,7 @@ async function expectDocumentIdUsesThemeSurface(page: Page): Promise<void> {
   expect(colors.actual).toBe(colors.expected);
 }
 
-test('applies and persists Sutra dark, Light, and custom appearance without changing the page', async ({
+test('applies and persists Srijika dark, Light, and custom appearance without changing the page', async ({
   page,
 }) => {
   await openWithEmptyAppearance(page);
@@ -42,15 +42,15 @@ test('applies and persists Sutra dark, Light, and custom appearance without chan
   });
   await expectDocumentIdUsesThemeSurface(page);
 
-  const frame = page.frameLocator('iframe[title="Sutra DOM design surface"]');
-  const authoredRoot = frame.locator('main[data-sutra-node]');
+  const frame = page.frameLocator('iframe[title="Srijika DOM design surface"]');
+  const authoredRoot = frame.locator('main[data-srijika-node]');
   const authoredBefore = await authoredRoot.evaluate((element) => {
     const style = getComputedStyle(element);
     return { background: style.backgroundColor, color: style.color, fontFamily: style.fontFamily };
   });
   const revisionBefore = await frame
-    .locator('[data-sutra-document-id]')
-    .getAttribute('data-sutra-revision');
+    .locator('[data-srijika-document-id]')
+    .getAttribute('data-srijika-revision');
 
   await page.getByRole('button', { name: 'Open settings' }).click();
   const dialog = page.getByRole('dialog', { name: 'Settings' });
@@ -79,8 +79,8 @@ test('applies and persists Sutra dark, Light, and custom appearance without chan
 
   await dialog.getByRole('radio', { name: 'Light' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-studio-color-scheme', 'light');
-  await expect(dialog.getByLabel('Theme preset')).toHaveValue('sutra');
-  await expect(dialog.getByLabel('Theme preset').locator('option:checked')).toHaveText('Sutra');
+  await expect(dialog.getByLabel('Theme preset')).toHaveValue('srijika');
+  await expect(dialog.getByLabel('Theme preset').locator('option:checked')).toHaveText('Srijika');
   await expect(dialog.getByRole('option', { name: 'Codex' })).toHaveCount(0);
   await expectDocumentIdUsesThemeSurface(page);
 
@@ -126,8 +126,8 @@ test('applies and persists Sutra dark, Light, and custom appearance without chan
     return { background: style.backgroundColor, color: style.color, fontFamily: style.fontFamily };
   });
   expect(authoredAfter).toEqual(authoredBefore);
-  await expect(frame.locator('[data-sutra-document-id]')).toHaveAttribute(
-    'data-sutra-revision',
+  await expect(frame.locator('[data-srijika-document-id]')).toHaveAttribute(
+    'data-srijika-revision',
     revisionBefore ?? '0',
   );
 
@@ -170,7 +170,7 @@ test('keeps authored form-control styling identical in canvas and fullscreen pre
   await page.getByRole('button', { name: 'Input', exact: true }).click();
 
   const canvasInput = page
-    .frameLocator('iframe[title="Sutra DOM design surface"]')
+    .frameLocator('iframe[title="Srijika DOM design surface"]')
     .locator('input')
     .first();
   await expect(canvasInput).toBeVisible();

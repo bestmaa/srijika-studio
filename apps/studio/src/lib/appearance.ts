@@ -1,6 +1,6 @@
 export type StudioThemeMode = 'system' | 'light' | 'dark';
 export type StudioColorScheme = Exclude<StudioThemeMode, 'system'>;
-export type StudioThemePreset = 'sutra' | 'custom';
+export type StudioThemePreset = 'srijika' | 'custom';
 
 export interface StudioThemeColors {
   accent: string;
@@ -19,14 +19,14 @@ export interface StudioAppearancePreferences {
   contrast: number;
 }
 
-export const APPEARANCE_STORAGE_KEY = 'sutra-studio:appearance.v1';
-export const APPEARANCE_EXPORT_KIND = 'sutra-studio-appearance';
+export const APPEARANCE_STORAGE_KEY = 'srijika-studio:appearance.v1';
+export const APPEARANCE_EXPORT_KIND = 'srijika-studio-appearance';
 
 const defaultUiFont =
   "Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 const defaultCodeFont = "ui-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', monospace";
 
-export const SUTRA_THEME_COLORS: Readonly<Record<StudioColorScheme, StudioThemeColors>> = {
+export const SRIJIKA_THEME_COLORS: Readonly<Record<StudioColorScheme, StudioThemeColors>> = {
   dark: {
     accent: '#77767b',
     background: '#111111',
@@ -42,8 +42,8 @@ export const SUTRA_THEME_COLORS: Readonly<Record<StudioColorScheme, StudioThemeC
 export const DEFAULT_APPEARANCE: Readonly<StudioAppearancePreferences> = {
   version: 1,
   mode: 'dark',
-  preset: 'sutra',
-  themes: SUTRA_THEME_COLORS,
+  preset: 'srijika',
+  themes: SRIJIKA_THEME_COLORS,
   uiFont: defaultUiFont,
   codeFont: defaultCodeFont,
   translucentSidebar: true,
@@ -88,8 +88,8 @@ export function cloneDefaultAppearance(): StudioAppearancePreferences {
   return {
     ...DEFAULT_APPEARANCE,
     themes: {
-      dark: { ...SUTRA_THEME_COLORS.dark },
-      light: { ...SUTRA_THEME_COLORS.light },
+      dark: { ...SRIJIKA_THEME_COLORS.dark },
+      light: { ...SRIJIKA_THEME_COLORS.light },
     },
   };
 }
@@ -102,9 +102,9 @@ export function normalizeAppearancePreferences(value: unknown): StudioAppearance
   const rawThemes = isRecord(value['themes']) ? value['themes'] : {};
   const rawContrast = value['contrast'];
   // `codex` was the name of the original built-in appearance preset. Treat it
-  // as Sutra and refresh its colors so existing installations migrate away
+  // as Srijika and refresh its colors so existing installations migrate away
   // from the former blue accent without requiring a manual reset.
-  const preset: StudioThemePreset = rawPreset === 'custom' ? 'custom' : 'sutra';
+  const preset: StudioThemePreset = rawPreset === 'custom' ? 'custom' : 'srijika';
   return {
     version: 1,
     mode:
@@ -117,8 +117,8 @@ export function normalizeAppearancePreferences(value: unknown): StudioAppearance
             light: readThemeColors(rawThemes['light'], fallback.themes.light),
           }
         : {
-            dark: { ...SUTRA_THEME_COLORS.dark },
-            light: { ...SUTRA_THEME_COLORS.light },
+            dark: { ...SRIJIKA_THEME_COLORS.dark },
+            light: { ...SRIJIKA_THEME_COLORS.light },
           },
     uiFont:
       typeof value['uiFont'] === 'string' && value['uiFont'].trim().length > 0
@@ -176,7 +176,7 @@ export function parseAppearanceExport(serialized: string): StudioAppearancePrefe
   if (!isRecord(parsed)) throw new Error('Theme file must contain a JSON object');
   const candidate = parsed['kind'] === APPEARANCE_EXPORT_KIND ? parsed['preferences'] : parsed;
   if (!isRecord(candidate) || (!('mode' in candidate) && !('themes' in candidate))) {
-    throw new Error('This file does not contain Sutra Studio appearance settings');
+    throw new Error('This file does not contain Srijika Studio appearance settings');
   }
   return normalizeAppearancePreferences(candidate);
 }
@@ -299,22 +299,23 @@ export function createCanvasEditorTokens(
 ): Record<string, string> {
   const tokens = createAppearanceTokens(preferences, scheme);
   return {
-    '--sutra-editor-panel': tokens['--chrome-panel'] ?? '#1d1d1d',
-    '--sutra-editor-surface': tokens['--chrome-surface'] ?? '#181818',
-    '--sutra-editor-raised': tokens['--chrome-raised'] ?? '#242424',
-    '--sutra-editor-hover': tokens['--chrome-hover'] ?? '#2b2b2b',
-    '--sutra-editor-border': tokens['--chrome-border-strong'] ?? '#404040',
-    '--sutra-editor-text': tokens['--chrome-text'] ?? '#fcfcfc',
-    '--sutra-editor-muted': tokens['--chrome-text-muted'] ?? '#aaaaaa',
-    '--sutra-editor-accent': tokens['--chrome-accent'] ?? '#77767b',
-    '--sutra-editor-accent-text': tokens['--chrome-accent-text'] ?? '#aaa9ac',
-    '--sutra-editor-accent-soft': tokens['--chrome-accent-soft'] ?? 'rgba(119, 118, 123, 0.14)',
-    '--sutra-editor-accent-hover': tokens['--chrome-accent-hover'] ?? 'rgba(119, 118, 123, 0.22)',
-    '--sutra-editor-accent-border': tokens['--chrome-accent-border'] ?? 'rgba(119, 118, 123, 0.42)',
-    '--sutra-editor-accent-contrast': tokens['--chrome-accent-contrast'] ?? '#ffffff',
-    '--sutra-editor-focus': tokens['--chrome-focus'] ?? '0 0 0 2px rgba(119, 118, 123, 0.34)',
-    '--sutra-editor-danger': tokens['--chrome-danger'] ?? '#f1788b',
-    '--sutra-editor-danger-soft': tokens['--chrome-danger-soft'] ?? 'rgba(241, 120, 139, 0.13)',
+    '--srijika-editor-panel': tokens['--chrome-panel'] ?? '#1d1d1d',
+    '--srijika-editor-surface': tokens['--chrome-surface'] ?? '#181818',
+    '--srijika-editor-raised': tokens['--chrome-raised'] ?? '#242424',
+    '--srijika-editor-hover': tokens['--chrome-hover'] ?? '#2b2b2b',
+    '--srijika-editor-border': tokens['--chrome-border-strong'] ?? '#404040',
+    '--srijika-editor-text': tokens['--chrome-text'] ?? '#fcfcfc',
+    '--srijika-editor-muted': tokens['--chrome-text-muted'] ?? '#aaaaaa',
+    '--srijika-editor-accent': tokens['--chrome-accent'] ?? '#77767b',
+    '--srijika-editor-accent-text': tokens['--chrome-accent-text'] ?? '#aaa9ac',
+    '--srijika-editor-accent-soft': tokens['--chrome-accent-soft'] ?? 'rgba(119, 118, 123, 0.14)',
+    '--srijika-editor-accent-hover': tokens['--chrome-accent-hover'] ?? 'rgba(119, 118, 123, 0.22)',
+    '--srijika-editor-accent-border':
+      tokens['--chrome-accent-border'] ?? 'rgba(119, 118, 123, 0.42)',
+    '--srijika-editor-accent-contrast': tokens['--chrome-accent-contrast'] ?? '#ffffff',
+    '--srijika-editor-focus': tokens['--chrome-focus'] ?? '0 0 0 2px rgba(119, 118, 123, 0.34)',
+    '--srijika-editor-danger': tokens['--chrome-danger'] ?? '#f1788b',
+    '--srijika-editor-danger-soft': tokens['--chrome-danger-soft'] ?? 'rgba(241, 120, 139, 0.13)',
   };
 }
 
@@ -323,7 +324,7 @@ export function applyCanvasEditorAppearance(
   preferences: StudioAppearancePreferences,
   scheme: StudioColorScheme,
 ): void {
-  element.dataset['sutraEditorScheme'] = scheme;
+  element.dataset['srijikaEditorScheme'] = scheme;
   for (const [property, value] of Object.entries(createCanvasEditorTokens(preferences, scheme))) {
     element.style.setProperty(property, value);
   }

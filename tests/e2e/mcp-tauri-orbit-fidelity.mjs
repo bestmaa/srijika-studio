@@ -12,19 +12,19 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const application =
-  process.env.SUTRA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/sutra-studio');
-const bundle = resolve(repositoryRoot, 'plugins/sutra-studio/mcp-server/sutra-mcp.mjs');
-const fixturePath = resolve(repositoryRoot, 'tests/fixtures/orbit-fidelity.sutra.json.gz.b64');
+  process.env.SRIJIKA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/srijika-studio');
+const bundle = resolve(repositoryRoot, 'plugins/srijika-studio/mcp-server/srijika-mcp.mjs');
+const fixturePath = resolve(repositoryRoot, 'tests/fixtures/orbit-fidelity.srijika.json.gz.b64');
 const capturePath =
-  process.env.SUTRA_ORBIT_CAPTURE ??
+  process.env.SRIJIKA_ORBIT_CAPTURE ??
   resolve(repositoryRoot, 'test-results/mcp-tauri-orbit-fidelity.png');
 const fullscreenCapturePath = resolve(
   repositoryRoot,
   'test-results/tauri-orbit-fullscreen-preview.png',
 );
 const tauriDriver =
-  process.env.SUTRA_TAURI_DRIVER_BIN ?? join(homedir(), '.cargo/bin/tauri-driver');
-const xvfbRun = process.env.SUTRA_XVFB_RUN_BIN ?? '/usr/bin/xvfb-run';
+  process.env.SRIJIKA_TAURI_DRIVER_BIN ?? join(homedir(), '.cargo/bin/tauri-driver');
+const xvfbRun = process.env.SRIJIKA_XVFB_RUN_BIN ?? '/usr/bin/xvfb-run';
 const sleep = (milliseconds) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
 
@@ -108,7 +108,7 @@ for (const requiredPath of [application, bundle, fixturePath, tauriDriver, xvfbR
   await access(requiredPath);
 }
 
-const temporary = await mkdtemp(join(tmpdir(), 'sutra-native-orbit-'));
+const temporary = await mkdtemp(join(tmpdir(), 'srijika-native-orbit-'));
 const descriptorPath = join(temporary, 'bridge/codex-bridge-v1.json');
 const driverPort = await availablePort();
 const nativePort = await availablePort();
@@ -123,7 +123,7 @@ const driver = spawn(
       XDG_DATA_HOME: join(temporary, 'xdg-data'),
       XDG_CACHE_HOME: join(temporary, 'xdg-cache'),
       XDG_CONFIG_HOME: join(temporary, 'xdg-config'),
-      SUTRA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath,
+      SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath,
       WEBKIT_DISABLE_DMABUF_RENDERER: '1',
       LIBGL_ALWAYS_SOFTWARE: '1',
     },
@@ -186,7 +186,7 @@ try {
   sessionPath = `/session/${session.sessionId}`;
   const mainWindowHandle = await driverCommand('GET', `${sessionPath}/window`);
 
-  await waitFor('Sutra Studio shell', async () => {
+  await waitFor('Srijika Studio shell', async () => {
     const matches = await driverCommand('POST', `${sessionPath}/elements`, {
       using: 'css selector',
       value: '.studio-shell',
@@ -211,31 +211,31 @@ try {
     command: process.execPath,
     args: [bundle],
     cwd: repositoryRoot,
-    env: { ...process.env, SUTRA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath },
+    env: { ...process.env, SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath },
     stderr: 'pipe',
   });
   transport.stderr?.on('data', (chunk) => {
     transportStderr += chunk.toString('utf8');
   });
-  client = new Client({ name: 'sutra-native-orbit-fidelity', version: '1.0.0' });
+  client = new Client({ name: 'srijika-native-orbit-fidelity', version: '1.0.0' });
   await client.connect(transport);
 
   const toolNames = new Set((await client.listTools()).tools.map(({ name }) => name));
   for (const name of [
-    'sutra_apply_operations',
-    'sutra_render_preview',
-    'sutra_get_layout_snapshot',
-    'sutra_capture_preview',
+    'srijika_apply_operations',
+    'srijika_render_preview',
+    'srijika_get_layout_snapshot',
+    'srijika_capture_preview',
   ]) {
     assert(toolNames.has(name), `MCP bundle did not expose ${name}`);
   }
 
-  const capabilities = await callTool(client, 'sutra_get_capabilities', {});
+  const capabilities = await callTool(client, 'srijika_get_capabilities', {});
   assert.equal(capabilities.runtime.transport, 'authenticated-loopback');
   assert.equal(capabilities.runtime.previewCaptureSupported, true);
   assert.equal(capabilities.runtime.layoutInspectionSupported, true);
 
-  const summary = await callTool(client, 'sutra_get_project_summary', { includePages: true });
+  const summary = await callTool(client, 'srijika_get_project_summary', { includePages: true });
   const pageId = summary.project.entryPageId;
   const initialPage = summary.pages.find((page) => page.id === pageId);
   assert(initialPage, `entry page ${pageId} was missing`);
@@ -243,7 +243,7 @@ try {
   const orbitDocument = fixtureDocument(await readFile(fixturePath, 'utf8'));
   const fixturePageId = orbitDocument.id;
   orbitDocument.id = pageId;
-  const replacement = await callTool(client, 'sutra_apply_operations', {
+  const replacement = await callTool(client, 'srijika_apply_operations', {
     pageId,
     expectedRevision: initialPage.revision,
     operations: [
@@ -259,16 +259,16 @@ try {
 
   await waitFor('four rendered Orbit stat cards', async () => {
     const state = await execute(`
-      const frame = document.querySelector('iframe[title="Sutra DOM design surface"]');
+      const frame = document.querySelector('iframe[title="Srijika DOM design surface"]');
       return {
-        cards: frame?.contentDocument?.querySelectorAll('[data-sutra-node="stat_card_template"]').length ?? 0,
-        text: frame?.contentDocument?.querySelector('.sutra-edit-surface')?.textContent ?? ''
+        cards: frame?.contentDocument?.querySelectorAll('[data-srijika-node="stat_card_template"]').length ?? 0,
+        text: frame?.contentDocument?.querySelector('.srijika-edit-surface')?.textContent ?? ''
       };
     `);
     return state.cards === 4 && state.text.includes('Good morning') ? state : undefined;
   });
 
-  const validation = await callTool(client, 'sutra_validate_document', { pageId });
+  const validation = await callTool(client, 'srijika_validate_document', { pageId });
   assert.equal(validation.ok, true, JSON.stringify(validation.diagnostics));
   assert.equal(
     validation.diagnostics.some(({ severity }) => severity === 'error'),
@@ -276,7 +276,7 @@ try {
     JSON.stringify(validation.diagnostics),
   );
 
-  const preview = await callTool(client, 'sutra_render_preview', {
+  const preview = await callTool(client, 'srijika_render_preview', {
     pageId,
     viewport: 'desktop',
     width: 1586,
@@ -288,13 +288,13 @@ try {
 
   await waitFor('exact 1586x992 native design surface', async () => {
     const dimensions = await execute(`
-      const frame = document.querySelector('iframe[title="Sutra DOM design surface"]');
+      const frame = document.querySelector('iframe[title="Srijika DOM design surface"]');
       return frame ? { width: frame.clientWidth, height: frame.clientHeight } : null;
     `);
     return dimensions?.width === 1586 && dimensions?.height === 992 ? dimensions : undefined;
   });
 
-  const layout = await callTool(client, 'sutra_get_layout_snapshot', {
+  const layout = await callTool(client, 'srijika_get_layout_snapshot', {
     pageId,
     nodeIds: ['sidebar', 'top_header', 'stat_card_template', 'charts_grid', 'bottom_grid'],
     includeComputedStyles: true,
@@ -338,7 +338,7 @@ try {
   assert.equal(instancesFor('bottom_grid').length, 1);
 
   const captureResponse = await client.callTool({
-    name: 'sutra_capture_preview',
+    name: 'srijika_capture_preview',
     arguments: {
       pageId,
       viewport: 'desktop',
@@ -347,7 +347,7 @@ try {
       pixelRatio: 1,
     },
   });
-  const capture = toolResult(captureResponse, 'sutra_capture_preview');
+  const capture = toolResult(captureResponse, 'srijika_capture_preview');
   assert.equal(capture.clean, true);
   assert.deepEqual(capture.viewportSize, { width: 1586, height: 992 });
   assert.deepEqual(capture.capture, {
@@ -372,7 +372,7 @@ try {
     false,
     'metadata duplicated base64 PNG',
   );
-  assert.doesNotMatch(textBlocks[0].text, /Drop components here|REPEAT|sutra-capture-mode/i);
+  assert.doesNotMatch(textBlocks[0].text, /Drop components here|REPEAT|srijika-capture-mode/i);
 
   const png = Buffer.from(imageBlocks[0].data, 'base64');
   assert.deepEqual(pngDimensions(png), { width: 1586, height: 992 });
@@ -380,8 +380,8 @@ try {
   await writeFile(capturePath, png);
 
   const captureClassWasCleaned = await execute(`
-    const frame = document.querySelector('iframe[title="Sutra DOM design surface"]');
-    return frame?.contentDocument?.querySelector('.sutra-edit-surface')?.classList.contains('sutra-capture-mode') ?? null;
+    const frame = document.querySelector('iframe[title="Srijika DOM design surface"]');
+    return frame?.contentDocument?.querySelector('.srijika-edit-surface')?.classList.contains('srijika-capture-mode') ?? null;
   `);
   assert.equal(captureClassWasCleaned, false, 'capture mode leaked into the live editor');
 
@@ -442,7 +442,9 @@ try {
   await driverCommand('POST', `${sessionPath}/window`, { handle: previewWindowHandle });
   await waitFor('rendered content in native browser preview', async () => {
     const text = await execute(`return document.body?.textContent ?? ''`);
-    return text.includes('Sutra live preview') && text.includes('Good morning') ? text : undefined;
+    return text.includes('Srijika live preview') && text.includes('Good morning')
+      ? text
+      : undefined;
   });
   await driverCommand('DELETE', `${sessionPath}/window`);
   await driverCommand('POST', `${sessionPath}/window`, { handle: mainWindowHandle });
@@ -464,7 +466,7 @@ try {
     browserPreviewWindow: 'passed',
   };
 } catch (error) {
-  if (transportStderr) process.stderr.write(`Sutra MCP transport stderr:\n${transportStderr}\n`);
+  if (transportStderr) process.stderr.write(`Srijika MCP transport stderr:\n${transportStderr}\n`);
   if (driverOutput) process.stderr.write(`tauri-driver output:\n${driverOutput}\n`);
   throw error;
 } finally {

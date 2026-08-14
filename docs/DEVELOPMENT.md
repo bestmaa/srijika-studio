@@ -13,7 +13,7 @@ The checked-in workspace currently uses:
 Install the JavaScript workspace from WSL:
 
 ```bash
-cd /home/beste/project/sutra-studio
+cd /path/to/srijika-studio
 pnpm install --frozen-lockfile
 ```
 
@@ -40,7 +40,7 @@ sudo apt-get install -y \
   wget
 ```
 
-Without `pkg-config` and `libdbus-1-dev`, `cargo check -p sutra-studio --locked` stops in the `libdbus-sys` build script. The other packages cover the Tauri/WebKitGTK Linux shell and bundling prerequisites.
+Without `pkg-config` and `libdbus-1-dev`, `cargo check -p srijika-studio --locked` stops in the `libdbus-sys` build script. The other packages cover the Tauri/WebKitGTK Linux shell and bundling prerequisites.
 
 ## Browser editor and preview
 
@@ -64,6 +64,28 @@ pnpm tauri dev
 ```
 
 The Tauri window loads the same React editor. Native Open/Save uses the system dialog plugin and narrow Rust commands; browser mode falls back to upload/download. Saved document paths must be absolute and end in `.json`.
+
+Code-first projects are independent directories containing `srijika.config.json` and
+an entry ending in `.ui.tsx`. The desktop shell can scan the project, open validated
+locations in VS Code, and manage frozen pnpm install/run/build tasks. Browser mode
+uses an in-memory project and cannot launch native editors or processes.
+
+After a project is attached, **New UI** calls the narrow
+`create_code_project_ui_source` boundary. Native code accepts only a PascalCase
+route page below `src/pages` and atomically creates its required `.ui.tsx`/Connector
+pair. **New Feature** uses the ownership-aware structure scaffold below
+`src/features/<feature>`. The retired `src/components` feature root is not exposed by
+Studio. General source files are still created in VS Code.
+
+Browser demos and detached sources use Studio's bundled compiler/renderer and do
+not need a project's `node_modules`. An attached desktop project instead shows an
+explicit **Start App** state, then embeds only the real managed Vite runtime. UI
+Source selection asks that runtime to render the matching required Connector, so
+Provider, Hook, Store, Logic, API, CSS, and HMR behavior remain observable. Full
+application tasks currently resolve the fixed `pnpm` command from the host
+environment. Generated projects pin
+`packageManager` and include `pnpm-lock.yaml`; install always uses
+`pnpm install --frozen-lockfile`.
 
 To check or build the entire Rust workspace after native setup:
 

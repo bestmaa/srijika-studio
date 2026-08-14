@@ -1,4 +1,4 @@
-import type { EventSignature, LiteralValue, UiNode, ValueType } from '@sutra/contracts';
+import type { EventSignature, LiteralValue, UiNode, ValueType } from '@srijika/contracts';
 
 export type InspectorControl =
   'text' | 'textarea' | 'number' | 'toggle' | 'select' | 'color' | 'event';

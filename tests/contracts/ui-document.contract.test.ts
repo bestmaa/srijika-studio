@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 import {
   assertUiDocument,
   createBlankDocument,
-  validateSutraProject,
+  validateSrijikaProject,
   validateUiDocument,
   type EventSignature,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 const identifierArbitrary = fc
   .array(fc.constantFrom(...'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'), {
@@ -209,7 +209,7 @@ describe('UI document schema contract', () => {
   it('provides a useful assertion error for malformed documents', () => {
     const malformed = { formatVersion: 1, id: 'page' };
 
-    expect(() => assertUiDocument(malformed)).toThrow(/Invalid Sutra UI document:/);
+    expect(() => assertUiDocument(malformed)).toThrow(/Invalid Srijika UI document:/);
   });
 });
 
@@ -217,8 +217,8 @@ describe('project schema contract', () => {
   it('validates a pinned, reproducible frontend toolchain', () => {
     const project = {
       formatVersion: 1,
-      id: 'sutra_project',
-      name: 'Sutra Project',
+      id: 'srijika_project',
+      name: 'Srijika Project',
       entryPageId: 'page_home',
       pages: ['page_home'],
       components: [],
@@ -230,9 +230,9 @@ describe('project schema contract', () => {
       },
     };
 
-    expect(validateSutraProject(project)).toMatchObject({ valid: true, errors: [] });
+    expect(validateSrijikaProject(project)).toMatchObject({ valid: true, errors: [] });
     expect(
-      validateSutraProject({
+      validateSrijikaProject({
         ...project,
         toolchain: { ...project.toolchain, packageManager: 'npm' },
       }).valid,

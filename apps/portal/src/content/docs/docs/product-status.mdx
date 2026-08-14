@@ -1,0 +1,44 @@
+---
+title: Product Status
+description: An honest boundary between Srijika Studio's current alpha capabilities and planned platform work.
+---
+
+## Current stage
+
+Srijika Studio is in **private alpha**. The current milestone establishes a code-first UI foundation for independent React applications. The desktop shell, compiler, project workflow, diagnostics, previews, VS Code integration, and quality gates are implemented in the repository.
+
+## Available now
+
+| Capability          | Current behavior                                                                                                              |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Project scaffolding | Creates a complete pinned React 19 workspace without overwriting an existing destination.                                     |
+| Canonical UI source | Restricted, typed `.ui.tsx` is the only persisted UI authority.                                                               |
+| Compiler            | Parses without executing arbitrary project code and emits diagnostics, source spans, quick fixes, and a derived `UiDocument`. |
+| Project Explorer    | Indexes real project files while excluding generated and vendor directories.                                                  |
+| Workbench           | Keeps source selection, UI Nodes, Inspector, diagnostics, and preview aligned.                                                |
+| Failure behavior    | Retains a visibly stale last-good preview when current source is invalid.                                                     |
+| External editing    | Opens validated project, file, and node locations directly in VS Code.                                                        |
+| Managed application | Synchronizes pinned dependencies and runs or builds the real Vite app.                                                        |
+| Language support    | Reuses the same compiler diagnostics and fixes in the Srijika VS Code extension.                                              |
+| Shared CLI          | Creates strict owners, checks architecture, audits toolchains, runs Vite, and opens Desktop from the terminal.                |
+| Optional Bun mode   | Runs detected Vite projects through an explicit Bun turbo path while keeping Node as the compatibility default.               |
+| Native safety       | Uses Rust for path containment, bounded reads, optimistic hash checks, atomic saves, and managed processes.                   |
+
+## Deliberate limits
+
+- The Studio source pane is read-only; general text editing belongs to VS Code.
+- Only visual operations with a lossless bounded TSX edit are active.
+- Browser mode uses an in-memory workspace and has no filesystem or process authority.
+- The derived preview does not execute connectors or arbitrary project imports.
+- Custom component packages, signed toolchain sidecars, collaboration, and a public plugin SDK are not shipped.
+- Native Windows, macOS, and Linux artifacts still require signed platform-specific release pipelines.
+
+## Rust: present versus planned
+
+Rust is already used in the Tauri desktop boundary and core project services. It validates filesystem access, persistence rules, process management, and stable document envelopes.
+
+**Generated Rust application backends are not implemented yet.** Phase 2 introduces versioned API documents, typed payloads, Rust routes, validation, workflows, endpoint composition, and a unified deployment target.
+
+## Alpha communication rule
+
+Public-facing or internal product copy must say **code-first React application studio** for the current release. “Full-stack application studio” becomes accurate only when the Phase 2 backend workflow is implemented and verified.

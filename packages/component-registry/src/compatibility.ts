@@ -1,4 +1,4 @@
-import type { EventSignature, LiteralValue, ValueShape, ValueType } from '@sutra/contracts';
+import type { EventSignature, LiteralValue, ValueShape, ValueType } from '@srijika/contracts';
 
 export function isTypeAssignable(source: ValueType, target: ValueType): boolean {
   if (target === 'unknown' || source === target) return true;

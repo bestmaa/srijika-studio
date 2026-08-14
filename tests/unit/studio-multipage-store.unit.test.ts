@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { createBlankDocument } from '@sutra/contracts';
-import { validateDocumentGraph } from '@sutra/document-engine';
+import { createBlankDocument } from '@srijika/contracts';
+import { validateDocumentGraph } from '@srijika/document-engine';
 
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
 
@@ -35,7 +35,7 @@ describe('canonical multi-page Studio state', () => {
     expect(Object.keys(state.document.nodes)).toEqual([state.document.rootNodeId]);
     expect(root).toMatchObject({
       kind: 'element',
-      componentId: 'sutra.page',
+      componentId: 'srijika.page',
       style: {
         base: {
           width: { mode: 'percent', value: 100 },
@@ -49,7 +49,7 @@ describe('canonical multi-page Studio state', () => {
   it('isolates documents and restores each page selection and active condition branch', () => {
     const store = useStudioStore.getState();
     const homePageId = store.selectedPageId;
-    const containerId = store.addComponent('sutra.container');
+    const containerId = store.addComponent('srijika.container');
     const conditionId = useStudioStore.getState().addIfNode();
     if (!containerId || !conditionId) throw new Error('Expected Home Page nodes');
     useStudioStore.getState().setActiveIfBranch(conditionId, 'whenFalse');
@@ -57,7 +57,7 @@ describe('canonical multi-page Studio state', () => {
 
     const dashboardPageId = useStudioStore.getState().createPage('Dashboard Page');
     if (!dashboardPageId) throw new Error('Expected Dashboard Page');
-    const textId = useStudioStore.getState().addComponent('sutra.text');
+    const textId = useStudioStore.getState().addComponent('srijika.text');
     if (!textId) throw new Error('Expected Dashboard text');
     useStudioStore.getState().setLiteralProp(textId, 'text', 'Dashboard only');
 
@@ -84,12 +84,12 @@ describe('canonical multi-page Studio state', () => {
 
   it('keeps undo and redo histories independent per page', () => {
     const homePageId = useStudioStore.getState().selectedPageId;
-    const homeContainerId = useStudioStore.getState().addComponent('sutra.container');
+    const homeContainerId = useStudioStore.getState().addComponent('srijika.container');
     if (!homeContainerId) throw new Error('Expected Home Page container');
 
     const dashboardPageId = useStudioStore.getState().createPage('Dashboard Page');
     if (!dashboardPageId) throw new Error('Expected Dashboard Page');
-    const dashboardTextId = useStudioStore.getState().addComponent('sutra.text');
+    const dashboardTextId = useStudioStore.getState().addComponent('srijika.text');
     if (!dashboardTextId) throw new Error('Expected Dashboard text');
 
     useStudioStore.getState().undo();

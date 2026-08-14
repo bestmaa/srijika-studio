@@ -13,7 +13,7 @@ import {
   type ValueExpression,
   type ValueShape,
   type ValueType,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 import { componentRegistry } from './registry';
 
@@ -129,7 +129,7 @@ export class TemplateBuilder {
     as: string = 'div',
     slot?: ParentSlot,
   ): ElementNode {
-    return this.element(parentId, 'sutra.container', id, name, {
+    return this.element(parentId, 'srijika.container', id, name, {
       props: { as: literal(as) },
       style,
       ...(slot ? { slot } : {}),
@@ -143,7 +143,7 @@ export class TemplateBuilder {
     style: StyleProperties = {},
     slot?: ParentSlot,
   ): ElementNode {
-    return this.element(parentId, 'sutra.stack', id, name, {
+    return this.element(parentId, 'srijika.stack', id, name, {
       style,
       ...(slot ? { slot } : {}),
     });
@@ -156,7 +156,7 @@ export class TemplateBuilder {
     columns: number,
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.grid', id, name, {
+    return this.element(parentId, 'srijika.grid', id, name, {
       props: { columns: literal(columns) },
       style,
     });
@@ -170,7 +170,7 @@ export class TemplateBuilder {
     style: StyleProperties = {},
     slot?: ParentSlot,
   ): ElementNode {
-    return this.element(parentId, 'sutra.text', id, name, {
+    return this.element(parentId, 'srijika.text', id, name, {
       props: { text: typeof value === 'string' ? literal(value) : value },
       style,
       ...(slot ? { slot } : {}),
@@ -185,7 +185,7 @@ export class TemplateBuilder {
     level: number,
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.heading', id, name, {
+    return this.element(parentId, 'srijika.heading', id, name, {
       props: {
         text: typeof value === 'string' ? literal(value) : value,
         level: literal(level),
@@ -203,7 +203,7 @@ export class TemplateBuilder {
     style: StyleProperties = {},
     slot?: ParentSlot,
   ): ElementNode {
-    return this.element(parentId, 'sutra.button', id, name, {
+    return this.element(parentId, 'srijika.button', id, name, {
       props: {
         label: typeof label === 'string' ? literal(label) : label,
         variant: literal(variant),
@@ -221,7 +221,7 @@ export class TemplateBuilder {
     alt: string | ValueExpression,
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.image', id, name, {
+    return this.element(parentId, 'srijika.image', id, name, {
       props: {
         src: typeof src === 'string' ? literal(src) : src,
         alt: typeof alt === 'string' ? literal(alt) : alt,
@@ -241,7 +241,7 @@ export class TemplateBuilder {
     type: string = 'text',
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.input', id, name, {
+    return this.element(parentId, 'srijika.input', id, name, {
       props: {
         label: literal(label),
         placeholder: literal(placeholder),
@@ -259,7 +259,7 @@ export class TemplateBuilder {
     size = 24,
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.icon', id, name, {
+    return this.element(parentId, 'srijika.icon', id, name, {
       props: {
         name: typeof iconName === 'string' ? literal(iconName) : iconName,
         label: literal(''),
@@ -277,7 +277,7 @@ export class TemplateBuilder {
     color = '#29313d',
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.divider', id, name, {
+    return this.element(parentId, 'srijika.divider', id, name, {
       props: {
         orientation: literal('horizontal'),
         color: literal(color),
@@ -296,7 +296,7 @@ export class TemplateBuilder {
     fillColor = '#704bff',
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.progress', id, name, {
+    return this.element(parentId, 'srijika.progress', id, name, {
       props: {
         value: literal(value),
         max: literal(100),
@@ -316,7 +316,7 @@ export class TemplateBuilder {
     tone: 'neutral' | 'primary' | 'info' | 'success' | 'warning' | 'danger',
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.badge', id, name, {
+    return this.element(parentId, 'srijika.badge', id, name, {
       props: {
         label: typeof label === 'string' ? literal(label) : label,
         tone: literal(tone),
@@ -335,7 +335,7 @@ export class TemplateBuilder {
     status: 'none' | 'online' | 'away' | 'busy' | 'offline' = 'none',
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.avatar', id, name, {
+    return this.element(parentId, 'srijika.avatar', id, name, {
       props: {
         src: literal(''),
         alt: literal(name),
@@ -357,7 +357,7 @@ export class TemplateBuilder {
     label: string,
     style: StyleProperties = {},
   ): ElementNode {
-    return this.element(parentId, 'sutra.chart', id, name, {
+    return this.element(parentId, 'srijika.chart', id, name, {
       props: {
         chartType: literal(chartType),
         data: literal(data),
@@ -517,7 +517,7 @@ function createYouTubeTemplate(pageId = 'template_youtube'): UiDocument {
   const subscriptions = b.publicValue(
     'subscriptions',
     'array',
-    ['Sutra Creators', 'Design Weekly', 'Rust Systems'],
+    ['Srijika Creators', 'Design Weekly', 'Rust Systems'],
     { kind: 'array', item: { kind: 'string' } },
   );
 
@@ -757,7 +757,7 @@ function createYouTubeTemplate(pageId = 'template_youtube'): UiDocument {
       card.id,
       `yt_meta_${index}`,
       `Video Metadata ${index + 1}`,
-      `Sutra Channel · ${index + 1}.2M views · ${index + 2} days ago`,
+      `Srijika Channel · ${index + 1}.2M views · ${index + 2} days ago`,
       {
         color: '#606060',
         fontSize: 12,
@@ -903,7 +903,7 @@ function createDashboardTemplate(pageId = 'template_dashboard'): UiDocument {
   );
   const openReport = b.publicEvent('onOpenReport', { payload: null });
 
-  b.element('root', 'sutra.grid', 'orbit_shell', 'Orbit Application Shell', {
+  b.element('root', 'srijika.grid', 'orbit_shell', 'Orbit Application Shell', {
     props: {
       columns: literal(2),
       columnsTemplate: literal('264px minmax(0, 1fr)'),
@@ -1588,13 +1588,19 @@ function createDashboardTemplate(pageId = 'template_dashboard'): UiDocument {
       fontWeight: 650,
     },
   );
-  b.element('orbit_projects_panel', 'sutra.grid', 'orbit_projects_header', 'Project Table Header', {
-    props: {
-      columns: literal(4),
-      columnsTemplate: literal('minmax(0, 1.55fr) minmax(95px, .8fr) 58px 88px'),
+  b.element(
+    'orbit_projects_panel',
+    'srijika.grid',
+    'orbit_projects_header',
+    'Project Table Header',
+    {
+      props: {
+        columns: literal(4),
+        columnsTemplate: literal('minmax(0, 1.55fr) minmax(95px, .8fr) 58px 88px'),
+      },
+      style: { display: 'grid', alignItems: 'center', gap: 12, padding: spacing(0, 10) },
     },
-    style: { display: 'grid', alignItems: 'center', gap: 12, padding: spacing(0, 10) },
-  });
+  );
   ['Project', 'Progress', 'Members', 'Status'].forEach((label, index) =>
     b.text('orbit_projects_header', `orbit_projects_header_${index}`, `${label} Header`, label, {
       color: '#8d96a4',
@@ -1619,7 +1625,7 @@ function createDashboardTemplate(pageId = 'template_dashboard'): UiDocument {
     ['marketing', 'Marketing Campaign', 'Marketing', 92, 'cube', 'On track', 'success', 'JW'],
   ] as const;
   projects.forEach(([key, project, type, progress, iconName, status, tone, members], index) => {
-    b.element('orbit_projects_panel', 'sutra.grid', `orbit_project_${key}`, `${project} Row`, {
+    b.element('orbit_projects_panel', 'srijika.grid', `orbit_project_${key}`, `${project} Row`, {
       props: {
         columns: literal(4),
         columnsTemplate: literal('minmax(0, 1.55fr) minmax(95px, .8fr) 58px 88px'),
@@ -2261,7 +2267,7 @@ function createSettingsTemplate(pageId = 'template_settings'): UiDocument {
     },
     'header',
   );
-  b.heading('settings_header', 'settings_logo', 'Product Name', 'Sutra Cloud', 2, {
+  b.heading('settings_header', 'settings_logo', 'Product Name', 'Srijika Cloud', 2, {
     color: '#18212b',
     fontSize: 18,
   });
@@ -2521,7 +2527,7 @@ export function studioTemplateById(templateId: string): StudioTemplate | undefin
   return studioTemplates.find((template) => template.id === templateId);
 }
 
-const customTemplateStorageKey = 'sutra-studio.custom-templates.v1';
+const customTemplateStorageKey = 'srijika-studio.custom-templates.v1';
 
 export interface SavedStudioTemplate {
   id: string;
