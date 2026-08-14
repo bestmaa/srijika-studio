@@ -82,9 +82,11 @@ const windowsPath = (path) => execFileSync('wslpath', ['-w', path], { encoding: 
 const windowsLauncherSource =
   process.env['SRIJIKA_STUDIO_MCP_WINDOWS_LAUNCHER'] ??
   join(workspace, 'plugins/srijika-studio/scripts/run-mcp.cmd');
-const windowsLauncher = windowsLauncherSource.startsWith('/')
-  ? windowsPath(windowsLauncherSource)
-  : windowsLauncherSource;
+const windowsLauncher = useWindowsLauncher
+  ? windowsLauncherSource.startsWith('/')
+    ? windowsPath(windowsLauncherSource)
+    : windowsLauncherSource
+  : '';
 const transport = new StdioClientTransport({
   command: useWindowsLauncher ? 'cmd.exe' : process.execPath,
   args: useWindowsLauncher ? ['/d', '/s', '/c', windowsLauncher] : [bundle],
