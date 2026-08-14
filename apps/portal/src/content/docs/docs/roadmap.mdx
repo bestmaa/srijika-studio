@@ -1,0 +1,42 @@
+---
+title: Product Roadmap
+description: The staged evolution from the current code-first UI foundation to Rust application backends and AI extensibility.
+---
+
+## Current — code-first UI foundation
+
+- Restricted typed TSX as the persisted UI authority
+- Deterministic React project scaffolding
+- Compiler diagnostics, source spans, quick fixes, and last-good preview behavior
+- Project Explorer, UI Nodes, Inspector, problems, and exact VS Code navigation
+- Managed dependency, run, preview, stop, and production build lifecycle
+- Shared Studio and VS Code language intelligence
+
+## Next — platform hardening
+
+- More lossless visual-to-TSX operations
+- Event-driven native file watching and safe rename/move transactions
+- Design tokens, classes, responsive breakpoints, and component variants
+- Public custom component adapters
+- Explicit format and component migrations
+- Signed platform releases and verified toolchain sidecars
+
+## Phase 2 — API and business logic
+
+- Versioned API documents and typed payload schemas
+- Rust routes, actions, validation, and workflow graph
+- Endpoint composition, data binding, diagnostics, and local execution
+- Stable action identifiers for UI event bindings
+- Vite assets and Rust routes emitted as one deployable server and configured port
+
+Restricted UI TSX continues to describe presentation and typed connections. Backend business logic does not move into visual UI files.
+
+## Phase 3 — AI and extensibility
+
+- Compiler-aware natural-language project edits
+- Reviewable source transactions with expected hashes and semantic validation
+- Capability permissions for custom hooks and code references
+- Plugin SDK and reusable component marketplace boundaries
+- Collaboration transport and eventual CRDT support
+
+Roadmap items are not current product claims. Each phase becomes available only after implementation, automated coverage, and explicit acceptance gates.

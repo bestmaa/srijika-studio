@@ -1,0 +1,54 @@
+---
+title: Architecture Overview
+description: The dependency direction, compile path, runtime model, and native security boundaries of Srijika Studio.
+---
+
+## System layers
+
+```text
+packages/contracts
+├── document-engine
+├── component-registry ── core-components
+├── react-renderer
+├── react-codegen
+├── tsx-compiler
+└── project-scaffold
+
+apps/studio
+├── Project Explorer / Source / UI Nodes / Inspector / Problems
+├── derived and managed application previews
+└── Tauri boundary ── studio-core ── project-store
+
+apps/vscode-srijika
+└── shared compiler diagnostics and quick fixes
+```
+
+## Compile and edit path
+
+```text
+.ui.tsx
+  → parse restricted TSX without executing the module
+  → emit diagnostics and stable source locations
+  → derive and validate UiDocument
+  → project hierarchy + Inspector + React DOM
+
+supported editor intent
+  → bounded AST edit
+  → expected-hash validation
+  → atomic save
+  → compile again
+```
+
+## Persisted versus derived state
+
+The source persists JSX, contracts, expressions, imports, comments, and developer formatting. `UiDocument`, hierarchy nodes, Inspector shapes, and preview DOM are derived. Selection, current diagnostics, dirty state, disk hashes, and stale-preview status belong to the editor session.
+
+## Native boundary
+
+Tauri and Rust provide narrow operations for project creation, scanning, source loading and saving, VS Code navigation, and managed application lifecycle. The boundary rejects traversal, unsafe symlinks, invalid extensions, oversized files, stale hashes, arbitrary process arguments, and URLs not derived from a tracked application.
+
+## AI boundary
+
+AI receives the same TSX rules and diagnostics as developers. It must propose changes to source and connector files. It may not persist or mutate derived `UiDocument` as a parallel authority.
+
+For the complete invariant list and dependency explanation, read the canonical [Srijika Studio Architecture](/reference/architecture/) reference.

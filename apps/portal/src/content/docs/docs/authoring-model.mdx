@@ -1,0 +1,58 @@
+---
+title: Authoring Model
+description: How restricted UI files, connectors, contracts, conditions, and safe edits work in Srijika.
+---
+
+## One authority
+
+Every visual component is authored in a file ending in `.ui.tsx`. The source file is canonical. Studio never saves a derived JSON document over developer-owned TSX.
+
+```tsx
+export interface ProfileUIProps {
+  name: string;
+  avatarUrl: string;
+  isActive: boolean;
+  onOpen: () => void;
+}
+
+export function ProfileUI(props: ProfileUIProps) {
+  return (
+    <article>
+      <img src={props.avatarUrl} alt="" />
+      <h2>{props.name}</h2>
+      {props.isActive && <span>Online</span>}
+      <button onClick={props.onOpen}>Open</button>
+    </article>
+  );
+}
+```
+
+## UI responsibility
+
+A `.ui.tsx` file may describe:
+
+- explicit JSX structure and intrinsic elements;
+- typed local props contracts;
+- literal values and supported prop expressions;
+- callback event props;
+- named `ReactNode` composition slots;
+- conditions, nullish fallback, and supported ternaries.
+
+It does not own hooks, effects, stores, requests, mutations, routing, or business logic.
+
+## Connector responsibility
+
+Connectors adapt application behavior to pure UI:
+
+```tsx
+export function HomeConnector() {
+  const launch = useLaunchProject();
+  return <HomeUI navigation={<NavigationSlot />} onLaunch={launch} />;
+}
+```
+
+This boundary keeps visual contracts reusable and allows the compiler to derive a safe read model without executing arbitrary application modules.
+
+## Safe edits
+
+Supported quick fixes and visual controls produce bounded AST edits. A save includes the last-read content hash. If VS Code changed the source in the meantime, Studio rejects the stale write rather than discarding newer work.

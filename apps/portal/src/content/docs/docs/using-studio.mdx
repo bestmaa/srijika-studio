@@ -1,0 +1,70 @@
+---
+title: Using Srijika Studio
+description: Create or open a project, inspect typed UI source, preview the application, and work safely with diagnostics and VS Code.
+---
+
+## Before you begin
+
+Srijika Studio is currently a public alpha distributed from source. Signed desktop installers are not available yet. Complete the [Getting started](/docs/getting-started/) setup and launch the Tauri desktop application before following this workflow.
+
+The current release is a **code-first React application studio**. It does not generate a Rust business backend. Rust currently secures the desktop project boundary; generated application APIs and business logic are planned for Phase 2.
+
+## 1. Create or open a project
+
+Use the Studio start screen to create a new Srijika project or open an existing validated project directory.
+
+A project must contain the Srijika configuration and pinned toolchain files described in [Project anatomy](/docs/project-anatomy/). Studio refuses an unsafe or incomplete root instead of silently modifying unrelated files.
+
+## 2. Choose a UI source
+
+Select a `.ui.tsx` file in **Project Explorer**. Studio compiles the restricted TSX without executing arbitrary project modules, then synchronizes these views:
+
+- **Source** shows the authored file and exact diagnostic ranges.
+- **UI Nodes** shows the compiled JSX hierarchy.
+- **Inspector** shows the component contract and supported values.
+- **Problems** lists compiler and architecture diagnostics.
+- **Design Preview** renders the last valid derived document.
+
+The source pane is deliberately read-only. General code editing remains in the developer-owned editor.
+
+## 3. Edit in VS Code
+
+Double-click a project, file, UI node, or diagnostic to open the validated location in VS Code. Make the source change there and save it normally.
+
+Studio watches the project, recompiles the changed source, and updates its derived views. This keeps typed TSX authoritative and avoids a second hidden visual document.
+
+## 4. Understand invalid source
+
+When the current source cannot compile:
+
+1. **Problems** updates with the new diagnostics.
+2. Studio preserves the previous successful preview.
+3. The preview is clearly marked as stale.
+4. Fixing and saving the source publishes a new valid document through the same compiler path.
+
+This behavior prevents a broken edit from becoming invisible application state.
+
+## 5. Preview the real application
+
+Use the managed application controls to synchronize pinned dependencies and run the project with Vite. The managed preview is the high-fidelity path for project CSS, connectors, routing, assets, dependencies, and hot module replacement.
+
+The derived Design Preview is intentionally safer and narrower: it visualizes the compiled UI document without executing connectors or arbitrary imports.
+
+## 6. Build the application
+
+Use Studio's managed build action when the project is ready for a production React build. Build failures remain visible as process output and do not replace the last valid design document.
+
+## Browser mode
+
+The browser version is useful for the in-memory demo project and detached `.ui.tsx` inspection. Browser security prevents it from opening project directories, launching VS Code, or managing local application processes. Use the Tauri desktop application for the complete workflow.
+
+## What is intentionally unavailable
+
+- General text editing inside Studio
+- Lossy visual edits that cannot round-trip to typed TSX
+- Arbitrary project-module execution in the derived preview
+- Generated Rust routes, validation, workflows, or business logic
+- Signed Windows, macOS, and Linux installers
+- Public collaboration and plugin marketplaces
+
+See [Product status](/docs/product-status/) for the complete implemented-versus-planned boundary and [Studio workflow](/docs/studio-workflow/) for the responsibilities of each workbench surface.

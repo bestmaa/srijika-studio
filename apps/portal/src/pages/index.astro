@@ -1,0 +1,360 @@
+---
+import "../styles/home.css";
+
+const principles = [
+  {
+    title: "One source of truth",
+    body: "Restricted, typed .ui.tsx remains authoritative. The hierarchy, Inspector, diagnostics, and preview are projections—not competing documents.",
+  },
+  {
+    title: "Bounded visual edits",
+    body: "Studio operations must resolve to reviewable AST source edits, pass hash checks, compile again, and satisfy the same validation path as developer-authored code.",
+  },
+  {
+    title: "Pure UI, explicit wiring",
+    body: "Visual contracts stay reusable and deterministic. Hooks, stores, resources, and event behavior live in connectors with visible ownership.",
+  },
+  {
+    title: "Last-good confidence",
+    body: "Invalid source updates diagnostics immediately while preserving a clearly marked last-valid preview. Broken work never becomes invisible state.",
+  },
+  {
+    title: "Local project authority",
+    body: "Projects are ordinary pinned React workspaces. Studio respects filesystem boundaries, developer formatting, lockfiles, and external editor changes.",
+  },
+  {
+    title: "One rule set everywhere",
+    body: "Studio, the VS Code extension, generated builds, and future AI workflows consume the same compiler and architecture contract.",
+  },
+];
+
+const layers = [
+  {
+    title: "Authoritative source",
+    body: "Typed TSX describes structure, contracts, conditions, attributes, and composition.",
+    tag: ".ui.tsx",
+  },
+  {
+    title: "Restricted compiler",
+    body: "A non-executing parser emits diagnostics, stable source spans, quick fixes, and a validated UiDocument.",
+    tag: "@srijika/tsx-compiler",
+  },
+  {
+    title: "Derived workbench",
+    body: "Project Explorer, UI Nodes, Inspector, problems, and real React preview stay synchronized to source.",
+    tag: "Studio",
+  },
+  {
+    title: "Native boundary",
+    body: "Tauri and Rust enforce contained paths, bounded reads, hash-checked atomic saves, and managed app processes.",
+    tag: "Tauri 2 · Rust",
+  },
+];
+
+const currentStatus = [
+  {
+    title: "Code-first React foundation",
+    body: "Deterministic React 19 scaffolding, restricted TSX compilation, source diagnostics, last-good previews, and real project indexing are implemented.",
+    status: "Available now",
+  },
+  {
+    title: "Desktop project workflow",
+    body: "Create and open projects, navigate exact sources in VS Code, synchronize dependencies, and run or build the managed Vite application.",
+    status: "Available now",
+  },
+  {
+    title: "Shared language intelligence",
+    body: "Srijika Studio and the VS Code extension use the same compiler diagnostics and machine-readable corrections.",
+    status: "Available now",
+  },
+  {
+    title: "Rust application backend",
+    body: "Typed API documents, Rust routes, actions, validation, workflows, and single-binary generation belong to Phase 2 and are not shipped today.",
+    status: "Planned",
+    future: true,
+  },
+];
+
+const heroCode = `export interface HomeUIProps {
+  title: string;
+  onLaunch: () => void;
+  navigation: ReactNode;
+}
+
+export function HomeUI(props: HomeUIProps) {
+  return (
+    <main>
+      <nav>{props.navigation}</nav>
+      <h1>{props.title}</h1>
+      <button onClick={props.onLaunch}>Launch</button>
+    </main>
+  );
+}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content="Srijika Studio is a code-first React application studio where typed TSX stays authoritative."
+    />
+    <meta name="theme-color" content="#0b0b0e" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://srijika.com/" />
+    <meta property="og:title" content="Srijika Studio — Design the interface. Keep the source." />
+    <meta
+      property="og:description"
+      content="A code-first React application studio where typed TSX stays authoritative."
+    />
+    <meta property="og:image" content="https://srijika.com/srijika-social.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://srijika.com/srijika-social.png" />
+    <link rel="canonical" href="https://srijika.com/" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <title>Srijika Studio — Design the interface. Keep the source.</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="nav shell" aria-label="Primary navigation">
+        <a class="brand" href="/" aria-label="Srijika Studio home">
+          <img src="/favicon.png" alt="" width="34" height="34" />
+          <span>Srijika Studio</span>
+        </a>
+        <div class="nav-links">
+          <a href="#architecture">Architecture</a>
+          <a href="#status">Product status</a>
+          <a href="/docs/">Documentation</a>
+          <a class="nav-status" href="/docs/product-status/">Public alpha</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero shell">
+        <div>
+          <p class="eyebrow">Code-first application studio</p>
+          <h1>Design the interface. <span>Keep the source.</span></h1>
+          <p class="hero-copy">
+            Srijika Studio gives React teams a visual workbench without introducing a hidden visual
+            format. Typed TSX remains authoritative; every supported operation returns to source.
+          </p>
+          <div class="actions">
+            <a class="button button--primary" href="/docs/">Explore the documentation <span>→</span></a>
+            <a class="button" href="#architecture">Understand the architecture</a>
+          </div>
+          <div class="hero-facts" aria-label="Technology overview">
+            <span>React 19</span>
+            <span>TypeScript 6</span>
+            <span>Tauri 2 + Rust</span>
+            <span>Public alpha</span>
+          </div>
+        </div>
+
+        <div class="hero-system" aria-label="Srijika source and derived workbench illustration">
+          <article class="system-card system-card--source">
+            <div class="card-bar">
+              <span>Home.ui.tsx</span>
+              <span class="card-dots"><i></i><i></i><i></i></span>
+            </div>
+            <pre class="code"><code>{heroCode}</code></pre>
+          </article>
+
+          <article class="system-card system-card--derived">
+            <div class="card-bar">
+              <span>Derived workbench</span>
+              <span>compiled · valid</span>
+            </div>
+            <div class="derived-body">
+              <div class="tree">
+                <strong>main</strong><br />
+                ├─ nav<br />
+                ├─ <strong>h1</strong><br />
+                └─ button
+              </div>
+              <div class="preview">
+                <div class="preview-window"><b></b><i></i><i></i><i></i></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section--bordered shell">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">The operating contract</p>
+            <h2>Visual tooling with engineering discipline.</h2>
+          </div>
+          <p>
+            Srijika is designed around a small set of hard guarantees. They keep visual work,
+            developer edits, generated projects, and future AI operations understandable and safe.
+          </p>
+        </div>
+        <div class="principles">
+          {principles.map((principle, index) => (
+            <article class="principle">
+              <span class="principle-number">0{index + 1}</span>
+              <h3>{principle.title}</h3>
+              <p>{principle.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="architecture" class="section section--bordered shell architecture">
+        <div class="architecture-copy">
+          <p class="kicker">System architecture</p>
+          <h2>One direction from intent to truth.</h2>
+          <p>
+            Srijika parses source without executing arbitrary project code. Valid source produces one
+            derived model; every supported editor action becomes a bounded source edit and compiles
+            through the same path again.
+          </p>
+          <a class="button" href="/docs/architecture/">Read the architecture guide →</a>
+        </div>
+        <div class="architecture-stack">
+          {layers.map((layer, index) => (
+            <article class="layer">
+              <span class="layer-index">0{index + 1}</span>
+              <div>
+                <h3>{layer.title}</h3>
+                <p>{layer.body}</p>
+              </div>
+              <span class="layer-tag">{layer.tag}</span>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="section section--bordered shell">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">Project anatomy</p>
+            <h2>Ownership you can see in the filesystem.</h2>
+          </div>
+          <p>
+            Features own named slots; slots own private parts. Capabilities flow down to descendants,
+            never sideways into siblings or upward from private children.
+          </p>
+        </div>
+        <div class="tree-card">
+          <pre class="tree-code"><code>src/
+├─ features/
+│  └─ home/
+│     ├─ Home.ui.tsx
+│     ├─ Home.connector.tsx
+│     ├─ home.store.ts
+│     ├─ hooks/
+│     └─ slots/
+│        └─ navigation/
+│           ├─ Navigation.ui.tsx
+│           ├─ Navigation.connector.tsx
+│           └─ parts/
+│              └─ navigation-item/
+│                 └─ NavigationItem.ui.tsx
+└─ shared/</code></pre>
+          <div class="tree-explain">
+            <div class="tree-rule">
+              <span>UI</span>
+              <strong>Pure visual contracts</strong>
+              <p>Typed props, callback events, JSX, and ReactNode slots—without hooks or business logic.</p>
+            </div>
+            <div class="tree-rule">
+              <span>Connectors</span>
+              <strong>Explicit application wiring</strong>
+              <p>Stores, hooks, resources, routing, and actions are composed around pure UI.</p>
+            </div>
+            <div class="tree-rule">
+              <span>Ownership</span>
+              <strong>Promote instead of reaching sideways</strong>
+              <p>Shared sibling behavior moves to the nearest common owner; cross-feature work is deliberate.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="status" class="section section--bordered shell">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">Public alpha status</p>
+            <h2>Clear about what exists—and what comes next.</h2>
+          </div>
+          <p>
+            The current milestone is a code-first UI foundation. Rust is already part of the secure
+            desktop boundary; generated Rust business backends remain a future product phase.
+          </p>
+        </div>
+        <div class="status-grid">
+          {currentStatus.map((item) => (
+            <article class:list={["status-card", { "status-card--future": item.future }]}>
+              <small>{item.status}</small>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="section section--bordered shell">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">Product evolution</p>
+            <h2>A staged path to complete applications.</h2>
+          </div>
+          <p>
+            Each phase strengthens the same source-first model instead of replacing it. Backend,
+            intelligence, and collaboration arrive through versioned contracts and reviewable edits.
+          </p>
+        </div>
+        <div class="roadmap">
+          <article class="phase phase--active">
+            <small>Current</small>
+            <h3>Code-first UI foundation</h3>
+            <p>Restricted TSX, project workflow, derived inspection, managed React runtime, and shared diagnostics.</p>
+          </article>
+          <article class="phase">
+            <small>Next</small>
+            <h3>Platform hardening</h3>
+            <p>Lossless visual edits, tokens and variants, custom components, signed releases, and migrations.</p>
+          </article>
+          <article class="phase">
+            <small>Phase 2</small>
+            <h3>Rust APIs and business logic</h3>
+            <p>Typed requests, routes, actions, validation, workflows, and a unified deployable server.</p>
+          </article>
+          <article class="phase">
+            <small>Phase 3</small>
+            <h3>AI and extensibility</h3>
+            <p>Compiler-aware source transactions, capability permissions, plugins, and collaboration transport.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section shell">
+        <div class="cta">
+          <div class="cta-content">
+            <p class="kicker">Engineering portal</p>
+            <h2>Every rule, workflow, and deliberate limit—in one place.</h2>
+            <p>
+              Continue into the product documentation to understand the authoring language, project
+              ownership model, desktop boundary, testing strategy, and current roadmap.
+            </p>
+            <div class="actions">
+              <a class="button button--primary" href="/docs/">Open documentation →</a>
+              <a class="button" href="/docs/product-status/">Review product status</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <div><strong>Srijika Studio</strong> · Public alpha product portal</div>
+      <div>Typed source in. Reviewable applications out.</div>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,56 @@
+---
+title: Getting Started
+description: Install, run, and understand the supported Srijika Studio development workflow.
+---
+
+## Toolchain
+
+The current development baseline uses:
+
+- Node.js 22.22.1 (minimum declared version: 22.13)
+- pnpm 11.18.0
+- TypeScript 6.0.3
+- React 19.2.8
+- Rust 1.97.1
+- Tauri 2
+
+## Browser development
+
+From the repository root:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev
+```
+
+The editor runs at `http://localhost:5173/`. The standalone interpreted preview is available at `http://localhost:5173/preview`. Port 5173 is strict; development fails instead of silently selecting another port.
+
+Browser mode is intentionally limited. It provides an in-memory demo project and standalone `.ui.tsx` inspection, but it cannot access project directories, launch VS Code, or manage application processes.
+
+## Desktop development
+
+```bash
+pnpm tauri dev
+```
+
+The desktop shell provides the complete independent-project workflow:
+
+1. Create or open a validated Srijika project.
+2. Select `.ui.tsx` sources from Project Explorer.
+3. Inspect UI Nodes, contracts, diagnostics, and source ranges.
+4. Open exact project, file, or node locations in VS Code.
+5. Run or build the managed Vite application using the pinned toolchain.
+
+Linux and WSL require the native WebKitGTK and Tauri prerequisites listed in the canonical [Development Setup](/reference/development/) reference.
+
+## Quality gate
+
+```bash
+pnpm verify
+pnpm test:e2e:web
+cargo fmt --all -- --check
+cargo clippy --locked -p project-store -p studio-core -- -D warnings
+cargo test --locked -p project-store -p studio-core
+```
+
+Full workspace Rust checks include the Tauri shell and therefore require the documented native dependencies.

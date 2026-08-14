@@ -1,0 +1,45 @@
+---
+title: Engineering Quality
+description: The test layers, release gates, safety invariants, and regression policy used by Srijika Studio.
+---
+
+## Quality layers
+
+Srijika separates validation concerns instead of treating one successful build as proof of correctness:
+
+1. TypeScript and lint rules validate authored code quality.
+2. Unit tests cover compilers, contracts, rules, stores, and transformations.
+3. Integration tests cover cross-package and workbench behavior.
+4. Contract tests preserve versioned schemas and protocol compatibility.
+5. Playwright exercises browser workflows, accessibility, and visual baselines.
+6. Rust formatting, Clippy, and tests validate native boundaries.
+
+## Primary JavaScript gate
+
+```bash
+pnpm verify
+```
+
+This runs formatting checks, lint, type checking, automated tests, and workspace builds.
+
+## Browser acceptance
+
+```bash
+pnpm test:e2e:web
+```
+
+Visual baseline updates are committed only after intentional review. Accessibility checks cover serious and critical shell violations, with known exclusions documented in the canonical testing reference.
+
+## Native gates
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --locked -p project-store -p studio-core -- -D warnings
+cargo test --locked -p project-store -p studio-core
+```
+
+Full Tauri workspace validation additionally requires the platform-native dependencies documented for Linux, Windows, or macOS.
+
+## Regression rule
+
+A bug fix adds coverage at the narrowest layer that can reproduce the failure and, when the behavior crosses a user-visible boundary, at an integration or end-to-end layer as well.

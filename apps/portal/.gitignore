@@ -1,0 +1,5 @@
+dist/
+.astro/
+src/content/docs/reference/
+src/assets/srijika-icon.png
+public/favicon.png
