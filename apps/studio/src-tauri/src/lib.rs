@@ -5,9 +5,7 @@ mod bridge;
 use std::process::{Command, Stdio};
 
 #[cfg(any(windows, target_os = "linux"))]
-use std::env;
-#[cfg(windows)]
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 use serde::Serialize;
 #[cfg(not(windows))]
@@ -313,7 +311,44 @@ fn vscode_remote_authority() -> Option<String> {
 
 #[cfg(not(windows))]
 fn vscode_command() -> Result<Command, CommandFailure> {
+    #[cfg(target_os = "linux")]
+    if vscode_remote_authority().is_some()
+        && let Some(executable) = wsl_windows_vscode_executable()
+    {
+        return Ok(Command::new(executable));
+    }
     Ok(Command::new(VSCODE_EXECUTABLE))
+}
+
+/// VS Code's WSL `code` shell launcher can block while locating Remote WSL.
+/// Prefer the adjacent Windows GUI executable and pass the already validated
+/// `--remote wsl+<distribution>` arguments directly.
+#[cfg(target_os = "linux")]
+fn wsl_windows_vscode_executable() -> Option<PathBuf> {
+    let path = env::var_os("PATH")?;
+    wsl_windows_vscode_candidates(&path)
+        .into_iter()
+        .find_map(|candidate| {
+            let metadata = fs::symlink_metadata(&candidate).ok()?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return None;
+            }
+            fs::canonicalize(candidate).ok()
+        })
+}
+
+#[cfg(target_os = "linux")]
+fn wsl_windows_vscode_candidates(path: &std::ffi::OsStr) -> Vec<PathBuf> {
+    env::split_paths(path)
+        .filter(|directory| directory.is_absolute())
+        .flat_map(|directory| {
+            let mut candidates = vec![directory.join("Code.exe")];
+            if let Some(parent) = directory.parent() {
+                candidates.push(parent.join("Code.exe"));
+            }
+            candidates
+        })
+        .collect()
 }
 
 /// The PATH launcher on Windows is normally `code.cmd`. Batch files use
@@ -599,6 +634,8 @@ pub fn run() {
 mod tests {
     use studio_core::{ResolvedEditorTarget, StudioCoreError};
 
+    #[cfg(target_os = "linux")]
+    use super::wsl_windows_vscode_candidates;
     use super::{CommandFailure, launch_project_from_arguments, vscode_arguments};
 
     #[test]
@@ -678,5 +715,17 @@ mod tests {
                 "/home/beste/project/srijika-app/src/Home.ui.tsx:9:3"
             ]
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn finds_the_windows_gui_next_to_the_wsl_code_launcher() {
+        let candidates = wsl_windows_vscode_candidates(std::ffi::OsStr::new(
+            "/usr/bin:/mnt/c/Users/developer/AppData/Local/Programs/Microsoft VS Code/bin",
+        ));
+
+        assert!(candidates.contains(&std::path::PathBuf::from(
+            "/mnt/c/Users/developer/AppData/Local/Programs/Microsoft VS Code/Code.exe"
+        )));
     }
 }
