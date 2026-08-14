@@ -203,6 +203,24 @@ dist
     '.vscode/extensions.json': jsonFile({
       recommendations: [vscodeExtensionId],
     }),
+    '.mcp.json': jsonFile({
+      mcpServers: {
+        'srijika-project': {
+          command: 'npx',
+          args: ['-y', '@srijika/mcp-server@0.1.0', '--project', '.'],
+          cwd: '.',
+        },
+      },
+    }),
+    '.vscode/mcp.json': jsonFile({
+      servers: {
+        'srijika-project': {
+          type: 'stdio',
+          command: 'npx',
+          args: ['-y', '@srijika/mcp-server@0.1.0', '--project', '${workspaceFolder}'],
+        },
+      },
+    }),
     '.vscode/settings.json': jsonFile({
       'editor.codeActionsOnSave': {
         'source.fixAll.srijika': 'explicit',
@@ -230,6 +248,53 @@ dist
         'editor.suggestOnTriggerCharacters': true,
       },
     }),
+    '.vscode/tasks.json': jsonFile({
+      version: '2.0.0',
+      tasks: [
+        {
+          label: 'Srijika: Run App',
+          type: 'shell',
+          command: 'pnpm dev',
+          isBackground: true,
+          problemMatcher: [],
+          presentation: { reveal: 'always', panel: 'dedicated' },
+        },
+        {
+          label: 'Srijika: Check Architecture',
+          type: 'shell',
+          command: 'pnpm run validate:srijika',
+          problemMatcher: [],
+          group: 'test',
+        },
+        {
+          label: 'Srijika: Build App',
+          type: 'shell',
+          command: 'pnpm build',
+          problemMatcher: ['$tsc'],
+          group: 'build',
+        },
+      ],
+    }),
+    'AGENTS.md': sourceFile(`
+# Srijika project contract
+
+This is a CLI-first Srijika TSX project. Desktop Studio and VS Code are optional
+adapters; the files in this folder are the source of truth.
+
+- Read \`srijika.config.json\` before changing structure.
+- Every Feature, Slot, and Part requires a pure \`*.ui.tsx\` plus its matching
+  \`*.connector.tsx\` runtime gateway.
+- Follow the highest available chain without jumping an existing layer:
+  Connector → Hook → Store → Logic → API → Types.
+- Keep child-private imports downward. Promote shared sibling behavior to the
+  nearest common Part, Slot, Feature, or \`src/shared\` owner.
+- Prefer \`npx @srijika/cli add ...\` for structural creation and run
+  \`npx @srijika/cli check\` after edits. Never overwrite generated owner files.
+- MCP clients should connect through \`.mcp.json\` and call
+  \`srijika_get_code_project\` before planning changes. Plan with
+  \`srijika_plan_code_structure\`, review its paths, then pass its one-time
+  \`planId\` to \`srijika_apply_code_structure\`.
+`),
     'README.md': sourceFile(`
 # ${displayName}
 
@@ -291,6 +356,9 @@ the pinned toolchain:
 \`pnpm dev\`
 
 \`pnpm typecheck\` checks TypeScript and \`pnpm build\` creates a production build.
+VS Code users can also run the generated **Srijika: Run App**, **Srijika: Check
+Architecture**, and **Srijika: Build App** tasks without Desktop Studio. Installing
+Studio later requires no migration: open this same project folder.
 `),
     'index.html': sourceFile(`
 <!doctype html>
@@ -323,6 +391,7 @@ the pinned toolchain:
       scripts: {
         dev: 'vite',
         'validate:srijika': 'node scripts/srijika-validate.mjs',
+        'mcp:srijika': 'npx -y @srijika/mcp-server@0.1.0 --project .',
         build: 'pnpm run validate:srijika && tsc -p tsconfig.json && vite build',
         preview: 'vite preview',
         typecheck: 'pnpm run validate:srijika && tsc -p tsconfig.json',
@@ -1620,6 +1689,11 @@ a:focus-visible {
       validation: {
         architecture: SRIJIKA_ARCHITECTURE.profile,
         command: 'pnpm run validate:srijika',
+      },
+      ai: {
+        mcpConfig: '.mcp.json',
+        instructions: 'AGENTS.md',
+        desktopRequired: false,
       },
     }),
     'tsconfig.json': jsonFile({

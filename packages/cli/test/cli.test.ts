@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,7 +8,9 @@ import { createSrijikaProjectFileMap, writeSrijikaProject } from '@srijika/proje
 
 import { addSrijikaStructure } from '../src/add.js';
 import { parseSrijikaArguments } from '../src/arguments.js';
-import { resolveSrijikaStudioExecutable } from '../src/studio.js';
+import { runSrijikaCli } from '../src/cli.js';
+import { findSrijikaStudioExecutable, resolveSrijikaStudioExecutable } from '../src/studio.js';
+import { resolveVSCodeLaunch } from '../src/vscode.js';
 
 const roots: string[] = [];
 
@@ -47,6 +49,66 @@ describe('Desktop handoff', () => {
     await expect(
       resolveSrijikaStudioExecutable({ SRIJIKA_STUDIO_PATH: '/opt/srijika/srijika-studio' }),
     ).resolves.toBe('/opt/srijika/srijika-studio');
+  });
+
+  it('treats missing optional Studio as unavailable instead of failing setup', async () => {
+    const home = await mkdtemp(join(tmpdir(), 'srijika-no-studio-'));
+    roots.push(home);
+    await expect(
+      findSrijikaStudioExecutable({ HOME: home, PATH: '' }, 'linux'),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('VS Code handoff', () => {
+  it('uses the adjacent Windows GUI from WSL with the exact remote authority', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'srijika-vscode-'));
+    roots.push(root);
+    const bin = join(root, 'Microsoft VS Code', 'bin');
+    await mkdir(bin, { recursive: true });
+    const gui = join(root, 'Microsoft VS Code', 'Code.exe');
+    await writeFile(gui, 'test');
+
+    await expect(
+      resolveVSCodeLaunch({ PATH: bin, WSL_DISTRO_NAME: 'Ubuntu' }, 'linux'),
+    ).resolves.toEqual({
+      executable: gui,
+      prefixArguments: ['--remote', 'wsl+Ubuntu'],
+    });
+  });
+});
+
+describe('create command', () => {
+  it('creates a complete CLI-first project without requiring VS Code or Studio', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-create-'));
+    roots.push(parent);
+    const root = join(parent, 'portable-app');
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(
+        runSrijikaCli(['create', root, '--no-install', '--no-open', '--json']),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+
+    const payload = JSON.parse(logs.join('\n')) as { statuses: Record<string, string> };
+    expect(payload.statuses).toMatchObject({
+      dependencies: 'skipped',
+      vscode: 'skipped',
+      studio: 'skipped',
+    });
+    await expect(readFile(join(root, 'srijika.config.json'), 'utf8')).resolves.toContain(
+      'feature-slot-part-v1',
+    );
+    await expect(readFile(join(root, '.vscode/extensions.json'), 'utf8')).resolves.toContain(
+      'srijika.srijika-language-support',
+    );
+    await expect(readFile(join(root, '.vscode/tasks.json'), 'utf8')).resolves.toContain(
+      'Srijika: Run App',
+    );
   });
 });
 

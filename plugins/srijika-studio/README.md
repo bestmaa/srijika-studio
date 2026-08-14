@@ -1,21 +1,21 @@
 # Srijika Studio Codex plugin
 
-This package connects Codex to the canonical document engine in a running Srijika Studio desktop process. The bundled MCP server reads compact project state and applies revision-checked UI operations through an authenticated loopback bridge. It can also analyze duplicate siblings, normalize them into typed React Repeat/map structures, inspect compact generated-TSX evidence, write responsive breakpoint overrides, and verify geometry across viewports.
+This package connects Codex to Srijika projects with or without the desktop app. The bundled MCP server can inspect a code-first project, run the shared architecture validator, plan canonical Feature → Slot → Part files, and apply a reviewed one-time plan directly on disk. When Studio is running, the same server also reads and edits the canonical visual document through its authenticated loopback bridge.
 
 For code-first filesystem work, the plugin also publishes the strict Feature → Slot → Part creation contract. Codex resolves an exact owner boundary before writing, always creates UI + Connector for a new owner, adds only selected Hook/Store/Logic/API/Types files, preflights every canonical path, and never invents alternate folders or overwrites existing files.
 
 ## Use
 
-1. Start Srijika Studio with `pnpm tauri dev` (or a packaged desktop build).
-2. Add this repository as a local Codex marketplace:
+1. Add this repository as a local Codex marketplace:
 
    ```bash
    codex plugin marketplace add /path/to/srijika-studio
    codex plugin add srijika-studio@srijika-studio-local
    ```
 
-3. Start a new Codex task or reload plugins, then ask Codex to use `$srijika-studio`.
-4. Confirm the Studio status bar reports `Codex connected` after the first tool call.
+2. Start a new Codex task or reload plugins, then ask Codex to use `$srijika-studio`.
+3. Open a generated Srijika folder. Codex can immediately call `srijika_get_code_project`, `srijika_check_code_project`, and the reviewed plan/apply tools; Studio is not required.
+4. Start Srijika Studio only for visual-document editing, hierarchy/layout inspection, or preview capture. Its status bar reports `Codex connected` after the first bridge tool call.
 
 The Windows launcher supports a native Windows Studio process and a Studio process started inside WSL. WSL defaults are distribution `Ubuntu` and the Windows username. Override unusual installations with `SRIJIKA_STUDIO_WSL_DISTRO`, `SRIJIKA_STUDIO_WSL_USER`, or `SRIJIKA_STUDIO_WSL_DATA_HOME`.
 
@@ -25,6 +25,7 @@ The Windows launcher supports a native Windows Studio process and a Studio proce
 pnpm plugin:build
 pnpm test:mcp
 pnpm test:mcp:stdio
+pnpm test:mcp:code
 pnpm test:mcp:windows
 pnpm test:mcp:tauri
 ```

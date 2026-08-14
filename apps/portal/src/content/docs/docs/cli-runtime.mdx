@@ -13,10 +13,31 @@ as every other surface.
 ## Install and start
 
 ```bash
+npx @srijika/cli create my-app
+cd my-app
 npx @srijika/cli doctor
 npx @srijika/cli install
 npx @srijika/cli dev
 ```
+
+`create` is the CLI-first setup path: it creates the pinned project, installs its
+frozen dependency graph, validates the Feature → Slot → Part contract, and opens
+the exact folder in VS Code when available. It also installs or recommends
+Srijika Language Support. Desktop Studio is optional—if detected it opens the
+same project; if absent, setup succeeds and the VS Code/terminal workflow remains
+complete.
+
+Generated projects also contain `.mcp.json`, `.vscode/mcp.json`, and `AGENTS.md`.
+Codex or another MCP client can therefore inspect the canonical project, run the
+shared architecture check, preview exact scaffold plans, and atomically create
+Feature/Slot/Part files without Desktop Studio. Studio adds visual document,
+layout, and preview bridge tools when it is available; it is not an MCP startup
+requirement.
+
+Use `--no-open` for CI, or `--no-install`, `--no-vscode`, `--no-extension`, and
+`--no-studio` to disable individual onboarding steps. Generated VS Code tasks can
+run the app, architecture check, and production build without the extension or
+Desktop Studio.
 
 `srijika dev` starts the project's real Vite server. React Fast Refresh,
 project CSS, dependencies, Providers, Connectors, routes, and Srijika's preview

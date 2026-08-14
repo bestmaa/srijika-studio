@@ -26,6 +26,7 @@
     "test:a11y": "playwright test --grep @a11y",
     "test:mcp": "vitest run --project unit tests/unit/automation-protocol.unit.test.ts tests/unit/mcp-bridge-client.unit.test.ts tests/unit/mcp-server.unit.test.ts",
     "test:mcp:stdio": "node tests/e2e/mcp-stdio-smoke.mjs",
+    "test:mcp:code": "node tests/e2e/mcp-code-project-smoke.mjs",
     "test:mcp:tauri": "node tests/e2e/mcp-tauri-live-smoke.mjs",
     "test:mcp:tauri:orbit": "node tests/e2e/mcp-tauri-orbit-fidelity.mjs",
     "test:mcp:windows": "node tests/e2e/mcp-stdio-smoke.mjs --windows",

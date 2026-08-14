@@ -1,11 +1,25 @@
 ---
 name: srijika-studio
-description: Build, inspect, edit, validate, debug, and preview React UI documents in a running Srijika Studio desktop application through its authenticated local MCP tools. Use when a user asks Codex to recreate an interface from an image, create or modify Srijika pages/components/props/styles/events, diagnose a Srijika AST or renderer problem, inspect hierarchy or generated UI, or operate the Srijika Studio application without manually dragging every element.
+description: Build, inspect, scaffold, validate, debug, and preview Srijika React projects through CLI-first project MCP tools and an optional authenticated Studio bridge. Use for Feature/Slot/Part project structure even without Desktop Studio, or for visual document, hierarchy, renderer, and preview work when Studio is running.
 ---
 
 # Srijika Studio
 
-Use the running Studio document engine as the only source of truth. Operate on stable node IDs and versioned JSON operations; never automate the editor by guessing DOM coordinates.
+For code-first projects, the TSX files and `srijika.config.json` are the source of
+truth and Desktop Studio is optional. For visual document work, use the running
+Studio document engine as the source of truth. Never automate the editor by
+guessing DOM coordinates.
+
+## Choose the adapter first
+
+- Feature, Slot, Part, Connector, Hook, Store, Logic, API, Types, project setup,
+  validation, or runtime: call `srijika_get_code_project`, then use the code-project
+  check/plan/apply tools. These must work when Studio is closed or uninstalled.
+- Canvas nodes, visual document props/events/styles, layout snapshots, history, or
+  clean preview capture: use the Studio bridge workflow below.
+- If the Studio bridge is unavailable during a code-project task, continue with
+  the project tools. Stop only when the requested operation inherently needs the
+  visual document or renderer.
 
 ## Core workflow
 
@@ -51,6 +65,11 @@ Do not request or reproduce the full canonical document unless replacement, migr
 Read [document-model.md](references/document-model.md) when constructing expressions, public props, events, styles, or AST nodes. Read [protocol-and-tools.md](references/protocol-and-tools.md) for exact tool behavior and operation examples.
 
 When creating, moving, or reviewing code-first Features, Slots, Parts, Connectors, Hooks, Stores, Logic, APIs, or owner Types, read [code-first-architecture.md](references/code-first-architecture.md). Resolve the exact owner folder through its strict creation matrix before writing: new owners always include UI + Connector, optional capabilities come only from the checked set, paths are preflighted without overwrite, and arbitrary folders or alternate names are forbidden. Apply the highest-available/no-jump chain and nearest-common-owner promotion rules. The same machine-readable contract is available from the read-only MCP resource `srijika://docs/code-first-architecture`.
+
+For structural writes, call `srijika_plan_code_structure` first and review every
+created/updated path. Then pass its one-time `planId` to
+`srijika_apply_code_structure` and finish with `srijika_check_code_project`. Never substitute Studio bridge
+operations for a canonical TSX ownership change.
 
 When a task asks to initialize, inspect, validate, run, build, or open a code-first project from the terminal or VS Code, read [cli-and-runtime.md](references/cli-and-runtime.md). Prefer the shared `srijika` CLI over recreating package-manager or scaffold decisions. Keep Node as the compatibility default, select Bun only when explicitly requested for a detected Vite project, and never change the lockfile or package manager merely because the runtime changed. The same machine-readable contract is available from `srijika://docs/cli-runtime`.
 

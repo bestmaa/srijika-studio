@@ -1,7 +1,7 @@
 {
   "name": "srijika-studio",
-  "version": "0.1.0+codex.20260814053725",
-  "description": "Build, scaffold, inspect, validate, run, debug, and responsively verify canonical React projects in Srijika Studio from Codex.",
+  "version": "0.1.0+codex.20260814143840",
+  "description": "Build, scaffold, inspect, validate, and run CLI-first Srijika React projects from Codex, with optional Studio visual tools.",
   "author": {
     "name": "Srijika Studio"
   },
@@ -11,14 +11,15 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Srijika Studio",
-    "shortDescription": "Build React interfaces in the desktop Studio",
-    "longDescription": "Connect Codex to a running Srijika Studio app through a private authenticated bridge, use the shared CLI contract for strict Feature, Slot, and Part scaffolding and Vite runtime decisions, then inspect hierarchy and component manifests, apply atomic UI operations, validate generated TSX and architecture, inspect rendered geometry, and capture clean previews.",
+    "shortDescription": "Build Srijika projects with or without Studio",
+    "longDescription": "Use software-independent MCP tools for strict Feature, Slot, and Part project inspection, validation, planning, and atomic scaffolding. When Srijika Studio is available, connect through its private authenticated bridge to inspect hierarchy, apply visual document operations, validate generated TSX, inspect rendered geometry, and capture clean previews.",
     "developerName": "Srijika Studio",
     "category": "Developer Tools",
     "capabilities": [
       "Recreate screenshot designs",
       "Build and edit React UI",
       "Scaffold and validate code-first projects",
+      "Operate CLI-first projects without Desktop Studio",
       "Run Vite with Node or optional Bun",
       "Normalize repeated UI into typed React maps",
       "Inspect generated React contracts",

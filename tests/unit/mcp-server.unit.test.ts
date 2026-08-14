@@ -1,8 +1,12 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SRIJIKA_RPC_METHODS, SRIJIKA_TOOL_NAMES } from '@srijika/automation-protocol';
+import { writeSrijikaProject } from '@srijika/project-scaffold';
 import {
   SrijikaBridgeError,
   createSrijikaMcpServer,
@@ -16,8 +20,11 @@ afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
-async function connectedClient(bridgeClient: SrijikaBridgeCaller): Promise<Client> {
-  const server = createSrijikaMcpServer({ bridgeClient });
+async function connectedClient(
+  bridgeClient: SrijikaBridgeCaller,
+  projectRoot?: string,
+): Promise<Client> {
+  const server = createSrijikaMcpServer({ bridgeClient, projectRoot });
   const client = new Client({ name: 'srijika-mcp-test', version: '1.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -41,11 +48,19 @@ describe('Srijika MCP server', () => {
       call: <T>() => Promise.resolve({} as T),
     });
     const listed = await client.listTools();
-    expect(Buffer.byteLength(JSON.stringify(listed.tools), 'utf8')).toBeLessThan(65_000);
+    expect(Buffer.byteLength(JSON.stringify(listed.tools), 'utf8')).toBeLessThan(70_000);
     const names = listed.tools.map(({ name }) => name);
 
-    expect([...names].sort()).toEqual([...Object.values(SRIJIKA_TOOL_NAMES)].sort());
-    expect(listed.tools).toHaveLength(17);
+    expect(names).toEqual(expect.arrayContaining(Object.values(SRIJIKA_TOOL_NAMES)));
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'srijika_get_code_project',
+        'srijika_check_code_project',
+        'srijika_plan_code_structure',
+        'srijika_apply_code_structure',
+      ]),
+    );
+    expect(listed.tools).toHaveLength(21);
     expect(
       listed.tools.find(({ name }) => name === SRIJIKA_TOOL_NAMES.getProjectSummary)?.annotations,
     ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
@@ -145,6 +160,69 @@ describe('Srijika MCP server', () => {
     expect(architectureContract.creation.compositeOwners['slot']).toMatchObject({
       required: ['ui', 'connector'],
       selectable: ['hook', 'store', 'logic', 'api', 'types'],
+    });
+  });
+
+  it('inspects, validates, plans, and scaffolds a code project without Studio', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-mcp-code-'));
+    cleanups.push(() => rm(parent, { recursive: true, force: true }));
+    const root = join(parent, 'app');
+    await writeSrijikaProject(root, { projectName: 'mcp-code', displayName: 'MCP Code' });
+    const client = await connectedClient(
+      { call: () => Promise.reject(new Error('no Studio')) },
+      root,
+    );
+
+    const inspected = await client.callTool({ name: 'srijika_get_code_project', arguments: {} });
+    expect(inspected.isError).toBeUndefined();
+    expect(inspected.structuredContent).toMatchObject({
+      ok: true,
+      result: {
+        contractId: 'srijika.cli-first-code-project',
+        projectName: 'mcp-code',
+        adapters: { mcp: 'active without Studio' },
+      },
+    });
+
+    const input = {
+      kind: 'feature',
+      name: 'McpAudit',
+      optionalCapabilities: ['logic', 'api', 'types'],
+    };
+    const planned = await client.callTool({
+      name: 'srijika_plan_code_structure',
+      arguments: input,
+    });
+    expect(planned.structuredContent).toMatchObject({
+      ok: true,
+      result: { dryRun: true, owner: 'McpAudit' },
+    });
+    const plannedContent = planned.structuredContent as {
+      result: { planId: string };
+    };
+    expect(plannedContent.result.planId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    await expect(
+      readFile(join(root, 'src/features/mcp-audit/McpAudit.ui.tsx'), 'utf8'),
+    ).rejects.toThrow();
+
+    const applied = await client.callTool({
+      name: 'srijika_apply_code_structure',
+      arguments: { planId: plannedContent.result.planId },
+    });
+    expect(applied.structuredContent).toMatchObject({
+      ok: true,
+      result: { dryRun: false, owner: 'McpAudit' },
+    });
+    await expect(
+      readFile(join(root, 'src/features/mcp-audit/McpAudit.ui.tsx'), 'utf8'),
+    ).resolves.toContain('function McpAuditUI');
+
+    const checked = await client.callTool({ name: 'srijika_check_code_project', arguments: {} });
+    expect(checked.structuredContent).toMatchObject({
+      ok: true,
+      result: { diagnostics: [] },
     });
   });
 

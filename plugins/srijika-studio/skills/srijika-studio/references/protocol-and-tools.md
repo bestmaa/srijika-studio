@@ -3,6 +3,7 @@
 ## Contents
 
 - Connection contract
+- Software-independent code-project tools
 - Read tools
 - Write tools
 - Responsive and Repeat examples
@@ -11,9 +12,22 @@
 
 ## Connection contract
 
-Start with `srijika_get_capabilities`. Protocol `1.0` is the initial contract. Every response includes enough version and revision information to reject stale writes. Tool schemas are additive within a minor tool release; breaking payload changes require an adapter or a new protocol version.
+Choose the adapter from the request. For filesystem structure, CLI-first project validation, or scaffolding, start with `srijika_get_code_project`; these tools do not require Studio. For visual-document work in a running desktop app, start with `srijika_get_capabilities`. Protocol `1.0` is the initial bridge contract. Every bridge response includes enough version and revision information to reject stale writes. Tool schemas are additive within a minor tool release; breaking payload changes require an adapter or a new protocol version.
 
 The Studio desktop process owns the canonical document. The MCP server is a thin authenticated client and does not keep a second mutable copy.
+
+## Software-independent code-project tools
+
+| Tool                           | Use                                                                            |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `srijika_get_code_project`     | Inspect bounded metadata, scripts, files, and the strict architecture profile. |
+| `srijika_check_code_project`   | Run the same architecture rules used by CLI, VS Code, and Studio.              |
+| `srijika_plan_code_structure`  | Resolve an owner and return exact files/rewires without writing.               |
+| `srijika_apply_code_structure` | Consume the reviewed one-time `planId` and apply atomically without overwrite. |
+
+The MCP process is bounded to the project passed with `--project`. Never apply an
+unreviewed plan, invent alternate owner folders, or reuse an already-consumed
+`planId`.
 
 ## Read tools
 

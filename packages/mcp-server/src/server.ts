@@ -1,11 +1,14 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { randomUUID } from 'node:crypto';
 import {
   SRIJIKA_RPC_METHODS,
   SRIJIKA_TOOL_NAMES,
   TOOL_VERSION,
 } from '@srijika/automation-protocol';
+import * as z from 'zod/v4';
 
 import { SrijikaBridgeClient, SrijikaBridgeError } from './bridge-client';
+import { SrijikaCodeProjectService } from './code-project';
 import { registerSrijikaDocumentation } from './documentation';
 import { toolInputs } from './tool-schemas';
 
@@ -34,6 +37,7 @@ type JsonObject = Record<string, unknown>;
 
 export interface SrijikaMcpServerOptions {
   bridgeClient?: SrijikaBridgeCaller;
+  projectRoot?: string;
 }
 
 export interface SrijikaBridgeCaller {
@@ -51,14 +55,14 @@ function redactSensitive(value: unknown): unknown {
   return result;
 }
 
-function successResult(result: unknown) {
+function successResult(result: unknown, message = 'Srijika request completed.') {
   const safeResult = redactSensitive(result);
   const structuredContent: JsonObject = { ok: true, result: safeResult };
   return {
     content: [
       {
         type: 'text' as const,
-        text: 'Srijika Studio request completed. The result is in structuredContent.result.',
+        text: `${message} The result is in structuredContent.result.`,
       },
     ],
     structuredContent,
@@ -142,16 +146,118 @@ async function captureBridge(bridge: SrijikaBridgeCaller, params: unknown) {
   }
 }
 
+async function callCodeProject(operation: () => Promise<unknown>, message: string) {
+  try {
+    return successResult(await operation(), message);
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
 export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): McpServer {
   const bridge = options.bridgeClient ?? new SrijikaBridgeClient();
+  const codeProject = new SrijikaCodeProjectService(
+    options.projectRoot ? { projectRoot: options.projectRoot } : {},
+  );
+  const plannedStructures = new Map<string, Parameters<typeof codeProject.scaffold>[0]>();
   const server = new McpServer(
     { name: 'srijika-studio', version: TOOL_VERSION },
     {
       instructions:
-        'Operate the running Srijika Studio document engine. Read the smallest useful model, include expectedRevision on every write, use createdBy references to build nested regions atomically, then validate, inspect rendered layout, and capture a clean preview.',
+        'For a CLI-first TSX project, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, and capability files; these tools work without Desktop Studio. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview.',
     },
   );
   registerSrijikaDocumentation(server);
+
+  const structureInput = {
+    kind: z.enum([
+      'feature',
+      'slot',
+      'part',
+      'connector',
+      'hook',
+      'store',
+      'logic',
+      'api',
+      'types',
+    ]),
+    name: z
+      .string()
+      .regex(/^[A-Z][A-Za-z0-9]{0,63}$/)
+      .optional(),
+    ownerFolder: z.string().min(1).max(1_024).optional(),
+    optionalCapabilities: z
+      .array(z.enum(['hook', 'store', 'logic', 'api', 'types']))
+      .max(5)
+      .default([]),
+  };
+
+  server.registerTool(
+    'srijika_get_code_project',
+    {
+      title: 'Inspect Srijika code project',
+      description:
+        'Read bounded metadata, architecture, scripts, and canonical files without Studio.',
+      inputSchema: {},
+      annotations: READ_ONLY,
+    },
+    () => callCodeProject(() => codeProject.inspect(), 'Srijika code project inspected.'),
+  );
+
+  server.registerTool(
+    'srijika_check_code_project',
+    {
+      title: 'Check Srijika code project',
+      description: 'Run strict shared architecture validation without Studio.',
+      inputSchema: {},
+      annotations: READ_ONLY,
+    },
+    () => callCodeProject(() => codeProject.check(), 'Srijika code project checked.'),
+  );
+
+  server.registerTool(
+    'srijika_plan_code_structure',
+    {
+      title: 'Plan Srijika code structure',
+      description: 'Plan exact canonical files and safe rewires without writing.',
+      inputSchema: structureInput,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      try {
+        const result = await codeProject.scaffold(input, true);
+        const planId = randomUUID();
+        if (plannedStructures.size >= 32)
+          plannedStructures.delete(plannedStructures.keys().next().value!);
+        plannedStructures.set(planId, input);
+        return successResult({ ...result, planId }, 'Srijika structure plan completed.');
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    'srijika_apply_code_structure',
+    {
+      title: 'Apply Srijika code structure',
+      description: 'Apply a reviewed one-time structure plan without overwrite.',
+      inputSchema: { planId: z.string().uuid() },
+      annotations: MUTATING,
+    },
+    ({ planId }) => {
+      const input = plannedStructures.get(planId);
+      if (!input)
+        return errorResult(
+          new Error('The structure plan is missing, expired, or already applied.'),
+        );
+      plannedStructures.delete(planId);
+      return callCodeProject(
+        () => codeProject.scaffold(input, false),
+        'Srijika structure files created.',
+      );
+    },
+  );
 
   server.registerTool(
     SRIJIKA_TOOL_NAMES.getCapabilities,

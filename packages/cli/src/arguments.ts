@@ -20,6 +20,11 @@ const BOOLEAN_OPTIONS = new Set([
   'api',
   'types',
   'watch',
+  'no-install',
+  'no-open',
+  'no-vscode',
+  'no-studio',
+  'no-extension',
 ]);
 
 export function parseSrijikaArguments(args: readonly string[]): ParsedArguments {

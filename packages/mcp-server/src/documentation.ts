@@ -261,6 +261,7 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         'ownership-scaffold-planning',
         'incremental-architecture-validation',
         'vite-command-planning',
+        'software-independent-mcp-project-context',
       ],
       runtime: {
         default: 'node',
@@ -271,6 +272,8 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         reactExecution: 'browser',
       },
       commands: {
+        create:
+          'complete CLI-first onboarding: scaffold, install, validate, VS Code setup, optional Studio handoff',
         init: 'create a pinned non-overwriting project',
         add: 'create only canonical Feature, Slot, Part, or owner capability files',
         check: 'validate the configured ownership subtree in-process',
@@ -286,6 +289,18 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         runtimeChangesLockfile: false,
         bunRequired: false,
         desktopRequiredForCliOrVscode: false,
+        desktopRequiredForCodeProjectMcp: false,
+      },
+      mcp: {
+        config: '.mcp.json',
+        instructions: 'AGENTS.md',
+        tools: [
+          'srijika_get_code_project',
+          'srijika_check_code_project',
+          'srijika_plan_code_structure',
+          'srijika_apply_code_structure',
+        ],
+        studioBridgeOptional: true,
       },
     },
   },
