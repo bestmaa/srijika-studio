@@ -49,6 +49,7 @@ does not remove React or restrict npm-compatible React packages.
 ## Commands
 
 ```bash
+npm create srijika@latest my-app
 srijika create my-app
 srijika init my-app
 srijika add feature Dashboard --hook --store --logic --api --types
@@ -130,3 +131,8 @@ Before publishing the CLI or extension:
 4. Build the VS Code bundle and run its extension-host activation smoke.
 5. Run Studio TypeScript and Rust checks, plus the desktop runtime smoke.
 6. Build the documentation portal and validate the Codex plugin.
+
+The automated release contract lives in `.github/workflows/release-npm.yml` and
+is documented in `docs/NPM_RELEASE.md`. A published GitHub Release whose tag
+matches all three public package versions triggers ordered npm publication with
+OIDC Trusted Publishing and provenance.

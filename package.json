@@ -32,6 +32,10 @@
     "test:mcp:windows": "node tests/e2e/mcp-stdio-smoke.mjs --windows",
     "plugin:build": "pnpm --filter @srijika/mcp-server build",
     "cli:build": "pnpm --filter @srijika/cli build",
+    "release:version": "node scripts/set-npm-release-version.mjs",
+    "release:build": "pnpm --filter @srijika/cli build && pnpm --filter @srijika/mcp-server build",
+    "release:verify": "node scripts/verify-npm-release.mjs",
+    "release:publish": "node scripts/publish-npm-packages.mjs",
     "srijika": "node packages/cli/dist/cli.mjs",
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "tauri": "pnpm --filter @srijika/studio tauri"

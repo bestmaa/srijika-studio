@@ -1,0 +1,108 @@
+name: Release npm packages
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release-npm.yml'
+      - 'packages/cli/**'
+      - 'packages/create-srijika/**'
+      - 'packages/mcp-server/**'
+      - 'packages/project-scaffold/**'
+      - 'scripts/*npm-release*.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish after verification (leave off for a safe dry run)
+        required: true
+        default: false
+        type: boolean
+      tag:
+        description: Version tag to verify, for example v0.1.0
+        required: false
+        type: string
+
+concurrency:
+  group: npm-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || '' }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install frozen workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace
+        run: pnpm typecheck
+
+      - name: Run regression suite
+        run: pnpm test
+
+      - name: Build public packages
+        run: pnpm release:build
+
+      - name: Test create-srijika launcher
+        run: pnpm --filter create-srijika test
+
+      - name: Test MCP package transports
+        run: pnpm test:mcp:stdio && pnpm test:mcp:code
+
+      - name: Verify package metadata and tarball contents
+        run: pnpm release:verify
+
+  publish:
+    name: Publish to npm
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      NPM_CONFIG_PROVENANCE: 'true'
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Install Node.js for npm Trusted Publishing
+        uses: actions/setup-node@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Install frozen workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and re-verify release artifacts
+        run: pnpm release:build && pnpm release:verify
+
+      - name: Publish CLI, MCP server, and create launcher
+        run: pnpm release:publish

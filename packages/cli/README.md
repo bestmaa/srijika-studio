@@ -3,13 +3,16 @@
 The Srijika CLI is the fast, scriptable adapter for the same Feature → Slot → Part contract used by Studio and the VS Code extension.
 
 ```bash
-npx @srijika/cli create my-app
+npm create srijika@latest my-app
 npx @srijika/cli doctor
 npx @srijika/cli add feature Dashboard --hook --logic --types
 npx @srijika/cli check
 npx @srijika/cli dev
 npx @srijika/cli dev --runtime bun
 ```
+
+`npm create srijika@latest` resolves the public `create-srijika` launcher, which
+delegates to the exact published `@srijika/cli` version.
 
 `create` is the complete CLI-first onboarding path. It scaffolds the pinned app,
 installs dependencies, validates the architecture, installs/recommends Srijika

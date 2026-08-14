@@ -17,6 +17,13 @@
   "publishConfig": {
     "access": "public"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestmaa/srijika-studio.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://github.com/bestmaa/srijika-studio#readme",
+  "bugs": "https://github.com/bestmaa/srijika-studio/issues",
   "scripts": {
     "build": "node ./scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",

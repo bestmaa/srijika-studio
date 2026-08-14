@@ -4,6 +4,9 @@
   "description": "Fast, ownership-aware Srijika project CLI with Vite HMR and optional Bun turbo mode.",
   "license": "Apache-2.0",
   "type": "module",
+  "exports": {
+    ".": "./dist/cli.mjs"
+  },
   "bin": {
     "srijika": "./dist/cli.mjs"
   },
@@ -17,6 +20,13 @@
   "publishConfig": {
     "access": "public"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestmaa/srijika-studio.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/bestmaa/srijika-studio#readme",
+  "bugs": "https://github.com/bestmaa/srijika-studio/issues",
   "dependencies": {
     "typescript": "6.0.3"
   },

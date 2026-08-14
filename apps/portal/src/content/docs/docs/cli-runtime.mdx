@@ -13,12 +13,17 @@ as every other surface.
 ## Install and start
 
 ```bash
-npx @srijika/cli create my-app
+npm create srijika@latest my-app
 cd my-app
 npx @srijika/cli doctor
 npx @srijika/cli install
 npx @srijika/cli dev
 ```
+
+The public `create-srijika` launcher pins and delegates to `@srijika/cli`, giving
+Srijika the same `npm create …@latest` onboarding model as modern Vite projects.
+Releases are built and verified in GitHub Actions, then published to npm through
+OIDC Trusted Publishing with provenance.
 
 `create` is the CLI-first setup path: it creates the pinned project, installs its
 frozen dependency graph, validates the Feature → Slot → Part contract, and opens
