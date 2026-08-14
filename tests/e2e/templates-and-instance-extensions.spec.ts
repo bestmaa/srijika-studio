@@ -9,7 +9,7 @@ function hierarchy(page: Page): Locator {
 }
 
 function designFrame(page: Page): FrameLocator {
-  return page.frameLocator('iframe[title="Sutra DOM design surface"]');
+  return page.frameLocator('iframe[title="Srijika DOM design surface"]');
 }
 
 async function addPublicEvent(page: Page, name: string): Promise<void> {
@@ -55,7 +55,7 @@ test.describe('templates and per-instance React extensions', () => {
           .getByRole('navigation', { name: 'Project pages' })
           .locator('button[aria-pressed="true"]'),
       ).toHaveCount(1);
-      expect(await designFrame(page).locator('[data-sutra-node]').count()).toBeGreaterThan(20);
+      expect(await designFrame(page).locator('[data-srijika-node]').count()).toBeGreaterThan(20);
       expect(await hierarchy(page).getByRole('treeitem').count()).toBeGreaterThan(20);
     }
   });
@@ -73,12 +73,12 @@ test.describe('templates and per-instance React extensions', () => {
     await expect(youtube).toContainText('Video navigation, search, topic chips');
     await youtube.getByRole('button', { name: 'Use template' }).click();
 
-    await expect(designFrame(page).locator('[data-sutra-node="yt_header"]')).toBeVisible();
-    await expect(designFrame(page).locator('[data-sutra-node="yt_sidebar"]')).toBeVisible();
-    await expect(designFrame(page).locator('[data-sutra-node^="yt_card_"]')).toHaveCount(6);
+    await expect(designFrame(page).locator('[data-srijika-node="yt_header"]')).toBeVisible();
+    await expect(designFrame(page).locator('[data-srijika-node="yt_sidebar"]')).toBeVisible();
+    await expect(designFrame(page).locator('[data-srijika-node^="yt_card_"]')).toHaveCount(6);
     expect(await hierarchy(page).getByRole('treeitem').count()).toBeGreaterThan(60);
 
-    await designFrame(page).locator('[data-sutra-node="yt_title_0"]').click();
+    await designFrame(page).locator('[data-srijika-node="yt_title_0"]').click();
     await expect(inspector(page).getByRole('heading', { name: 'Heading' })).toBeVisible();
     await expect(hierarchy(page).locator('.tree-row.is-selected')).toContainText('Video Title 1');
 
@@ -87,7 +87,7 @@ test.describe('templates and per-instance React extensions', () => {
     await expect(jsx).toContainText('export function YouTubeHomePage');
     await expect(jsx).toContainText('props.onOpenVideo?.("video-1")');
     await expect(jsx).toContainText(
-      '(props.subscriptions ?? ["Sutra Creators","Design Weekly","Rust Systems"]).map((item, index)',
+      '(props.subscriptions ?? ["Srijika Creators","Design Weekly","Rust Systems"]).map((item, index)',
     );
 
     await page.getByRole('button', { name: 'File', exact: true }).click();

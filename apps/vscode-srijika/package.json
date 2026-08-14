@@ -1,0 +1,203 @@
+{
+  "name": "srijika-language-support",
+  "displayName": "Srijika Language Support",
+  "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "srijika",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "keywords": [
+    "srijika",
+    "tsx",
+    "react",
+    "ui"
+  ],
+  "main": "./dist/extension.cjs",
+  "files": [
+    "dist",
+    "media",
+    "README.md"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.ui.tsx",
+    "onLanguage:typescriptreact",
+    "onCommand:srijika.checkCurrentFile",
+    "onCommand:srijika.checkArchitecture",
+    "onCommand:srijika.showSetup",
+    "onCommand:srijika.addOwnershipCapability",
+    "onCommand:srijika.refreshStructure",
+    "onCommand:srijika.runApp",
+    "onCommand:srijika.stopApp",
+    "onCommand:srijika.installDependencies",
+    "onCommand:srijika.doctor",
+    "onView:srijika.structure"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "srijika.checkCurrentFile",
+        "title": "Srijika: Check Current UI File",
+        "category": "Srijika"
+      },
+      {
+        "command": "srijika.checkArchitecture",
+        "title": "Srijika: Check Feature Architecture",
+        "category": "Srijika"
+      },
+      {
+        "command": "srijika.showSetup",
+        "title": "Srijika: Open Setup and Language Support Guide",
+        "category": "Srijika"
+      },
+      {
+        "command": "srijika.addOwnershipCapability",
+        "title": "Srijika: Add Feature / Slot / Part Capability…",
+        "category": "Srijika",
+        "icon": "$(add)"
+      },
+      {
+        "command": "srijika.refreshStructure",
+        "title": "Srijika: Refresh Structure",
+        "category": "Srijika",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "srijika.runApp",
+        "title": "Srijika: Run App",
+        "category": "Srijika",
+        "icon": "$(play)"
+      },
+      {
+        "command": "srijika.stopApp",
+        "title": "Srijika: Stop App",
+        "category": "Srijika",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "srijika.installDependencies",
+        "title": "Srijika: Install / Sync Dependencies",
+        "category": "Srijika"
+      },
+      {
+        "command": "srijika.doctor",
+        "title": "Srijika: Run Doctor",
+        "category": "Srijika",
+        "icon": "$(pulse)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "srijika",
+          "title": "Srijika",
+          "icon": "media/srijika-structure.svg"
+        }
+      ]
+    },
+    "views": {
+      "srijika": [
+        {
+          "id": "srijika.structure",
+          "name": "Structure"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "srijika.structure",
+        "contents": "Open a project containing src/features to use strict owner-aware creation.\n[Open Folder](command:vscode.openFolder)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "srijika.addOwnershipCapability",
+          "when": "explorerResourceIsFolder && resourcePath =~ /\\/src\\/features(\\/[^\\/]+(\\/slots\\/[^\\/]+(\\/parts\\/[^\\/]+)?)?)?$/",
+          "group": "navigation@srijika"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "srijika.addOwnershipCapability",
+          "when": "view == srijika.structure && viewItem == srijikaStructureOwner",
+          "group": "inline@1"
+        },
+        {
+          "command": "srijika.addOwnershipCapability",
+          "when": "view == srijika.structure && viewItem == srijikaStructureOwner",
+          "group": "navigation@1"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "srijika.runApp",
+          "when": "view == srijika.structure && !srijika.runtimeRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "srijika.stopApp",
+          "when": "view == srijika.structure && srijika.runtimeRunning",
+          "group": "navigation@1"
+        },
+        {
+          "command": "srijika.doctor",
+          "when": "view == srijika.structure",
+          "group": "navigation@2"
+        },
+        {
+          "command": "srijika.refreshStructure",
+          "when": "view == srijika.structure",
+          "group": "navigation@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Srijika",
+      "properties": {
+        "srijika.runtime": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "node",
+            "bun"
+          ],
+          "default": "auto",
+          "description": "JavaScript runtime for Run App. Auto keeps Node compatibility; Bun is an explicit Vite turbo mode."
+        },
+        "srijika.devPort": {
+          "type": "number",
+          "default": 5173,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Strict Vite port used by Srijika: Run App."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "install:local": "pnpm run build && node ./scripts/install-local.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.mts"
+  },
+  "dependencies": {
+    "@srijika/architecture-rules": "workspace:*",
+    "@srijika/developer-engine": "workspace:*",
+    "@srijika/project-scaffold": "workspace:*",
+    "@srijika/tsx-compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "esbuild": "0.25.12",
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}

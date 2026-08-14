@@ -12,16 +12,16 @@ describe('editor and preview runtime style parity', () => {
 
   it('loads the shared component stylesheet into the isolated editor iframe', () => {
     expect(designFrame).toContain(
-      "import coreComponentsCss from '@sutra/core-components/styles.css?inline';",
+      "import coreComponentsCss from '@srijika/core-components/styles.css?inline';",
     );
     expect(designFrame).toContain('<style>${coreComponentsCss}\\n${canvasCss}</style>');
   });
 
   it('keeps Button and Input runtime defaults in the shared stylesheet only', () => {
-    expect(coreComponentsCss).toMatch(/^\.sutra-button\s*{/m);
-    expect(coreComponentsCss).toMatch(/^\.sutra-field\s*>\s*input\s*{/m);
+    expect(coreComponentsCss).toMatch(/^\.srijika-button\s*{/m);
+    expect(coreComponentsCss).toMatch(/^\.srijika-field\s*>\s*input\s*{/m);
 
-    expect(canvasCss).not.toMatch(/^\.sutra-button(?:--[^\s{]+)?\s*{/m);
-    expect(canvasCss).not.toMatch(/^\.sutra-field\s*>\s*(?:span|input)\s*{/m);
+    expect(canvasCss).not.toMatch(/^\.srijika-button(?:--[^\s{]+)?\s*{/m);
+    expect(canvasCss).not.toMatch(/^\.srijika-field\s*>\s*(?:span|input)\s*{/m);
   });
 });

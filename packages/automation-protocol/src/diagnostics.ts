@@ -1,8 +1,8 @@
-import type { ComponentRegistry, DocumentDiagnostic } from '@sutra/component-registry';
-import { analyzeDocument } from '@sutra/component-registry';
-import { validateUiDocument, type UiDocument } from '@sutra/contracts';
-import type { GraphDiagnostic } from '@sutra/document-engine';
-import { validateDocumentGraph } from '@sutra/document-engine';
+import type { ComponentRegistry, DocumentDiagnostic } from '@srijika/component-registry';
+import { analyzeDocument } from '@srijika/component-registry';
+import { validateUiDocument, type UiDocument } from '@srijika/contracts';
+import type { GraphDiagnostic } from '@srijika/document-engine';
+import { validateDocumentGraph } from '@srijika/document-engine';
 
 import { DOCUMENT_FORMAT_VERSION } from './version';
 
@@ -79,7 +79,7 @@ export function validateAutomationDocument<TImplementation>(
     return schema.errors.map((error) => ({
       code: `schema:${error.keyword}`,
       severity: 'error',
-      message: error.message ?? 'Document does not match the canonical Sutra schema',
+      message: error.message ?? 'Document does not match the canonical Srijika schema',
       path: error.instancePath || '/',
     }));
   }

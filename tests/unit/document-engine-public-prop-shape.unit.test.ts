@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createBlankDocument, type PublicProp, type ValueShape } from '@sutra/contracts';
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { DocumentHistory, applyCommand } from '@sutra/document-engine';
+import { createBlankDocument, type PublicProp, type ValueShape } from '@srijika/contracts';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { DocumentHistory, applyCommand } from '@srijika/document-engine';
 
 const profileShape: ValueShape = {
   kind: 'object',

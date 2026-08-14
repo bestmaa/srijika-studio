@@ -1,19 +1,19 @@
 import type { StyleDeclaration, StyleProperties } from './schemas';
 
 /**
- * Sutra uses desktop-first named breakpoints so a design can keep its exact
+ * Srijika uses desktop-first named breakpoints so a design can keep its exact
  * source geometry in `base` and add only the overrides required at other
  * viewport sizes. `tablet` cascades into `mobile`; `desktop` cascades into
  * `wide`, with the more specific breakpoint applied last.
  */
-export const SUTRA_NAMED_BREAKPOINTS = {
+export const SRIJIKA_NAMED_BREAKPOINTS = {
   mobile: { kind: 'max', width: 639 },
   tablet: { kind: 'max', width: 1023 },
   desktop: { kind: 'min', width: 1024 },
   wide: { kind: 'min', width: 1440 },
 } as const;
 
-export type SutraNamedBreakpoint = keyof typeof SUTRA_NAMED_BREAKPOINTS;
+export type SrijikaNamedBreakpoint = keyof typeof SRIJIKA_NAMED_BREAKPOINTS;
 
 interface ParsedBreakpoint {
   key: string;
@@ -23,12 +23,12 @@ interface ParsedBreakpoint {
 }
 
 const NAMED_BREAKPOINT_ALIASES: Readonly<
-  Record<string, (typeof SUTRA_NAMED_BREAKPOINTS)[SutraNamedBreakpoint]>
+  Record<string, (typeof SRIJIKA_NAMED_BREAKPOINTS)[SrijikaNamedBreakpoint]>
 > = {
-  sm: SUTRA_NAMED_BREAKPOINTS.mobile,
-  md: SUTRA_NAMED_BREAKPOINTS.tablet,
-  lg: SUTRA_NAMED_BREAKPOINTS.desktop,
-  xl: SUTRA_NAMED_BREAKPOINTS.wide,
+  sm: SRIJIKA_NAMED_BREAKPOINTS.mobile,
+  md: SRIJIKA_NAMED_BREAKPOINTS.tablet,
+  lg: SRIJIKA_NAMED_BREAKPOINTS.desktop,
+  xl: SRIJIKA_NAMED_BREAKPOINTS.wide,
 };
 
 function numericWidth(value: string | undefined): number | null {
@@ -40,7 +40,7 @@ function numericWidth(value: string | undefined): number | null {
 function parseBreakpoint(key: string, style: StyleProperties): ParsedBreakpoint | null {
   const normalized = key.trim().toLowerCase();
   const named =
-    SUTRA_NAMED_BREAKPOINTS[normalized as SutraNamedBreakpoint] ??
+    SRIJIKA_NAMED_BREAKPOINTS[normalized as SrijikaNamedBreakpoint] ??
     NAMED_BREAKPOINT_ALIASES[normalized];
   if (named) return { key, ...named, style };
 

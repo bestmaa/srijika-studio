@@ -6,17 +6,21 @@ const source = (relativePath: string): string =>
   fileURLToPath(new URL(relativePath, import.meta.url));
 
 const aliases = {
-  '@sutra/automation-protocol': source('./packages/automation-protocol/src/index.ts'),
-  '@sutra/contracts': source('./packages/contracts/src/index.ts'),
-  '@sutra/document-engine': source('./packages/document-engine/src/index.ts'),
-  '@sutra/component-registry': source('./packages/component-registry/src/index.ts'),
-  '@sutra/core-components/styles.css?inline': `${source(
+  '@srijika/automation-protocol': source('./packages/automation-protocol/src/index.ts'),
+  '@srijika/contracts': source('./packages/contracts/src/index.ts'),
+  '@srijika/document-engine': source('./packages/document-engine/src/index.ts'),
+  '@srijika/component-registry': source('./packages/component-registry/src/index.ts'),
+  '@srijika/core-components/styles.css?inline': `${source(
     './packages/core-components/src/styles.css',
   )}?inline`,
-  '@sutra/core-components/styles.css': source('./packages/core-components/src/styles.css'),
-  '@sutra/core-components': source('./packages/core-components/src/index.tsx'),
-  '@sutra/react-renderer': source('./packages/react-renderer/src/index.tsx'),
-  '@sutra/react-codegen': source('./packages/react-codegen/src/index.ts'),
+  '@srijika/core-components/styles.css': source('./packages/core-components/src/styles.css'),
+  '@srijika/core-components': source('./packages/core-components/src/index.tsx'),
+  '@srijika/react-renderer': source('./packages/react-renderer/src/index.tsx'),
+  '@srijika/react-codegen': source('./packages/react-codegen/src/index.ts'),
+  '@srijika/tsx-compiler': source('./packages/tsx-compiler/src/index.ts'),
+  '@srijika/project-scaffold/templates': source('./packages/project-scaffold/src/templates.ts'),
+  '@srijika/project-scaffold/types': source('./packages/project-scaffold/src/types.ts'),
+  '@srijika/project-scaffold': source('./packages/project-scaffold/src/index.ts'),
 };
 
 const sharedProjectConfig = {

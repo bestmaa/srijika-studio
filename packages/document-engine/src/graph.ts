@@ -1,4 +1,4 @@
-import { validateUiDocument, type UiDocument, type UiNode } from '@sutra/contracts';
+import { validateUiDocument, type UiDocument, type UiNode } from '@srijika/contracts';
 
 export interface ChildLocation {
   parentId: string;

@@ -1,4 +1,4 @@
-import type { ValueExpression } from '@sutra/contracts';
+import type { ValueExpression } from '@srijika/contracts';
 
 export interface EvaluationScope {
   symbols: Readonly<Record<string, unknown>>;
@@ -41,6 +41,8 @@ export function evaluateExpression(expression: ValueExpression, scope: Evaluatio
         return Boolean(left) && Boolean(evaluateExpression(expression.right, scope));
       if (expression.operator === 'or')
         return Boolean(left) || Boolean(evaluateExpression(expression.right, scope));
+      if (expression.operator === 'coalesce')
+        return left ?? evaluateExpression(expression.right, scope);
       const right = evaluateExpression(expression.right, scope);
       switch (expression.operator) {
         case 'equals':

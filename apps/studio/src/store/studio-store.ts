@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import { create } from 'zustand';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
+import { assertDocumentSemantics } from '@srijika/component-registry';
 import {
   createBlankDocument,
   literal,
@@ -19,14 +19,14 @@ import {
   type ValueExpression,
   type ValueShape,
   type ValueType,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 import {
   DocumentHistory,
   assertValidDocumentGraph,
   deriveParentIndex,
   isDescendant,
   type DocumentCommand,
-} from '@sutra/document-engine';
+} from '@srijika/document-engine';
 
 import { componentRegistry } from '../lib/registry';
 import { createStarterDocument } from '../lib/starter';
@@ -98,9 +98,18 @@ interface StudioState {
   moveDrag: (clientX: number, clientY: number) => void;
   releaseDrag: (clientX: number, clientY: number) => void;
   endDrag: () => void;
-  addComponent: (componentId: string, parentId?: string) => string | null;
-  addIfNode: (parentId?: string) => string | null;
-  addRepeatNode: (parentId?: string) => string | null;
+  addComponent: (
+    componentId: string,
+    targetNodeId?: string,
+    intent?: NodeDropIntent,
+  ) => string | null;
+  addIfNode: (targetNodeId?: string, intent?: NodeDropIntent) => string | null;
+  addRepeatNode: (targetNodeId?: string, intent?: NodeDropIntent) => string | null;
+  dropDragPayload: (
+    payload: StudioDragPayload,
+    targetNodeId: string,
+    intent?: NodeDropIntent,
+  ) => string | null;
   moveNode: (nodeId: string, targetNodeId: string, intent?: NodeDropIntent) => void;
   promoteLiteralProp: (nodeId: string, propName: string) => string | null;
   removeSelectedNode: () => void;
@@ -294,6 +303,38 @@ function insertionLocation(
   return {
     parentId,
     slot: parent ? (childSlot(parent, activeIfBranches) ?? 'children') : 'children',
+  };
+}
+
+function insertionPlacement(
+  document: UiDocument,
+  selectedNodeId: string,
+  activeIfBranches: Readonly<Record<string, 'whenTrue' | 'whenFalse'>>,
+  requestedTargetId?: string,
+  intent: NodeDropIntent = 'inside',
+): { parentId: string; slot: string; index: number } {
+  if (requestedTargetId && intent !== 'inside') {
+    const location = deriveParentIndex(document).get(requestedTargetId);
+    if (location) {
+      return {
+        parentId: location.parentId,
+        slot: location.slot,
+        index: location.index + (intent === 'after' ? 1 : 0),
+      };
+    }
+  }
+
+  const { parentId, slot } = insertionLocation(
+    document,
+    selectedNodeId,
+    activeIfBranches,
+    requestedTargetId,
+  );
+  const parent = document.nodes[parentId];
+  return {
+    parentId,
+    slot,
+    index: parent ? (mutableChildrenFor(parent, slot)?.length ?? 0) : 0,
   };
 }
 
@@ -565,6 +606,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   },
   setActiveIfBranch: (nodeId, branch) =>
     set((state) => {
+      if (state.activeIfBranches[nodeId] === branch) return state;
       const activeIfBranches = { ...state.activeIfBranches, [nodeId]: branch };
       const session = pageSessions.get(state.selectedPageId);
       if (session) session.activeIfBranches = activeIfBranches;
@@ -576,13 +618,14 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   endDrag: () =>
     set({ activeDrag: null, dragPointer: null, dropTargetNodeId: null, dropIntent: 'inside' }),
 
-  addComponent: (componentId, requestedParentId) => {
+  addComponent: (componentId, requestedTargetId, intent = 'inside') => {
     const state = get();
-    const { parentId, slot } = insertionLocation(
+    const { parentId, slot, index } = insertionPlacement(
       state.document,
       state.selectedNodeId,
       state.activeIfBranches,
-      requestedParentId,
+      requestedTargetId,
+      intent,
     );
     const parent = state.document.nodes[parentId];
     if (!parent) {
@@ -594,33 +637,23 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       state.reportError('Could not add component', `Unknown component: ${componentId}`);
       return null;
     }
-    const id = `${componentId.replace('sutra.', '')}_${nanoid(7)}`;
+    const id = `${componentId.replace('srijika.', '')}_${nanoid(7)}`;
     const node = component.createNode(id);
-    const children =
-      parent.kind === 'element'
-        ? parent.slots[slot]
-        : parent.kind === 'if'
-          ? parent[slot as 'whenTrue' | 'whenFalse']
-          : parent.kind === 'repeat' || parent.kind === 'fragment'
-            ? parent.children
-            : parent.kind === 'slot'
-              ? parent.fallback
-              : undefined;
-    if (!state.dispatch({ kind: 'insertNode', parentId, slot, index: children?.length ?? 0, node }))
-      return null;
+    if (!state.dispatch({ kind: 'insertNode', parentId, slot, index, node })) return null;
     const session = pageSessions.get(state.selectedPageId);
     if (session) session.selectedNodeId = id;
     set({ selectedNodeId: id, panel: 'canvas' });
     return id;
   },
 
-  addIfNode: (requestedParentId) => {
+  addIfNode: (requestedTargetId, intent = 'inside') => {
     const state = get();
-    const { parentId, slot } = insertionLocation(
+    const { parentId, slot, index } = insertionPlacement(
       state.document,
       state.selectedNodeId,
       state.activeIfBranches,
-      requestedParentId,
+      requestedTargetId,
+      intent,
     );
     const parent = state.document.nodes[parentId];
     if (!parent) {
@@ -641,7 +674,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         kind: 'insertNode',
         parentId,
         slot,
-        index: childSlot(parent, state.activeIfBranches) ? 1000000 : 0,
+        index,
         node,
       })
     )
@@ -658,13 +691,14 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     return id;
   },
 
-  addRepeatNode: (requestedParentId) => {
+  addRepeatNode: (requestedTargetId, intent = 'inside') => {
     const state = get();
-    const { parentId, slot } = insertionLocation(
+    const { parentId, slot, index } = insertionPlacement(
       state.document,
       state.selectedNodeId,
       state.activeIfBranches,
-      requestedParentId,
+      requestedTargetId,
+      intent,
     );
     const parent = state.document.nodes[parentId];
     if (!parent) {
@@ -704,7 +738,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
         kind: 'insertRepeat',
         parentId,
         slot,
-        index: 1000000,
+        index,
         node,
         itemSymbol,
         indexSymbol,
@@ -715,6 +749,21 @@ export const useStudioStore = create<StudioState>((set, get) => ({
     if (session) session.selectedNodeId = id;
     set({ selectedNodeId: id });
     return id;
+  },
+
+  dropDragPayload: (payload, targetNodeId, intent = 'inside') => {
+    if (payload.kind === 'component') {
+      return get().addComponent(payload.componentId, targetNodeId, intent);
+    }
+    if (payload.kind === 'structure') {
+      return payload.structure === 'if'
+        ? get().addIfNode(targetNodeId, intent)
+        : get().addRepeatNode(targetNodeId, intent);
+    }
+
+    const revision = get().document.revision;
+    get().moveNode(payload.nodeId, targetNodeId, intent);
+    return get().document.revision === revision ? null : payload.nodeId;
   },
 
   moveNode: (nodeId, targetNodeId, intent = 'inside') => {
@@ -741,6 +790,11 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       index = location.index + (intent === 'after' ? 1 : 0);
     }
     if (isDescendant(state.document, nodeId, parentId)) return;
+    const current = deriveParentIndex(state.document).get(nodeId);
+    if (current && current.parentId === parentId && current.slot === slot) {
+      const adjustedIndex = current.index < index ? index - 1 : index;
+      if (adjustedIndex === current.index) return;
+    }
     if (
       state.dispatch({
         kind: 'moveNode',
@@ -999,7 +1053,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
   loadDocument: (value) => {
     const result = validateUiDocument(value);
     if (!result.valid || !result.value) {
-      set({ notice: errorNotice('The selected file is not a valid Sutra document') });
+      set({ notice: errorNotice('The selected file is not a valid Srijika document') });
       return false;
     }
     try {
@@ -1030,7 +1084,7 @@ export const useStudioStore = create<StudioState>((set, get) => ({
       }));
       return true;
     } catch (error) {
-      set({ notice: errorNotice('The selected file is not a valid Sutra document', error) });
+      set({ notice: errorNotice('The selected file is not a valid Srijika document', error) });
       return false;
     }
   },

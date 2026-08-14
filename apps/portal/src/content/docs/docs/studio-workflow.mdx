@@ -9,15 +9,15 @@ Desktop Studio works with one validated project root at a time. The root contain
 
 ## Distinct views, one source
 
-| Surface          | Responsibility                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------ |
-| Project Explorer | Shows the bounded real filesystem tree and every indexed `.ui.tsx` source.                                   |
-| Source           | Displays read-only source with exact diagnostic and node ranges.                                             |
-| UI Nodes         | Shows the compiled JSX hierarchy for the active source.                                                      |
-| Inspector        | Displays the authored prop contract and supported derived value shapes.                                      |
-| Problems         | Presents compiler and architecture diagnostics from the shared rule set.                                     |
-| Design Preview   | Renders the last successfully compiled `UiDocument` without executing arbitrary project modules.             |
-| Managed App      | Runs the real pinned Vite application for full CSS, dependency, connector, routing, asset, and HMR fidelity. |
+| Surface            | Responsibility                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| Project Explorer   | Shows the bounded real filesystem tree and every indexed `.ui.tsx` source.                |
+| Source             | Displays read-only source with exact diagnostic and node ranges.                          |
+| UI Nodes           | Shows the compiled JSX hierarchy for the active source.                                   |
+| Inspector          | Displays the authored prop contract and supported derived value shapes.                   |
+| Problems           | Presents compiler and architecture diagnostics from the shared rule set.                  |
+| Browser UI Preview | Renders the last valid `UiDocument` only for browser demos and detached sources.          |
+| Live App Preview   | Starts the real pinned Vite app and renders the active UI through its required Connector. |
 
 ## Source navigation
 
@@ -25,7 +25,7 @@ Double-clicking a project, file, node, or diagnostic asks the native boundary to
 
 ## Preview behavior
 
-Browser demos and detached sources use the dependency-free derived renderer. An attached desktop project uses the real managed application as its high-fidelity path. The center preview, dedicated browser preview, and system-browser application all resolve the same tracked loopback process.
+Browser demos and detached sources use the dependency-free derived renderer. An attached desktop project initially shows **Start App** instead of a derived rendering. Once started, the center uses the tracked real Vite process. Selecting a UI Source dynamically renders its matching Connector inside that runtime, including Providers, Hook, Store, Logic, API, CSS, and HMR, without restarting the app. Runtime loading and failures are reported back to Studio.
 
 ## Failure behavior
 

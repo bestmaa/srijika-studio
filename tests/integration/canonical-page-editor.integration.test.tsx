@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { generateTsx } from '@sutra/react-codegen';
-import { SutraRenderer } from '@sutra/react-renderer';
+import { generateTsx } from '@srijika/react-codegen';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { StudioApp } from '../../apps/studio/src/app/StudioApp';
 import { Hierarchy } from '../../apps/studio/src/components/Hierarchy';
@@ -11,6 +11,11 @@ import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { PagesPanel } from '../../apps/studio/src/components/PagesPanel';
 import { Palette } from '../../apps/studio/src/components/Palette';
 import { componentRegistry } from '../../apps/studio/src/lib/registry';
+import {
+  DEFAULT_CODE_PROJECT_FILE_NAME,
+  DEFAULT_CODE_PROJECT_SOURCE,
+  useCodeProjectStore,
+} from '../../apps/studio/src/store/code-project-store';
 import { defaultSymbolValues, useStudioStore } from '../../apps/studio/src/store/studio-store';
 
 function CanonicalCanvas() {
@@ -21,7 +26,7 @@ function CanonicalCanvas() {
 
   return (
     <section aria-label="Canonical design surface">
-      <SutraRenderer
+      <SrijikaRenderer
         document={document}
         registry={componentRegistry}
         mode="edit"
@@ -45,9 +50,9 @@ function hierarchyRow(label: string): HTMLElement {
 function addNestedContainers(): { outerId: string; innerId: string } {
   const store = useStudioStore.getState();
   const rootId = store.document.rootNodeId;
-  const outerId = store.addComponent('sutra.container', rootId);
+  const outerId = store.addComponent('srijika.container', rootId);
   if (!outerId) throw new Error('Expected the outer Container to be created');
-  const innerId = useStudioStore.getState().addComponent('sutra.container', outerId);
+  const innerId = useStudioStore.getState().addComponent('srijika.container', outerId);
   if (!innerId) throw new Error('Expected the inner Container to be created');
   useStudioStore
     .getState()
@@ -63,25 +68,34 @@ describe('canonical page editor', () => {
     useStudioStore.getState().resetProject();
   });
 
-  it('opens a blank Home Page with its locked Page Inspector', () => {
+  it('opens authoritative TSX with a derived read-only hierarchy and Inspector', () => {
+    useCodeProjectStore.getState().loadSource({
+      fileName: DEFAULT_CODE_PROJECT_FILE_NAME,
+      source: DEFAULT_CODE_PROJECT_SOURCE,
+    });
     render(<StudioApp />);
 
-    const pages = screen.getByRole('navigation', { name: 'Project pages' });
-    expect(within(pages).getByRole('button', { name: /Home Page/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(hierarchyRow('Home Page')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Srijika TSX source')).toHaveValue(DEFAULT_CODE_PROJECT_SOURCE);
+    expect(screen.getByRole('main', { name: 'Page editor workspace' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Project pages' })).not.toBeInTheDocument();
 
-    const inspector = screen.getByLabelText('Inspector');
-    expect(within(inspector).getByText('SELECTED PAGE')).toBeInTheDocument();
-    expect(within(inspector).getByRole('heading', { name: 'Home Page' })).toBeInTheDocument();
-    expect(within(inspector).getByLabelText('Page name')).toHaveValue('Home Page');
-    expect(within(inspector).getByText(/fixed React return root/)).toBeInTheDocument();
-    expect(useStudioStore.getState().document.nodes).toHaveProperty(
-      useStudioStore.getState().document.rootNodeId,
+    const inspector = screen.getByLabelText('Srijika source Inspector');
+    expect(within(inspector).getByText('read model')).toBeInTheDocument();
+    expect(
+      within(inspector).getByRole('region', { name: 'Component contract' }),
+    ).toBeInTheDocument();
+    const uiNodes = screen.getByLabelText('UI Nodes');
+    expect(within(uiNodes).getByRole('heading', { name: 'UI Nodes' })).toBeInTheDocument();
+    expect(
+      within(uiNodes).getByRole('treeitem', { name: /Welcome.*Welcome\.ui\.tsx/ }),
+    ).toBeInTheDocument();
+    expect(useCodeProjectStore.getState()).toMatchObject({
+      compileStatus: 'valid',
+      previewStale: false,
+    });
+    expect(useCodeProjectStore.getState().lastValidDocument).toBe(
+      useStudioStore.getState().document,
     );
-    expect(Object.keys(useStudioStore.getState().document.nodes)).toHaveLength(1);
   });
 
   it('creates and switches between isolated page documents', async () => {
@@ -141,7 +155,7 @@ describe('canonical page editor', () => {
     );
 
     const canvas = screen.getByLabelText('Canonical design surface');
-    const innerCanvasNode = canvas.querySelector<HTMLElement>(`[data-sutra-node="${innerId}"]`);
+    const innerCanvasNode = canvas.querySelector<HTMLElement>(`[data-srijika-node="${innerId}"]`);
     if (!innerCanvasNode) throw new Error('Expected the nested Container on the design surface');
     await user.click(innerCanvasNode);
 
@@ -158,12 +172,12 @@ describe('canonical page editor', () => {
 
     expect(useStudioStore.getState().selectedNodeId).toBe(outerId);
     await waitFor(() => {
-      expect(canvas.querySelector(`[data-sutra-node="${outerId}"]`)).toHaveAttribute(
-        'data-sutra-selected',
+      expect(canvas.querySelector(`[data-srijika-node="${outerId}"]`)).toHaveAttribute(
+        'data-srijika-selected',
         'true',
       );
-      expect(canvas.querySelector(`[data-sutra-node="${innerId}"]`)).toHaveAttribute(
-        'data-sutra-selected',
+      expect(canvas.querySelector(`[data-srijika-node="${innerId}"]`)).toHaveAttribute(
+        'data-srijika-selected',
         'false',
       );
     });
@@ -173,7 +187,7 @@ describe('canonical page editor', () => {
   it('deletes a selected subtree and returns selection to its parent', async () => {
     const user = userEvent.setup();
     const { outerId, innerId } = addNestedContainers();
-    const textId = useStudioStore.getState().addComponent('sutra.text', innerId);
+    const textId = useStudioStore.getState().addComponent('srijika.text', innerId);
     if (!textId) throw new Error('Expected nested Text to be created');
     useStudioStore.getState().selectNode(innerId);
     render(
@@ -202,12 +216,12 @@ describe('canonical page editor', () => {
     const rootId = store.document.rootNodeId;
     const ifId = store.addIfNode(rootId);
     if (!ifId) throw new Error('Expected If / Else to be created');
-    useStudioStore.getState().addComponent('sutra.text', ifId);
+    useStudioStore.getState().addComponent('srijika.text', ifId);
     useStudioStore.getState().setActiveIfBranch(ifId, 'whenFalse');
-    useStudioStore.getState().addComponent('sutra.heading', ifId);
+    useStudioStore.getState().addComponent('srijika.heading', ifId);
     const repeatId = useStudioStore.getState().addRepeatNode(rootId);
     if (!repeatId) throw new Error('Expected Repeat to be created');
-    useStudioStore.getState().addComponent('sutra.container', repeatId);
+    useStudioStore.getState().addComponent('srijika.container', repeatId);
     render(<Hierarchy />);
 
     const tree = screen.getByRole('tree', { name: 'Page content hierarchy' });
@@ -263,7 +277,7 @@ describe('canonical page editor', () => {
 
   it('rejects an undeclared prop reference without changing the document', () => {
     const store = useStudioStore.getState();
-    const headingId = store.addComponent('sutra.heading', store.document.rootNodeId);
+    const headingId = store.addComponent('srijika.heading', store.document.rootNodeId);
     if (!headingId) throw new Error('Expected Heading to be created');
     const before = useStudioStore.getState().document;
 

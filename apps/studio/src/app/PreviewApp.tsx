@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { validateUiDocument, type UiDocument } from '@sutra/contracts';
-import { SutraRenderer } from '@sutra/react-renderer';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { validateUiDocument, type UiDocument } from '@srijika/contracts';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import {
   loadPreviewDocument,
@@ -123,7 +123,7 @@ export function PreviewApp() {
     <div className="preview-shell">
       <div className="preview-toolbar">
         <span>
-          <strong>Sutra</strong> live preview
+          <strong>Srijika</strong> live preview
         </span>
         <div className="preview-toolbar-controls">
           <span className="preview-viewport-readout" aria-live="polite">
@@ -197,7 +197,7 @@ export function PreviewApp() {
                 : undefined
             }
           >
-            <SutraRenderer
+            <SrijikaRenderer
               document={document}
               registry={componentRegistry}
               mode="preview"

@@ -52,7 +52,7 @@ export function createElementNode(
 }
 
 export function createBlankDocument(id = 'page_home', name = 'Home'): UiDocument {
-  const root = createElementNode('root', 'sutra.page', 'Page', {
+  const root = createElementNode('root', 'srijika.page', 'Page', {
     style: {
       base: {
         display: 'flex',

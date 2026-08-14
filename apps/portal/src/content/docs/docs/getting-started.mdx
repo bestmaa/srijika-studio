@@ -27,6 +27,22 @@ The editor runs at `http://localhost:5173/`. The standalone interpreted preview 
 
 Browser mode is intentionally limited. It provides an in-memory demo project and standalone `.ui.tsx` inspection, but it cannot access project directories, launch VS Code, or manage application processes.
 
+## CLI and VS Code workflow
+
+The shared CLI can create, validate, and run an independent project without
+opening Desktop:
+
+```bash
+npx @srijika/cli doctor
+npx @srijika/cli check
+npx @srijika/cli dev
+```
+
+Node is the compatibility default. A detected Vite project may explicitly use
+`npx @srijika/cli dev --runtime bun`; missing or incompatible Bun safely falls
+back to Node without changing the project's package manager or lockfile. See
+[CLI and fast runtime](/docs/cli-runtime/) for the complete command set.
+
 ## Desktop development
 
 ```bash

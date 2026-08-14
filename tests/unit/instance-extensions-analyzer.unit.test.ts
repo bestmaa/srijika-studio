@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyzeDocument } from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { createBlankDocument, createInstanceEventSpec, literal } from '@sutra/contracts';
+import { analyzeDocument } from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { createBlankDocument, createInstanceEventSpec, literal } from '@srijika/contracts';
 
-function elementDocument(componentId = 'sutra.text') {
+function elementDocument(componentId = 'srijika.text') {
   const registry = createCoreComponentRegistry();
   const document = createBlankDocument('page_instance_analyzer', 'Instance analyzer');
   const root = document.nodes[document.rootNodeId];
@@ -125,7 +125,7 @@ describe('instance extension analyzer', () => {
   });
 
   it('rejects redefined manifest events and noncanonical normalized signatures', () => {
-    const { document, node, registry } = elementDocument('sutra.button');
+    const { document, node, registry } = elementDocument('srijika.button');
     const click = createInstanceEventSpec('onClick');
     const keyDown = createInstanceEventSpec('onKeyDown');
     if (!click || !keyDown) throw new Error('Expected normalized event ports');

@@ -10,7 +10,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use tempfile::Builder;
 use thiserror::Error;
 
-/// Default upper bound for a persisted Sutra JSON document.
+/// Default upper bound for a persisted Srijika JSON document.
 ///
 /// The limit protects the desktop process from accidentally reading an
 /// unbounded file while remaining generous for the UI MVP.
@@ -144,7 +144,7 @@ impl JsonProjectStore {
         let prefix = format!(".{}.", file_name.to_string_lossy());
         let mut temporary = Builder::new()
             .prefix(&prefix)
-            .suffix(".sutra.tmp")
+            .suffix(".srijika.tmp")
             .tempfile_in(parent)
             .map_err(|source| StoreError::Io {
                 operation: "create temporary JSON file",
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn atomically_round_trips_pretty_json() {
         let directory = tempdir().expect("temporary directory");
-        let path = directory.path().join("home.sutra.json");
+        let path = directory.path().join("home.srijika.json");
         let store = JsonProjectStore::default();
         let document = json!({"formatVersion": 1, "name": "Home"});
 
@@ -320,7 +320,12 @@ mod tests {
         let leftovers = fs::read_dir(directory.path())
             .expect("directory listing")
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().ends_with(".sutra.tmp"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .ends_with(".srijika.tmp")
+            })
             .count();
         assert_eq!(leftovers, 0);
     }
@@ -339,7 +344,7 @@ mod tests {
         }
 
         let directory = tempdir().expect("temporary directory");
-        let path = directory.path().join("home.sutra.json");
+        let path = directory.path().join("home.srijika.json");
         fs::write(&path, b"{\"stable\":true}\n").expect("seed file");
 
         let error = JsonProjectStore::default()

@@ -93,7 +93,7 @@ test('defines a typed public event, binds Input onChange, and rejects an incompa
     eventSignature: { payload: { name: 'value', shape: { kind: 'string' } } },
   });
   const inputNode = Object.values(document.nodes).find(
-    (node) => node.componentId === 'sutra.input',
+    (node) => node.componentId === 'srijika.input',
   );
   expect(inputNode?.events?.['onChange']).toEqual({
     kind: 'reference',
@@ -122,7 +122,7 @@ test('defines a typed public event, binds Input onChange, and rejects an incompa
     payload: { name: 'value', shape: { kind: 'string' } },
   });
   const persistedInput = Object.values(document.nodes).find(
-    (node) => node.componentId === 'sutra.input',
+    (node) => node.componentId === 'srijika.input',
   );
   expect(persistedInput?.events?.['onChange']).toEqual({
     kind: 'reference',
@@ -133,7 +133,7 @@ test('defines a typed public event, binds Input onChange, and rejects an incompa
   const previewPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Browser preview' }).click();
   const preview = await previewPromise;
-  await preview.getByLabel('Label').fill('Sutra');
+  await preview.getByLabel('Label').fill('Srijika');
   await expect(preview.getByRole('status')).toHaveText('Event fired: onValueChange×');
   await preview.close();
 });

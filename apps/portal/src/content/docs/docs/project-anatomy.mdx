@@ -8,44 +8,102 @@ description: The Feature, Slot, and Part ownership model used by generated Sriji
 ```text
 src/
 ├─ features/
-│  └─ home/
-│     ├─ Home.ui.tsx
-│     ├─ Home.connector.tsx
-│     ├─ home.store.ts
-│     ├─ hooks/
-│     │  └─ useHomeData.ts
+│  └─ dashboard/
+│     ├─ Dashboard.ui.tsx                required
+│     ├─ Dashboard.connector.tsx         required
+│     ├─ useDashboard.ts                 optional Hook
+│     ├─ dashboard.store.ts              optional Store
+│     ├─ dashboard.logic.ts              optional Logic
+│     ├─ dashboard.api.ts                optional API
+│     ├─ dashboard.types.ts              optional owner types
 │     └─ slots/
-│        └─ navigation/
-│           ├─ Navigation.ui.tsx
-│           ├─ Navigation.connector.tsx
-│           ├─ navigation.store.ts
-│           ├─ hooks/
+│        └─ summary/
+│           ├─ Summary.ui.tsx            required
+│           ├─ Summary.connector.tsx     required
+│           ├─ useSummary.ts
+│           ├─ summary.store.ts
+│           ├─ summary.logic.ts
+│           ├─ summary.api.ts
+│           ├─ summary.types.ts
 │           └─ parts/
-│              └─ navigation-item/
-│                 ├─ NavigationItem.ui.tsx
-│                 └─ NavigationItem.connector.tsx
+│              └─ metric-card/
+│                 ├─ MetricCard.ui.tsx   required
+│                 ├─ MetricCard.connector.tsx required
+│                 ├─ useMetricCard.ts
+│                 ├─ metricCard.store.ts
+│                 ├─ metricCard.logic.ts
+│                 ├─ metricCard.api.ts
+│                 └─ metricCard.types.ts
 └─ shared/
 ```
+
+Creating a Feature, Slot, or Part always creates its matching UI and Connector.
+Hook, Store, Logic, API, and Types remain optional, so a small owner does not
+accumulate empty pass-through files.
+
+## Create only at an owner boundary
+
+Studio's folder `+` and right-click menu, the VS Code Explorer command, and the
+Codex architecture contract expose the same predefined actions:
+
+```text
+src/features -> New Feature
+Feature root  -> Feature capabilities or New Slot
+Slot root     -> Slot capabilities or New Part
+Part root     -> Part capabilities only
+```
+
+New owners use one normalized PascalCase name. Srijika derives the kebab-case
+folder and exact related file names, always includes UI + Connector, adds only
+the checked optional capabilities, preflights every target, and never
+overwrites. Arbitrary folders and alternate suffixes are not creation targets.
 
 ## What each owner means
 
 ### Feature
 
-A feature is the highest private product capability in the generated application. It owns its root visual contract, optional connector, feature-wide state, reusable feature logic, and named slots.
+A Feature is the highest private product capability in the generated application. It owns its root visual contract, Connector, optional behavior chain, and named Slots.
 
 ### Slot
 
-A slot is a named visual region composed into its feature. It can own private wiring, state, hooks, and smaller implementation parts. A slot must not import another sibling slot's private code.
+A Slot is a named visual region composed into its Feature. It owns a UI and Connector, may own the same optional behavior chain, and may contain smaller private Parts. A Slot must not import another sibling Slot's private code.
 
 ### Part
 
-A part is a smaller implementation detail belonging to one slot. Part state and hooks remain private to that part subtree.
+A Part is a smaller implementation detail belonging to one Slot. Its behavior chain remains private to that Part subtree.
 
 ### Shared
 
 `src/shared` is deliberate cross-feature code. It is not a shortcut around unclear ownership. Code moves there only when multiple features genuinely share the same stable capability.
 
-## Capability flow
+## Progressive behavior chain
+
+```text
+UI ← Connector → Hook → Store → Logic → API → Backend
+```
+
+The Connector always uses the highest available capability for the same owner
+and behavior:
+
+```text
+Connector: Hook, otherwise Store, otherwise Logic, otherwise API
+Hook:      Store, otherwise Logic, otherwise API
+Store:     Logic, otherwise API
+Logic:     API
+```
+
+An existing intermediate capability may not be skipped. Results return through
+the same path and become typed UI props. `Types` is type-only and is not a
+runtime step.
+
+The responsibilities remain narrow:
+
+- Hook: React lifecycle, TanStack Query, server cache, retry, and mutations.
+- Store: shared client state, selectors, and synchronous transitions.
+- Logic: business rules, validation, transformation, and orchestration.
+- API: HTTP transport and request/response parsing.
+
+## Composition and promotion
 
 ```text
 ancestor-owned capability  ──✓──> descendant
@@ -53,7 +111,31 @@ private child capability   ──✗──> parent or sibling
 feature-private capability ──✗──> another feature
 ```
 
-If siblings need the same state or hook, promote it to their nearest common owner. If multiple features need it, promote it deliberately to `src/shared`.
+Feature Connectors compose Slot Connectors; Slot Connectors compose Part
+Connectors. A parent does not render a child UI directly.
+
+Promote a capability to the nearest common owner:
+
+```text
+one Part needs it       → Part root
+two Parts need it       → their Slot root
+two Slots need it       → their Feature root
+two Features need it    → src/shared
+```
+
+## Intelligent guidance
+
+Structural no-jump and ownership violations are errors. Complexity guidance is
+deterministic v1 and non-blocking:
+
+- recommend Logic for multi-endpoint work, business branching, validation, or transformation;
+- recommend Hook for cache/retry/polling/subscriptions, two async handlers, or three React lifecycle Hooks;
+- recommend Store when state is shared by two descendants, crosses two ownership boundaries, or reaches four related local fields;
+- recommend Hook above Store at five Store selectors/actions or when Store actions absorb async lifecycle/cache;
+- recommend promotion when siblings duplicate or import one private capability.
+
+The complete contract, diagrams, stable recommendation IDs, and diagnostics are
+available in the canonical [Feature, Slot, and Part Architecture](/reference/feature_slot_part_architecture/) reference.
 
 ## Complexity limits
 

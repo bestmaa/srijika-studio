@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createBlankDocument, validateUiDocument, type StyleProperties } from '@sutra/contracts';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { generateTsx } from '@sutra/react-codegen';
-import { stylePropertiesToCss } from '@sutra/react-renderer';
+import { createBlankDocument, validateUiDocument, type StyleProperties } from '@srijika/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { generateTsx } from '@srijika/react-codegen';
+import { stylePropertiesToCss } from '@srijika/react-renderer';
 import { toolInputs } from '../../packages/mcp-server/src/tool-schemas';
 
 describe('extended desktop layout styles', () => {
@@ -87,7 +87,7 @@ describe('extended desktop layout styles', () => {
 
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_style_controls', 'Style Controls');
-    const container = registry.require('sutra.container').createNode('subject');
+    const container = registry.require('srijika.container').createNode('subject');
     if (container.kind !== 'element') throw new Error('Expected Container element');
     container.style.base = style;
     document.nodes[container.id] = container;

@@ -1,0 +1,8 @@
+interface:
+  display_name: 'Srijika Studio'
+  short_description: 'Build and verify responsive React UI documents'
+  brand_color: '#6756E8'
+  default_prompt: 'Use $srijika-studio to build or improve the active React UI, normalize repeated content, and verify it across viewports.'
+
+policy:
+  allow_implicit_invocation: true

@@ -270,7 +270,7 @@ const capturePreviewInput = z
   .strict()
   .superRefine((value, context) => requireViewportPair(value.width, value.height, context));
 
-export const sutraOperation = z.discriminatedUnion('kind', [
+export const srijikaOperation = z.discriminatedUnion('kind', [
   z
     .object({
       kind: z.literal('insertComponent'),
@@ -434,7 +434,7 @@ export const toolInputs = {
   applyOperations: {
     pageId,
     expectedRevision: z.number().int().nonnegative(),
-    operations: z.array(sutraOperation).min(1).max(500),
+    operations: z.array(srijikaOperation).min(1).max(500),
   },
   validateDocument: { pageId },
   getDiagnostics: {
@@ -502,7 +502,7 @@ export const toolInputs = {
         allRegionsVisible: true,
       }),
     assumptions: z.array(z.string().max(500)).max(100).default([]),
-    operations: z.array(sutraOperation).min(1).max(1_000),
+    operations: z.array(srijikaOperation).min(1).max(1_000),
   },
   importDesignImage: {
     pageId,

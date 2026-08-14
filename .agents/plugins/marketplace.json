@@ -1,14 +1,14 @@
 {
-  "name": "sutra-studio-local",
+  "name": "srijika-studio-local",
   "interface": {
-    "displayName": "Sutra Studio Local"
+    "displayName": "Srijika Studio Local"
   },
   "plugins": [
     {
-      "name": "sutra-studio",
+      "name": "srijika-studio",
       "source": {
         "source": "local",
-        "path": "./plugins/sutra-studio"
+        "path": "./plugins/srijika-studio"
       },
       "policy": {
         "installation": "AVAILABLE",

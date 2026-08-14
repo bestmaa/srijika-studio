@@ -6,8 +6,8 @@ import {
   type PublicProp,
   type ValueShape,
   type ValueType,
-} from '@sutra/contracts';
-import { applyCommand, DocumentHistory } from '@sutra/document-engine';
+} from '@srijika/contracts';
+import { applyCommand, DocumentHistory } from '@srijika/document-engine';
 
 function publicProp(
   name: string,
@@ -182,7 +182,7 @@ describe('public prop type-change command', () => {
       },
     });
     let withReference = applyCommand(document, { kind: 'addPublicProp', prop: profile }).document;
-    const text = createElementNode('price_text', 'sutra.text', 'Price text', {
+    const text = createElementNode('price_text', 'srijika.text', 'Price text', {
       props: {
         text: { kind: 'reference', symbolId: profile.symbolId, path: ['label'] },
       },

@@ -43,7 +43,7 @@ pnpm test:a11y
 pnpm test:visual
 ```
 
-Playwright starts its own strict Vite server on `127.0.0.1:4173` by default, independent of the manual development port 5173. Override it with `SUTRA_E2E_PORT` if necessary. Traces, screenshots, and video are retained on failure; the HTML report is written to `playwright-report/`.
+Playwright starts its own strict Vite server on `127.0.0.1:4173` by default, independent of the manual development port 5173. Override it with `SRIJIKA_E2E_PORT` if necessary. Traces, screenshots, and video are retained on failure; the HTML report is written to `playwright-report/`.
 
 Update the committed visual baseline only after reviewing an intentional design change:
 
@@ -66,7 +66,7 @@ After installing the WSL native packages from [Development setup](DEVELOPMENT.md
 ```bash
 cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
 cargo test --workspace --all-features --locked
-cargo check -p sutra-studio --locked
+cargo check -p srijika-studio --locked
 ```
 
 Native Windows, macOS, and Linux release certification belongs on matching CI runners. WSL tests only the Linux target.

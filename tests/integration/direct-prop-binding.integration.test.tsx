@@ -2,8 +2,8 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { ElementNode, ValueType } from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+import type { ElementNode, ValueType } from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { defaultSymbolValues, useStudioStore } from '../../apps/studio/src/store/studio-store';
@@ -89,7 +89,7 @@ describe('direct typed public prop binding', () => {
 
     let textId: string | null = null;
     act(() => {
-      textId = useStudioStore.getState().addComponent('sutra.text');
+      textId = useStudioStore.getState().addComponent('srijika.text');
     });
     if (!textId) throw new Error('Expected Text to be created');
     let source = screen.getByLabelText('Text value source');
@@ -105,7 +105,7 @@ describe('direct typed public prop binding', () => {
 
     let headingId: string | null = null;
     act(() => {
-      headingId = useStudioStore.getState().addComponent('sutra.heading');
+      headingId = useStudioStore.getState().addComponent('srijika.heading');
     });
     if (!headingId) throw new Error('Expected Heading to be created');
     source = screen.getByLabelText('Text value source');

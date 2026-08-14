@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  SUTRA_THEME_COLORS,
+  SRIJIKA_THEME_COLORS,
   cloneDefaultAppearance,
   createAppearanceExport,
   createAppearanceTokens,
@@ -13,11 +13,11 @@ import {
 } from '../../apps/studio/src/lib/appearance';
 
 describe('Studio appearance model', () => {
-  it('uses the neutral Sutra palette and dark mode by default', () => {
+  it('uses the neutral Srijika palette and dark mode by default', () => {
     const appearance = cloneDefaultAppearance();
 
     expect(appearance.mode).toBe('dark');
-    expect(appearance.preset).toBe('sutra');
+    expect(appearance.preset).toBe('srijika');
     expect(appearance.themes.dark).toEqual({
       accent: '#77767b',
       background: '#111111',
@@ -25,7 +25,7 @@ describe('Studio appearance model', () => {
     });
     expect(appearance.themes.light.accent).toBe('#77767b');
     expect(createAppearanceTokens(appearance, 'dark')['--chrome-accent']).toBe('#77767b');
-    expect(createCanvasEditorTokens(appearance, 'dark')['--sutra-editor-accent']).toBe('#77767b');
+    expect(createCanvasEditorTokens(appearance, 'dark')['--srijika-editor-accent']).toBe('#77767b');
     expect(appearance.contrast).toBe(49);
     expect(appearance.translucentSidebar).toBe(true);
   });
@@ -45,14 +45,14 @@ describe('Studio appearance model', () => {
     expect(appearance.contrast).toBe(100);
     expect(appearance.themes.dark).toEqual({
       accent: '#aabbcc',
-      background: SUTRA_THEME_COLORS.dark.background,
+      background: SRIJIKA_THEME_COLORS.dark.background,
       foreground: '#efefef',
     });
     expect(normalizeHexColor('#09c')).toBe('#0099cc');
     expect(normalizeHexColor('rgb(1, 2, 3)')).toBeNull();
   });
 
-  it('migrates the former built-in preset and blue accent to the current Sutra default', () => {
+  it('migrates the former built-in preset and blue accent to the current Srijika default', () => {
     const appearance = normalizeAppearancePreferences({
       version: 1,
       mode: 'dark',
@@ -63,7 +63,7 @@ describe('Studio appearance model', () => {
       },
     });
 
-    expect(appearance.preset).toBe('sutra');
+    expect(appearance.preset).toBe('srijika');
     expect(appearance.themes.dark.accent).toBe('#77767b');
     expect(appearance.themes.light.accent).toBe('#77767b');
   });
@@ -91,8 +91,8 @@ describe('Studio appearance model', () => {
     expect(chrome['--chrome-panel']).toMatch(/^#[0-9a-f]{6}$/);
     expect(chrome['--chrome-panel']).not.toMatch(/(?:8c|7c|f6)/i);
     expect(chrome['--chrome-accent']).toBe('#1177dd');
-    expect(canvas['--sutra-editor-accent']).toBe('#1177dd');
-    expect(canvas['--sutra-editor-panel']).toBe(chrome['--chrome-panel']);
+    expect(canvas['--srijika-editor-accent']).toBe('#1177dd');
+    expect(canvas['--srijika-editor-panel']).toBe(chrome['--chrome-panel']);
   });
 
   it('round-trips a versioned portable theme and rejects unrelated JSON', () => {
@@ -103,7 +103,7 @@ describe('Studio appearance model', () => {
 
     expect(parseAppearanceExport(createAppearanceExport(appearance))).toEqual(appearance);
     expect(() => parseAppearanceExport('{"hello":"world"}')).toThrow(
-      'does not contain Sutra Studio appearance settings',
+      'does not contain Srijika Studio appearance settings',
     );
   });
 });

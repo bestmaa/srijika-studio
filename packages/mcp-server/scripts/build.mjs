@@ -5,13 +5,13 @@ import { build } from 'esbuild';
 
 const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const outputDirectory = fileURLToPath(
-  new URL('../../../plugins/sutra-studio/mcp-server/', import.meta.url),
+  new URL('../../../plugins/srijika-studio/mcp-server/', import.meta.url),
 );
 
 await mkdir(outputDirectory, { recursive: true });
 await build({
   entryPoints: [`${packageRoot}src/cli.ts`],
-  outfile: `${outputDirectory}sutra-mcp.mjs`,
+  outfile: `${outputDirectory}srijika-mcp.mjs`,
   bundle: true,
   platform: 'node',
   format: 'esm',

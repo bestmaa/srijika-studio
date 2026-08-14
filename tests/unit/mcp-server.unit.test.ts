@@ -2,11 +2,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { SUTRA_RPC_METHODS, SUTRA_TOOL_NAMES } from '@sutra/automation-protocol';
+import { SRIJIKA_RPC_METHODS, SRIJIKA_TOOL_NAMES } from '@srijika/automation-protocol';
 import {
-  SutraBridgeError,
-  createSutraMcpServer,
-  type SutraBridgeCaller,
+  SrijikaBridgeError,
+  createSrijikaMcpServer,
+  type SrijikaBridgeCaller,
 } from '../../packages/mcp-server/src';
 import { toolInputs } from '../../packages/mcp-server/src/tool-schemas';
 
@@ -16,9 +16,9 @@ afterEach(async () => {
   await Promise.all(cleanups.splice(0).map((cleanup) => cleanup()));
 });
 
-async function connectedClient(bridgeClient: SutraBridgeCaller): Promise<Client> {
-  const server = createSutraMcpServer({ bridgeClient });
-  const client = new Client({ name: 'sutra-mcp-test', version: '1.0.0' });
+async function connectedClient(bridgeClient: SrijikaBridgeCaller): Promise<Client> {
+  const server = createSrijikaMcpServer({ bridgeClient });
+  const client = new Client({ name: 'srijika-mcp-test', version: '1.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
   cleanups.push(async () => {
@@ -28,7 +28,7 @@ async function connectedClient(bridgeClient: SutraBridgeCaller): Promise<Client>
   return client;
 }
 
-describe('Sutra MCP server', () => {
+describe('Srijika MCP server', () => {
   it('rejects partial model-facing viewport dimensions before bridge dispatch', () => {
     expect(toolInputs.renderPreview.safeParse({ width: 1_180 }).success).toBe(false);
     expect(toolInputs.capturePreview.safeParse({ height: 820 }).success).toBe(false);
@@ -44,28 +44,108 @@ describe('Sutra MCP server', () => {
     expect(Buffer.byteLength(JSON.stringify(listed.tools), 'utf8')).toBeLessThan(65_000);
     const names = listed.tools.map(({ name }) => name);
 
-    expect([...names].sort()).toEqual([...Object.values(SUTRA_TOOL_NAMES)].sort());
+    expect([...names].sort()).toEqual([...Object.values(SRIJIKA_TOOL_NAMES)].sort());
     expect(listed.tools).toHaveLength(17);
     expect(
-      listed.tools.find(({ name }) => name === SUTRA_TOOL_NAMES.getProjectSummary)?.annotations,
+      listed.tools.find(({ name }) => name === SRIJIKA_TOOL_NAMES.getProjectSummary)?.annotations,
     ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
     expect(
-      listed.tools.find(({ name }) => name === SUTRA_TOOL_NAMES.applyOperations)?.annotations,
+      listed.tools.find(({ name }) => name === SRIJIKA_TOOL_NAMES.applyOperations)?.annotations,
     ).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: false });
 
     const resources = await client.listResources();
     expect(resources.resources.map(({ uri }) => uri)).toEqual([
-      'sutra://docs/protocol',
-      'sutra://docs/document-model',
-      'sutra://docs/design-plan',
+      'srijika://docs/protocol',
+      'srijika://docs/document-model',
+      'srijika://docs/design-plan',
+      'srijika://docs/code-first-architecture',
+      'srijika://docs/cli-runtime',
     ]);
-    const protocol = await client.readResource({ uri: 'sutra://docs/protocol' });
+    const protocol = await client.readResource({ uri: 'srijika://docs/protocol' });
     expect(protocol.contents).toHaveLength(1);
-    expect(protocol.contents[0]?.uri).toBe('sutra://docs/protocol');
+    expect(protocol.contents[0]?.uri).toBe('srijika://docs/protocol');
     expect(protocol.contents[0]?.mimeType).toBe('application/json');
     expect('text' in protocol.contents[0]!).toBe(true);
     if (!('text' in protocol.contents[0]!)) throw new Error('Expected text resource');
     expect(protocol.contents[0].text).toContain('"protocolVersion": "1.0"');
+
+    const architecture = await client.readResource({
+      uri: 'srijika://docs/code-first-architecture',
+    });
+    expect(architecture.contents).toHaveLength(1);
+    expect(architecture.contents[0]?.mimeType).toBe('application/json');
+    if (!('text' in architecture.contents[0]!)) throw new Error('Expected text resource');
+    const architectureContract = JSON.parse(architecture.contents[0].text) as {
+      contractId: string;
+      ownerContract: { required: string[]; optional: string[] };
+      creation: {
+        ownerActions: Record<string, string[]>;
+        compositeOwners: Record<string, { required: string[]; selectable: string[] }>;
+        naming: { alternateNamesAllowed: boolean };
+        writePolicy: { overwrite: boolean; arbitraryFolders: boolean };
+      };
+      capabilityOrder: string[];
+      diagnostics: {
+        errors: string[];
+        recommendations: { deterministicVersion: number; blocking: boolean };
+      };
+    };
+    expect(architectureContract).toMatchObject({
+      contractId: 'srijika.progressive-behavior-chain',
+      ownerContract: {
+        required: ['ui', 'connector'],
+        optional: ['hook', 'store', 'logic', 'api', 'types'],
+      },
+      capabilityOrder: ['connector', 'hook', 'store', 'logic', 'api'],
+      creation: {
+        ownerActions: {
+          featuresRoot: ['feature'],
+          feature: [
+            'featureConnector',
+            'featureHook',
+            'featureStore',
+            'featureLogic',
+            'featureApi',
+            'featureTypes',
+            'slot',
+          ],
+          slot: [
+            'slotConnector',
+            'slotHook',
+            'slotStore',
+            'slotLogic',
+            'slotApi',
+            'slotTypes',
+            'part',
+          ],
+          part: ['partConnector', 'partHook', 'partStore', 'partLogic', 'partApi', 'partTypes'],
+        },
+        naming: { alternateNamesAllowed: false },
+        writePolicy: { overwrite: false, arbitraryFolders: false },
+      },
+      diagnostics: {
+        recommendations: { deterministicVersion: 1, blocking: false },
+      },
+    });
+
+    const cliRuntime = await client.readResource({ uri: 'srijika://docs/cli-runtime' });
+    expect(cliRuntime.contents).toHaveLength(1);
+    if (!('text' in cliRuntime.contents[0]!)) throw new Error('Expected text resource');
+    expect(JSON.parse(cliRuntime.contents[0].text)).toMatchObject({
+      contractId: 'srijika.fast-developer-workflow',
+      runtime: {
+        default: 'node',
+        optional: ['bun'],
+        bunActivation: 'explicit-and-vite-only',
+        dependencyResolutionIndependent: true,
+      },
+      safety: { overwrite: false, desktopRequiredForCliOrVscode: false },
+    });
+    expect(architectureContract.diagnostics.errors).toContain('SRIJIKA-ARCH-LAYER-JUMP');
+    expect(architectureContract.creation.compositeOwners['slot']).toMatchObject({
+      required: ['ui', 'connector'],
+      selectable: ['hook', 'store', 'logic', 'api', 'types'],
+    });
   });
 
   it('forwards validated tool input to the canonical bridge method', async () => {
@@ -77,13 +157,13 @@ describe('Sutra MCP server', () => {
       },
     });
     const result = await client.callTool({
-      name: SUTRA_TOOL_NAMES.getPageOutline,
+      name: SRIJIKA_TOOL_NAMES.getPageOutline,
       arguments: { pageId: 'page_home', maxDepth: 4, maxNodes: 50 },
     });
 
     expect(calls).toEqual([
       {
-        method: SUTRA_RPC_METHODS.getPageOutline,
+        method: SRIJIKA_RPC_METHODS.getPageOutline,
         params: { pageId: 'page_home', maxDepth: 4, maxNodes: 50 },
       },
     ]);
@@ -100,7 +180,7 @@ describe('Sutra MCP server', () => {
       kind: 'insertComponent',
       operationId: 'surface',
       parentId: 'root',
-      componentId: 'sutra.container',
+      componentId: 'srijika.container',
     };
     const insertText = {
       kind: 'insertText',
@@ -131,33 +211,33 @@ describe('Sutra MCP server', () => {
       params: Record<string, unknown>;
     }> = [
       {
-        tool: SUTRA_TOOL_NAMES.getCapabilities,
-        method: SUTRA_RPC_METHODS.getCapabilities,
+        tool: SRIJIKA_TOOL_NAMES.getCapabilities,
+        method: SRIJIKA_RPC_METHODS.getCapabilities,
         params: {},
       },
       {
-        tool: SUTRA_TOOL_NAMES.getProjectSummary,
-        method: SUTRA_RPC_METHODS.getProjectSummary,
+        tool: SRIJIKA_TOOL_NAMES.getProjectSummary,
+        method: SRIJIKA_RPC_METHODS.getProjectSummary,
         params: { includePages: false },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getPageOutline,
-        method: SUTRA_RPC_METHODS.getPageOutline,
+        tool: SRIJIKA_TOOL_NAMES.getPageOutline,
+        method: SRIJIKA_RPC_METHODS.getPageOutline,
         params: { pageId: 'page_home', maxDepth: 4, maxNodes: 50 },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getNode,
-        method: SUTRA_RPC_METHODS.getNode,
+        tool: SRIJIKA_TOOL_NAMES.getNode,
+        method: SRIJIKA_RPC_METHODS.getNode,
         params: { pageId: 'page_home', nodeId: 'root' },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getComponentCatalog,
-        method: SUTRA_RPC_METHODS.getComponentCatalog,
+        tool: SRIJIKA_TOOL_NAMES.getComponentCatalog,
+        method: SRIJIKA_RPC_METHODS.getComponentCatalog,
         params: { query: 'container', category: 'Layout', detail: 'summary', limit: 5 },
       },
       {
-        tool: SUTRA_TOOL_NAMES.analyzeRepetitions,
-        method: SUTRA_RPC_METHODS.analyzeRepetitions,
+        tool: SRIJIKA_TOOL_NAMES.analyzeRepetitions,
+        method: SRIJIKA_RPC_METHODS.analyzeRepetitions,
         params: {
           pageId: 'page_home',
           candidateId: 'repeat_candidate',
@@ -167,13 +247,13 @@ describe('Sutra MCP server', () => {
         },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getGeneratedCode,
-        method: SUTRA_RPC_METHODS.getGeneratedCode,
+        tool: SRIJIKA_TOOL_NAMES.getGeneratedCode,
+        method: SRIJIKA_RPC_METHODS.getGeneratedCode,
         params: { pageId: 'page_home', detail: 'summary' },
       },
       {
-        tool: SUTRA_TOOL_NAMES.applyOperations,
-        method: SUTRA_RPC_METHODS.applyOperations,
+        tool: SRIJIKA_TOOL_NAMES.applyOperations,
+        method: SRIJIKA_RPC_METHODS.applyOperations,
         params: {
           pageId: 'page_home',
           expectedRevision: 4,
@@ -196,23 +276,23 @@ describe('Sutra MCP server', () => {
         },
       },
       {
-        tool: SUTRA_TOOL_NAMES.validateDocument,
-        method: SUTRA_RPC_METHODS.validateDocument,
+        tool: SRIJIKA_TOOL_NAMES.validateDocument,
+        method: SRIJIKA_RPC_METHODS.validateDocument,
         params: { pageId: 'page_home' },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getDiagnostics,
-        method: SUTRA_RPC_METHODS.getDiagnostics,
+        tool: SRIJIKA_TOOL_NAMES.getDiagnostics,
+        method: SRIJIKA_RPC_METHODS.getDiagnostics,
         params: { pageId: 'page_home', nodeId: 'root', severity: 'warning', limit: 10 },
       },
       {
-        tool: SUTRA_TOOL_NAMES.renderPreview,
-        method: SUTRA_RPC_METHODS.renderPreview,
+        tool: SRIJIKA_TOOL_NAMES.renderPreview,
+        method: SRIJIKA_RPC_METHODS.renderPreview,
         params: { pageId: 'page_home', viewport: 'mobile', selectedNodeId: 'root' },
       },
       {
-        tool: SUTRA_TOOL_NAMES.getLayoutSnapshot,
-        method: SUTRA_RPC_METHODS.getLayoutSnapshot,
+        tool: SRIJIKA_TOOL_NAMES.getLayoutSnapshot,
+        method: SRIJIKA_RPC_METHODS.getLayoutSnapshot,
         params: {
           pageId: 'page_home',
           nodeIds: ['root'],
@@ -221,8 +301,8 @@ describe('Sutra MCP server', () => {
         },
       },
       {
-        tool: SUTRA_TOOL_NAMES.capturePreview,
-        method: SUTRA_RPC_METHODS.capturePreview,
+        tool: SRIJIKA_TOOL_NAMES.capturePreview,
+        method: SRIJIKA_RPC_METHODS.capturePreview,
         params: {
           pageId: 'page_home',
           viewport: 'desktop',
@@ -232,23 +312,23 @@ describe('Sutra MCP server', () => {
         },
       },
       {
-        tool: SUTRA_TOOL_NAMES.undo,
-        method: SUTRA_RPC_METHODS.undo,
+        tool: SRIJIKA_TOOL_NAMES.undo,
+        method: SRIJIKA_RPC_METHODS.undo,
         params: { pageId: 'page_home', expectedRevision: 4 },
       },
       {
-        tool: SUTRA_TOOL_NAMES.redo,
-        method: SUTRA_RPC_METHODS.redo,
+        tool: SRIJIKA_TOOL_NAMES.redo,
+        method: SRIJIKA_RPC_METHODS.redo,
         params: { pageId: 'page_home', expectedRevision: 4 },
       },
       {
-        tool: SUTRA_TOOL_NAMES.importDesignPlan,
-        method: SUTRA_RPC_METHODS.importDesignPlan,
+        tool: SRIJIKA_TOOL_NAMES.importDesignPlan,
+        method: SRIJIKA_RPC_METHODS.importDesignPlan,
         params: designPlan,
       },
       {
-        tool: SUTRA_TOOL_NAMES.importDesignImage,
-        method: SUTRA_RPC_METHODS.importDesignImage,
+        tool: SRIJIKA_TOOL_NAMES.importDesignImage,
+        method: SRIJIKA_RPC_METHODS.importDesignImage,
         params: {
           pageId: designPlan.pageId,
           expectedRevision: designPlan.expectedRevision,
@@ -284,7 +364,7 @@ describe('Sutra MCP server', () => {
     });
 
     const result = await client.callTool({
-      name: SUTRA_TOOL_NAMES.capturePreview,
+      name: SRIJIKA_TOOL_NAMES.capturePreview,
       arguments: {
         pageId: 'page_home',
         viewport: 'desktop',
@@ -312,14 +392,17 @@ describe('Sutra MCP server', () => {
     const client = await connectedClient({
       call: () =>
         Promise.reject(
-          new SutraBridgeError({
+          new SrijikaBridgeError({
             code: 'studio_not_running',
             message: 'Studio is closed',
             retryable: true,
           }),
         ),
     });
-    const result = await client.callTool({ name: SUTRA_TOOL_NAMES.getCapabilities, arguments: {} });
+    const result = await client.callTool({
+      name: SRIJIKA_TOOL_NAMES.getCapabilities,
+      arguments: {},
+    });
 
     expect(result.isError).toBe(true);
     expect(result.content).toHaveLength(1);

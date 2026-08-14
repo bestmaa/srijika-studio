@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { assertDocumentSemantics } from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { assertValidDocumentGraph } from '@sutra/document-engine';
+import { assertDocumentSemantics } from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { assertValidDocumentGraph } from '@srijika/document-engine';
 
 import { loadOrbitFidelityDocument } from '../fixtures/orbit-fidelity';
 
@@ -19,12 +19,12 @@ describe('Orbit fidelity fixture', () => {
       .map((node) => node.componentId);
     expect(componentIds).toEqual(
       expect.arrayContaining([
-        'sutra.avatar',
-        'sutra.badge',
-        'sutra.chart',
-        'sutra.divider',
-        'sutra.icon',
-        'sutra.progress',
+        'srijika.avatar',
+        'srijika.badge',
+        'srijika.chart',
+        'srijika.divider',
+        'srijika.icon',
+        'srijika.progress',
       ]),
     );
     assertValidDocumentGraph(document);

@@ -9,8 +9,8 @@ import {
   isValueDeclarationAssignableToShape,
   literalMatchesValueShape,
   type ComponentDefinition,
-} from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
+} from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
 import {
   createBlankDocument,
   createElementNode,
@@ -19,7 +19,7 @@ import {
   literal,
   type IfNode,
   type RepeatNode,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 function definition(
   id: string,
@@ -135,7 +135,7 @@ describe('ComponentRegistry', () => {
       eventSignature: { payload: { name: 'value', shape: { kind: 'string' } } },
       required: false,
     };
-    const button = registry.require('sutra.button').createNode('button');
+    const button = registry.require('srijika.button').createNode('button');
     if (button.kind !== 'element') throw new Error('Expected Button element');
     button.events['onClick'] = { kind: 'reference', symbolId: 'event_value', path: [] };
     root.slots['children'] = [button.id];
@@ -187,7 +187,7 @@ describe('ComponentRegistry', () => {
       required: false,
     };
 
-    const button = registry.require('sutra.button').createNode('count_button');
+    const button = registry.require('srijika.button').createNode('count_button');
     if (button.kind !== 'element') throw new Error('Expected Button element');
     button.events['onClick'] = { kind: 'reference', symbolId: 'event_count', path: [] };
     button.eventArguments = {
@@ -236,9 +236,9 @@ describe('ComponentRegistry', () => {
       required: false,
     };
 
-    const unavailable = registry.require('sutra.button').createNode('unavailable_payload');
-    const wrongType = registry.require('sutra.button').createNode('wrong_argument_type');
-    const unexpected = registry.require('sutra.button').createNode('unexpected_argument');
+    const unavailable = registry.require('srijika.button').createNode('unavailable_payload');
+    const wrongType = registry.require('srijika.button').createNode('wrong_argument_type');
+    const unexpected = registry.require('srijika.button').createNode('unexpected_argument');
     if (
       unavailable.kind !== 'element' ||
       wrongType.kind !== 'element' ||
@@ -331,8 +331,8 @@ describe('ComponentRegistry', () => {
       required: true,
     };
 
-    const outside = registry.require('sutra.button').createNode('outside_repeat');
-    const inside = registry.require('sutra.button').createNode('inside_repeat');
+    const outside = registry.require('srijika.button').createNode('outside_repeat');
+    const inside = registry.require('srijika.button').createNode('inside_repeat');
     if (outside.kind !== 'element' || inside.kind !== 'element') {
       throw new Error('Expected Button elements');
     }
@@ -400,7 +400,7 @@ describe('ComponentRegistry', () => {
       });
     }
 
-    const inputDefinition = registry.require('sutra.input');
+    const inputDefinition = registry.require('srijika.input');
     expect(inputDefinition.manifest.props).toMatchObject({
       hideLabel: { type: 'boolean', defaultValue: false, bindable: true },
       labelStyle: { type: 'object', defaultValue: {}, bindable: true },
@@ -424,12 +424,26 @@ describe('ComponentRegistry', () => {
       style: { type: 'object', bindable: true },
     });
     expect(
-      createCoreComponentRegistry().require('sutra.container').manifest.props['as'],
+      createCoreComponentRegistry().require('srijika.container').manifest.props['as'],
     ).toMatchObject({
       type: 'string',
       bindable: false,
       control: 'select',
-      options: ['div', 'section', 'header', 'footer', 'nav', 'article', 'aside'],
+      options: [
+        'div',
+        'section',
+        'header',
+        'footer',
+        'nav',
+        'article',
+        'aside',
+        'form',
+        'figure',
+        'ul',
+        'ol',
+        'li',
+        'label',
+      ],
     });
   });
 
@@ -592,7 +606,7 @@ describe('ComponentRegistry', () => {
       expect.arrayContaining(['component-version-mismatch', 'unknown-prop', 'missing-symbol']),
     );
     expect(() => assertDocumentSemantics(invalid, registry)).toThrow(
-      /Invalid Sutra document semantics/,
+      /Invalid Srijika document semantics/,
     );
   });
 
@@ -645,7 +659,7 @@ describe('ComponentRegistry', () => {
   it('enforces manifest prop types independently from the Inspector UI', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument();
-    const button = registry.require('sutra.button').createNode('root');
+    const button = registry.require('srijika.button').createNode('root');
     if (button.kind !== 'element') throw new Error('expected button element');
     button.props['label'] = literal(123);
     document.nodes = { root: button };
@@ -680,7 +694,7 @@ describe('ComponentRegistry', () => {
         slots: {
           content: {
             displayName: 'Content',
-            accepts: ['sutra.text'],
+            accepts: ['srijika.text'],
             minChildren: 1,
             maxChildren: 1,
           },
@@ -732,7 +746,7 @@ describe('ComponentRegistry', () => {
       indexSymbolId: 'missing_index',
       children: [],
     };
-    const button = registry.require('sutra.button').createNode('button');
+    const button = registry.require('srijika.button').createNode('button');
     if (button.kind !== 'element') throw new Error('expected button element');
     button.events['unknownEvent'] = literal(true);
     button.events['onClick'] = literal('not a callback');
@@ -740,7 +754,7 @@ describe('ComponentRegistry', () => {
     if (panel.kind !== 'element') throw new Error('expected panel element');
     panel.slots['content'] = ['button', 'text'];
     panel.slots['unknown'] = [];
-    const text = registry.require('sutra.text').createNode('text');
+    const text = registry.require('srijika.text').createNode('text');
     const missing = createElementNode('missing', 'test.unknown', 'Missing');
 
     Object.assign(document.nodes, {

@@ -3,7 +3,7 @@ import {
   createElementNode,
   type ElementNode,
   type UiDocument,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
 export function createEngineDocument(): UiDocument {
   const document = createBlankDocument('page_test', 'Test page');

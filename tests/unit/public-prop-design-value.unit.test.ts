@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { createBlankDocument, type PublicProp } from '@sutra/contracts';
-import { applyCommand, DocumentHistory } from '@sutra/document-engine';
+import { createBlankDocument, type PublicProp } from '@srijika/contracts';
+import { applyCommand, DocumentHistory } from '@srijika/document-engine';
 
 const settingsProp: PublicProp = {
   symbolId: 'prop_settings',

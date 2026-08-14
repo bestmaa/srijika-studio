@@ -3,14 +3,14 @@ import type {
   PublicProp,
   RepeatLiteralLocator,
   StyleProperties,
-  SutraProject,
+  SrijikaProject,
   UiDocument,
   UiNode,
   ValueExpression,
   ValueShape,
   ValueType,
-} from '@sutra/contracts';
-import type { EditorBehavior, EventSpec, PropSpec, SlotSpec } from '@sutra/component-registry';
+} from '@srijika/contracts';
+import type { EditorBehavior, EventSpec, PropSpec, SlotSpec } from '@srijika/component-registry';
 
 import type { AutomationDiagnostic } from './diagnostics';
 import type { PROTOCOL_VERSION, TOOL_VERSION } from './version';
@@ -37,7 +37,7 @@ export interface ProjectSummary {
   protocolVersion: typeof PROTOCOL_VERSION;
   documentFormatVersion: number;
   selectedPageId: string;
-  project: Pick<SutraProject, 'id' | 'name' | 'entryPageId'> & {
+  project: Pick<SrijikaProject, 'id' | 'name' | 'entryPageId'> & {
     pageCount: number;
     componentCount: number;
   };
@@ -208,7 +208,7 @@ export interface AddPublicPropOperation extends OperationIdentity {
 
 export interface ConvertRepeatedSiblingsOperation extends OperationIdentity {
   kind: 'convertRepeatedSiblings';
-  /** Stable candidate ID returned by sutra_analyze_repetitions at expectedRevision. */
+  /** Stable candidate ID returned by srijika_analyze_repetitions at expectedRevision. */
   candidateId: string;
   propName: string;
   propDisplayName?: string;
@@ -224,7 +224,7 @@ export interface ReplaceDocumentOperation extends OperationIdentity {
   document: UiDocument;
 }
 
-export type SutraOperation =
+export type SrijikaOperation =
   | InsertComponentOperation
   | InsertTextOperation
   | InsertIfOperation
@@ -322,7 +322,7 @@ export type AutomationIdKind = 'node' | 'symbol';
 
 export interface AutomationIdContext {
   kind: AutomationIdKind;
-  operationKind: SutraOperation['kind'];
+  operationKind: SrijikaOperation['kind'];
   operationIndex: number;
   hint: string;
 }

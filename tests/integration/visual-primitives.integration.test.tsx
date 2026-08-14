@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { buildComponentCatalog } from '@sutra/automation-protocol';
-import { createBlankDocument, literal, type ElementNode } from '@sutra/contracts';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { SutraRenderer } from '@sutra/react-renderer';
+import { buildComponentCatalog } from '@srijika/automation-protocol';
+import { createBlankDocument, literal, type ElementNode } from '@srijika/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 function visualNode(componentId: string, nodeId: string): ElementNode {
   const node = createCoreComponentRegistry().require(componentId).createNode(nodeId);
@@ -16,17 +16,17 @@ describe('core visual primitives', () => {
   it('registers strongly described visual primitives and custom grid tracks', () => {
     const registry = createCoreComponentRegistry();
 
-    expect(registry.require('sutra.grid').manifest.props).toMatchObject({
+    expect(registry.require('srijika.grid').manifest.props).toMatchObject({
       columnsTemplate: { type: 'string', bindable: true },
       rowsTemplate: { type: 'string', bindable: true },
     });
     for (const id of [
-      'sutra.icon',
-      'sutra.divider',
-      'sutra.progress',
-      'sutra.badge',
-      'sutra.avatar',
-      'sutra.chart',
+      'srijika.icon',
+      'srijika.divider',
+      'srijika.progress',
+      'srijika.badge',
+      'srijika.avatar',
+      'srijika.chart',
     ]) {
       const definition = registry.require(id);
       const node = definition.createNode(`node_${id.replace('.', '_')}`);
@@ -34,8 +34,8 @@ describe('core visual primitives', () => {
     }
 
     const catalog = buildComponentCatalog(registry);
-    const iconEntry = catalog.find(({ id }) => id === 'sutra.icon');
-    const chartEntry = catalog.find(({ id }) => id === 'sutra.chart');
+    const iconEntry = catalog.find(({ id }) => id === 'srijika.icon');
+    const chartEntry = catalog.find(({ id }) => id === 'srijika.chart');
     expect(iconEntry?.category).toBe('Media');
     expect(iconEntry?.props).toEqual(
       expect.arrayContaining(['label', 'name', 'size', 'strokeWidth']),
@@ -52,15 +52,15 @@ describe('core visual primitives', () => {
     const root = document.nodes[document.rootNodeId];
     if (!root || root.kind !== 'element') throw new Error('Expected page root');
 
-    const grid = visualNode('sutra.grid', 'dashboard_grid');
-    const icon = visualNode('sutra.icon', 'home_icon');
-    const divider = visualNode('sutra.divider', 'divider');
-    const progress = visualNode('sutra.progress', 'progress');
-    const badge = visualNode('sutra.badge', 'badge');
-    const avatar = visualNode('sutra.avatar', 'avatar');
-    const line = visualNode('sutra.chart', 'line_chart');
-    const bar = visualNode('sutra.chart', 'bar_chart');
-    const donut = visualNode('sutra.chart', 'donut_chart');
+    const grid = visualNode('srijika.grid', 'dashboard_grid');
+    const icon = visualNode('srijika.icon', 'home_icon');
+    const divider = visualNode('srijika.divider', 'divider');
+    const progress = visualNode('srijika.progress', 'progress');
+    const badge = visualNode('srijika.badge', 'badge');
+    const avatar = visualNode('srijika.avatar', 'avatar');
+    const line = visualNode('srijika.chart', 'line_chart');
+    const bar = visualNode('srijika.chart', 'bar_chart');
+    const donut = visualNode('srijika.chart', 'donut_chart');
 
     grid.props['ariaLabel'] = literal('Dashboard layout');
     grid.props['columnsTemplate'] = literal('264px minmax(0, 1fr)');
@@ -113,7 +113,7 @@ describe('core visual primitives', () => {
     });
 
     const { container } = render(
-      <SutraRenderer document={document} registry={registry} mode="preview" />,
+      <SrijikaRenderer document={document} registry={registry} mode="preview" />,
     );
 
     expect(screen.getByLabelText('Dashboard layout')).toHaveStyle({

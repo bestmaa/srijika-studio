@@ -1,8 +1,8 @@
 import fc from 'fast-check';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ValueExpression } from '@sutra/contracts';
-import { evaluateExpression } from '@sutra/react-renderer';
+import type { ValueExpression } from '@srijika/contracts';
+import { evaluateExpression } from '@srijika/react-renderer';
 
 const literal = (value: string | number | boolean | null): ValueExpression => ({
   kind: 'literal',
@@ -79,6 +79,35 @@ describe('expression evaluator', () => {
     expect(readRight).toHaveBeenCalledOnce();
   });
 
+  it('short-circuits nullish coalescing while preserving operand values', () => {
+    const readFallback = vi.fn(() => 'fallback');
+    const symbols = Object.defineProperty({}, 'fallback', {
+      enumerable: true,
+      get: readFallback,
+    }) as Record<string, unknown>;
+    const fallback: ValueExpression = {
+      kind: 'reference',
+      symbolId: 'fallback',
+      path: [],
+    };
+
+    expect(
+      evaluateExpression(
+        { kind: 'binary', operator: 'coalesce', left: literal('primary'), right: fallback },
+        { symbols },
+      ),
+    ).toBe('primary');
+    expect(readFallback).not.toHaveBeenCalled();
+
+    expect(
+      evaluateExpression(
+        { kind: 'binary', operator: 'coalesce', left: literal(null), right: fallback },
+        { symbols },
+      ),
+    ).toBe('fallback');
+    expect(readFallback).toHaveBeenCalledOnce();
+  });
+
   it('keeps custom code references inert at runtime', () => {
     expect(
       evaluateExpression(
@@ -117,10 +146,10 @@ describe('expression evaluator', () => {
   it('supports string addition and numeric negation', () => {
     expect(
       evaluateExpression(
-        { kind: 'binary', operator: 'add', left: literal('Sutra '), right: literal('Studio') },
+        { kind: 'binary', operator: 'add', left: literal('Srijika '), right: literal('Studio') },
         { symbols: {} },
       ),
-    ).toBe('Sutra Studio');
+    ).toBe('Srijika Studio');
     expect(
       evaluateExpression(
         { kind: 'unary', operator: 'negate', operand: literal(42) },

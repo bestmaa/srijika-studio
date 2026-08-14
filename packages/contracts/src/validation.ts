@@ -4,11 +4,11 @@ import { Value, ValueErrorType, type ValueError } from '@sinclair/typebox/value'
 
 import {
   LiteralValueSchema,
-  SutraProjectSchema,
+  SrijikaProjectSchema,
   UiDocumentSchema,
   ValueExpressionSchema,
   ValueShapeSchema,
-  type SutraProject,
+  type SrijikaProject,
   type UiDocument,
 } from './schemas';
 
@@ -57,8 +57,8 @@ export function validateUiDocument(value: unknown): ValidationResult<UiDocument>
   );
 }
 
-export function validateSutraProject(value: unknown): ValidationResult<SutraProject> {
-  return runValidation(SutraProjectSchema, [], value);
+export function validateSrijikaProject(value: unknown): ValidationResult<SrijikaProject> {
+  return runValidation(SrijikaProjectSchema, [], value);
 }
 
 export function assertUiDocument(value: unknown): asserts value is UiDocument {
@@ -67,6 +67,6 @@ export function assertUiDocument(value: unknown): asserts value is UiDocument {
     const message = result.errors
       .map((error) => `${error.instancePath || '/'} ${error.message ?? 'is invalid'}`)
       .join('; ');
-    throw new Error(`Invalid Sutra UI document: ${message}`);
+    throw new Error(`Invalid Srijika UI document: ${message}`);
   }
 }

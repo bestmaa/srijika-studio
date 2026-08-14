@@ -1,14 +1,14 @@
 import type { CSSProperties, MouseEventHandler, ReactNode } from 'react';
 
-import { ComponentRegistry, type ComponentManifest } from '@sutra/component-registry';
-import { createElementNode, literal, type UiNode } from '@sutra/contracts';
+import { ComponentRegistry, type ComponentManifest } from '@srijika/component-registry';
+import { createElementNode, literal, type UiNode } from '@srijika/contracts';
 
 export interface EditorDomAttributes {
-  'data-sutra-node'?: string;
-  'data-sutra-component'?: string;
-  'data-sutra-selected'?: 'true' | 'false';
-  'data-sutra-drop-target'?: 'true' | 'false';
-  'data-sutra-empty-container'?: 'true' | 'false';
+  'data-srijika-node'?: string;
+  'data-srijika-component'?: string;
+  'data-srijika-selected'?: 'true' | 'false';
+  'data-srijika-drop-target'?: 'true' | 'false';
+  'data-srijika-empty-container'?: 'true' | 'false';
   tabIndex?: number;
   onClick?: MouseEventHandler<HTMLElement>;
 }
@@ -38,7 +38,7 @@ function displayString(value: unknown, fallback = ''): string {
  * Only own, primitive CSS values are retained; arrays, class instances, executable values,
  * unsafe prototype keys and non-finite numbers are ignored.
  */
-export function sutraInputPartStyle(value: unknown): CSSProperties {
+export function srijikaInputPartStyle(value: unknown): CSSProperties {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   const prototype = Reflect.getPrototypeOf(value);
   if (prototype !== Object.prototype && prototype !== null) return {};
@@ -55,7 +55,21 @@ export function sutraInputPartStyle(value: unknown): CSSProperties {
   );
 }
 
-const CONTAINER_TAGS = ['div', 'section', 'header', 'footer', 'nav', 'article', 'aside'] as const;
+const CONTAINER_TAGS = [
+  'div',
+  'section',
+  'header',
+  'footer',
+  'nav',
+  'article',
+  'aside',
+  'form',
+  'figure',
+  'ul',
+  'ol',
+  'li',
+  'label',
+] as const;
 type ContainerTag = (typeof CONTAINER_TAGS)[number];
 
 function containerTag(value: unknown): ContainerTag {
@@ -72,10 +86,10 @@ const commonEditor = {
 };
 
 const pageManifest: ComponentManifest = {
-  id: 'sutra.page',
+  id: 'srijika.page',
   version: 1,
   displayName: 'Page',
-  description: 'The root viewport of a Sutra UI document.',
+  description: 'The root viewport of a Srijika UI document.',
   category: 'Structure',
   icon: 'PanelsTopLeft',
   props: {},
@@ -85,7 +99,7 @@ const pageManifest: ComponentManifest = {
 };
 
 const containerManifest: ComponentManifest = {
-  id: 'sutra.container',
+  id: 'srijika.container',
   version: 1,
   displayName: 'Container',
   description: 'A flexible semantic HTML container.',
@@ -117,7 +131,7 @@ const containerManifest: ComponentManifest = {
 
 const stackManifest: ComponentManifest = {
   ...containerManifest,
-  id: 'sutra.stack',
+  id: 'srijika.stack',
   displayName: 'Stack',
   description: 'A vertical flex layout with spacing.',
   icon: 'Rows3',
@@ -125,7 +139,7 @@ const stackManifest: ComponentManifest = {
 
 const gridManifest: ComponentManifest = {
   ...containerManifest,
-  id: 'sutra.grid',
+  id: 'srijika.grid',
   displayName: 'Grid',
   description: 'A responsive CSS grid layout.',
   icon: 'Grid2X2',
@@ -162,7 +176,7 @@ const gridManifest: ComponentManifest = {
 };
 
 const textManifest: ComponentManifest = {
-  id: 'sutra.text',
+  id: 'srijika.text',
   version: 1,
   displayName: 'Text',
   description: 'A paragraph of text.',
@@ -185,7 +199,7 @@ const textManifest: ComponentManifest = {
 
 const headingManifest: ComponentManifest = {
   ...textManifest,
-  id: 'sutra.heading',
+  id: 'srijika.heading',
   displayName: 'Heading',
   description: 'A semantic heading.',
   icon: 'Heading',
@@ -204,7 +218,7 @@ const headingManifest: ComponentManifest = {
 };
 
 const buttonManifest: ComponentManifest = {
-  id: 'sutra.button',
+  id: 'srijika.button',
   version: 1,
   displayName: 'Button',
   description: 'A typed interactive button.',
@@ -249,7 +263,7 @@ const buttonManifest: ComponentManifest = {
 };
 
 const inputManifest: ComponentManifest = {
-  id: 'sutra.input',
+  id: 'srijika.input',
   version: 1,
   displayName: 'Input',
   description: 'A labelled text input.',
@@ -371,7 +385,7 @@ const inputManifest: ComponentManifest = {
 };
 
 const imageManifest: ComponentManifest = {
-  id: 'sutra.image',
+  id: 'srijika.image',
   version: 1,
   displayName: 'Image',
   description: 'A responsive image with typed source, alternative text and fit controls.',
@@ -446,7 +460,7 @@ const ICON_NAMES = [
 type IconName = (typeof ICON_NAMES)[number];
 
 const iconManifest: ComponentManifest = {
-  id: 'sutra.icon',
+  id: 'srijika.icon',
   version: 1,
   displayName: 'Icon',
   description: 'A deterministic inline SVG icon that inherits the current text color.',
@@ -493,7 +507,7 @@ const iconManifest: ComponentManifest = {
 };
 
 const dividerManifest: ComponentManifest = {
-  id: 'sutra.divider',
+  id: 'srijika.divider',
   version: 1,
   displayName: 'Divider',
   description: 'A horizontal or vertical semantic separator.',
@@ -532,7 +546,7 @@ const dividerManifest: ComponentManifest = {
 };
 
 const progressManifest: ComponentManifest = {
-  id: 'sutra.progress',
+  id: 'srijika.progress',
   version: 1,
   displayName: 'Progress',
   description: 'An accessible determinate progress bar with configurable track and fill.',
@@ -586,7 +600,7 @@ const progressManifest: ComponentManifest = {
 };
 
 const badgeManifest: ComponentManifest = {
-  id: 'sutra.badge',
+  id: 'srijika.badge',
   version: 1,
   displayName: 'Badge',
   description: 'A compact status or category label with deterministic semantic tones.',
@@ -625,7 +639,7 @@ const badgeManifest: ComponentManifest = {
 };
 
 const avatarManifest: ComponentManifest = {
-  id: 'sutra.avatar',
+  id: 'srijika.avatar',
   version: 1,
   displayName: 'Avatar',
   description: 'A circular user image or initials fallback with an optional status indicator.',
@@ -680,7 +694,7 @@ const avatarManifest: ComponentManifest = {
 };
 
 const chartManifest: ComponentManifest = {
-  id: 'sutra.chart',
+  id: 'srijika.chart',
   version: 1,
   displayName: 'Chart',
   description: 'A lightweight SVG line, bar or donut chart driven by literal or bound data.',
@@ -1081,14 +1095,14 @@ interface OpenVisualProps {
   style?: CSSProperties;
 }
 
-export interface SutraIconProps extends OpenVisualProps {
+export interface SrijikaIconProps extends OpenVisualProps {
   name?: unknown;
   label?: unknown;
   size?: unknown;
   strokeWidth?: unknown;
 }
 
-export function SutraIcon({
+export function SrijikaIcon({
   name,
   label,
   size,
@@ -1096,7 +1110,7 @@ export function SutraIcon({
   className = '',
   style = {},
   ...domProps
-}: SutraIconProps): ReactNode {
+}: SrijikaIconProps): ReactNode {
   const resolvedName = requestedIcon(name);
   const resolvedLabel = displayString(label);
   const resolvedSize = positiveNumber(size, 24);
@@ -1135,20 +1149,20 @@ export function SutraIcon({
   );
 }
 
-export interface SutraDividerProps extends OpenVisualProps {
+export interface SrijikaDividerProps extends OpenVisualProps {
   orientation?: unknown;
   color?: unknown;
   thickness?: unknown;
 }
 
-export function SutraDivider({
+export function SrijikaDivider({
   orientation,
   color,
   thickness,
   className = '',
   style = {},
   ...domProps
-}: SutraDividerProps): ReactNode {
+}: SrijikaDividerProps): ReactNode {
   const vertical = orientation === 'vertical';
   const resolvedThickness = positiveNumber(thickness, 1);
   return (
@@ -1168,7 +1182,7 @@ export function SutraDivider({
   );
 }
 
-export interface SutraProgressProps extends OpenVisualProps {
+export interface SrijikaProgressProps extends OpenVisualProps {
   value?: unknown;
   max?: unknown;
   label?: unknown;
@@ -1176,7 +1190,7 @@ export interface SutraProgressProps extends OpenVisualProps {
   trackColor?: unknown;
 }
 
-export function SutraProgress({
+export function SrijikaProgress({
   value,
   max,
   label,
@@ -1185,7 +1199,7 @@ export function SutraProgress({
   className = '',
   style = {},
   ...domProps
-}: SutraProgressProps): ReactNode {
+}: SrijikaProgressProps): ReactNode {
   const resolvedMax = Math.max(0.000001, positiveNumber(max, 100));
   const resolvedValue = Math.max(0, Math.min(resolvedMax, finiteNumber(value, 0)));
   const percentage = (resolvedValue / resolvedMax) * 100;
@@ -1220,20 +1234,20 @@ export function SutraProgress({
   );
 }
 
-export interface SutraBadgeProps extends OpenVisualProps {
+export interface SrijikaBadgeProps extends OpenVisualProps {
   label?: unknown;
   tone?: unknown;
   dot?: unknown;
 }
 
-export function SutraBadge({
+export function SrijikaBadge({
   label,
   tone,
   dot,
   className = '',
   style = {},
   ...domProps
-}: SutraBadgeProps): ReactNode {
+}: SrijikaBadgeProps): ReactNode {
   const palette = BADGE_TONES[displayString(tone, 'neutral')] ?? BADGE_TONES['neutral']!;
   return (
     <span
@@ -1262,7 +1276,7 @@ export function SutraBadge({
   );
 }
 
-export interface SutraAvatarProps extends OpenVisualProps {
+export interface SrijikaAvatarProps extends OpenVisualProps {
   src?: unknown;
   alt?: unknown;
   fallback?: unknown;
@@ -1270,7 +1284,7 @@ export interface SutraAvatarProps extends OpenVisualProps {
   status?: unknown;
 }
 
-export function SutraAvatar({
+export function SrijikaAvatar({
   src,
   alt,
   fallback,
@@ -1279,7 +1293,7 @@ export function SutraAvatar({
   className = '',
   style = {},
   ...domProps
-}: SutraAvatarProps): ReactNode {
+}: SrijikaAvatarProps): ReactNode {
   const resolvedSize = positiveNumber(size, 40);
   const source = displayString(src);
   const statusColor = STATUS_COLORS[displayString(status, 'none')];
@@ -1339,7 +1353,7 @@ export function SutraAvatar({
   );
 }
 
-export interface SutraChartProps extends OpenVisualProps {
+export interface SrijikaChartProps extends OpenVisualProps {
   chartType?: unknown;
   curve?: unknown;
   data?: unknown;
@@ -1350,7 +1364,7 @@ export interface SutraChartProps extends OpenVisualProps {
   innerRadius?: unknown;
 }
 
-export function SutraChart({
+export function SrijikaChart({
   chartType,
   curve,
   data,
@@ -1362,7 +1376,7 @@ export function SutraChart({
   className = '',
   style = {},
   ...domProps
-}: SutraChartProps): ReactNode {
+}: SrijikaChartProps): ReactNode {
   return (
     <div
       aria-label={displayString(label, 'Data chart')}
@@ -1545,7 +1559,7 @@ const definitions: Array<{
     manifest: buttonManifest,
     render: ({ values, events, style, className, instanceAttributes, editorAttributes }) => (
       <button
-        className={`${className} sutra-button sutra-button--${displayString(values['variant'], 'primary')}`}
+        className={`${className} srijika-button srijika-button--${displayString(values['variant'], 'primary')}`}
         style={style}
         disabled={Boolean(values['disabled'])}
         onClick={() => events['onClick']?.()}
@@ -1574,8 +1588,8 @@ const definitions: Array<{
       const label = displayString(values['label'], 'Label');
       const hideLabel = Boolean(values['hideLabel']);
       return (
-        <label className={`${className} sutra-field`} style={style} {...editorAttributes}>
-          {!hideLabel && <span style={sutraInputPartStyle(values['labelStyle'])}>{label}</span>}
+        <label className={`${className} srijika-field`} style={style} {...editorAttributes}>
+          {!hideLabel && <span style={srijikaInputPartStyle(values['labelStyle'])}>{label}</span>}
           <input
             aria-label={hideLabel ? label || undefined : undefined}
             autoComplete={displayString(values['autoComplete'], 'off')}
@@ -1584,7 +1598,7 @@ const definitions: Array<{
             name={displayString(values['name']) || undefined}
             placeholder={displayString(values['placeholder'])}
             required={Boolean(values['required'])}
-            style={sutraInputPartStyle(values['controlStyle'])}
+            style={srijikaInputPartStyle(values['controlStyle'])}
             type={inputType(values['type'])}
             onChange={(event) => events['onChange']?.(event.currentTarget.value)}
             {...instanceAttributes}
@@ -1633,7 +1647,7 @@ const definitions: Array<{
   {
     manifest: iconManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraIcon
+      <SrijikaIcon
         className={className}
         label={values['label']}
         name={values['name']}
@@ -1652,7 +1666,7 @@ const definitions: Array<{
   {
     manifest: dividerManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraDivider
+      <SrijikaDivider
         className={className}
         color={values['color']}
         orientation={values['orientation']}
@@ -1667,7 +1681,7 @@ const definitions: Array<{
   {
     manifest: progressManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraProgress
+      <SrijikaProgress
         className={className}
         fillColor={values['fillColor']}
         label={values['label']}
@@ -1693,7 +1707,7 @@ const definitions: Array<{
   {
     manifest: badgeManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraBadge
+      <SrijikaBadge
         className={className}
         dot={values['dot']}
         label={values['label']}
@@ -1719,7 +1733,7 @@ const definitions: Array<{
   {
     manifest: avatarManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraAvatar
+      <SrijikaAvatar
         alt={values['alt']}
         className={className}
         fallback={values['fallback']}
@@ -1739,7 +1753,7 @@ const definitions: Array<{
   {
     manifest: chartManifest,
     render: ({ values, style, className, instanceAttributes, editorAttributes }) => (
-      <SutraChart
+      <SrijikaChart
         chartType={values['chartType']}
         className={className}
         colors={values['colors']}

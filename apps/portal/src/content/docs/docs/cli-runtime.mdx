@@ -1,0 +1,80 @@
+---
+title: CLI and Fast Runtime
+description: Use Srijika from a terminal or VS Code with Vite HMR and optional Bun turbo mode.
+---
+
+## One engine, multiple surfaces
+
+Srijika Studio, the VS Code extension, the CLI, and Codex guidance share one
+Feature → Slot → Part contract. Creating or checking a project from one surface
+must produce the same paths, diagnostics, and highest-available behavior chain
+as every other surface.
+
+## Install and start
+
+```bash
+npx @srijika/cli doctor
+npx @srijika/cli install
+npx @srijika/cli dev
+```
+
+`srijika dev` starts the project's real Vite server. React Fast Refresh,
+project CSS, dependencies, Providers, Connectors, routes, and Srijika's preview
+bridge therefore remain active.
+
+## Node and Bun
+
+Node is the compatibility default:
+
+```bash
+srijika dev --runtime node
+```
+
+Bun is an optional explicit Vite turbo path:
+
+```bash
+srijika dev --runtime bun
+```
+
+If Bun is not installed or the selected project is not Vite-based, Srijika
+reports the reason and uses Node. React works in both modes because the React
+application still runs in the browser. The package manager and lockfile remain
+independent from this runtime choice.
+
+## Strict creation
+
+```bash
+srijika add feature Dashboard --hook --store --logic --api --types
+srijika add slot Summary --in src/features/dashboard --hook --logic
+srijika add part MetricCard --in src/features/dashboard/slots/summary --types
+srijika add logic --to src/features/dashboard
+```
+
+New owners always include UI + Connector. Optional files are created only when
+selected. `--dry-run` shows every exact target and safe rewire without modifying
+the project. Arbitrary folders, alternate suffixes, duplicates, and layer jumps
+are rejected.
+
+## VS Code
+
+The Srijika Structure title bar includes:
+
+- **Run App** — starts the strict-port real Vite app;
+- **Stop App** — terminates the managed task;
+- **Doctor** — checks Node, optional Bun, package manager, lockfile, and scripts;
+- **Add** — opens the same ownership-aware file checklist used by Studio.
+
+Choose `auto`, `node`, or `bun` with the `srijika.runtime` setting. `auto` keeps
+the safe Node default; it never silently switches the project's runtime.
+
+## Open Desktop from CLI
+
+```bash
+srijika studio
+```
+
+The CLI locates the installed Studio, passes the current validated project path,
+and Desktop opens that project through its native bounded filesystem service.
+
+For the exact implementation and release contract, read the canonical
+[CLI and Fast Runtime reference](/reference/cli_and_fast_runtime/).

@@ -8,16 +8,16 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const driverUrl = process.env.SUTRA_TAURI_DRIVER_URL ?? 'http://127.0.0.1:4444';
+const driverUrl = process.env.SRIJIKA_TAURI_DRIVER_URL ?? 'http://127.0.0.1:4444';
 const application =
-  process.env.SUTRA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/sutra-studio');
-const bundle = resolve(repositoryRoot, 'plugins/sutra-studio/mcp-server/sutra-mcp.mjs');
+  process.env.SRIJIKA_TAURI_APPLICATION ?? resolve(repositoryRoot, 'target/release/srijika-studio');
+const bundle = resolve(repositoryRoot, 'plugins/srijika-studio/mcp-server/srijika-mcp.mjs');
 const descriptorPath =
-  process.env.SUTRA_STUDIO_BRIDGE_DESCRIPTOR ??
-  join(homedir(), '.local/share/studio.sutra.desktop/codex-bridge-v1.json');
-const keepApplicationOpen = process.env.SUTRA_KEEP_OPEN === '1';
+  process.env.SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR ??
+  join(homedir(), '.local/share/studio.srijika.desktop/codex-bridge-v1.json');
+const keepApplicationOpen = process.env.SRIJIKA_KEEP_OPEN === '1';
 const screenshotPath =
-  process.env.SUTRA_MCP_TAURI_SCREENSHOT ??
+  process.env.SRIJIKA_MCP_TAURI_SCREENSHOT ??
   resolve(repositoryRoot, 'test-results/mcp-tauri-live-final.png');
 const sleep = (milliseconds) =>
   new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
@@ -66,7 +66,7 @@ async function assertDriverReady() {
 
 async function readReadyDescriptor() {
   return waitFor(
-    'authenticated Sutra frontend bridge',
+    'authenticated Srijika frontend bridge',
     async () => {
       const descriptor = JSON.parse(await readFile(descriptorPath, 'utf8'));
       assert.equal(descriptor.protocolVersion, '1.0');
@@ -180,8 +180,8 @@ async function waitForCanvasNode(nodeId, expected, timeoutMs = 5_000) {
     `${expected ? 'rendered' : 'removed'} canvas node ${nodeId}`,
     async () => {
       const result = await execute(
-        `const frame = document.querySelector('iframe[title="Sutra DOM design surface"]');
-         const node = frame?.contentDocument?.querySelector('[data-sutra-node="${nodeId}"]');
+        `const frame = document.querySelector('iframe[title="Srijika DOM design surface"]');
+         const node = frame?.contentDocument?.querySelector('[data-srijika-node="${nodeId}"]');
          return node ? { exists: true, text: node.textContent ?? '' } : { exists: false, text: '' };`,
       );
       return result.exists === expected ? result : undefined;
@@ -191,7 +191,7 @@ async function waitForCanvasNode(nodeId, expected, timeoutMs = 5_000) {
 }
 
 try {
-  await waitFor('Sutra Studio shell', async () => (await elements('.studio-shell')).length === 1);
+  await waitFor('Srijika Studio shell', async () => (await elements('.studio-shell')).length === 1);
   descriptor = await readReadyDescriptor();
   if (process.platform !== 'win32') {
     const descriptorMode = (await stat(descriptorPath)).mode & 0o777;
@@ -204,25 +204,25 @@ try {
     cwd: repositoryRoot,
     env: {
       ...process.env,
-      SUTRA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath,
+      SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR: descriptorPath,
     },
     stderr: 'pipe',
   });
   transport.stderr?.on('data', (chunk) => {
     transportStderr += chunk.toString('utf8');
   });
-  client = new Client({ name: 'sutra-tauri-live-smoke', version: '1.0.0' });
+  client = new Client({ name: 'srijika-tauri-live-smoke', version: '1.0.0' });
   await client.connect(transport);
 
   const listedTools = await client.listTools();
   for (const requiredTool of [
-    'sutra_get_project_summary',
-    'sutra_get_page_outline',
-    'sutra_get_node',
-    'sutra_apply_operations',
-    'sutra_validate_document',
-    'sutra_undo',
-    'sutra_redo',
+    'srijika_get_project_summary',
+    'srijika_get_page_outline',
+    'srijika_get_node',
+    'srijika_apply_operations',
+    'srijika_validate_document',
+    'srijika_undo',
+    'srijika_redo',
   ]) {
     assert(
       listedTools.tools.some(({ name }) => name === requiredTool),
@@ -230,24 +230,24 @@ try {
     );
   }
 
-  const capabilities = await callTool(client, 'sutra_get_capabilities', {});
+  const capabilities = await callTool(client, 'srijika_get_capabilities', {});
   assert.equal(capabilities.protocolVersion, '1.0');
   assert.equal(capabilities.runtime.transport, 'authenticated-loopback');
 
-  const summary = await callTool(client, 'sutra_get_project_summary', { includePages: true });
+  const summary = await callTool(client, 'srijika_get_project_summary', { includePages: true });
   assert(summary.pages.length > 0, 'running Studio returned no pages');
   const pageId = summary.project.entryPageId;
   const initialPage = summary.pages.find((page) => page.id === pageId);
   assert(initialPage, `entry page ${pageId} was missing from project summary`);
 
-  const initialOutline = await callTool(client, 'sutra_get_page_outline', {
+  const initialOutline = await callTool(client, 'srijika_get_page_outline', {
     pageId,
     maxDepth: 8,
     maxNodes: 500,
   });
   assert.equal(initialOutline.revision, initialPage.revision);
   assert(initialOutline.nodes.some(({ id }) => id === initialOutline.rootNodeId));
-  const initialRoot = await callTool(client, 'sutra_get_node', {
+  const initialRoot = await callTool(client, 'srijika_get_node', {
     pageId,
     nodeId: initialOutline.rootNodeId,
   });
@@ -257,7 +257,7 @@ try {
   const containerId = `mcp_live_container_${uniqueSuffix}`;
   const headingId = `mcp_live_heading_${uniqueSuffix}`;
   const headingText = `MCP live round trip ${uniqueSuffix}`;
-  const mutation = await callTool(client, 'sutra_apply_operations', {
+  const mutation = await callTool(client, 'srijika_apply_operations', {
     pageId,
     expectedRevision: initialOutline.revision,
     operations: [
@@ -266,7 +266,7 @@ try {
         operationId: 'live-container',
         id: containerId,
         parentId: initialOutline.rootNodeId,
-        componentId: 'sutra.container',
+        componentId: 'srijika.container',
         name: 'MCP Live Container',
         style: {
           gap: 8,
@@ -278,7 +278,7 @@ try {
         operationId: 'live-heading',
         id: headingId,
         parentId: containerId,
-        componentId: 'sutra.heading',
+        componentId: 'srijika.heading',
         name: 'MCP Live Heading',
         props: {
           text: { kind: 'literal', value: headingText },
@@ -292,7 +292,7 @@ try {
   assert.equal(mutation.revision, initialOutline.revision + 1);
   assert.equal(mutation.appliedOperationCount, 2);
 
-  const mutatedHeading = await callTool(client, 'sutra_get_node', {
+  const mutatedHeading = await callTool(client, 'srijika_get_node', {
     pageId,
     nodeId: headingId,
   });
@@ -301,7 +301,7 @@ try {
   const renderedMutation = await waitForCanvasNode(headingId, true);
   assert.match(renderedMutation.text, new RegExp(headingText));
 
-  const validation = await callTool(client, 'sutra_validate_document', { pageId });
+  const validation = await callTool(client, 'srijika_validate_document', { pageId });
   assert.equal(validation.ok, true, JSON.stringify(validation.diagnostics));
   assert.equal(validation.revision, mutation.revision);
   assert.equal(
@@ -310,7 +310,7 @@ try {
     JSON.stringify(validation.diagnostics),
   );
 
-  const undo = await callTool(client, 'sutra_undo', {
+  const undo = await callTool(client, 'srijika_undo', {
     pageId,
     expectedRevision: mutation.revision,
   });
@@ -318,7 +318,7 @@ try {
   assert.equal(undo.changed, true);
   assert.equal(undo.revision, initialOutline.revision);
   await waitForCanvasNode(headingId, false);
-  const undoneOutline = await callTool(client, 'sutra_get_page_outline', {
+  const undoneOutline = await callTool(client, 'srijika_get_page_outline', {
     pageId,
     maxDepth: 8,
     maxNodes: 500,
@@ -328,7 +328,7 @@ try {
     false,
   );
 
-  const redo = await callTool(client, 'sutra_redo', {
+  const redo = await callTool(client, 'srijika_redo', {
     pageId,
     expectedRevision: undo.revision,
   });
@@ -338,7 +338,7 @@ try {
   const renderedRedo = await waitForCanvasNode(headingId, true);
   assert.match(renderedRedo.text, new RegExp(headingText));
 
-  const finalValidation = await callTool(client, 'sutra_validate_document', { pageId });
+  const finalValidation = await callTool(client, 'srijika_validate_document', { pageId });
   assert.equal(finalValidation.ok, true, JSON.stringify(finalValidation.diagnostics));
   assert.equal(finalValidation.revision, redo.revision);
   const bridgeLabel = await execute(
@@ -367,7 +367,7 @@ try {
     keptOpen: keepApplicationOpen,
   };
 } catch (error) {
-  if (transportStderr) process.stderr.write(`Sutra MCP transport stderr:\n${transportStderr}\n`);
+  if (transportStderr) process.stderr.write(`Srijika MCP transport stderr:\n${transportStderr}\n`);
   throw error;
 } finally {
   await client?.close().catch(() => undefined);

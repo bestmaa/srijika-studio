@@ -1,3 +1,3 @@
-import { createCoreComponentRegistry } from '@sutra/core-components';
+import { createCoreComponentRegistry } from '@srijika/core-components';
 
 export const componentRegistry = createCoreComponentRegistry();

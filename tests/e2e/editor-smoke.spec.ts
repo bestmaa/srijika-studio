@@ -14,11 +14,11 @@ function hierarchy(page: Page): Locator {
 }
 
 function designFrame(page: Page): FrameLocator {
-  return page.frameLocator('iframe[title="Sutra DOM design surface"]');
+  return page.frameLocator('iframe[title="Srijika DOM design surface"]');
 }
 
 function pageRoot(page: Page): Locator {
-  return designFrame(page).locator('[data-sutra-component="sutra.page"]');
+  return designFrame(page).locator('[data-srijika-component="srijika.page"]');
 }
 
 function component(page: Page, name: string): Locator {
@@ -75,7 +75,7 @@ async function pointerDragTo(page: Page, source: Locator, target: Locator): Prom
   await page.mouse.up();
 }
 
-test.describe('Sutra Studio canonical React UI builder', () => {
+test.describe('Srijika Studio canonical React UI builder', () => {
   test('starts with a blank Home Page, shows its locked Page inspector, and isolates pages', async ({
     page,
   }) => {
@@ -84,7 +84,7 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     const homePage = projectPages(page).getByRole('button', { name: /Home Page/ });
     await expect(homePage).toHaveAttribute('aria-pressed', 'true');
     await expect(hierarchy(page).getByRole('treeitem')).toHaveCount(1);
-    await expect(pageRoot(page)).toHaveAttribute('data-sutra-empty-container', 'true');
+    await expect(pageRoot(page)).toHaveAttribute('data-srijika-empty-container', 'true');
     await expect(inspector(page).getByRole('heading', { name: 'Home Page' })).toBeVisible();
     await expect(inspector(page).getByText('Page identity', { exact: true })).toBeVisible();
     await expect(inspector(page).locator('.page-root-facts')).toContainText('Width 100%');
@@ -92,9 +92,9 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await expect(inspector(page).locator('.page-root-facts')).toContainText('Root Locked');
 
     await component(page, 'Container').click();
-    await expect(designFrame(page).locator('[data-sutra-component="sutra.container"]')).toHaveCount(
-      1,
-    );
+    await expect(
+      designFrame(page).locator('[data-srijika-component="srijika.container"]'),
+    ).toHaveCount(1);
 
     await page.getByRole('button', { name: 'New page' }).click();
     await page.getByLabel('New page name').fill('Dashboard Page');
@@ -103,14 +103,14 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     const dashboardPage = projectPages(page).getByRole('button', { name: /Dashboard Page/ });
     await expect(dashboardPage).toHaveAttribute('aria-pressed', 'true');
     await expect(hierarchy(page).getByRole('treeitem')).toHaveCount(1);
-    await expect(pageRoot(page)).toHaveAttribute('data-sutra-empty-container', 'true');
+    await expect(pageRoot(page)).toHaveAttribute('data-srijika-empty-container', 'true');
     await expect(inspector(page).getByRole('heading', { name: 'Dashboard Page' })).toBeVisible();
 
     await homePage.click();
     await expect(homePage).toHaveAttribute('aria-pressed', 'true');
-    await expect(designFrame(page).locator('[data-sutra-component="sutra.container"]')).toHaveCount(
-      1,
-    );
+    await expect(
+      designFrame(page).locator('[data-srijika-component="srijika.container"]'),
+    ).toHaveCount(1);
     await expect(hierarchy(page).getByRole('treeitem')).toHaveCount(2);
   });
 
@@ -120,14 +120,14 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await page.goto('/');
 
     await component(page, 'Container').click();
-    const containers = designFrame(page).locator('[data-sutra-component="sutra.container"]');
+    const containers = designFrame(page).locator('[data-srijika-component="srijika.container"]');
     await expect(containers).toHaveCount(1);
     const outerContainer = containers.first();
 
     await pointerDragTo(page, component(page, 'Container'), outerContainer);
     await expect(containers).toHaveCount(2);
     const nestedContainer = containers.nth(1);
-    await expect(nestedContainer).toHaveAttribute('data-sutra-selected', 'true');
+    await expect(nestedContainer).toHaveAttribute('data-srijika-selected', 'true');
     await expect(inspector(page).getByRole('heading', { name: 'Container' })).toBeVisible();
     await expect(
       hierarchy(page)
@@ -164,13 +164,13 @@ test.describe('Sutra Studio canonical React UI builder', () => {
       });
 
     await pointerDragTo(page, component(page, 'Text'), nestedContainer);
-    const nestedText = nestedContainer.locator(':scope > [data-sutra-component="sutra.text"]');
+    const nestedText = nestedContainer.locator(':scope > [data-srijika-component="srijika.text"]');
     await expect(nestedText).toHaveCount(1);
     await expect(
-      outerContainer.locator(':scope > [data-sutra-component="sutra.text"]'),
+      outerContainer.locator(':scope > [data-srijika-component="srijika.text"]'),
     ).toHaveCount(0);
     await nestedText.click();
-    await expect(nestedText).toHaveAttribute('data-sutra-selected', 'true');
+    await expect(nestedText).toHaveAttribute('data-srijika-selected', 'true');
     await expect(inspector(page).getByRole('heading', { name: 'Text' })).toBeVisible();
     await expect(
       hierarchy(page).locator('.tree-row.is-selected').filter({ hasText: /^Text/ }),
@@ -196,8 +196,10 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await component(page, 'Text').click();
     await selectOptionContaining(pageInspector.getByLabel('Text value source'), 'title');
 
-    const renderedHeading = designFrame(page).locator('h1[data-sutra-component="sutra.heading"]');
-    const renderedText = designFrame(page).locator('p[data-sutra-component="sutra.text"]');
+    const renderedHeading = designFrame(page).locator(
+      'h1[data-srijika-component="srijika.heading"]',
+    );
+    const renderedText = designFrame(page).locator('p[data-srijika-component="srijika.text"]');
     await expect(renderedHeading).toHaveCount(1);
     await expect(renderedText).toHaveCount(1);
 
@@ -214,8 +216,8 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await expect(json).toContainText('"name": "Landing Page"');
     await expect(json).toContainText('"name": "title"');
     await expect(json).toContainText('"kind": "reference"');
-    await expect(json).toContainText('"componentId": "sutra.heading"');
-    await expect(json).toContainText('"componentId": "sutra.text"');
+    await expect(json).toContainText('"componentId": "srijika.heading"');
+    await expect(json).toContainText('"componentId": "srijika.text"');
 
     await page.getByRole('tab', { name: 'UI', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'UI', exact: true })).toHaveAttribute(
@@ -335,7 +337,7 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await component(page, 'Container').click();
     await component(page, 'Heading').click();
     await component(page, 'Text').click();
-    await expect(designFrame(page).locator('[data-sutra-node]')).toHaveCount(4);
+    await expect(designFrame(page).locator('[data-srijika-node]')).toHaveCount(4);
 
     await hierarchy(page)
       .locator('.tree-row')
@@ -344,16 +346,16 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await expect(inspector(page).getByRole('heading', { name: 'Container' })).toBeVisible();
     await inspector(page).getByRole('button', { name: 'Delete Container' }).click();
 
-    await expect(designFrame(page).locator('[data-sutra-node]')).toHaveCount(1);
+    await expect(designFrame(page).locator('[data-srijika-node]')).toHaveCount(1);
     await expect(hierarchy(page).getByRole('treeitem')).toHaveCount(1);
     await expect(inspector(page).getByRole('heading', { name: 'Home Page' })).toBeVisible();
-    await expect(pageRoot(page)).toHaveAttribute('data-sutra-empty-container', 'true');
+    await expect(pageRoot(page)).toHaveAttribute('data-srijika-empty-container', 'true');
 
     await page.getByRole('tab', { name: 'JSON', exact: true }).click();
     const jsonText = (await page.locator('.code-panel code').textContent()) ?? '';
-    expect(jsonText).not.toContain('sutra.container');
-    expect(jsonText).not.toContain('sutra.heading');
-    expect(jsonText).not.toContain('sutra.text');
+    expect(jsonText).not.toContain('srijika.container');
+    expect(jsonText).not.toContain('srijika.heading');
+    expect(jsonText).not.toContain('srijika.text');
   });
 
   test('renders the complete editor interface in English', async ({ page }) => {
@@ -391,7 +393,7 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await page.getByRole('button', { name: 'Browser preview' }).click();
     const preview = await previewPromise;
     await expect(preview).toHaveURL(/\/preview$/u);
-    await expect(preview.getByText('Sutra live preview')).toBeVisible();
+    await expect(preview.getByText('Srijika live preview')).toBeVisible();
     const browserPreviewStage = preview.locator('.browser-preview-stage');
     await expect(browserPreviewStage).toHaveAttribute('data-preview-sizing', 'responsive');
     await expect(preview.getByRole('button', { name: 'Responsive' })).toHaveAttribute(
@@ -417,8 +419,8 @@ test.describe('Sutra Studio canonical React UI builder', () => {
     await component(page, 'Text').click();
     await component(page, 'Heading').click();
 
-    const editorText = designFrame(page).locator('[data-sutra-component="sutra.text"]');
-    const editorHeading = designFrame(page).locator('[data-sutra-component="sutra.heading"]');
+    const editorText = designFrame(page).locator('[data-srijika-component="srijika.text"]');
+    const editorHeading = designFrame(page).locator('[data-srijika-component="srijika.heading"]');
     await expect(editorText).toHaveCount(1);
     await expect(editorHeading).toHaveCount(1);
     await expect(editorText).toHaveCSS('margin', '0px');

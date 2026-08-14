@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { EventSignature, ValueShape } from '@sutra/contracts';
+import type { EventSignature, ValueShape } from '@srijika/contracts';
 
 import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
@@ -91,7 +91,7 @@ describe('event action argument mapping Inspector', () => {
     });
     let inputId: string | null = null;
     act(() => {
-      inputId = useStudioStore.getState().addComponent('sutra.input');
+      inputId = useStudioStore.getState().addComponent('srijika.input');
     });
     if (!inputId) throw new Error('Expected an Input node');
     render(<Inspector />);

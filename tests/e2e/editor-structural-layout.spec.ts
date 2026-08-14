@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { createBlankDocument, literal, type IfNode, type RepeatNode } from '@sutra/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { createBlankDocument, literal, type IfNode, type RepeatNode } from '@srijika/contracts';
 
 function structuralLayoutDocument() {
   const registry = createCoreComponentRegistry();
@@ -12,11 +12,11 @@ function structuralLayoutDocument() {
   root.style.base.gap = 24;
   root.style.base.padding = { top: 20, right: 20, bottom: 20, left: 20 };
 
-  const grid = registry.require('sutra.grid').createNode('metric_grid');
-  const card = registry.require('sutra.container').createNode('metric_card');
-  const row = registry.require('sutra.stack').createNode('action_row');
-  const conditionalAction = registry.require('sutra.button').createNode('conditional_action');
-  const siblingAction = registry.require('sutra.button').createNode('sibling_action');
+  const grid = registry.require('srijika.grid').createNode('metric_grid');
+  const card = registry.require('srijika.container').createNode('metric_card');
+  const row = registry.require('srijika.stack').createNode('action_row');
+  const conditionalAction = registry.require('srijika.button').createNode('conditional_action');
+  const siblingAction = registry.require('srijika.button').createNode('sibling_action');
   if (
     grid.kind !== 'element' ||
     card.kind !== 'element' ||
@@ -88,13 +88,13 @@ test('keeps structural AST nodes transparent in a true 1180 by 820 design viewpo
 }) => {
   await page.goto('/');
   await page.locator('input[type="file"]').setInputFiles({
-    name: 'structural-layout.sutra.json',
+    name: 'structural-layout.srijika.json',
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify(structuralLayoutDocument())),
   });
 
-  const frame = page.frameLocator('iframe[title="Sutra DOM design surface"]');
-  const cards = frame.locator('[data-sutra-node="metric_card"]');
+  const frame = page.frameLocator('iframe[title="Srijika DOM design surface"]');
+  const cards = frame.locator('[data-srijika-node="metric_card"]');
   await expect(cards).toHaveCount(4);
 
   const viewport = await frame.locator('html').evaluate(() => ({
@@ -104,7 +104,7 @@ test('keeps structural AST nodes transparent in a true 1180 by 820 design viewpo
   expect(viewport).toEqual({ width: 1180, height: 820 });
 
   const repeatDisplay = await frame
-    .locator('[data-sutra-node="metric_repeat"]')
+    .locator('[data-srijika-node="metric_repeat"]')
     .evaluate((element) => getComputedStyle(element).display);
   expect(repeatDisplay).toBe('contents');
 
@@ -124,11 +124,11 @@ test('keeps structural AST nodes transparent in a true 1180 by 820 design viewpo
   expect(new Set(cardRects.map((bounds) => Math.round(bounds.x))).size).toBe(4);
 
   const conditionDisplay = await frame
-    .locator('[data-sutra-node="action_condition"]')
+    .locator('[data-srijika-node="action_condition"]')
     .evaluate((element) => getComputedStyle(element).display);
   expect(conditionDisplay).toBe('contents');
   const actionRects = await frame
-    .locator('[data-sutra-node="conditional_action"], [data-sutra-node="sibling_action"]')
+    .locator('[data-srijika-node="conditional_action"], [data-srijika-node="sibling_action"]')
     .evaluateAll((elements) =>
       elements.map((element) => {
         const bounds = element.getBoundingClientRect();

@@ -17,12 +17,12 @@ import {
   literalMatchesValueShape,
   type EventSpec,
   type PropSpec,
-} from '@sutra/component-registry';
+} from '@srijika/component-registry';
 import {
   NORMALIZED_INSTANCE_EVENT_PORTS,
   createInstanceEventSpec,
   instancePropNameError,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 import type {
   ElementNode,
   EventArgumentMapping,
@@ -40,8 +40,8 @@ import type {
   ValueType,
   InstancePropSpec,
   InstancePropValueType,
-} from '@sutra/contracts';
-import { deriveParentIndex } from '@sutra/document-engine';
+} from '@srijika/contracts';
+import { deriveParentIndex } from '@srijika/document-engine';
 
 import { componentRegistry } from '../lib/registry';
 import { useStudioStore } from '../store/studio-store';

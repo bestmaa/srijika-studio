@@ -1,5 +1,5 @@
-import { literal, type LiteralValue, type UiDocument, type ValueShape } from '@sutra/contracts';
-import { applyCommand } from '@sutra/document-engine';
+import { literal, type LiteralValue, type UiDocument, type ValueShape } from '@srijika/contracts';
+import { applyCommand } from '@srijika/document-engine';
 
 import { componentRegistry } from './registry';
 
@@ -26,7 +26,7 @@ function createCardStyleDefault(): LiteralValue {
 }
 
 export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocument {
-  const page = componentRegistry.require('sutra.page').createNode('root');
+  const page = componentRegistry.require('srijika.page').createNode('root');
   if (page.kind !== 'element') throw new Error('Page must be an element');
   page.name = name;
   page.locked = true;
@@ -128,7 +128,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     },
   };
 
-  const hero = componentRegistry.require('sutra.container').createNode('hero');
+  const hero = componentRegistry.require('srijika.container').createNode('hero');
   if (hero.kind !== 'element') throw new Error('Container must be an element');
   hero.name = 'Hero Container';
   hero.props['style'] = { kind: 'reference', symbolId: 'prop_card_style', path: [] };
@@ -144,10 +144,10 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     borderRadius: 22,
   };
 
-  const badge = componentRegistry.require('sutra.text').createNode('badge');
+  const badge = componentRegistry.require('srijika.text').createNode('badge');
   if (badge.kind !== 'element') throw new Error('Text must be an element');
   badge.name = 'Eyebrow';
-  badge.props['text'] = literal('SUTRA STUDIO · UI MVP');
+  badge.props['text'] = literal('SRIJIKA STUDIO · UI MVP');
   badge.style.base = {
     ...badge.style.base,
     width: { mode: 'hug' },
@@ -159,7 +159,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     padding: { top: 7, right: 11, bottom: 7, left: 11 },
   };
 
-  const heading = componentRegistry.require('sutra.heading').createNode('hero_heading');
+  const heading = componentRegistry.require('srijika.heading').createNode('hero_heading');
   if (heading.kind !== 'element') throw new Error('Heading must be an element');
   heading.name = 'Hero Heading';
   heading.props['text'] = { kind: 'reference', symbolId: 'prop_title', path: [] };
@@ -174,7 +174,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     overflowWrap: 'break-word',
   };
 
-  const description = componentRegistry.require('sutra.text').createNode('hero_description');
+  const description = componentRegistry.require('srijika.text').createNode('hero_description');
   if (description.kind !== 'element') throw new Error('Text must be an element');
   description.name = 'Hero Description';
   description.props['text'] = literal(
@@ -187,7 +187,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     fontSize: 18,
   };
 
-  const priceLabelHeading = componentRegistry.require('sutra.heading').createNode('price_label');
+  const priceLabelHeading = componentRegistry.require('srijika.heading').createNode('price_label');
   if (priceLabelHeading.kind !== 'element') throw new Error('Heading must be an element');
   priceLabelHeading.name = 'Price Label Heading';
   priceLabelHeading.props['text'] = {
@@ -204,7 +204,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     fontWeight: 700,
   };
 
-  const actions = componentRegistry.require('sutra.stack').createNode('hero_actions');
+  const actions = componentRegistry.require('srijika.stack').createNode('hero_actions');
   if (actions.kind !== 'element') throw new Error('Stack must be an element');
   actions.name = 'Hero Actions';
   actions.style.base = {
@@ -214,7 +214,7 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     gap: 12,
   };
 
-  const primaryButton = componentRegistry.require('sutra.button').createNode('primary_action');
+  const primaryButton = componentRegistry.require('srijika.button').createNode('primary_action');
   if (primaryButton.kind !== 'element') throw new Error('Button must be an element');
   primaryButton.name = 'Get Started Button';
   primaryButton.props['label'] = literal('Start building');
@@ -224,7 +224,9 @@ export function createStarterDocument(id = 'page_home', name = 'Home'): UiDocume
     path: [],
   };
 
-  const secondaryButton = componentRegistry.require('sutra.button').createNode('secondary_action');
+  const secondaryButton = componentRegistry
+    .require('srijika.button')
+    .createNode('secondary_action');
   if (secondaryButton.kind !== 'element') throw new Error('Button must be an element');
   secondaryButton.name = 'Documentation Button';
   secondaryButton.props['label'] = literal('View architecture');

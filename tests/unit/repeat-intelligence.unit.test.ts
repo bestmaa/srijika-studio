@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyzeRepeatedSiblings } from '@sutra/component-registry';
-import { createCoreComponentRegistry } from '@sutra/core-components';
+import { analyzeRepeatedSiblings } from '@srijika/component-registry';
+import { createCoreComponentRegistry } from '@srijika/core-components';
 import {
   createBlankDocument,
   createElementNode,
@@ -9,14 +9,14 @@ import {
   type ElementNode,
   type TextNode,
   type UiDocument,
-} from '@sutra/contracts';
-import { applyCommand, validateDocumentGraph } from '@sutra/document-engine';
-import { generateTsx } from '@sutra/react-codegen';
+} from '@srijika/contracts';
+import { applyCommand, validateDocumentGraph } from '@srijika/document-engine';
+import { generateTsx } from '@srijika/react-codegen';
 import {
   applyOperations,
   buildRepetitionAnalysis,
   type AutomationIdFactory,
-} from '@sutra/automation-protocol';
+} from '@srijika/automation-protocol';
 
 function repeatedCards(): UiDocument {
   const document = createBlankDocument('page_repeat_intelligence', 'Repeat intelligence');
@@ -30,7 +30,7 @@ function repeatedCards(): UiDocument {
   ] as const;
   for (const [id, label, copy] of rows) {
     const textId = `${id}_text`;
-    const card: ElementNode = createElementNode(id, 'sutra.container', `${label} card`, {
+    const card: ElementNode = createElementNode(id, 'srijika.container', `${label} card`, {
       props: { ariaLabel: literal(label) },
       slots: { children: [textId] },
       style: {

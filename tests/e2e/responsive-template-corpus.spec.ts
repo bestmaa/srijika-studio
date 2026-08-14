@@ -6,7 +6,7 @@ import {
   type ResponsiveCorpusViewport,
 } from '../fixtures/responsive-design-corpus';
 
-const previewStorageKey = 'sutra-studio:active-document';
+const previewStorageKey = 'srijika-studio:active-document';
 
 test('renders the ten-frame responsive corpus without page-level horizontal overflow', async ({
   page,

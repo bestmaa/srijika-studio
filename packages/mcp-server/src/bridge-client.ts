@@ -2,7 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { join, resolve, win32 } from 'node:path';
 
-import { PROTOCOL_VERSION } from '@sutra/automation-protocol';
+import { PROTOCOL_VERSION } from '@srijika/automation-protocol';
 
 const DESCRIPTOR_FILE_NAME = 'codex-bridge-v1.json';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -43,7 +43,7 @@ interface BridgeRpcFailure {
 
 type BridgeRpcResponse<T> = BridgeRpcSuccess<T> | BridgeRpcFailure;
 
-export interface SutraBridgeClientOptions {
+export interface SrijikaBridgeClientOptions {
   descriptorPath?: string;
   /** Ordered implicit discovery paths. Primarily useful for launchers and tests. */
   discoveryPaths?: readonly string[];
@@ -54,14 +54,14 @@ export interface SutraBridgeClientOptions {
   operatingSystem?: NodeJS.Platform;
 }
 
-export class SutraBridgeError extends Error {
+export class SrijikaBridgeError extends Error {
   readonly code: string;
   readonly retryable: boolean;
   readonly details: unknown;
 
   constructor(error: BridgeRpcError, options?: ErrorOptions) {
     super(error.message, options);
-    this.name = 'SutraBridgeError';
+    this.name = 'SrijikaBridgeError';
     this.code = error.code;
     this.retryable = error.retryable ?? false;
     this.details = error.details;
@@ -74,9 +74,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validateDescriptor(value: unknown, source: string): BridgeDescriptor {
   if (!isRecord(value)) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'invalid_bridge_descriptor',
-      message: `Sutra Studio bridge descriptor at ${source} is not a JSON object.`,
+      message: `Srijika Studio bridge descriptor at ${source} is not a JSON object.`,
     });
   }
 
@@ -90,15 +90,15 @@ function validateDescriptor(value: unknown, source: string): BridgeDescriptor {
     typeof descriptorProtocolVersion !== 'string' ||
     typeof pid !== 'number'
   ) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'invalid_bridge_descriptor',
-      message: `Sutra Studio bridge descriptor at ${source} is missing required fields.`,
+      message: `Srijika Studio bridge descriptor at ${source} is missing required fields.`,
     });
   }
   if (descriptorProtocolVersion !== PROTOCOL_VERSION) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'unsupported_protocol_version',
-      message: `Sutra Studio bridge uses protocol ${descriptorProtocolVersion}; this plugin requires ${PROTOCOL_VERSION}.`,
+      message: `Srijika Studio bridge uses protocol ${descriptorProtocolVersion}; this plugin requires ${PROTOCOL_VERSION}.`,
       details: { expected: PROTOCOL_VERSION, actual: descriptorProtocolVersion },
     });
   }
@@ -107,10 +107,10 @@ function validateDescriptor(value: unknown, source: string): BridgeDescriptor {
   try {
     parsedEndpoint = new URL(endpoint);
   } catch (cause) {
-    throw new SutraBridgeError(
+    throw new SrijikaBridgeError(
       {
         code: 'invalid_bridge_descriptor',
-        message: `Sutra Studio bridge endpoint at ${source} is invalid.`,
+        message: `Srijika Studio bridge endpoint at ${source} is invalid.`,
       },
       { cause },
     );
@@ -119,15 +119,15 @@ function validateDescriptor(value: unknown, source: string): BridgeDescriptor {
     parsedEndpoint.protocol !== 'http:' ||
     !['127.0.0.1', 'localhost', '[::1]'].includes(parsedEndpoint.hostname)
   ) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'unsafe_bridge_endpoint',
-      message: 'Sutra Studio bridge must use a loopback HTTP endpoint.',
+      message: 'Srijika Studio bridge must use a loopback HTTP endpoint.',
     });
   }
   if (token.length < 43) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'invalid_bridge_descriptor',
-      message: 'Sutra Studio bridge token is malformed.',
+      message: 'Srijika Studio bridge token is malformed.',
     });
   }
 
@@ -149,9 +149,9 @@ function validateDescriptor(value: unknown, source: string): BridgeDescriptor {
   };
 }
 
-export function descriptorCandidates(options: SutraBridgeClientOptions = {}): string[] {
+export function descriptorCandidates(options: SrijikaBridgeClientOptions = {}): string[] {
   const environment = options.environment ?? process.env;
-  const explicit = options.descriptorPath ?? environment['SUTRA_STUDIO_BRIDGE_DESCRIPTOR'];
+  const explicit = options.descriptorPath ?? environment['SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR'];
   if (explicit) return [resolve(explicit)];
   if (options.discoveryPaths) return options.discoveryPaths.map((candidate) => resolve(candidate));
 
@@ -159,16 +159,16 @@ export function descriptorCandidates(options: SutraBridgeClientOptions = {}): st
   const userHome = options.homeDirectory ?? homedir();
   if (currentPlatform === 'win32') {
     const localAppData = environment['LOCALAPPDATA'];
-    const windowsUser = environment['SUTRA_STUDIO_WSL_USER'] ?? win32.basename(userHome);
-    const wslDistribution = environment['SUTRA_STUDIO_WSL_DISTRO'] ?? 'Ubuntu';
+    const windowsUser = environment['SRIJIKA_STUDIO_WSL_USER'] ?? win32.basename(userHome);
+    const wslDistribution = environment['SRIJIKA_STUDIO_WSL_DISTRO'] ?? 'Ubuntu';
     const wslDataHome =
-      environment['SUTRA_STUDIO_WSL_DATA_HOME'] ??
+      environment['SRIJIKA_STUDIO_WSL_DATA_HOME'] ??
       win32.join(`\\\\wsl.localhost\\${wslDistribution}`, 'home', windowsUser, '.local', 'share');
     return [
       ...(localAppData
-        ? [win32.join(localAppData, 'studio.sutra.desktop', DESCRIPTOR_FILE_NAME)]
+        ? [win32.join(localAppData, 'studio.srijika.desktop', DESCRIPTOR_FILE_NAME)]
         : []),
-      win32.join(wslDataHome, 'studio.sutra.desktop', DESCRIPTOR_FILE_NAME),
+      win32.join(wslDataHome, 'studio.srijika.desktop', DESCRIPTOR_FILE_NAME),
     ];
   }
   if (currentPlatform === 'darwin') {
@@ -177,14 +177,14 @@ export function descriptorCandidates(options: SutraBridgeClientOptions = {}): st
         userHome,
         'Library',
         'Application Support',
-        'studio.sutra.desktop',
+        'studio.srijika.desktop',
         DESCRIPTOR_FILE_NAME,
       ),
     ];
   }
 
   const localData = environment['XDG_DATA_HOME'] ?? join(userHome, '.local', 'share');
-  return [join(localData, 'studio.sutra.desktop', DESCRIPTOR_FILE_NAME)];
+  return [join(localData, 'studio.srijika.desktop', DESCRIPTOR_FILE_NAME)];
 }
 
 async function readDescriptor(candidate: string): Promise<BridgeDescriptor | null> {
@@ -196,10 +196,10 @@ async function readDescriptor(candidate: string): Promise<BridgeDescriptor | nul
   } catch (error) {
     if (isRecord(error) && error['code'] === 'ENOENT') return null;
     if (error instanceof SyntaxError) {
-      throw new SutraBridgeError(
+      throw new SrijikaBridgeError(
         {
           code: 'invalid_bridge_descriptor',
-          message: `Sutra Studio bridge descriptor at ${candidate} contains invalid JSON.`,
+          message: `Srijika Studio bridge descriptor at ${candidate} contains invalid JSON.`,
         },
         { cause: error },
       );
@@ -230,9 +230,9 @@ async function assertHealthy(
   );
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok || !isRecord(body) || body['ok'] !== true) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'bridge_health_failed',
-      message: `Sutra Studio bridge health check failed with HTTP ${response.status}.`,
+      message: `Srijika Studio bridge health check failed with HTTP ${response.status}.`,
       retryable: true,
     });
   }
@@ -240,16 +240,16 @@ async function assertHealthy(
     (descriptor.instanceId && body['instanceId'] !== descriptor.instanceId) ||
     body['pid'] !== descriptor.pid
   ) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'stale_bridge_descriptor',
-      message: 'The Sutra Studio bridge descriptor belongs to an old process.',
+      message: 'The Srijika Studio bridge descriptor belongs to an old process.',
       retryable: true,
     });
   }
   if (body['frontendReady'] !== true) {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'frontend_not_ready',
-      message: 'Sutra Studio is running but its editor bridge is still initializing.',
+      message: 'Srijika Studio is running but its editor bridge is still initializing.',
       retryable: true,
     });
   }
@@ -257,16 +257,16 @@ async function assertHealthy(
 
 function parseResponse<T>(value: unknown): BridgeRpcResponse<T> {
   if (!isRecord(value) || typeof value['ok'] !== 'boolean') {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'invalid_bridge_response',
-      message: 'Sutra Studio returned an invalid bridge response.',
+      message: 'Srijika Studio returned an invalid bridge response.',
     });
   }
   if (value['ok']) {
     if (typeof value['requestId'] !== 'string' || !('result' in value)) {
-      throw new SutraBridgeError({
+      throw new SrijikaBridgeError({
         code: 'invalid_bridge_response',
-        message: 'Sutra Studio returned an incomplete success response.',
+        message: 'Srijika Studio returned an incomplete success response.',
       });
     }
     return {
@@ -280,9 +280,9 @@ function parseResponse<T>(value: unknown): BridgeRpcResponse<T> {
 
   const rawError = value['error'];
   if (!isRecord(rawError) || typeof rawError['code'] !== 'string') {
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'invalid_bridge_response',
-      message: 'Sutra Studio returned an incomplete error response.',
+      message: 'Srijika Studio returned an incomplete error response.',
     });
   }
   return {
@@ -295,33 +295,33 @@ function parseResponse<T>(value: unknown): BridgeRpcResponse<T> {
       message:
         typeof rawError['message'] === 'string'
           ? rawError['message']
-          : 'Sutra Studio rejected the request.',
+          : 'Srijika Studio rejected the request.',
       ...(typeof rawError['retryable'] === 'boolean' ? { retryable: rawError['retryable'] } : {}),
       ...('details' in rawError ? { details: rawError['details'] } : {}),
     },
   };
 }
 
-function normalizedCallError(error: unknown): SutraBridgeError {
-  if (error instanceof SutraBridgeError) return error;
+function normalizedCallError(error: unknown): SrijikaBridgeError {
+  if (error instanceof SrijikaBridgeError) return error;
   if (error instanceof Error && error.name === 'AbortError') {
-    return new SutraBridgeError({
+    return new SrijikaBridgeError({
       code: 'bridge_timeout',
-      message: 'Sutra Studio did not answer before the local bridge timeout.',
+      message: 'Srijika Studio did not answer before the local bridge timeout.',
       retryable: true,
     });
   }
-  return new SutraBridgeError(
+  return new SrijikaBridgeError(
     {
       code: 'bridge_unreachable',
-      message: 'Could not reach the authenticated Sutra Studio bridge.',
+      message: 'Could not reach the authenticated Srijika Studio bridge.',
       retryable: true,
     },
     { cause: error },
   );
 }
 
-function canTryNextImplicitDescriptor(error: SutraBridgeError): boolean {
+function canTryNextImplicitDescriptor(error: SrijikaBridgeError): boolean {
   return ['stale_bridge_descriptor', 'bridge_unreachable', 'bridge_timeout'].includes(error.code);
 }
 
@@ -329,7 +329,7 @@ async function callDescriptor<T>(
   descriptor: BridgeDescriptor,
   method: string,
   params: unknown,
-  options: SutraBridgeClientOptions,
+  options: SrijikaBridgeClientOptions,
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -353,11 +353,11 @@ async function callDescriptor<T>(
     });
     const body: unknown = await response.json().catch(() => null);
     const parsed = parseResponse<T>(body);
-    if (!parsed.ok) throw new SutraBridgeError(parsed.error);
+    if (!parsed.ok) throw new SrijikaBridgeError(parsed.error);
     if (!response.ok) {
-      throw new SutraBridgeError({
+      throw new SrijikaBridgeError({
         code: 'bridge_http_error',
-        message: `Sutra Studio bridge returned HTTP ${response.status}.`,
+        message: `Srijika Studio bridge returned HTTP ${response.status}.`,
         retryable: response.status >= 500,
       });
     }
@@ -369,10 +369,10 @@ async function callDescriptor<T>(
   }
 }
 
-export class SutraBridgeClient {
-  readonly #options: SutraBridgeClientOptions;
+export class SrijikaBridgeClient {
+  readonly #options: SrijikaBridgeClientOptions;
 
-  constructor(options: SutraBridgeClientOptions = {}) {
+  constructor(options: SrijikaBridgeClientOptions = {}) {
     this.#options = options;
   }
 
@@ -380,9 +380,9 @@ export class SutraBridgeClient {
     const candidates = descriptorCandidates(this.#options);
     const environment = this.#options.environment ?? process.env;
     const explicit = Boolean(
-      this.#options.descriptorPath ?? environment['SUTRA_STUDIO_BRIDGE_DESCRIPTOR'],
+      this.#options.descriptorPath ?? environment['SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR'],
     );
-    let lastRecoverableError: SutraBridgeError | null = null;
+    let lastRecoverableError: SrijikaBridgeError | null = null;
 
     for (const candidate of candidates) {
       const descriptor = await readDescriptor(candidate);
@@ -400,10 +400,10 @@ export class SutraBridgeClient {
     }
 
     if (lastRecoverableError) throw lastRecoverableError;
-    throw new SutraBridgeError({
+    throw new SrijikaBridgeError({
       code: 'studio_not_running',
       message:
-        'Sutra Studio is not connected. Start the desktop application and wait for its Codex bridge to become ready.',
+        'Srijika Studio is not connected. Start the desktop application and wait for its Codex bridge to become ready.',
       retryable: true,
       details: { checked: candidates },
     });

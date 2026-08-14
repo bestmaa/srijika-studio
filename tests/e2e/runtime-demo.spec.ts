@@ -9,7 +9,7 @@ function hierarchy(page: Page): Locator {
 }
 
 function designFrame(page: Page): FrameLocator {
-  return page.frameLocator('iframe[title="Sutra DOM design surface"]');
+  return page.frameLocator('iframe[title="Srijika DOM design surface"]');
 }
 
 async function expectCardStyle(element: Locator): Promise<void> {
@@ -40,7 +40,7 @@ test('Reset demo keeps direct page props, dynamic style, JSX, JSON, and preview 
   await page.getByRole('button', { name: 'Reset demo' }).click();
 
   await expect(designFrame(page).getByText('₹499.00', { exact: true })).toBeVisible();
-  await expectCardStyle(designFrame(page).locator('[data-sutra-node="hero"]'));
+  await expectCardStyle(designFrame(page).locator('[data-srijika-node="hero"]'));
 
   await hierarchy(page).locator('.tree-row').first().click();
   const pageInspector = inspector(page);
@@ -66,9 +66,9 @@ test('Reset demo keeps direct page props, dynamic style, JSX, JSON, and preview 
 
   await page.getByRole('tab', { name: 'JSX', exact: true }).click();
   const jsx = page.locator('.code-panel code');
-  await expect(jsx).toContainText("import { sutraStyle } from '@sutra/react-renderer';");
+  await expect(jsx).toContainText("import { srijikaStyle } from '@srijika/react-renderer';");
   await expect(jsx).toContainText('{(props.priceLabel ?? "₹1,299.00")}');
-  await expect(jsx).toContainText('sutraStyle((props.cardStyle ?? {');
+  await expect(jsx).toContainText('srijikaStyle((props.cardStyle ?? {');
   const jsxText = (await jsx.textContent()) ?? '';
   expect(jsxText).not.toContain('registeredCall');
   expect(jsxText).not.toContain('formatPrice');
@@ -101,7 +101,7 @@ test('Reset demo keeps direct page props, dynamic style, JSX, JSON, and preview 
   await expect
     .poll(() =>
       page.evaluate(() => {
-        const serialized = localStorage.getItem('sutra-studio:active-document');
+        const serialized = localStorage.getItem('srijika-studio:active-document');
         if (!serialized) return null;
         const value = JSON.parse(serialized) as {
           publicProps?: { priceLabel?: { defaultValue?: unknown } };

@@ -14,7 +14,7 @@ export const JavaScriptIdentifierSchema = Type.String({
   pattern: '^[A-Za-z_$][A-Za-z0-9_$]*$',
 });
 
-// Component identifiers are namespaced registry keys (for example `sutra.button`).
+// Component identifiers are namespaced registry keys (for example `srijika.button`).
 // They intentionally have a different grammar from JavaScript/public identifiers.
 export const ComponentIdSchema = Type.String({
   minLength: 1,
@@ -198,6 +198,7 @@ export const ValueExpressionSchema = Type.Recursive(
             Type.Literal('lessThanOrEqual'),
             Type.Literal('and'),
             Type.Literal('or'),
+            Type.Literal('coalesce'),
             Type.Literal('add'),
             Type.Literal('subtract'),
             Type.Literal('multiply'),
@@ -649,7 +650,7 @@ export const UiDocumentSchema = Type.Object(
   { additionalProperties: false },
 );
 
-export const SutraProjectSchema = Type.Object(
+export const SrijikaProjectSchema = Type.Object(
   {
     formatVersion: Type.Literal(1),
     id: IdentifierSchema,
@@ -697,6 +698,6 @@ export type UiNode = Static<typeof UiNodeSchema>;
 export type SymbolDeclaration = Static<typeof SymbolDeclarationSchema>;
 export type PublicProp = Static<typeof PublicPropSchema>;
 export type UiDocument = Static<typeof UiDocumentSchema>;
-export type SutraProject = Static<typeof SutraProjectSchema>;
+export type SrijikaProject = Static<typeof SrijikaProjectSchema>;
 
 export type SchemaType<T extends TSchema> = Static<T>;

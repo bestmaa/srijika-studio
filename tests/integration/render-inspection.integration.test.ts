@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createBlankDocument, createElementNode } from '@sutra/contracts';
+import { createBlankDocument, createElementNode } from '@srijika/contracts';
 
 import {
   inspectRenderedLayout,
@@ -30,8 +30,8 @@ describe('rendered layout inspection', () => {
     const documentModel = createBlankDocument('page_ready', 'Ready');
     documentModel.revision = 4;
     const root = document.createElement('div');
-    root.dataset['sutraDocumentId'] = documentModel.id;
-    root.dataset['sutraRevision'] = '3';
+    root.dataset['srijikaDocumentId'] = documentModel.id;
+    root.dataset['srijikaRevision'] = '3';
     const frame = document.createElement('iframe');
     const view = {
       requestAnimationFrame: (callback: FrameRequestCallback) => {
@@ -41,7 +41,7 @@ describe('rendered layout inspection', () => {
     } as unknown as Window;
     const surface = { frame, root, view };
     setTimeout(() => {
-      root.dataset['sutraRevision'] = '4';
+      root.dataset['srijikaRevision'] = '4';
     }, 5);
 
     await expect(
@@ -55,17 +55,17 @@ describe('rendered layout inspection', () => {
 
   it('returns stable repeat instance indexes, exact bounds, styles, and overflow diagnostics', () => {
     const documentModel = createBlankDocument('page_layout', 'Layout');
-    documentModel.nodes['card'] = createElementNode('card', 'sutra.container', 'Card');
+    documentModel.nodes['card'] = createElementNode('card', 'srijika.container', 'Card');
 
     const root = document.createElement('div');
-    root.className = 'sutra-edit-surface';
+    root.className = 'srijika-edit-surface';
     mockRect(root, 0, 0, 400, 300);
     numericProperty(root, 'scrollWidth', 400);
     numericProperty(root, 'scrollHeight', 300);
 
     for (const x of [0, 200]) {
       const card = document.createElement('section');
-      card.dataset['sutraNode'] = 'card';
+      card.dataset['srijikaNode'] = 'card';
       card.style.display = 'flex';
       card.style.gap = '12px';
       mockRect(card, x, 20, 180, 60);

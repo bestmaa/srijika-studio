@@ -2,7 +2,10 @@ node_modules
 dist
 coverage
 target
-.sutra
+.srijika
+release-bundles
 pnpm-lock.yaml
 apps/studio/src-tauri/gen
-plugins/sutra-studio/mcp-server
+apps/portal/.astro
+apps/portal/src/content/docs/reference
+plugins/srijika-studio/mcp-server

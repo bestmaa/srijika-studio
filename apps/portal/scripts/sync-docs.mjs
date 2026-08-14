@@ -10,15 +10,21 @@ const destinationDirectory = join(portalRoot, 'src/content/docs/reference');
 
 const titleOverrides = new Map([
   ['CODE_FIRST_TSX.md', 'Code-first Srijika TSX'],
+  ['CLI_AND_FAST_RUNTIME.md', 'CLI and Fast Runtime'],
   ['FEATURE_SLOT_PART_ARCHITECTURE.md', 'Feature, Slot, and Part Architecture'],
   ['MVP_ACCEPTANCE.md', 'UI MVP Acceptance'],
   ['UI_DOCUMENT_FORMAT.md', 'UI Document Format'],
   ['codex-plugin-architecture.md', 'Codex Plugin Architecture'],
 ]);
 
+/** @param {string} value */
 const escapeYaml = (value) => JSON.stringify(value);
+/** @param {string} value */
 const normalizeBrand = (value) =>
-  value.replaceAll('SUTRA', 'SRIJIKA').replaceAll('Sutra', 'Srijika').replaceAll('sutra', 'srijika');
+  value
+    .replaceAll('SUTRA', 'SRIJIKA')
+    .replaceAll('Sutra', 'Srijika')
+    .replaceAll('sutra', 'srijika');
 
 await rm(destinationDirectory, { recursive: true, force: true });
 await mkdir(destinationDirectory, { recursive: true });

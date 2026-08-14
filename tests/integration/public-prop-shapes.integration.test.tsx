@@ -2,8 +2,8 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { ElementNode, ValueShape } from '@sutra/contracts';
-import { generateTsx } from '@sutra/react-codegen';
+import type { ElementNode, ValueShape } from '@srijika/contracts';
+import { generateTsx } from '@srijika/react-codegen';
 
 import { Inspector } from '../../apps/studio/src/components/Inspector';
 import { TopBar } from '../../apps/studio/src/components/TopBar';
@@ -89,7 +89,7 @@ describe('recursive public prop shapes in the Inspector', () => {
 
     let headingId: string | null = null;
     act(() => {
-      headingId = useStudioStore.getState().addComponent('sutra.heading');
+      headingId = useStudioStore.getState().addComponent('srijika.heading');
     });
     if (!headingId) throw new Error('Expected Heading to be created');
 
@@ -154,8 +154,8 @@ describe('recursive public prop shapes in the Inspector', () => {
     let insideId: string | null = null;
     let outsideId: string | null = null;
     act(() => {
-      insideId = useStudioStore.getState().addComponent('sutra.text', repeatId!);
-      outsideId = useStudioStore.getState().addComponent('sutra.text', rootId);
+      insideId = useStudioStore.getState().addComponent('srijika.text', repeatId!);
+      outsideId = useStudioStore.getState().addComponent('srijika.text', rootId);
     });
     if (!insideId || !outsideId) throw new Error('Expected inside and outside Text components');
 
@@ -200,7 +200,7 @@ describe('recursive public prop shapes in the Inspector', () => {
     if (!profile) throw new Error('Expected profile public prop');
     let headingId: string | null = null;
     act(() => {
-      headingId = useStudioStore.getState().addComponent('sutra.heading');
+      headingId = useStudioStore.getState().addComponent('srijika.heading');
     });
     if (!headingId) throw new Error('Expected Heading to be created');
     await user.selectOptions(

@@ -5,9 +5,9 @@ import {
   type LengthValue,
   type StyleDeclaration,
   type StyleProperties,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
-export const SUTRA_DEFAULT_VIEWPORT_WIDTH = 1180;
+export const SRIJIKA_DEFAULT_VIEWPORT_WIDTH = 1180;
 
 function subscribeToViewport(onStoreChange: () => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
@@ -16,9 +16,9 @@ function subscribeToViewport(onStoreChange: () => void): () => void {
 }
 
 function browserViewportWidth(): number {
-  if (typeof window === 'undefined') return SUTRA_DEFAULT_VIEWPORT_WIDTH;
+  if (typeof window === 'undefined') return SRIJIKA_DEFAULT_VIEWPORT_WIDTH;
   const documentWidth = window.document.documentElement.clientWidth;
-  return documentWidth > 0 ? documentWidth : window.innerWidth || SUTRA_DEFAULT_VIEWPORT_WIDTH;
+  return documentWidth > 0 ? documentWidth : window.innerWidth || SRIJIKA_DEFAULT_VIEWPORT_WIDTH;
 }
 
 /**
@@ -26,18 +26,18 @@ function browserViewportWidth(): number {
  * the current browser/iframe viewport. The explicit form keeps editor canvas
  * screenshots deterministic while browser previews remain genuinely fluid.
  */
-export function useSutraViewportWidth(explicitWidth?: number): number {
+export function useSrijikaViewportWidth(explicitWidth?: number): number {
   const browserWidth = useSyncExternalStore(
     subscribeToViewport,
     browserViewportWidth,
-    () => SUTRA_DEFAULT_VIEWPORT_WIDTH,
+    () => SRIJIKA_DEFAULT_VIEWPORT_WIDTH,
   );
   return explicitWidth !== undefined && Number.isFinite(explicitWidth) && explicitWidth > 0
     ? explicitWidth
     : browserWidth;
 }
 
-const sutraStyleProperties = new Set([
+const srijikaStyleProperties = new Set([
   'alignContent',
   'alignItems',
   'aspectRatio',
@@ -122,13 +122,13 @@ const sutraStyleProperties = new Set([
  * Converts an external page-prop value into a deliberately limited React style object.
  * Invalid containers, unknown CSS keys, nested values and executable values are ignored.
  */
-export function sutraStyle(value: unknown): CSSProperties {
+export function srijikaStyle(value: unknown): CSSProperties {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
 
   return Object.fromEntries(
     Object.entries(value).filter(
       ([property, propertyValue]) =>
-        sutraStyleProperties.has(property) &&
+        srijikaStyleProperties.has(property) &&
         (typeof propertyValue === 'string' || typeof propertyValue === 'number'),
     ),
   );
@@ -255,7 +255,7 @@ export function stylePropertiesToCss(style: StyleProperties): CSSProperties {
 }
 
 /** Converts base plus active breakpoint overrides into a React style object. */
-export function sutraResponsiveStyle(
+export function srijikaResponsiveStyle(
   declaration: StyleDeclaration,
   viewportWidth: number,
 ): CSSProperties {

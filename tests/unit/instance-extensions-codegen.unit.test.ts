@@ -6,9 +6,9 @@ import {
   literal,
   type EventSignature,
   type UiDocument,
-} from '@sutra/contracts';
-import { createCoreComponentRegistry } from '@sutra/core-components';
-import { generateTsx } from '@sutra/react-codegen';
+} from '@srijika/contracts';
+import { createCoreComponentRegistry } from '@srijika/core-components';
+import { generateTsx } from '@srijika/react-codegen';
 
 function addEventProp(document: UiDocument, name: string, signature: EventSignature): string {
   const symbolId = `event_${name}`;
@@ -42,7 +42,7 @@ describe('instance extensions TSX generation', () => {
   it('emits added props and a normalized no-payload click handler', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_instance_codegen', 'Instance Codegen');
-    const text = registry.require('sutra.text').createNode('subject');
+    const text = registry.require('srijika.text').createNode('subject');
     if (text.kind !== 'element') throw new Error('Expected Text element');
     text.props['text'] = literal('Hello');
     text.instanceProps = {
@@ -69,7 +69,7 @@ describe('instance extensions TSX generation', () => {
   it('emits the approved serializable key payload instead of a React event', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_key_codegen', 'Key Codegen');
-    const text = registry.require('sutra.text').createNode('subject');
+    const text = registry.require('srijika.text').createNode('subject');
     if (text.kind !== 'element') throw new Error('Expected Text element');
     const keyDown = createInstanceEventSpec('onKeyDown');
     if (!keyDown) throw new Error('Missing key event');
@@ -89,8 +89,8 @@ describe('instance extensions TSX generation', () => {
   it('generates expanded Input attributes and the Image adapter', () => {
     const registry = createCoreComponentRegistry();
     const document = createBlankDocument('page_media_codegen', 'Media Codegen');
-    const input = registry.require('sutra.input').createNode('email');
-    const image = registry.require('sutra.image').createNode('hero_image');
+    const input = registry.require('srijika.input').createNode('email');
+    const image = registry.require('srijika.image').createNode('hero_image');
     if (input.kind !== 'element' || image.kind !== 'element') {
       throw new Error('Expected element adapters');
     }
@@ -108,7 +108,7 @@ describe('instance extensions TSX generation', () => {
 
     const output = generateTsx(document);
     expect(output).toContain('type="email"');
-    expect(output).toContain('style={sutraInputPartStyle({})}');
+    expect(output).toContain('style={srijikaInputPartStyle({})}');
     expect(output).toContain('name={String("workEmail") || undefined}');
     expect(output).toContain('required={Boolean(true)}');
     expect(output).toContain('<img style={{');

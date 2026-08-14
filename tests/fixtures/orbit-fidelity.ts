@@ -9,9 +9,9 @@ import {
   type StyleProperties,
   type UiDocument,
   type ValueExpression,
-} from '@sutra/contracts';
+} from '@srijika/contracts';
 
-const fixtureUrl = new URL('./orbit-fidelity.sutra.json.gz.b64', import.meta.url);
+const fixtureUrl = new URL('./orbit-fidelity.srijika.json.gz.b64', import.meta.url);
 
 function literal(value: LiteralValue): ValueExpression {
   return { kind: 'literal', value };
@@ -57,7 +57,7 @@ function createElement(
 }
 
 /**
- * The compressed document is the original screenshot-to-Sutra result. These
+ * The compressed document is the original screenshot-to-Srijika result. These
  * deterministic adjustments make it a permanent fidelity specimen: the
  * source viewport and measured regions match the 1586x992 Orbit reference,
  * while charts, icons, progress and avatars exercise reusable primitives
@@ -127,7 +127,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const search = element(tuned, 'search_input');
   Object.assign(search, {
-    componentId: 'sutra.container',
+    componentId: 'srijika.container',
     props: { as: literal('div'), ariaLabel: literal('Search projects') },
     slots: { children: ['search_icon', 'search_placeholder'] },
   });
@@ -141,7 +141,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   tuned.nodes['search_icon'] = createElement(
     'search_icon',
     'Search Icon',
-    'sutra.icon',
+    'srijika.icon',
     {
       name: literal('search'),
       label: literal(''),
@@ -153,7 +153,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   tuned.nodes['search_placeholder'] = createElement(
     'search_placeholder',
     'Search Placeholder',
-    'sutra.text',
+    'srijika.text',
     { text: literal('Search projects') },
     { color: '#aeb4bf', fontSize: 15, lineHeight: 1.2 },
   );
@@ -164,7 +164,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const notification = element(tuned, 'notification_button');
   Object.assign(notification, {
-    componentId: 'sutra.icon',
+    componentId: 'srijika.icon',
     props: {
       name: literal('bell'),
       label: literal('Notifications'),
@@ -190,7 +190,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   });
   const brandGlyph = element(tuned, 'brand_glyph');
   Object.assign(brandGlyph, {
-    componentId: 'sutra.icon',
+    componentId: 'srijika.icon',
     props: {
       name: literal('hexagon'),
       label: literal('Orbit'),
@@ -210,7 +210,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   for (const [id, label, iconName, selected] of navItems) {
     const nav = element(tuned, id);
     Object.assign(nav, {
-      componentId: 'sutra.container',
+      componentId: 'srijika.container',
       props: { as: literal('div'), ariaLabel: literal(label) },
       slots: { children: [`${id}_icon`, `${id}_label`] },
     });
@@ -225,7 +225,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     tuned.nodes[`${id}_icon`] = createElement(
       `${id}_icon`,
       `${label} Icon`,
-      'sutra.icon',
+      'srijika.icon',
       {
         name: literal(iconName),
         label: literal(''),
@@ -237,7 +237,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     tuned.nodes[`${id}_label`] = createElement(
       `${id}_label`,
       `${label} Label`,
-      'sutra.text',
+      'srijika.text',
       { text: literal(label) },
       { color: selected ? '#9b7cff' : '#c4c8d2', fontSize: 16, fontWeight: 500 },
     );
@@ -251,7 +251,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     const currentSource = avatar.props['src'] ?? literal('');
     const currentAlt = avatar.props['alt'] ?? literal('Avatar');
     Object.assign(avatar, {
-      componentId: 'sutra.avatar',
+      componentId: 'srijika.avatar',
       props: {
         src: currentSource,
         alt: currentAlt,
@@ -265,7 +265,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const profileChevron = element(tuned, 'profile_chevron');
   Object.assign(profileChevron, {
-    componentId: 'sutra.icon',
+    componentId: 'srijika.icon',
     props: {
       name: literal('chevron-down'),
       label: literal('Open profile menu'),
@@ -277,7 +277,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const storageTrack = element(tuned, 'storage_track');
   Object.assign(storageTrack, {
-    componentId: 'sutra.progress',
+    componentId: 'srijika.progress',
     props: {
       value: literal(68),
       max: literal(100),
@@ -341,7 +341,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   }
   const statIcon = element(tuned, 'stat_icon_text_template');
   Object.assign(statIcon, {
-    componentId: 'sutra.icon',
+    componentId: 'srijika.icon',
     props: {
       name: reference('stat_item', ['icon']),
       label: literal(''),
@@ -361,7 +361,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const activityChart = element(tuned, 'plot_copy');
   Object.assign(activityChart, {
-    componentId: 'sutra.chart',
+    componentId: 'srijika.chart',
     name: 'Project Activity Lines',
     props: {
       chartType: literal('line'),
@@ -389,7 +389,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   const dayLabels = element(tuned, 'days_label');
   const dayIds = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => `day_${day}`);
   Object.assign(dayLabels, {
-    componentId: 'sutra.grid',
+    componentId: 'srijika.grid',
     props: { columns: literal(7) },
     slots: { children: dayIds },
   });
@@ -404,7 +404,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     tuned.nodes[id] = createElement(
       id,
       `${label} Label`,
-      'sutra.text',
+      'srijika.text',
       { text: literal(label) },
       { color: '#8e95a2', fontSize: 11, textAlign: 'center', whiteSpace: 'nowrap' },
     );
@@ -427,7 +427,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   tuned.nodes['donut_chart'] = createElement(
     'donut_chart',
     'Task Donut Chart',
-    'sutra.chart',
+    'srijika.chart',
     {
       chartType: literal('donut'),
       data: literal([94, 56, 34]),
@@ -471,7 +471,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   ] as const) {
     const row = element(tuned, id);
     Object.assign(row, {
-      componentId: 'sutra.container',
+      componentId: 'srijika.container',
       props: { as: literal('div'), ariaLabel: literal(`${label} ${value}`) },
       slots: { children: [`${id}_label`, `${id}_value`] },
     });
@@ -489,14 +489,14 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     tuned.nodes[`${id}_label`] = createElement(
       `${id}_label`,
       `${label} Legend`,
-      'sutra.text',
+      'srijika.text',
       { text: literal(`●  ${label}`) },
       { color, fontSize: 14, whiteSpace: 'nowrap' },
     );
     tuned.nodes[`${id}_value`] = createElement(
       `${id}_value`,
       `${label} Value`,
-      'sutra.text',
+      'srijika.text',
       { text: literal(value) },
       { color: '#f0f1f5', fontSize: 14, whiteSpace: 'nowrap' },
     );
@@ -514,7 +514,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
     tuned.nodes[id] = createElement(
       id,
       'Progress Legend Divider',
-      'sutra.divider',
+      'srijika.divider',
       {
         orientation: literal('horizontal'),
         color: literal('#2a323e'),
@@ -560,7 +560,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   projectIconShell.props['style'] = reference('project_item', ['iconStyle']);
   const projectIcon = element(tuned, 'project_icon_text_template');
   Object.assign(projectIcon, {
-    componentId: 'sutra.icon',
+    componentId: 'srijika.icon',
     props: {
       name: reference('project_item', ['icon']),
       label: literal(''),
@@ -577,7 +577,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
   ] as const) {
     const status = element(tuned, id);
     Object.assign(status, {
-      componentId: 'sutra.badge',
+      componentId: 'srijika.badge',
       props: {
         label: reference('project_item', ['status']),
         tone: literal(tone),
@@ -599,7 +599,7 @@ function applyReferenceFidelityTuning(document: UiDocument): UiDocument {
 
   const activityAvatar = element(tuned, 'activity_avatar_template');
   Object.assign(activityAvatar, {
-    componentId: 'sutra.avatar',
+    componentId: 'srijika.avatar',
     props: {
       src: reference('activity_item', ['avatar']),
       alt: reference('activity_item', ['name']),

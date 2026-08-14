@@ -1,0 +1,38 @@
+{
+  "name": "srijika-studio",
+  "version": "0.1.0+codex.20260814053725",
+  "description": "Build, scaffold, inspect, validate, run, debug, and responsively verify canonical React projects in Srijika Studio from Codex.",
+  "author": {
+    "name": "Srijika Studio"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["codex", "mcp", "react", "tauri", "visual-builder", "ui-automation"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Srijika Studio",
+    "shortDescription": "Build React interfaces in the desktop Studio",
+    "longDescription": "Connect Codex to a running Srijika Studio app through a private authenticated bridge, use the shared CLI contract for strict Feature, Slot, and Part scaffolding and Vite runtime decisions, then inspect hierarchy and component manifests, apply atomic UI operations, validate generated TSX and architecture, inspect rendered geometry, and capture clean previews.",
+    "developerName": "Srijika Studio",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Recreate screenshot designs",
+      "Build and edit React UI",
+      "Scaffold and validate code-first projects",
+      "Run Vite with Node or optional Bun",
+      "Normalize repeated UI into typed React maps",
+      "Inspect generated React contracts",
+      "Verify responsive layouts across viewports",
+      "Inspect rendered layout",
+      "Capture clean previews"
+    ],
+    "defaultPrompt": [
+      "Recreate this design in the running Srijika Studio app and verify it at the source image dimensions.",
+      "Analyze repeated siblings, convert the reviewed candidates to typed Repeat nodes, and verify generated React output.",
+      "Make the active page responsive without duplicating its component tree, then check mobile, tablet, desktop, and wide layouts.",
+      "Inspect the current Srijika page and fix its layout diagnostics.",
+      "Add a typed page prop and bind it to the selected component."
+    ],
+    "brandColor": "#6756E8"
+  }
+}

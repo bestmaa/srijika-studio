@@ -19,13 +19,22 @@
     "noPropertyAccessFromIndexSignature": true,
     "skipLibCheck": true,
     "paths": {
-      "@sutra/automation-protocol": ["./packages/automation-protocol/src/index.ts"],
-      "@sutra/contracts": ["./packages/contracts/src/index.ts"],
-      "@sutra/document-engine": ["./packages/document-engine/src/index.ts"],
-      "@sutra/component-registry": ["./packages/component-registry/src/index.ts"],
-      "@sutra/core-components": ["./packages/core-components/src/index.tsx"],
-      "@sutra/react-renderer": ["./packages/react-renderer/src/index.tsx"],
-      "@sutra/react-codegen": ["./packages/react-codegen/src/index.ts"]
+      "@srijika/automation-protocol": ["./packages/automation-protocol/src/index.ts"],
+      "@srijika/contracts": ["./packages/contracts/src/index.ts"],
+      "@srijika/document-engine": ["./packages/document-engine/src/index.ts"],
+      "@srijika/component-registry": ["./packages/component-registry/src/index.ts"],
+      "@srijika/core-components": ["./packages/core-components/src/index.tsx"],
+      "@srijika/react-renderer": ["./packages/react-renderer/src/index.tsx"],
+      "@srijika/react-codegen": ["./packages/react-codegen/src/index.ts"],
+      "@srijika/tsx-compiler": ["./packages/tsx-compiler/src/index.ts"],
+      "@srijika/project-scaffold": ["./packages/project-scaffold/src/index.ts"],
+      "@srijika/project-scaffold/templates": ["./packages/project-scaffold/src/templates.ts"],
+      "@srijika/project-scaffold/types": ["./packages/project-scaffold/src/types.ts"],
+      "@srijika/project-scaffold/ownership": ["./packages/project-scaffold/src/ownership.ts"],
+      "@srijika/project-scaffold/ownership-writer": [
+        "./packages/project-scaffold/src/ownership-writer.ts"
+      ],
+      "@srijika/developer-engine": ["./packages/developer-engine/src/index.ts"]
     }
   }
 }

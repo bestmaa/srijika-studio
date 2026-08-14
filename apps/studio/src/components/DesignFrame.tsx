@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { createPortal } from 'react-dom';
 
-import coreComponentsCss from '@sutra/core-components/styles.css?inline';
-import { SutraRenderer } from '@sutra/react-renderer';
+import coreComponentsCss from '@srijika/core-components/styles.css?inline';
+import { SrijikaRenderer } from '@srijika/react-renderer';
 
 import { useAppearance } from '../app/AppearanceProvider';
 import { applyCanvasEditorAppearance } from '../lib/appearance';
@@ -19,10 +19,10 @@ import {
   directionalMoveTargets,
   type CanvasMoveDirection,
 } from './CanvasSelectionToolbar';
-import { sutraDragTypes } from './Palette';
+import { srijikaDragTypes } from './Palette';
 import { PromotePropMenu, type ContextMenuAnchor } from './PromotePropMenu';
 
-const frameSource = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${coreComponentsCss}\n${canvasCss}</style></head><body><div id="sutra-frame-root"></div></body></html>`;
+const frameSource = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${coreComponentsCss}\n${canvasCss}</style></head><body><div id="srijika-frame-root"></div></body></html>`;
 
 interface CanvasDropPlacement {
   targetNodeId: string;
@@ -142,7 +142,7 @@ export function DesignFrame() {
           ? (target as Element)
           : null;
       while (element) {
-        const nodeId = element.getAttribute('data-sutra-node');
+        const nodeId = element.getAttribute('data-srijika-node');
         if (nodeId) {
           const node = document.nodes[nodeId];
           if (
@@ -166,9 +166,9 @@ export function DesignFrame() {
     (target: EventTarget | null, clientX: number, clientY: number): CanvasDropPlacement => {
       const element =
         target && typeof (target as Element).closest === 'function'
-          ? (target as Element).closest<HTMLElement>('[data-sutra-node]')
+          ? (target as Element).closest<HTMLElement>('[data-srijika-node]')
           : null;
-      const nodeId = element?.getAttribute('data-sutra-node');
+      const nodeId = element?.getAttribute('data-srijika-node');
       const node = nodeId ? document.nodes[nodeId] : undefined;
       if (!element || !nodeId || !node || nodeId === document.rootNodeId) {
         return { targetNodeId: document.rootNodeId, intent: 'inside', axis: 'vertical' };
@@ -189,15 +189,15 @@ export function DesignFrame() {
 
   const handleDragOver = (event: DragEvent): void => {
     if (
-      event.dataTransfer.types.includes(sutraDragTypes.component) ||
-      event.dataTransfer.types.includes(sutraDragTypes.structure) ||
-      event.dataTransfer.types.includes(sutraDragTypes.node)
+      event.dataTransfer.types.includes(srijikaDragTypes.component) ||
+      event.dataTransfer.types.includes(srijikaDragTypes.structure) ||
+      event.dataTransfer.types.includes(srijikaDragTypes.node)
     ) {
       event.preventDefault();
-      event.dataTransfer.dropEffect = event.dataTransfer.types.includes(sutraDragTypes.node)
+      event.dataTransfer.dropEffect = event.dataTransfer.types.includes(srijikaDragTypes.node)
         ? 'move'
         : 'copy';
-      if (event.dataTransfer.types.includes(sutraDragTypes.node)) {
+      if (event.dataTransfer.types.includes(srijikaDragTypes.node)) {
         const placement = findNodePlacement(event.target, event.clientX, event.clientY);
         setDropTarget(placement.targetNodeId, placement.intent);
       } else {
@@ -208,7 +208,7 @@ export function DesignFrame() {
 
   const handleDrop = (event: DragEvent): void => {
     event.preventDefault();
-    const isNodeMove = event.dataTransfer.types.includes(sutraDragTypes.node);
+    const isNodeMove = event.dataTransfer.types.includes(srijikaDragTypes.node);
     const placement = isNodeMove
       ? findNodePlacement(event.target, event.clientX, event.clientY)
       : {
@@ -216,9 +216,9 @@ export function DesignFrame() {
           intent: 'inside' as const,
           axis: 'vertical' as const,
         };
-    const componentId = event.dataTransfer.getData(sutraDragTypes.component);
-    const structure = event.dataTransfer.getData(sutraDragTypes.structure);
-    const nodeId = event.dataTransfer.getData(sutraDragTypes.node);
+    const componentId = event.dataTransfer.getData(srijikaDragTypes.component);
+    const structure = event.dataTransfer.getData(srijikaDragTypes.structure);
+    const nodeId = event.dataTransfer.getData(srijikaDragTypes.node);
 
     if (componentId) addComponent(componentId, placement.targetNodeId);
     else if (structure === 'if') addIfNode(placement.targetNodeId);
@@ -293,15 +293,18 @@ export function DesignFrame() {
     const frameY = dragPointer.clientY - bounds.top;
     const isInsideFrame =
       frameX >= 0 && frameY >= 0 && frameX <= bounds.width && frameY <= bounds.height;
-    const placement = isInsideFrame
-      ? findDropPlacementAtFramePoint(frameX, frameY, activeDrag.kind === 'node')
-      : null;
-    setDropTarget(placement?.targetNodeId ?? null, placement?.intent);
+    const deviceFrame = frame.closest('.device-frame');
+    const topLevelHit = frame.ownerDocument.elementFromPoint(
+      dragPointer.clientX,
+      dragPointer.clientY,
+    );
+    if (!isInsideFrame || !topLevelHit || !deviceFrame?.contains(topLevelHit)) return;
+    const placement = findDropPlacementAtFramePoint(frameX, frameY, activeDrag.kind === 'node');
+    setDropTarget(placement.targetNodeId, placement.intent);
 
     if (dragPointer.phase === 'drop') {
       const payload = activeDrag;
       endDrag();
-      if (!placement) return;
       if (payload.kind === 'component') addComponent(payload.componentId, placement.targetNodeId);
       else if (payload.kind === 'structure') {
         if (payload.structure === 'if') addIfNode(placement.targetNodeId);
@@ -324,17 +327,19 @@ export function DesignFrame() {
     const frameDocument = portalRoot?.ownerDocument;
     if (!frameDocument) return;
     const clearIndicators = (): void => {
-      frameDocument.querySelectorAll<HTMLElement>('[data-sutra-drop-intent]').forEach((element) => {
-        element.removeAttribute('data-sutra-drop-intent');
-        element.removeAttribute('data-sutra-drop-axis');
-      });
+      frameDocument
+        .querySelectorAll<HTMLElement>('[data-srijika-drop-intent]')
+        .forEach((element) => {
+          element.removeAttribute('data-srijika-drop-intent');
+          element.removeAttribute('data-srijika-drop-axis');
+        });
     };
     clearIndicators();
     if (activeDrag?.kind !== 'node' || !dropTargetNodeId || dropIntent === 'inside') return;
-    frameDocument.querySelectorAll<HTMLElement>('[data-sutra-node]').forEach((element) => {
-      if (element.getAttribute('data-sutra-node') !== dropTargetNodeId) return;
-      element.setAttribute('data-sutra-drop-intent', dropIntent);
-      element.setAttribute('data-sutra-drop-axis', dropAxis(element));
+    frameDocument.querySelectorAll<HTMLElement>('[data-srijika-node]').forEach((element) => {
+      if (element.getAttribute('data-srijika-node') !== dropTargetNodeId) return;
+      element.setAttribute('data-srijika-drop-intent', dropIntent);
+      element.setAttribute('data-srijika-drop-axis', dropAxis(element));
     });
     return clearIndicators;
   }, [activeDrag, dropIntent, dropTargetNodeId, portalRoot]);
@@ -345,13 +350,13 @@ export function DesignFrame() {
     const handleFrameSelection = (event: MouseEvent): void => {
       if (event.button !== 0) return;
       const target = event.target as Element | null;
-      if (target?.closest('[data-sutra-editor-ui]')) return;
+      if (target?.closest('[data-srijika-editor-ui]')) return;
       const nodeElement =
         target && typeof target.closest === 'function'
-          ? target.closest<HTMLElement>('[data-sutra-node]')
+          ? target.closest<HTMLElement>('[data-srijika-node]')
           : null;
       if (!nodeElement) return;
-      const nodeId = nodeElement.getAttribute('data-sutra-node');
+      const nodeId = nodeElement.getAttribute('data-srijika-node');
       if (!nodeId || !document.nodes[nodeId]) return;
 
       if (suppressFrameClickNodeId.current === nodeId) {
@@ -370,12 +375,12 @@ export function DesignFrame() {
     };
     const handleFrameContextMenu = (event: MouseEvent): void => {
       const target = event.target as Element | null;
-      if (target?.closest('[data-sutra-editor-ui]')) return;
+      if (target?.closest('[data-srijika-editor-ui]')) return;
       const nodeElement =
         target && typeof target.closest === 'function'
-          ? target.closest<HTMLElement>('[data-sutra-node]')
+          ? target.closest<HTMLElement>('[data-srijika-node]')
           : null;
-      const nodeId = nodeElement?.getAttribute('data-sutra-node');
+      const nodeId = nodeElement?.getAttribute('data-srijika-node');
       if (!nodeId || !document.nodes[nodeId]) return;
       const frameBounds = iframeRef.current?.getBoundingClientRect();
       if (!frameBounds) return;
@@ -396,9 +401,9 @@ export function DesignFrame() {
       const target = event.target as Element | null;
       const moveHandle =
         target && typeof target.closest === 'function'
-          ? target.closest<HTMLElement>('[data-sutra-move-handle="true"]')
+          ? target.closest<HTMLElement>('[data-srijika-move-handle="true"]')
           : null;
-      const nodeId = moveHandle?.getAttribute('data-sutra-toolbar-node');
+      const nodeId = moveHandle?.getAttribute('data-srijika-toolbar-node');
       if (!moveHandle || !nodeId || nodeId === document.rootNodeId || !document.nodes[nodeId]) {
         return;
       }
@@ -558,12 +563,12 @@ export function DesignFrame() {
             height={viewportSize.height}
             width={viewportSize.width}
             style={{ height: viewportSize.height }}
-            title="Sutra DOM design surface"
+            title="Srijika DOM design surface"
             sandbox="allow-same-origin allow-scripts"
             srcDoc={frameSource}
             onLoad={() => {
               setPortalRoot(
-                iframeRef.current?.contentDocument?.getElementById('sutra-frame-root') ?? null,
+                iframeRef.current?.contentDocument?.getElementById('srijika-frame-root') ?? null,
               );
             }}
           />
@@ -584,9 +589,9 @@ export function DesignFrame() {
           {portalRoot &&
             createPortal(
               <div
-                className="sutra-edit-surface"
-                data-sutra-document-id={document.id}
-                data-sutra-revision={document.revision}
+                className="srijika-edit-surface"
+                data-srijika-document-id={document.id}
+                data-srijika-revision={document.revision}
                 onDragOver={handleDragOver}
                 onDragLeave={(event) => {
                   if (!event.currentTarget.contains(event.relatedTarget as Node | null))
@@ -594,7 +599,7 @@ export function DesignFrame() {
                 }}
                 onDrop={handleDrop}
               >
-                <SutraRenderer
+                <SrijikaRenderer
                   document={document}
                   registry={componentRegistry}
                   mode="edit"

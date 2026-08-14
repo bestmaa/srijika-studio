@@ -5,8 +5,8 @@ import {
   eventPayloadArgument,
   literal,
   type PublicProp,
-} from '@sutra/contracts';
-import { applyCommand, DocumentHistory, validateDocumentGraph } from '@sutra/document-engine';
+} from '@srijika/contracts';
+import { applyCommand, DocumentHistory, validateDocumentGraph } from '@srijika/document-engine';
 
 import { createEngineDocument } from '../helpers/documents';
 

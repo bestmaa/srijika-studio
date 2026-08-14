@@ -1,5 +1,5 @@
 {
-  "name": "@sutra/automation-protocol",
+  "name": "@srijika/automation-protocol",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@sutra/component-registry": "workspace:*",
-    "@sutra/contracts": "workspace:*",
-    "@sutra/document-engine": "workspace:*"
+    "@srijika/component-registry": "workspace:*",
+    "@srijika/contracts": "workspace:*",
+    "@srijika/document-engine": "workspace:*"
   },
   "devDependencies": {
     "typescript": "6.0.3"

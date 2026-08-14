@@ -1,4 +1,4 @@
-import type { UiDocument } from '@sutra/contracts';
+import type { UiDocument } from '@srijika/contracts';
 
 export interface RenderViewportSize {
   width: number;
@@ -52,7 +52,7 @@ function visualRect(element: HTMLElement): DOMRect | DOMRectReadOnly {
   const own = element.getBoundingClientRect();
   if (own.width > 0 || own.height > 0) return own;
 
-  const descendants = [...element.querySelectorAll<HTMLElement>('[data-sutra-node]')]
+  const descendants = [...element.querySelectorAll<HTMLElement>('[data-srijika-node]')]
     .map((child) => child.getBoundingClientRect())
     .filter((rect) => rect.width > 0 || rect.height > 0);
   if (descendants.length === 0) return own;
@@ -68,7 +68,7 @@ export function resolveDesignSurface(
   hostDocument: Document = document,
 ): DesignSurfaceHandle | null {
   const frame = hostDocument.querySelector<HTMLIFrameElement>('iframe.design-iframe');
-  const root = frame?.contentDocument?.querySelector<HTMLElement>('.sutra-edit-surface');
+  const root = frame?.contentDocument?.querySelector<HTMLElement>('.srijika-edit-surface');
   const view = frame?.contentWindow;
   return frame && root && view ? { frame, root, view } : null;
 }
@@ -120,7 +120,7 @@ export function inspectRenderedLayout(
     return {
       ok: false,
       code: 'render_surface_unavailable',
-      message: 'The Sutra design surface is not ready. Render the page, then retry.',
+      message: 'The Srijika design surface is not ready. Render the page, then retry.',
     };
   }
 
@@ -130,15 +130,15 @@ export function inspectRenderedLayout(
   const rootRect = surface.root.getBoundingClientRect();
   const instanceCounts = new Map<string, number>();
   const diagnostics: Array<Record<string, unknown>> = [];
-  const allElements = [...surface.root.querySelectorAll<HTMLElement>('[data-sutra-node]')].filter(
+  const allElements = [...surface.root.querySelectorAll<HTMLElement>('[data-srijika-node]')].filter(
     (element) => {
-      const nodeId = element.dataset['sutraNode'];
+      const nodeId = element.dataset['srijikaNode'];
       return Boolean(nodeId && (!requestedNodeIds || requestedNodeIds.has(nodeId)));
     },
   );
 
   const instances = allElements.slice(0, maxInstances).map((element) => {
-    const nodeId = element.dataset['sutraNode']!;
+    const nodeId = element.dataset['srijikaNode']!;
     const instanceIndex = instanceCounts.get(nodeId) ?? 0;
     instanceCounts.set(nodeId, instanceIndex + 1);
     const style = surface.view.getComputedStyle(element);
@@ -199,7 +199,7 @@ export function inspectRenderedLayout(
       });
     }
 
-    const parentElement = element.parentElement?.closest<HTMLElement>('[data-sutra-node]');
+    const parentElement = element.parentElement?.closest<HTMLElement>('[data-srijika-node]');
     return {
       nodeId,
       instanceIndex,
@@ -209,7 +209,7 @@ export function inspectRenderedLayout(
         documentModel.nodes[nodeId]?.kind === 'element'
           ? documentModel.nodes[nodeId].componentId
           : undefined,
-      parentNodeId: parentElement?.dataset['sutraNode'] ?? null,
+      parentNodeId: parentElement?.dataset['srijikaNode'] ?? null,
       rect,
       scroll: {
         width: element.scrollWidth,
@@ -295,8 +295,8 @@ export async function waitForRenderedLayoutReady(
   while (Date.now() <= deadline) {
     const surface = resolveSurface();
     if (
-      surface?.root.dataset['sutraDocumentId'] === documentModel.id &&
-      surface.root.dataset['sutraRevision'] === String(documentModel.revision)
+      surface?.root.dataset['srijikaDocumentId'] === documentModel.id &&
+      surface.root.dataset['srijikaRevision'] === String(documentModel.revision)
     ) {
       const remaining = Math.max(1, deadline - Date.now());
       await nextPaint(surface.view, remaining);
@@ -309,8 +309,8 @@ export async function waitForRenderedLayoutReady(
       }
       const current = resolveSurface();
       if (
-        current?.root.dataset['sutraDocumentId'] === documentModel.id &&
-        current.root.dataset['sutraRevision'] === String(documentModel.revision)
+        current?.root.dataset['srijikaDocumentId'] === documentModel.id &&
+        current.root.dataset['srijikaRevision'] === String(documentModel.revision)
       ) {
         return current;
       }
@@ -331,12 +331,12 @@ export async function captureRenderedPreview(
   height: number;
   pixelRatio: number;
 }> {
-  if (!surface) throw new Error('The Sutra design surface is not ready.');
+  if (!surface) throw new Error('The Srijika design surface is not ready.');
   await nextPaint(surface.view);
   await surface.root.ownerDocument.fonts?.ready;
 
   const { toPng } = await import('html-to-image');
-  surface.root.classList.add('sutra-capture-mode');
+  surface.root.classList.add('srijika-capture-mode');
   try {
     const backgroundColor = surface.view.getComputedStyle(surface.root).backgroundColor;
     const dataUrl = await toPng(surface.root, {
@@ -365,6 +365,6 @@ export async function captureRenderedPreview(
       pixelRatio,
     };
   } finally {
-    surface.root.classList.remove('sutra-capture-mode');
+    surface.root.classList.remove('srijika-capture-mode');
   }
 }
