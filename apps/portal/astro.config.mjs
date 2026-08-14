@@ -10,7 +10,7 @@ export default defineConfig({
         'Product, authoring, architecture, and engineering documentation for Srijika Studio.',
       favicon: '/favicon.png',
       head: [
-        { tag: 'meta', attrs: { name: 'robots', content: 'noindex, nofollow' } },
+        { tag: 'meta', attrs: { name: 'robots', content: 'index, follow' } },
         {
           tag: 'meta',
           attrs: {
@@ -42,6 +42,7 @@ export default defineConfig({
             { label: 'Documentation', slug: 'docs' },
             { label: 'Product status', slug: 'docs/product-status' },
             { label: 'Getting started', slug: 'docs/getting-started' },
+            { label: 'Using Srijika Studio', slug: 'docs/using-studio' },
             { label: 'CLI and fast runtime', slug: 'docs/cli-runtime' },
           ],
         },

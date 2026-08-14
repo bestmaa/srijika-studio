@@ -102,8 +102,9 @@ export function HomeUI(props: HomeUIProps) {
       content="Srijika Studio is a code-first React application studio where typed TSX stays authoritative."
     />
     <meta name="theme-color" content="#0b0b0e" />
-    <meta name="robots" content="noindex, nofollow" />
+    <meta name="robots" content="index, follow" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://srijika.com/" />
     <meta property="og:title" content="Srijika Studio — Design the interface. Keep the source." />
     <meta
       property="og:description"
@@ -112,6 +113,7 @@ export function HomeUI(props: HomeUIProps) {
     <meta property="og:image" content="https://srijika.com/srijika-social.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://srijika.com/srijika-social.png" />
+    <link rel="canonical" href="https://srijika.com/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Srijika Studio — Design the interface. Keep the source.</title>
   </head>
@@ -126,7 +128,7 @@ export function HomeUI(props: HomeUIProps) {
           <a href="#architecture">Architecture</a>
           <a href="#status">Product status</a>
           <a href="/docs/">Documentation</a>
-          <a class="nav-status" href="/docs/product-status/">Private alpha</a>
+          <a class="nav-status" href="/docs/product-status/">Public alpha</a>
         </div>
       </nav>
     </header>
@@ -148,7 +150,7 @@ export function HomeUI(props: HomeUIProps) {
             <span>React 19</span>
             <span>TypeScript 6</span>
             <span>Tauri 2 + Rust</span>
-            <span>Private alpha</span>
+            <span>Public alpha</span>
           </div>
         </div>
 
@@ -278,7 +280,7 @@ export function HomeUI(props: HomeUIProps) {
       <section id="status" class="section section--bordered shell">
         <div class="section-heading">
           <div>
-            <p class="kicker">Private alpha status</p>
+            <p class="kicker">Public alpha status</p>
             <h2>Clear about what exists—and what comes next.</h2>
           </div>
           <p>
@@ -338,7 +340,7 @@ export function HomeUI(props: HomeUIProps) {
             <p class="kicker">Engineering portal</p>
             <h2>Every rule, workflow, and deliberate limit—in one place.</h2>
             <p>
-              Continue into the private documentation to understand the authoring language, project
+              Continue into the product documentation to understand the authoring language, project
               ownership model, desktop boundary, testing strategy, and current roadmap.
             </p>
             <div class="actions">
@@ -351,7 +353,7 @@ export function HomeUI(props: HomeUIProps) {
     </main>
 
     <footer class="footer shell">
-      <div><strong>Srijika Studio</strong> · Private alpha product portal</div>
+      <div><strong>Srijika Studio</strong> · Public alpha product portal</div>
       <div>Typed source in. Reviewable applications out.</div>
     </footer>
   </body>
