@@ -24,13 +24,21 @@ import {
   stringOption,
   type ParsedArguments,
 } from './arguments.js';
-import { openSrijikaStudio } from './studio.js';
+import { findSrijikaStudioExecutable, openSrijikaStudio } from './studio.js';
+import {
+  installSrijikaVSCodeExtension,
+  openProjectInVSCode,
+  resolveVSCodeLaunch,
+  SRIJIKA_VSCODE_EXTENSION_ID,
+} from './vscode.js';
 
 export const SRIJIKA_CLI_VERSION = '0.1.0';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 
 Usage:
+  srijika create <directory> [--name package-name] [--display-name "App Name"]
+                 [--no-install] [--no-vscode] [--no-extension] [--no-studio]
   srijika init <directory> [--name package-name] [--display-name "App Name"] [--install]
   srijika add feature <Name> [--hook] [--store] [--logic] [--api] [--types]
   srijika add slot <Name> --in <feature-folder> [optional capability flags]
@@ -43,7 +51,27 @@ Usage:
   srijika studio [project]
 
 Node is the compatibility default. Bun is an optional Vite turbo runtime.
+\`create\` is the complete CLI-first onboarding flow; Desktop Studio is optional.
 `;
+
+interface CreatedProject {
+  target: string;
+  projectName: string;
+  displayName: string;
+  files: readonly string[];
+}
+
+async function createProjectFiles(parsed: ParsedArguments): Promise<CreatedProject> {
+  const [directory] = parsed.positionals;
+  if (!directory || parsed.positionals.length !== 1) {
+    throw new Error('A single new project directory is required.');
+  }
+  const target = resolve(directory);
+  const projectName = stringOption(parsed, 'name') ?? kebabName(basename(target));
+  const displayName = stringOption(parsed, 'display-name') ?? basename(target);
+  const result = await writeSrijikaProject(target, { projectName, displayName });
+  return { target, projectName, displayName, files: result.files };
+}
 
 function runtimeOption(parsed: ParsedArguments): SrijikaRuntimePreference {
   const value = stringOption(parsed, 'runtime') ?? 'auto';
@@ -78,21 +106,13 @@ function kebabName(value: string): string {
 
 async function runInit(parsed: ParsedArguments): Promise<number> {
   assertKnownOptions(parsed, ['name', 'display-name', 'install', 'json']);
-  const [directory] = parsed.positionals;
-  if (!directory || parsed.positionals.length !== 1) {
-    throw new Error('srijika init requires one new project directory.');
-  }
-  const target = resolve(directory);
-  const projectName = stringOption(parsed, 'name') ?? kebabName(basename(target));
-  const displayName = stringOption(parsed, 'display-name') ?? basename(target);
-  const result = await writeSrijikaProject(target, { projectName, displayName });
+  const result = await createProjectFiles(parsed);
+  const { target, projectName } = result;
   const install = booleanOption(parsed, 'install');
   if (booleanOption(parsed, 'json')) {
     console.log(JSON.stringify({ ...result, projectName, installed: install }, null, 2));
   } else {
-    console.log(
-      `✓ Created ${projectName} with ${result.files.length} pinned files at ${result.absoluteTarget}`,
-    );
+    console.log(`✓ Created ${projectName} with ${result.files.length} pinned files at ${target}`);
   }
   if (install) {
     const project = await inspectSrijikaProject(target);
@@ -100,6 +120,98 @@ async function runInit(parsed: ParsedArguments): Promise<number> {
     console.log(`→ ${formatSrijikaCommand(plan)}`);
     return runSrijikaCommand(plan);
   }
+  return 0;
+}
+
+async function runCreate(parsed: ParsedArguments): Promise<number> {
+  assertKnownOptions(parsed, [
+    'name',
+    'display-name',
+    'json',
+    'no-install',
+    'no-open',
+    'no-vscode',
+    'no-studio',
+    'no-extension',
+    'extension',
+  ]);
+  const result = await createProjectFiles(parsed);
+  const json = booleanOption(parsed, 'json');
+  const statuses: Record<string, string> = {
+    scaffold: `${result.files.length} pinned files`,
+  };
+  if (!json) {
+    console.log(
+      `✓ Created ${result.projectName} with ${result.files.length} pinned files at ${result.target}`,
+    );
+  }
+
+  if (!booleanOption(parsed, 'no-install')) {
+    const project = await inspectSrijikaProject(result.target);
+    const plan = planSrijikaProjectCommand(project, 'install');
+    if (!json) console.log(`→ ${formatSrijikaCommand(plan)}`);
+    const installCode = await runSrijikaCommand(plan, json ? { stdio: 'ignore' } : {});
+    if (installCode !== 0) return installCode;
+    statuses['dependencies'] = 'installed';
+  } else statuses['dependencies'] = 'skipped';
+
+  const architecture = await checkSrijikaArchitecture(result.target);
+  if (architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
+    if (!json) {
+      for (const diagnostic of architecture.diagnostics) {
+        console.error(`✗ ${diagnostic.ruleId ?? diagnostic.code} ${diagnostic.message}`);
+      }
+    }
+    return 1;
+  }
+  statuses['architecture'] = `${architecture.checkedFiles} files, 0 errors`;
+  if (!json) console.log(`✓ Architecture valid across ${architecture.checkedFiles} source files.`);
+
+  const open = !booleanOption(parsed, 'no-open');
+  const vscodeEnabled = open && !booleanOption(parsed, 'no-vscode');
+  if (vscodeEnabled) {
+    const launch = await resolveVSCodeLaunch();
+    if (!launch) statuses['vscode'] = 'not installed; skipped';
+    else {
+      if (!booleanOption(parsed, 'no-extension')) {
+        const extension = stringOption(parsed, 'extension') ?? SRIJIKA_VSCODE_EXTENSION_ID;
+        try {
+          statuses['vscodeExtension'] = (await installSrijikaVSCodeExtension(launch, extension))
+            ? `installed: ${extension}`
+            : `installation unavailable; workspace recommendation retained: ${extension}`;
+        } catch {
+          statuses['vscodeExtension'] =
+            `installation unavailable; workspace recommendation retained: ${extension}`;
+        }
+      } else statuses['vscodeExtension'] = 'skipped';
+      try {
+        statuses['vscode'] = (await openProjectInVSCode(launch, result.target))
+          ? 'opened exact project folder'
+          : 'launch failed';
+      } catch {
+        statuses['vscode'] = 'launch failed';
+      }
+    }
+  } else statuses['vscode'] = 'skipped';
+
+  const studioEnabled = open && !booleanOption(parsed, 'no-studio');
+  if (studioEnabled) {
+    const executable = await findSrijikaStudioExecutable();
+    if (!executable) statuses['studio'] = 'not installed; skipped';
+    else {
+      try {
+        await openSrijikaStudio(result.target);
+        statuses['studio'] = 'opened exact project folder';
+      } catch {
+        statuses['studio'] = 'launch failed; project remains usable from CLI and VS Code';
+      }
+    }
+  } else statuses['studio'] = 'skipped';
+
+  if (json) console.log(JSON.stringify({ ...result, statuses }, null, 2));
+  else
+    for (const [surface, status] of Object.entries(statuses))
+      console.log(`· ${surface}: ${status}`);
   return 0;
 }
 
@@ -249,6 +361,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
     return 0;
   }
   switch (command) {
+    case 'create':
+      return runCreate(parsed);
     case 'init':
       return runInit(parsed);
     case 'add':

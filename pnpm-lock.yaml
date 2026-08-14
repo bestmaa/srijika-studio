@@ -303,11 +303,20 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/create-srijika:
+    dependencies:
+      '@srijika/cli':
+        specifier: 0.1.0
+        version: link:../cli
+
   packages/developer-engine:
     dependencies:
       '@srijika/architecture-rules':
         specifier: workspace:*
         version: link:../architecture-rules
+      '@srijika/project-scaffold':
+        specifier: workspace:*
+        version: link:../project-scaffold
     devDependencies:
       '@types/node':
         specifier: 26.1.2
@@ -337,22 +346,28 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.30.0
         version: 1.30.0(supports-color@7.2.0)(zod@4.4.3)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      zod:
+        specifier: 4.4.3
+        version: 4.4.3
+    devDependencies:
       '@srijika/architecture-rules':
         specifier: workspace:*
         version: link:../architecture-rules
       '@srijika/automation-protocol':
         specifier: workspace:*
         version: link:../automation-protocol
-      zod:
-        specifier: 4.4.3
-        version: 4.4.3
-    devDependencies:
+      '@srijika/developer-engine':
+        specifier: workspace:*
+        version: link:../developer-engine
+      '@srijika/project-scaffold':
+        specifier: workspace:*
+        version: link:../project-scaffold
       esbuild:
         specifier: 0.25.12
         version: 0.25.12
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
 
   packages/project-scaffold:
     dependencies:

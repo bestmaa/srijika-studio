@@ -1,26 +1,44 @@
 {
   "name": "@srijika/mcp-server",
   "version": "0.1.0",
-  "private": true,
+  "description": "CLI-first Srijika project MCP tools with optional Studio bridge support.",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./dist/index.mjs"
   },
   "bin": {
     "srijika-mcp": "./dist/cli.mjs"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestmaa/srijika-studio.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://github.com/bestmaa/srijika-studio#readme",
+  "bugs": "https://github.com/bestmaa/srijika-studio/issues",
   "scripts": {
     "build": "node ./scripts/build.mjs",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@srijika/architecture-rules": "workspace:*",
-    "@srijika/automation-protocol": "workspace:*",
+    "typescript": "6.0.3",
     "zod": "4.4.3"
   },
   "devDependencies": {
-    "esbuild": "0.25.12",
-    "typescript": "6.0.3"
+    "@srijika/architecture-rules": "workspace:*",
+    "@srijika/automation-protocol": "workspace:*",
+    "@srijika/developer-engine": "workspace:*",
+    "@srijika/project-scaffold": "workspace:*",
+    "esbuild": "0.25.12"
   }
 }

@@ -1513,8 +1513,8 @@ var require_dataType = __commonJS({
       return types;
     }
     exports.getSchemaTypes = getSchemaTypes;
-    function getJSONTypes(ts) {
-      const types = Array.isArray(ts) ? ts : ts ? [ts] : [];
+    function getJSONTypes(ts2) {
+      const types = Array.isArray(ts2) ? ts2 : ts2 ? [ts2] : [];
       if (types.every(rules_1.isJSONType))
         return types;
       throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
@@ -2556,18 +2556,18 @@ var require_validate = __commonJS({
       });
       narrowSchemaTypes(it, types);
     }
-    function checkMultipleTypes(it, ts) {
-      if (ts.length > 1 && !(ts.length === 2 && ts.includes("null"))) {
+    function checkMultipleTypes(it, ts2) {
+      if (ts2.length > 1 && !(ts2.length === 2 && ts2.includes("null"))) {
         strictTypesError(it, "use allowUnionTypes to allow union type keyword");
       }
     }
-    function checkKeywordTypes(it, ts) {
+    function checkKeywordTypes(it, ts2) {
       const rules = it.self.RULES.all;
       for (const keyword in rules) {
         const rule = rules[keyword];
         if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
           const { type } = rule.definition;
-          if (type.length && !type.some((t) => hasApplicableType(ts, t))) {
+          if (type.length && !type.some((t) => hasApplicableType(ts2, t))) {
             strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
           }
         }
@@ -2576,18 +2576,18 @@ var require_validate = __commonJS({
     function hasApplicableType(schTs, kwdT) {
       return schTs.includes(kwdT) || kwdT === "number" && schTs.includes("integer");
     }
-    function includesType(ts, t) {
-      return ts.includes(t) || t === "integer" && ts.includes("number");
+    function includesType(ts2, t) {
+      return ts2.includes(t) || t === "integer" && ts2.includes("number");
     }
     function narrowSchemaTypes(it, withTypes) {
-      const ts = [];
+      const ts2 = [];
       for (const t of it.dataTypes) {
         if (includesType(withTypes, t))
-          ts.push(t);
+          ts2.push(t);
         else if (withTypes.includes("integer") && t === "number")
-          ts.push("integer");
+          ts2.push("integer");
       }
-      it.dataTypes = ts;
+      it.dataTypes = ts2;
     }
     function strictTypesError(it, msg) {
       const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
@@ -2980,7 +2980,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve2.call(this, root, ref);
+      let _sch = resolve7.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3007,7 +3007,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve2(root, ref) {
+    function resolve7(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3634,59 +3634,59 @@ var require_fast_uri = __commonJS({
         normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
-        parse3(serialize(uri, options), options);
+        parse4(serialize(uri, options), options);
       }
       return uri;
     }
-    function resolve2(baseURI, relativeURI, options) {
+    function resolve7(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-      const resolved = resolveComponent(parse3(baseURI, schemelessOptions), parse3(relativeURI, schemelessOptions), schemelessOptions, true);
+      const resolved = resolveComponent(parse4(baseURI, schemelessOptions), parse4(relativeURI, schemelessOptions), schemelessOptions, true);
       schemelessOptions.skipEscape = true;
       return serialize(resolved, schemelessOptions);
     }
-    function resolveComponent(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative4, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
-        base = parse3(serialize(base, options), options);
-        relative = parse3(serialize(relative, options), options);
+        base = parse4(serialize(base, options), options);
+        relative4 = parse4(serialize(relative4, options), options);
       }
       options = options || {};
-      if (!options.tolerant && relative.scheme) {
-        target.scheme = relative.scheme;
-        target.userinfo = relative.userinfo;
-        target.host = relative.host;
-        target.port = relative.port;
-        target.path = removeDotSegments(relative.path || "");
-        target.query = relative.query;
+      if (!options.tolerant && relative4.scheme) {
+        target.scheme = relative4.scheme;
+        target.userinfo = relative4.userinfo;
+        target.host = relative4.host;
+        target.port = relative4.port;
+        target.path = removeDotSegments(relative4.path || "");
+        target.query = relative4.query;
       } else {
-        if (relative.userinfo !== void 0 || relative.host !== void 0 || relative.port !== void 0) {
-          target.userinfo = relative.userinfo;
-          target.host = relative.host;
-          target.port = relative.port;
-          target.path = removeDotSegments(relative.path || "");
-          target.query = relative.query;
+        if (relative4.userinfo !== void 0 || relative4.host !== void 0 || relative4.port !== void 0) {
+          target.userinfo = relative4.userinfo;
+          target.host = relative4.host;
+          target.port = relative4.port;
+          target.path = removeDotSegments(relative4.path || "");
+          target.query = relative4.query;
         } else {
-          if (!relative.path) {
+          if (!relative4.path) {
             target.path = base.path;
-            if (relative.query !== void 0) {
-              target.query = relative.query;
+            if (relative4.query !== void 0) {
+              target.query = relative4.query;
             } else {
               target.query = base.query;
             }
           } else {
-            if (relative.path[0] === "/") {
-              target.path = removeDotSegments(relative.path);
+            if (relative4.path[0] === "/") {
+              target.path = removeDotSegments(relative4.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
-                target.path = "/" + relative.path;
+                target.path = "/" + relative4.path;
               } else if (!base.path) {
-                target.path = relative.path;
+                target.path = relative4.path;
               } else {
-                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative.path;
+                target.path = base.path.slice(0, base.path.lastIndexOf("/") + 1) + relative4.path;
               }
               target.path = removeDotSegments(target.path);
             }
-            target.query = relative.query;
+            target.query = relative4.query;
           }
           target.userinfo = base.userinfo;
           target.host = base.host;
@@ -3694,7 +3694,7 @@ var require_fast_uri = __commonJS({
         }
         target.scheme = base.scheme;
       }
-      target.fragment = relative.fragment;
+      target.fragment = relative4.fragment;
       return target;
     }
     function equal(uriA, uriB, options) {
@@ -3877,7 +3877,7 @@ var require_fast_uri = __commonJS({
       }
       return { parsed, malformedAuthorityOrPort };
     }
-    function parse3(uri, opts) {
+    function parse4(uri, opts) {
       return parseWithStatus(uri, opts).parsed;
     }
     function normalizeString(uri, opts) {
@@ -3902,11 +3902,11 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve2,
+      resolve: resolve7,
       resolveComponent,
       equal,
       serialize,
-      parse: parse3
+      parse: parse4
     };
     module.exports = fastUri;
     module.exports.default = fastUri;
@@ -13976,12 +13976,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve2) => {
+    return new Promise((resolve7) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve2();
+        resolve7();
       } else {
-        this._stdout.once("drain", resolve2);
+        this._stdout.once("drain", resolve7);
       }
     });
   }
@@ -19901,7 +19901,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+        await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -19918,7 +19918,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve7, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -19996,7 +19996,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve2(parseResult.data);
+            resolve7(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -20257,12 +20257,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve2, reject) => {
+    return new Promise((resolve7, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve2, interval);
+      const timeoutId = setTimeout(resolve7, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -21353,7 +21353,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
+      await new Promise((resolve7) => setTimeout(resolve7, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -21920,6 +21920,9 @@ var EMPTY_COMPLETION_RESULT = {
     hasMore: false
   }
 };
+
+// src/server.ts
+import { randomUUID } from "node:crypto";
 
 // ../../node_modules/.pnpm/@sinclair+typebox@0.34.52/node_modules/@sinclair/typebox/build/esm/type/guard/value.mjs
 var value_exports = {};
@@ -25654,6 +25657,15 @@ var SrijikaBridgeClient = class {
   }
 };
 
+// src/code-project.ts
+import { readdir as readdir3 } from "node:fs/promises";
+import { resolve as resolve6 } from "node:path";
+
+// ../developer-engine/src/architecture.ts
+import { readdir, readFile as readFile3, stat as stat2 } from "node:fs/promises";
+import { join as join3, relative, resolve as resolve3 } from "node:path";
+import { performance } from "node:perf_hooks";
+
 // ../architecture-rules/src/types.ts
 var SRIJIKA_ARCHITECTURE_PROFILE = "feature-slot-part-v1";
 
@@ -25671,8 +25683,43 @@ var DEFAULT_SRIJIKA_ARCHITECTURE = Object.freeze({
   apiSuffix: ".api.ts",
   typesSuffix: ".types.ts"
 });
+function cleanRelativePath(value, fallback) {
+  const clean = value.replaceAll("\\", "/").replace(/^\/+|\/+$/g, "");
+  return clean || fallback;
+}
+function resolveSrijikaArchitectureConfig(input = {}) {
+  if (input.profile !== void 0 && input.profile !== SRIJIKA_ARCHITECTURE_PROFILE) {
+    throw new Error(`Unsupported Srijika architecture profile: ${String(input.profile)}`);
+  }
+  return {
+    profile: SRIJIKA_ARCHITECTURE_PROFILE,
+    featuresRoot: cleanRelativePath(
+      input.featuresRoot ?? DEFAULT_SRIJIKA_ARCHITECTURE.featuresRoot,
+      DEFAULT_SRIJIKA_ARCHITECTURE.featuresRoot
+    ),
+    slotsDirectory: cleanRelativePath(
+      input.slotsDirectory ?? DEFAULT_SRIJIKA_ARCHITECTURE.slotsDirectory,
+      DEFAULT_SRIJIKA_ARCHITECTURE.slotsDirectory
+    ),
+    partsDirectory: cleanRelativePath(
+      input.partsDirectory ?? DEFAULT_SRIJIKA_ARCHITECTURE.partsDirectory,
+      DEFAULT_SRIJIKA_ARCHITECTURE.partsDirectory
+    ),
+    hooksDirectory: cleanRelativePath(
+      input.hooksDirectory ?? DEFAULT_SRIJIKA_ARCHITECTURE.hooksDirectory,
+      DEFAULT_SRIJIKA_ARCHITECTURE.hooksDirectory
+    ),
+    uiSuffix: input.uiSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.uiSuffix,
+    connectorSuffix: input.connectorSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.connectorSuffix,
+    storeSuffix: input.storeSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.storeSuffix,
+    logicSuffix: input.logicSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.logicSuffix,
+    apiSuffix: input.apiSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.apiSuffix,
+    typesSuffix: input.typesSuffix ?? DEFAULT_SRIJIKA_ARCHITECTURE.typesSuffix
+  };
+}
 
 // ../architecture-rules/src/creation.ts
+var SRIJIKA_OWNER_NAME_PATTERN = /^[A-Z][A-Za-z0-9]{0,63}$/;
 var SRIJIKA_STRUCTURE_CREATION_MATRIX = Object.freeze({
   featuresRoot: Object.freeze(["feature"]),
   feature: Object.freeze([
@@ -25706,6 +25753,2895 @@ var SRIJIKA_OWNER_FILE_CONTRACT = Object.freeze({
   required: Object.freeze(["ui", "connector"]),
   optional: Object.freeze(["hook", "store", "logic", "api", "types"])
 });
+function normalizeSrijikaRelativePath(value) {
+  return value.trim().replaceAll("\\", "/").replace(/^\/+|\/+$/g, "");
+}
+function srijikaPascalName(value) {
+  return value.split(/[-_\s]+/).filter(Boolean).map((segment) => `${segment.slice(0, 1).toLocaleUpperCase("en-US")}${segment.slice(1)}`).join("");
+}
+function srijikaFolderName(value) {
+  const characters = [...value];
+  let output = "";
+  for (let index = 0; index < characters.length; index += 1) {
+    const character = characters[index] ?? "";
+    const previous = characters[index - 1];
+    const next = characters[index + 1];
+    if (/[A-Z]/.test(character) && index > 0 && (previous !== void 0 && /[a-z0-9]/.test(previous) || previous !== void 0 && /[A-Z]/.test(previous) && next !== void 0 && /[a-z]/.test(next))) {
+      output += "-";
+    }
+    output += character.toLocaleLowerCase("en-US");
+  }
+  return output;
+}
+function canonicalSrijikaOwnerName(value) {
+  return srijikaPascalName(srijikaFolderName(value));
+}
+function resolveSrijikaStructureOwner(folder, architecture = {}) {
+  const config2 = resolveSrijikaArchitectureConfig(architecture);
+  const normalized = normalizeSrijikaRelativePath(folder);
+  const rootSegments = config2.featuresRoot.split("/");
+  const segments = normalized.split("/");
+  if (segments.slice(0, rootSegments.length).join("/") !== config2.featuresRoot) return null;
+  const remainder = segments.slice(rootSegments.length);
+  if (remainder.length === 0) {
+    return { level: "featuresRoot", folder: config2.featuresRoot };
+  }
+  if (remainder.length === 1 && remainder[0]) {
+    return {
+      level: "feature",
+      folder: normalized,
+      featureName: srijikaPascalName(remainder[0])
+    };
+  }
+  if (remainder.length === 3 && remainder[0] && remainder[1] === config2.slotsDirectory && remainder[2]) {
+    return {
+      level: "slot",
+      folder: normalized,
+      featureName: srijikaPascalName(remainder[0]),
+      slotName: srijikaPascalName(remainder[2])
+    };
+  }
+  if (remainder.length === 5 && remainder[0] && remainder[1] === config2.slotsDirectory && remainder[2] && remainder[3] === config2.partsDirectory && remainder[4]) {
+    return {
+      level: "part",
+      folder: normalized,
+      featureName: srijikaPascalName(remainder[0]),
+      slotName: srijikaPascalName(remainder[2]),
+      partName: srijikaPascalName(remainder[4])
+    };
+  }
+  return null;
+}
+function srijikaStructureCreationActionsForOwner(owner) {
+  return SRIJIKA_STRUCTURE_CREATION_MATRIX[owner.level];
+}
+
+// ../architecture-rules/src/validator.ts
+import ts from "typescript";
+var sourceExtensions = [".ts", ".tsx", ".mts", ".cts"];
+var runtimeCapabilityRank = {
+  connector: 0,
+  hook: 1,
+  store: 2,
+  logic: 3,
+  api: 4
+};
+function normalizePath(value) {
+  const normalized = value.replaceAll("\\", "/").replace(/\/{2,}/g, "/");
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    return `${normalized.slice(0, 1).toLowerCase()}${normalized.slice(1)}`;
+  }
+  return normalized;
+}
+function posixSegments(value) {
+  return normalizePath(value).split("/");
+}
+function posixJoin(...values) {
+  const joined = values.filter(Boolean).join("/");
+  const absolute = joined.startsWith("/");
+  const drive = /^[A-Za-z]:\//.exec(joined)?.[0]?.slice(0, 2);
+  const output = [];
+  for (const segment of posixSegments(joined)) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (output.length > 0 && output.at(-1) !== ".." && output.at(-1) !== drive) output.pop();
+      else if (!absolute) output.push(segment);
+      continue;
+    }
+    output.push(segment);
+  }
+  const body = output.join("/");
+  return normalizePath(`${absolute ? "/" : ""}${body}`);
+}
+function posixDirname(value) {
+  const normalized = normalizePath(value).replace(/\/$/, "");
+  const slash = normalized.lastIndexOf("/");
+  if (slash < 0) return ".";
+  if (slash === 0) return "/";
+  return normalized.slice(0, slash);
+}
+function posixBasename(value) {
+  const normalized = normalizePath(value).replace(/\/$/, "");
+  return normalized.slice(normalized.lastIndexOf("/") + 1);
+}
+function normalizedJoin(...segments) {
+  return posixJoin(...segments);
+}
+function stripSourceExtension(value) {
+  for (const extension of sourceExtensions) {
+    if (value.endsWith(extension)) return value.slice(0, -extension.length);
+  }
+  return value;
+}
+function normalizedName(value) {
+  return value.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+}
+function words(value) {
+  return value.replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/[^A-Za-z0-9]+/).filter(Boolean);
+}
+function pascalName(value) {
+  return words(value).map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`).join("");
+}
+function camelName(value) {
+  const pascal = pascalName(value);
+  return `${pascal.slice(0, 1).toLowerCase()}${pascal.slice(1)}`;
+}
+function ownershipName(ownership) {
+  if (ownership.kind === "feature") return ownership.feature ?? null;
+  if (ownership.kind === "slot") return ownership.slot ?? null;
+  if (ownership.kind === "part") return ownership.part ?? null;
+  return null;
+}
+function ownerRelativePath(ownership) {
+  if (ownership.kind === "feature") return ownership.relativeToFeature ?? null;
+  if (ownership.kind === "slot") return ownership.relativeToSlot ?? null;
+  if (ownership.kind === "part") return ownership.relativeToPart ?? null;
+  return null;
+}
+function fileAnchor(sourceFile) {
+  const first = sourceFile.statements[0];
+  if (!first) return { start: 0, end: 0, line: 1, column: 1 };
+  const start = first.getStart(sourceFile);
+  const end = first.getFirstToken(sourceFile)?.getEnd() ?? start;
+  const { line, character } = sourceFile.getLineAndCharacterOfPosition(start);
+  return { start, end, line: line + 1, column: character + 1 };
+}
+function isOwnerUiEntry(ownership, architecture) {
+  const owner = ownershipName(ownership);
+  const relative4 = ownerRelativePath(ownership);
+  if (!owner || relative4 === null || relative4.includes("/")) return false;
+  if (ownership.kind !== "part" && relative4.length === 0) return false;
+  const expected = `${pascalName(owner)}${architecture.uiSuffix}`;
+  return baseName(ownership.fileName) === expected;
+}
+function isOwnerConnectorEntry(ownership, architecture) {
+  const owner = ownershipName(ownership);
+  const relative4 = ownerRelativePath(ownership);
+  if (!owner || relative4 === null || relative4.includes("/")) return false;
+  if (ownership.kind !== "part" && relative4.length === 0) return false;
+  return baseName(ownership.fileName) === `${pascalName(owner)}${architecture.connectorSuffix}`;
+}
+function structureDiagnosticsForFile(file, sourceFile, ownership, architecture) {
+  if (ownership.kind === "outside") return [];
+  const owner = ownershipName(ownership);
+  const relative4 = ownerRelativePath(ownership);
+  if (!owner || relative4 === null) return [];
+  const fileName = baseName(file.fileName);
+  const anchor = fileAnchor(sourceFile);
+  const output = [];
+  if (fileName.endsWith(".store.tsx")) {
+    output.push(
+      diagnostic(
+        "SRIJIKA4105",
+        file.fileName,
+        anchor,
+        `Store files do not render JSX: ${fileName} must use the .store.ts suffix.`,
+        `Rename this file to ${camelName(owner)}${architecture.storeSuffix}.`
+      )
+    );
+  } else if (fileName.endsWith(architecture.storeSuffix)) {
+    const expected = `${camelName(owner)}${architecture.storeSuffix}`;
+    if (relative4.includes("/") || fileName !== expected) {
+      output.push(
+        diagnostic(
+          "SRIJIKA4105",
+          file.fileName,
+          anchor,
+          `The ${owner} owner store must be located at its scope root and named ${expected}.`,
+          `Move or rename this store to the ${ownership.kind} root as ${expected}.`
+        )
+      );
+    }
+  }
+  for (const [capability, suffix] of [
+    ["logic", architecture.logicSuffix],
+    ["api", architecture.apiSuffix],
+    ["types", architecture.typesSuffix]
+  ]) {
+    if (!fileName.endsWith(suffix)) continue;
+    const expected = `${camelName(owner)}${suffix}`;
+    if (relative4.includes("/") || fileName !== expected) {
+      output.push(
+        diagnostic(
+          "SRIJIKA4105",
+          file.fileName,
+          anchor,
+          `The ${owner} owner ${capability} module must be located at its scope root and named ${expected}.`,
+          `Move or rename this module to the ${ownership.kind} root as ${expected}.`
+        )
+      );
+    }
+  }
+  const relativeSegments = relative4.split("/");
+  const insideHooksDirectory = relativeSegments[0] === architecture.hooksDirectory;
+  const canonicalGatewayHook = !relative4.includes("/") && fileName === `use${pascalName(owner)}.ts`;
+  const isHook = canonicalGatewayHook || insideHooksDirectory || /^use[A-Z0-9].*\.(?:ts|tsx)$/.test(fileName);
+  if (isHook) {
+    const expectedPrefix = `use${pascalName(owner)}`;
+    if (!canonicalGatewayHook && (!insideHooksDirectory || !fileName.startsWith(expectedPrefix) || !fileName.endsWith(".ts"))) {
+      output.push(
+        diagnostic(
+          "SRIJIKA4107",
+          file.fileName,
+          anchor,
+          `The ${owner} hook must be the canonical ${expectedPrefix}.ts gateway at the owner root or a .ts helper in its ${architecture.hooksDirectory}/ directory starting with ${expectedPrefix}.`,
+          `Use ${expectedPrefix}.ts for the public owner gateway, or move and rename a private helper to ${architecture.hooksDirectory}/${expectedPrefix}<Behavior>.ts.`
+        )
+      );
+    }
+  }
+  const architectureFile = fileName.endsWith(architecture.uiSuffix) || fileName.endsWith(architecture.connectorSuffix) || fileName.endsWith(architecture.storeSuffix) || fileName.endsWith(architecture.logicSuffix) || fileName.endsWith(architecture.apiSuffix) || fileName.endsWith(architecture.typesSuffix);
+  if (architectureFile && !relative4.includes("/")) {
+    const expectedUi = `${pascalName(owner)}${architecture.uiSuffix}`;
+    const expectedConnector = `${pascalName(owner)}${architecture.connectorSuffix}`;
+    const expectedStore = `${camelName(owner)}${architecture.storeSuffix}`;
+    const expectedLogic = `${camelName(owner)}${architecture.logicSuffix}`;
+    const expectedApi = `${camelName(owner)}${architecture.apiSuffix}`;
+    const expectedTypes = `${camelName(owner)}${architecture.typesSuffix}`;
+    if (![
+      expectedUi,
+      expectedConnector,
+      expectedStore,
+      expectedLogic,
+      expectedApi,
+      expectedTypes
+    ].includes(fileName)) {
+      const destination = ownership.kind === "feature" ? `${architecture.slotsDirectory}/<slot>/` : `${architecture.partsDirectory}/<part>/`;
+      output.push(
+        diagnostic(
+          "SRIJIKA4108",
+          file.fileName,
+          anchor,
+          `${fileName} is an additional UI unit at the ${owner} ${ownership.kind} root.`,
+          `Keep only canonical owner files (${expectedUi}, ${expectedConnector}, ${expectedStore}, ${expectedLogic}, ${expectedApi}, and ${expectedTypes}) at this root. Move additional visual units into ${destination}.`
+        )
+      );
+    }
+  }
+  return output;
+}
+function spanForNode(sourceFile, node) {
+  const start = node.getStart(sourceFile);
+  const end = node.getEnd();
+  const { line, character } = sourceFile.getLineAndCharacterOfPosition(start);
+  return { start, end, line: line + 1, column: character + 1 };
+}
+function moduleSpecifierSpan(sourceFile, node) {
+  const start = node.getStart(sourceFile) + 1;
+  const end = Math.max(start, node.getEnd() - 1);
+  const { line, character } = sourceFile.getLineAndCharacterOfPosition(start);
+  return { start, end, line: line + 1, column: character + 1 };
+}
+function pathSegments(value) {
+  return normalizePath(value).split("/").filter(Boolean);
+}
+function classifySrijikaArchitecturePath(fileName, options = {}) {
+  const architecture = resolveSrijikaArchitectureConfig(options.architecture);
+  const normalized = normalizePath(fileName);
+  const segments = pathSegments(normalized);
+  const rootSegments = pathSegments(architecture.featuresRoot);
+  let rootIndex = -1;
+  for (let index = 0; index <= segments.length - rootSegments.length; index += 1) {
+    if (rootSegments.every((segment, offset) => segments[index + offset] === segment)) {
+      rootIndex = index;
+    }
+  }
+  if (rootIndex < 0) return { kind: "outside", fileName: normalized };
+  const featureIndex = rootIndex + rootSegments.length;
+  const feature = segments[featureIndex];
+  if (!feature) return { kind: "outside", fileName: normalized };
+  const relativeSegments = segments.slice(featureIndex + 1);
+  const relativeToFeature = relativeSegments.join("/");
+  const slotsIndex = relativeSegments.indexOf(architecture.slotsDirectory);
+  if (slotsIndex < 0 || !relativeSegments[slotsIndex + 1]) {
+    return { kind: "feature", fileName: normalized, feature, relativeToFeature };
+  }
+  const slot = relativeSegments[slotsIndex + 1];
+  const withinSlot = relativeSegments.slice(slotsIndex + 2);
+  const relativeToSlot = withinSlot.join("/");
+  const partsIndex = withinSlot.indexOf(architecture.partsDirectory);
+  if (partsIndex < 0 || !withinSlot[partsIndex + 1]) {
+    return {
+      kind: "slot",
+      fileName: normalized,
+      feature,
+      slot,
+      relativeToFeature,
+      relativeToSlot
+    };
+  }
+  const partCandidate = withinSlot[partsIndex + 1];
+  const part = sourceExtensions.some((extension) => partCandidate.endsWith(extension)) ? stripSourceExtension(partCandidate).split(".")[0] : partCandidate;
+  return {
+    kind: "part",
+    fileName: normalized,
+    feature,
+    slot,
+    part,
+    relativeToFeature,
+    relativeToSlot,
+    relativeToPart: withinSlot.slice(partsIndex + 2).join("/")
+  };
+}
+function collectImportReferences(sourceFile) {
+  const imports = [];
+  const visit = (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      imports.push({ specifier: node.moduleSpecifier.text, node: node.moduleSpecifier });
+    } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts.isStringLiteralLike(node.moduleReference.expression)) {
+      imports.push({
+        specifier: node.moduleReference.expression.text,
+        node: node.moduleReference.expression
+      });
+    } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || ts.isIdentifier(node.expression) && node.expression.text === "require")) {
+      const argument = node.arguments[0];
+      if (argument && ts.isStringLiteralLike(argument)) {
+        imports.push({ specifier: argument.text, node: argument });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return imports;
+}
+function inferProjectRoot(files, architecture, explicitRoot) {
+  if (explicitRoot) return normalizePath(explicitRoot).replace(/\/$/, "");
+  const marker = `/${architecture.featuresRoot}/`;
+  for (const file of files) {
+    const normalized = normalizePath(file.fileName);
+    const markerIndex = normalized.lastIndexOf(marker);
+    if (markerIndex >= 0) return normalized.slice(0, markerIndex);
+  }
+  return ".";
+}
+function createFileLookup(files) {
+  const lookup = /* @__PURE__ */ new Map();
+  for (const file of files) {
+    const normalized = normalizePath(file.fileName);
+    lookup.set(normalized, normalized);
+    lookup.set(stripSourceExtension(normalized), normalized);
+    const indexWithoutExtension = stripSourceExtension(normalized).replace(/\/index$/, "");
+    if (indexWithoutExtension !== stripSourceExtension(normalized)) {
+      lookup.set(indexWithoutExtension, normalized);
+    }
+  }
+  return lookup;
+}
+function resolveImportTarget(originFileName, specifier, fileLookup, projectRoot, aliases) {
+  let unresolved = null;
+  if (specifier.startsWith(".")) {
+    unresolved = normalizedJoin(posixDirname(normalizePath(originFileName)), specifier);
+  } else {
+    const alias = Object.entries(aliases).sort(([left], [right]) => right.length - left.length).find(([prefix]) => specifier.startsWith(prefix));
+    if (alias) {
+      const [prefix, targetRoot] = alias;
+      unresolved = normalizedJoin(projectRoot, targetRoot, specifier.slice(prefix.length));
+    } else if (specifier.startsWith("src/")) {
+      unresolved = normalizedJoin(projectRoot, specifier);
+    }
+  }
+  if (!unresolved) return null;
+  return fileLookup.get(unresolved) ?? fileLookup.get(stripSourceExtension(unresolved)) ?? unresolved;
+}
+function baseName(fileName) {
+  return posixBasename(fileName);
+}
+function isMainEntry(ownership, architecture) {
+  const file = baseName(ownership.fileName);
+  const relative4 = ownerRelativePath(ownership);
+  const owner = ownership.kind === "feature" ? ownership.feature : ownership.kind === "slot" ? ownership.slot : ownership.part;
+  if (!owner) return false;
+  if (file === "index.ts" || file === "index.tsx") return relative4 === file;
+  const base = file.endsWith(architecture.uiSuffix) ? file.slice(0, -architecture.uiSuffix.length) : file.endsWith(architecture.connectorSuffix) ? file.slice(0, -architecture.connectorSuffix.length) : null;
+  return base !== null && normalizedName(base) === normalizedName(owner);
+}
+function isSlotPrivateModule(ownership, architecture) {
+  return ownership.kind === "part" || ownership.kind === "slot" && !isMainEntry(ownership, architecture);
+}
+function forbiddenUiModule(targetFileName, architecture) {
+  const normalized = normalizePath(targetFileName);
+  const file = baseName(normalized);
+  if (/\.store(?:\.(?:ts|tsx))?$/.test(file)) return "store";
+  if (normalized.includes(`/${architecture.hooksDirectory}/`) || /^use[A-Z0-9].*\.(?:ts|tsx)$/.test(file)) {
+    return "hook";
+  }
+  if (/\.connector(?:\.tsx)?$/.test(file)) return "connector";
+  if (file.endsWith(architecture.logicSuffix)) return "logic";
+  if (file.endsWith(architecture.apiSuffix)) return "api";
+  return null;
+}
+function ownerKey(ownership) {
+  if (ownership.kind === "feature" && ownership.feature) return `feature:${ownership.feature}`;
+  if (ownership.kind === "slot" && ownership.feature && ownership.slot) {
+    return `slot:${ownership.feature}/${ownership.slot}`;
+  }
+  if (ownership.kind === "part" && ownership.feature && ownership.slot && ownership.part) {
+    return `part:${ownership.feature}/${ownership.slot}/${ownership.part}`;
+  }
+  return null;
+}
+function capabilityForOwnerFile(ownership, architecture) {
+  const owner = ownershipName(ownership);
+  const relative4 = ownerRelativePath(ownership);
+  if (!owner || relative4 === null || relative4.includes("/")) return null;
+  const file = baseName(ownership.fileName);
+  if (file === `${pascalName(owner)}${architecture.connectorSuffix}`) return "connector";
+  if (file === `use${pascalName(owner)}.ts`) return "hook";
+  if (file === `${camelName(owner)}${architecture.storeSuffix}`) return "store";
+  if (file === `${camelName(owner)}${architecture.logicSuffix}`) return "logic";
+  if (file === `${camelName(owner)}${architecture.apiSuffix}`) return "api";
+  if (file === `${camelName(owner)}${architecture.typesSuffix}`) return "types";
+  return null;
+}
+function isOwnerHelperHook(ownership, architecture) {
+  const owner = ownershipName(ownership);
+  const relative4 = ownerRelativePath(ownership);
+  if (!owner || relative4 === null) return false;
+  const segments = relative4.split("/");
+  return segments[0] === architecture.hooksDirectory && /^use[A-Z0-9].*\.ts$/.test(baseName(ownership.fileName));
+}
+function matchCount(source, expression) {
+  return [...source.matchAll(expression)].length;
+}
+function recommendationSignals(source) {
+  const endpointCalls = matchCount(
+    source,
+    /\b(?:fetch\s*\(|\w*Api\.\w+\s*\(|(?:api|client|http|axios)\w*(?:\.\w+)*\.(?:get|post|put|patch|delete|request|query|mutate)\s*\()/gi
+  );
+  const storeMembers = /* @__PURE__ */ new Set();
+  for (const match of source.matchAll(/\b(?:state|store)\.([A-Za-z_$][\w$]*)/g)) {
+    if (match[1]) storeMembers.add(match[1]);
+  }
+  for (const match of source.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) {
+    if (match[1]) storeMembers.add(match[1]);
+  }
+  const asyncHandlers = matchCount(source, /\basync\b/g);
+  const cacheBehavior = /\b(?:useQuery|useMutation|queryClient|invalidateQueries|cache|retry|setInterval|subscribe|subscription|poll(?:ing)?|pagination|pageInfo|mutation)\b/i.test(
+    source
+  );
+  return {
+    endpointCalls,
+    branchValidationTransform: /\b(?:if|switch|throw|validate|validation|transform|normalize)\b|\.(?:map|filter|reduce|flatMap)\s*\(/i.test(
+      source
+    ),
+    lifecycleCache: /\b(?:useEffect|useLayoutEffect|useSyncExternalStore)\s*\(/.test(source) || cacheBehavior,
+    asyncHandlers,
+    reactHooks: matchCount(source, /\buse[A-Z][\w$]*\s*(?:<[^;{}()]*>)?\s*\(/g),
+    localStateFields: matchCount(source, /\buseState\s*(?:<[^;{}()]*>)?\s*\(/g),
+    storeMembers: storeMembers.size,
+    storeAsyncCache: asyncHandlers > 0 || cacheBehavior
+  };
+}
+function highestAvailableJunior(from, available) {
+  return ["hook", "store", "logic", "api"].find(
+    (capability) => runtimeCapabilityRank[capability] > runtimeCapabilityRank[from] && available.has(capability)
+  ) ?? null;
+}
+function diagnostic(code, fileName, span, message, guidance, targetFileName, recommendation, severity = "error") {
+  const ruleIdByCode = {
+    SRIJIKA4101: "SRIJIKA-ARCH-UI-RUNTIME-IMPORT",
+    SRIJIKA4102: "SRIJIKA-ARCH-PRIVATE-IMPORT",
+    SRIJIKA4103: "SRIJIKA-ARCH-PRIVATE-IMPORT",
+    SRIJIKA4104: "SRIJIKA-ARCH-PRIVATE-IMPORT",
+    SRIJIKA4106: "SRIJIKA-ARCH-MISSING-UI",
+    SRIJIKA4109: "SRIJIKA-ARCH-MISSING-CONNECTOR",
+    SRIJIKA4201: "SRIJIKA-ARCH-LAYER-JUMP",
+    SRIJIKA4202: "SRIJIKA-ARCH-MAINTAINABILITY",
+    SRIJIKA4203: "SRIJIKA-ARCH-REVERSE-DEPENDENCY"
+  };
+  const ruleId = ruleIdByCode[code];
+  return {
+    code,
+    ...ruleId ? { ruleId } : {},
+    severity,
+    fileName,
+    span,
+    message,
+    guidance,
+    ...targetFileName ? { targetFileName } : {},
+    ...recommendation ? { recommendation } : {}
+  };
+}
+function validateUiHookCalls(file, sourceFile, importedHookNames) {
+  const diagnostics = [];
+  const visit = (node) => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && (node.expression.text === "use" || /^use[A-Z0-9]/.test(node.expression.text)) && !importedHookNames.has(node.expression.text)) {
+      diagnostics.push(
+        diagnostic(
+          "SRIJIKA4101",
+          file.fileName,
+          spanForNode(sourceFile, node.expression),
+          `Pure UI files cannot call the ${node.expression.text} hook.`,
+          "Move lifecycle, state, store access, and data wiring to the matching Connector, then pass authored values and events through typed props."
+        )
+      );
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return diagnostics;
+}
+function validateSrijikaArchitecture(files, options = {}) {
+  const architecture = resolveSrijikaArchitectureConfig(options.architecture);
+  const projectRoot = inferProjectRoot(files, architecture, options.projectRoot);
+  const aliases = {
+    "@/": "src/",
+    "@features/": architecture.featuresRoot,
+    ...options.aliases ?? {}
+  };
+  const fileLookup = createFileLookup(files);
+  const sourceByFile = new Map(
+    files.map((file) => [normalizePath(file.fileName), file.source])
+  );
+  const diagnostics = [];
+  const recommendations = [];
+  const recommendationKeys = /* @__PURE__ */ new Set();
+  const ownerCapabilities = /* @__PURE__ */ new Map();
+  const ownerCapabilityFiles = /* @__PURE__ */ new Map();
+  const fileCapabilities = /* @__PURE__ */ new Map();
+  const owners = /* @__PURE__ */ new Map();
+  const registerOwner = (key, ownership, file, anchorSpan, hasUi, hasConnector, requiresUi) => {
+    const current = owners.get(key);
+    if (current) {
+      current.hasUi ||= hasUi;
+      current.hasConnector ||= hasConnector;
+      if (!current.requiresUi && requiresUi) {
+        current.anchorFile = file;
+        current.anchorSpan = anchorSpan;
+      }
+      current.requiresUi ||= requiresUi;
+      return;
+    }
+    owners.set(key, {
+      ownership,
+      hasUi,
+      hasConnector,
+      requiresUi,
+      anchorFile: file,
+      anchorSpan
+    });
+  };
+  for (const file of files) {
+    const normalizedFileName = normalizePath(file.fileName);
+    const ownership = classifySrijikaArchitecturePath(normalizedFileName, {
+      ...options,
+      architecture
+    });
+    const key = ownerKey(ownership);
+    const capability = capabilityForOwnerFile(ownership, architecture);
+    if (!key || !capability) continue;
+    const current = ownerCapabilities.get(key) ?? /* @__PURE__ */ new Set();
+    current.add(capability);
+    ownerCapabilities.set(key, current);
+    const capabilityFiles = ownerCapabilityFiles.get(key) ?? /* @__PURE__ */ new Map();
+    capabilityFiles.set(capability, normalizedFileName);
+    ownerCapabilityFiles.set(key, capabilityFiles);
+    fileCapabilities.set(normalizedFileName, capability);
+  }
+  for (const file of files) {
+    const normalizedFileName = normalizePath(file.fileName);
+    const sourceFile = ts.createSourceFile(
+      normalizedFileName,
+      file.source,
+      ts.ScriptTarget.Latest,
+      true,
+      normalizedFileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    );
+    const origin = classifySrijikaArchitecturePath(normalizedFileName, {
+      ...options,
+      architecture
+    });
+    const isUi = normalizedFileName.endsWith(architecture.uiSuffix);
+    const importedHookNames = /* @__PURE__ */ new Set();
+    const anchorSpan = fileAnchor(sourceFile);
+    diagnostics.push(...structureDiagnosticsForFile(file, sourceFile, origin, architecture));
+    if (origin.feature) {
+      const featureOwnership = {
+        kind: "feature",
+        fileName: normalizedFileName,
+        feature: origin.feature,
+        relativeToFeature: origin.relativeToFeature ?? ""
+      };
+      registerOwner(
+        `feature:${origin.feature}`,
+        featureOwnership,
+        file,
+        anchorSpan,
+        origin.kind === "feature" && isOwnerUiEntry(origin, architecture),
+        origin.kind === "feature" && isOwnerConnectorEntry(origin, architecture),
+        true
+      );
+    }
+    if (origin.feature && origin.slot) {
+      const slotOwnership = {
+        kind: "slot",
+        fileName: normalizedFileName,
+        feature: origin.feature,
+        slot: origin.slot,
+        relativeToFeature: origin.relativeToFeature ?? "",
+        relativeToSlot: origin.relativeToSlot ?? ""
+      };
+      registerOwner(
+        `slot:${origin.feature}/${origin.slot}`,
+        slotOwnership,
+        file,
+        anchorSpan,
+        origin.kind === "slot" && isOwnerUiEntry(origin, architecture),
+        origin.kind === "slot" && isOwnerConnectorEntry(origin, architecture),
+        true
+      );
+    }
+    if (origin.feature && origin.slot && origin.part) {
+      registerOwner(
+        `part:${origin.feature}/${origin.slot}/${origin.part}`,
+        origin,
+        file,
+        anchorSpan,
+        origin.kind === "part" && isOwnerUiEntry(origin, architecture),
+        origin.kind === "part" && isOwnerConnectorEntry(origin, architecture),
+        true
+      );
+    }
+    if (isUi) {
+      for (const statement of sourceFile.statements) {
+        if (!ts.isImportDeclaration(statement) || !statement.importClause) continue;
+        const clause = statement.importClause;
+        if (clause.name && (clause.name.text === "use" || /^use[A-Z0-9]/.test(clause.name.text))) {
+          importedHookNames.add(clause.name.text);
+        }
+        if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) {
+          for (const element of clause.namedBindings.elements) {
+            const importedName = element.propertyName?.text ?? element.name.text;
+            if (importedName === "use" || /^use[A-Z0-9]/.test(importedName)) {
+              importedHookNames.add(element.name.text);
+              const modulePath = ts.isStringLiteralLike(statement.moduleSpecifier) ? statement.moduleSpecifier.text : "";
+              if (!forbiddenUiModule(modulePath, architecture)) {
+                diagnostics.push(
+                  diagnostic(
+                    "SRIJIKA4101",
+                    file.fileName,
+                    spanForNode(sourceFile, element.name),
+                    `Pure UI files cannot import the ${importedName} hook.`,
+                    "Call this hook in the matching Connector and pass its values or event callbacks into the UI through typed props."
+                  )
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+    for (const reference of collectImportReferences(sourceFile)) {
+      const targetFileName = resolveImportTarget(
+        normalizedFileName,
+        reference.specifier,
+        fileLookup,
+        projectRoot,
+        aliases
+      );
+      if (!targetFileName) continue;
+      const target = classifySrijikaArchitecturePath(targetFileName, {
+        ...options,
+        architecture
+      });
+      const span = moduleSpecifierSpan(sourceFile, reference.node);
+      const originKey = ownerKey(origin);
+      const targetKey = ownerKey(target);
+      const originCapability = fileCapabilities.get(normalizedFileName);
+      const targetCapability = fileCapabilities.get(normalizePath(targetFileName));
+      let expectedTarget = null;
+      if (originKey && originKey === targetKey && originCapability === "connector" && ownerCapabilities.get(originKey)?.has("hook") && isOwnerHelperHook(target, architecture)) {
+        const name = ownershipName(origin) ?? "owner";
+        const recommendation = {
+          id: "SRIJIKA-ARCH-RECOMMEND-HOOK",
+          kind: "required-fix",
+          owner: name,
+          ownerKind: origin.kind,
+          from: "connector",
+          currentTarget: "hook",
+          recommendedTarget: "hook",
+          message: `Connector must use the canonical use${pascalName(name)}.ts gateway instead of a private helper Hook.`,
+          suggestedFileName: `use${pascalName(name)}.ts`
+        };
+        recommendations.push(recommendation);
+        diagnostics.push(
+          diagnostic(
+            "SRIJIKA4201",
+            file.fileName,
+            span,
+            `The ${name} Connector bypasses its canonical Hook gateway to import the private helper ${reference.specifier}.`,
+            `Import use${pascalName(name)}.ts from the Connector. The gateway may compose private helpers from ${architecture.hooksDirectory}/ internally.`,
+            targetFileName,
+            recommendation
+          )
+        );
+      }
+      if (originKey && originKey === targetKey && originCapability && originCapability !== "types" && targetCapability && targetCapability !== "types" && runtimeCapabilityRank[targetCapability] > runtimeCapabilityRank[originCapability]) {
+        const expected = highestAvailableJunior(
+          originCapability,
+          ownerCapabilities.get(originKey) ?? /* @__PURE__ */ new Set()
+        );
+        expectedTarget = expected;
+        if (expected && targetCapability !== expected) {
+          const name = ownershipName(origin) ?? "owner";
+          const recommendation = {
+            id: expected === "hook" && targetCapability === "store" ? "SRIJIKA-ARCH-RECOMMEND-HOOK-ABOVE-STORE" : expected === "hook" ? "SRIJIKA-ARCH-RECOMMEND-HOOK" : expected === "store" ? "SRIJIKA-ARCH-RECOMMEND-STORE" : "SRIJIKA-ARCH-RECOMMEND-LOGIC",
+            kind: "required-fix",
+            owner: name,
+            ownerKind: origin.kind,
+            from: originCapability,
+            currentTarget: targetCapability,
+            recommendedTarget: expected,
+            message: `${originCapability} must call the highest available junior capability, ${expected}, instead of jumping to ${targetCapability}.`
+          };
+          recommendations.push(recommendation);
+          diagnostics.push(
+            diagnostic(
+              "SRIJIKA4201",
+              file.fileName,
+              span,
+              `The ${name} ${originCapability} jumps over the available ${expected} capability to import ${reference.specifier}.`,
+              `Route this behavior through ${expected}. The owner-local runtime chain is Connector \u2192 Hook \u2192 Store \u2192 Logic \u2192 API; only absent capabilities may be skipped. Types remain passive and may be imported directly.`,
+              targetFileName,
+              recommendation
+            )
+          );
+        }
+      }
+      if (originKey && originKey === targetKey && originCapability && originCapability !== "types" && targetCapability && targetCapability !== "types" && runtimeCapabilityRank[targetCapability] < runtimeCapabilityRank[originCapability]) {
+        diagnostics.push(
+          diagnostic(
+            "SRIJIKA4203",
+            file.fileName,
+            span,
+            `The ${ownershipName(origin) ?? "owner"} ${originCapability} has a reverse dependency on its senior ${targetCapability} capability.`,
+            `Dependencies move only downward through Connector \u2192 Hook \u2192 Store \u2192 Logic \u2192 API. Return values may flow upward at runtime, but junior source modules must not import senior source modules.`,
+            targetFileName
+          )
+        );
+      }
+      if (originKey && originKey === targetKey && (originCapability === "connector" || originCapability === "hook" || originCapability === "store") && targetCapability && targetCapability !== "types" && expectedTarget === targetCapability) {
+        const name = ownershipName(origin) ?? "owner";
+        const ownerKind = origin.kind;
+        const originSource = sourceByFile.get(normalizedFileName) ?? "";
+        const targetSource = sourceByFile.get(normalizePath(targetFileName)) ?? "";
+        const originSignals = recommendationSignals(originSource);
+        const storeSignals = recommendationSignals(`${originSource}
+${targetSource}`);
+        const capabilities = ownerCapabilities.get(originKey) ?? /* @__PURE__ */ new Set();
+        const candidateRecommendations = [];
+        if (targetCapability === "api" && !capabilities.has("logic") && (originSignals.endpointCalls >= 2 || originSignals.branchValidationTransform)) {
+          const endpointSignal = originSignals.endpointCalls >= 2;
+          candidateRecommendations.push({
+            id: "SRIJIKA-ARCH-RECOMMEND-LOGIC",
+            kind: "maintainability",
+            owner: name,
+            ownerKind,
+            from: originCapability,
+            currentTarget: "api",
+            recommendedTarget: "logic",
+            message: `The ${name} ${originCapability} is coordinating multiple API calls or business branching/validation/transformation; add Logic before API.`,
+            suggestedFileName: `${camelName(name)}${architecture.logicSuffix}`,
+            evidence: {
+              metric: endpointSignal ? "endpoint-calls" : "branch-validation-transform",
+              value: endpointSignal ? originSignals.endpointCalls : 1,
+              threshold: endpointSignal ? 2 : 1
+            }
+          });
+        }
+        if (originCapability === "connector" && !capabilities.has("hook") && (originSignals.lifecycleCache || originSignals.asyncHandlers >= 2 || originSignals.reactHooks >= 3 || targetCapability === "store" && (storeSignals.storeMembers >= 5 || storeSignals.storeAsyncCache))) {
+          const aboveStore = targetCapability === "store" && (storeSignals.storeMembers >= 5 || storeSignals.storeAsyncCache);
+          const evidence = aboveStore ? storeSignals.storeMembers >= 5 ? { metric: "store-members", value: storeSignals.storeMembers, threshold: 5 } : { metric: "store-async-cache", value: 1, threshold: 1 } : originSignals.lifecycleCache ? { metric: "lifecycle-cache", value: 1, threshold: 1 } : originSignals.asyncHandlers >= 2 ? {
+            metric: "async-handlers",
+            value: originSignals.asyncHandlers,
+            threshold: 2
+          } : {
+            metric: "react-hooks",
+            value: originSignals.reactHooks,
+            threshold: 3
+          };
+          candidateRecommendations.push({
+            id: aboveStore ? "SRIJIKA-ARCH-RECOMMEND-HOOK-ABOVE-STORE" : "SRIJIKA-ARCH-RECOMMEND-HOOK",
+            kind: "maintainability",
+            owner: name,
+            ownerKind,
+            from: "connector",
+            currentTarget: targetCapability,
+            recommendedTarget: "hook",
+            message: `The ${name} Connector is coordinating lifecycle/cache/async React behavior${aboveStore ? " or a complex Store surface" : ""}; add the canonical owner Hook as its single runtime gateway.`,
+            suggestedFileName: `use${pascalName(name)}.ts`,
+            evidence
+          });
+        }
+        if ((originCapability === "connector" || originCapability === "hook") && !capabilities.has("store") && originSignals.localStateFields >= 4) {
+          candidateRecommendations.push({
+            id: "SRIJIKA-ARCH-RECOMMEND-STORE",
+            kind: "maintainability",
+            owner: name,
+            ownerKind,
+            from: originCapability,
+            currentTarget: targetCapability,
+            recommendedTarget: "store",
+            message: `The ${name} ${originCapability} owns ${originSignals.localStateFields} local state fields; add Store to give shared client state an explicit owner boundary.`,
+            suggestedFileName: `${camelName(name)}${architecture.storeSuffix}`,
+            evidence: {
+              metric: "local-state-fields",
+              value: originSignals.localStateFields,
+              threshold: 4
+            }
+          });
+        }
+        for (const recommendation of candidateRecommendations) {
+          const recommendationKey = `${originKey}:${recommendation.id}`;
+          if (recommendationKeys.has(recommendationKey)) continue;
+          recommendationKeys.add(recommendationKey);
+          recommendations.push(recommendation);
+          diagnostics.push(
+            diagnostic(
+              "SRIJIKA4202",
+              file.fileName,
+              span,
+              recommendation.message,
+              `Recommendation is evidence-based and non-blocking. Add ${recommendation.recommendedTarget} at the canonical ${name} owner boundary, then follow Connector \u2192 Hook \u2192 Store \u2192 Logic \u2192 API while skipping only absent capabilities. No source rewrite was applied.`,
+              targetFileName,
+              recommendation,
+              "warning"
+            )
+          );
+        }
+      }
+      if (isUi) {
+        const forbidden = forbiddenUiModule(targetFileName, architecture);
+        if (forbidden) {
+          diagnostics.push(
+            diagnostic(
+              "SRIJIKA4101",
+              file.fileName,
+              span,
+              `Pure UI files cannot import a ${forbidden}: ${reference.specifier}.`,
+              `Move this ${forbidden} dependency to the matching Connector and pass the result into the UI through typed props.`,
+              targetFileName
+            )
+          );
+        }
+      }
+      if (target.kind === "outside") continue;
+      const sameFeature = origin.feature !== void 0 && origin.feature === target.feature;
+      const publicFeatureEntry = target.kind === "feature" && isMainEntry(target, architecture);
+      if (!sameFeature && !publicFeatureEntry) {
+        diagnostics.push(
+          diagnostic(
+            "SRIJIKA4102",
+            file.fileName,
+            span,
+            `The ${target.feature ?? "target"} feature keeps ${reference.specifier} private.`,
+            `Import the feature's public UI/Connector entry instead. If both features own this behavior or state, promote it to the nearest shared domain rather than crossing a private feature boundary.`,
+            targetFileName
+          )
+        );
+        continue;
+      }
+      if (sameFeature && isSlotPrivateModule(target, architecture)) {
+        const sameSlot = origin.slot !== void 0 && origin.slot === target.slot;
+        if (!sameSlot) {
+          diagnostics.push(
+            diagnostic(
+              "SRIJIKA4103",
+              file.fileName,
+              span,
+              `The ${target.slot ?? "target"} slot keeps ${reference.specifier} inside its own subtree.`,
+              `Do not import slot stores, hooks, parts, or private modules from a parent or sibling slot. If multiple Home areas need it, promote it to the ${target.feature ?? "feature"} feature scope.`,
+              targetFileName
+            )
+          );
+          continue;
+        }
+      }
+      if (sameFeature && target.kind === "slot" && isMainEntry(target, architecture) && origin.slot !== void 0 && origin.slot !== target.slot) {
+        diagnostics.push(
+          diagnostic(
+            "SRIJIKA4103",
+            file.fileName,
+            span,
+            `The ${target.slot ?? "target"} slot public entry cannot be composed by the ${origin.slot} sibling slot.`,
+            `Compose ${target.slot ?? "this slot"} from the owning ${target.feature ?? "feature"} Connector. Sibling slots may share only modules promoted to their feature owner.`,
+            targetFileName
+          )
+        );
+        continue;
+      }
+      if (sameFeature && origin.slot === target.slot && target.kind === "part" && origin.part !== target.part) {
+        const targetIsPublicEntry = isMainEntry(target, architecture);
+        const originIsOwningSlot = origin.kind === "slot";
+        if (originIsOwningSlot && targetIsPublicEntry) continue;
+        const importingSibling = origin.kind === "part";
+        diagnostics.push(
+          diagnostic(
+            "SRIJIKA4104",
+            file.fileName,
+            span,
+            targetIsPublicEntry && importingSibling ? `The ${origin.part ?? "current"} sibling part cannot import the ${target.part ?? "target"} part public entry ${reference.specifier}.` : `The ${target.part ?? "target"} part keeps ${reference.specifier} private to its own subtree.`,
+            targetIsPublicEntry && importingSibling ? `Compose the ${target.part ?? "target"} public UI/Connector from the owning ${target.slot ?? "slot"} slot. Promote shared sibling behavior to that slot scope.` : `The owning ${target.slot ?? "slot"} slot may compose only this part's public UI/Connector. Keep part stores, hooks, and private files inside ${target.part ?? "the part"}; promote genuinely shared behavior to the slot scope.`,
+            targetFileName
+          )
+        );
+      }
+    }
+    if (isUi) diagnostics.push(...validateUiHookCalls(file, sourceFile, importedHookNames));
+  }
+  for (const [key, capabilityFiles] of ownerCapabilityFiles) {
+    const owner = owners.get(key);
+    if (!owner) continue;
+    const name = ownershipName(owner.ownership);
+    if (!name) continue;
+    const ownerKind = owner.ownership.kind;
+    const connectorFileName = capabilityFiles.get("connector");
+    const hookFileName = capabilityFiles.get("hook");
+    const storeFileName = capabilityFiles.get("store");
+    const apiFileName = capabilityFiles.get("api");
+    const gatewayFileName = hookFileName ?? connectorFileName;
+    const gatewayCapability = hookFileName ? "hook" : "connector";
+    const gatewaySource = gatewayFileName ? sourceByFile.get(gatewayFileName) ?? "" : "";
+    const connectorSource = connectorFileName ? sourceByFile.get(connectorFileName) ?? "" : "";
+    const storeSource = storeFileName ? sourceByFile.get(storeFileName) ?? "" : "";
+    const gatewaySignals = recommendationSignals(gatewaySource);
+    const connectorSignals = recommendationSignals(connectorSource);
+    const storeSignals = recommendationSignals(storeSource);
+    const emitRecommendation = (recommendation, fileName) => {
+      const recommendationKey = `${key}:${recommendation.id}`;
+      if (recommendationKeys.has(recommendationKey)) return;
+      recommendationKeys.add(recommendationKey);
+      recommendations.push(recommendation);
+      const sourceFile = ts.createSourceFile(
+        fileName,
+        sourceByFile.get(fileName) ?? "",
+        ts.ScriptTarget.Latest,
+        true,
+        fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+      );
+      diagnostics.push(
+        diagnostic(
+          "SRIJIKA4202",
+          fileName,
+          fileAnchor(sourceFile),
+          recommendation.message,
+          `Recommendation is evidence-based and non-blocking. Add ${recommendation.recommendedTarget} at the canonical ${name} owner boundary, then follow Connector \u2192 Hook \u2192 Store \u2192 Logic \u2192 API while skipping only absent capabilities. No source rewrite was applied.`,
+          void 0,
+          recommendation,
+          "warning"
+        )
+      );
+    };
+    if (gatewayFileName && !capabilityFiles.has("logic") && (gatewaySignals.endpointCalls >= 2 || apiFileName !== void 0 && gatewaySignals.branchValidationTransform)) {
+      const endpointSignal = gatewaySignals.endpointCalls >= 2;
+      emitRecommendation(
+        {
+          id: "SRIJIKA-ARCH-RECOMMEND-LOGIC",
+          kind: "maintainability",
+          owner: name,
+          ownerKind,
+          from: gatewayCapability,
+          currentTarget: apiFileName ? "api" : gatewayCapability,
+          recommendedTarget: "logic",
+          message: `The ${name} ${gatewayCapability} is coordinating multiple API calls or business branching/validation/transformation; add Logic before API.`,
+          suggestedFileName: `${camelName(name)}${architecture.logicSuffix}`,
+          evidence: {
+            metric: endpointSignal ? "endpoint-calls" : "branch-validation-transform",
+            value: endpointSignal ? gatewaySignals.endpointCalls : 1,
+            threshold: endpointSignal ? 2 : 1
+          }
+        },
+        gatewayFileName
+      );
+    }
+    const storeNeedsHook = storeFileName !== void 0 && (storeSignals.storeMembers >= 5 || storeSignals.storeAsyncCache);
+    if (connectorFileName && !hookFileName && (connectorSignals.lifecycleCache || connectorSignals.asyncHandlers >= 2 || connectorSignals.reactHooks >= 3 || storeNeedsHook)) {
+      const evidence = storeNeedsHook ? storeSignals.storeMembers >= 5 ? { metric: "store-members", value: storeSignals.storeMembers, threshold: 5 } : { metric: "store-async-cache", value: 1, threshold: 1 } : connectorSignals.lifecycleCache ? { metric: "lifecycle-cache", value: 1, threshold: 1 } : connectorSignals.asyncHandlers >= 2 ? {
+        metric: "async-handlers",
+        value: connectorSignals.asyncHandlers,
+        threshold: 2
+      } : {
+        metric: "react-hooks",
+        value: connectorSignals.reactHooks,
+        threshold: 3
+      };
+      emitRecommendation(
+        {
+          id: storeNeedsHook ? "SRIJIKA-ARCH-RECOMMEND-HOOK-ABOVE-STORE" : "SRIJIKA-ARCH-RECOMMEND-HOOK",
+          kind: "maintainability",
+          owner: name,
+          ownerKind,
+          from: "connector",
+          currentTarget: storeFileName ? "store" : "connector",
+          recommendedTarget: "hook",
+          message: `The ${name} Connector is coordinating lifecycle/cache/async React behavior${storeNeedsHook ? " or a complex Store surface" : ""}; add the canonical owner Hook as its single runtime gateway.`,
+          suggestedFileName: `use${pascalName(name)}.ts`,
+          evidence
+        },
+        connectorFileName
+      );
+    }
+    if (gatewayFileName && !storeFileName && gatewaySignals.localStateFields >= 4) {
+      emitRecommendation(
+        {
+          id: "SRIJIKA-ARCH-RECOMMEND-STORE",
+          kind: "maintainability",
+          owner: name,
+          ownerKind,
+          from: gatewayCapability,
+          currentTarget: apiFileName ? "api" : gatewayCapability,
+          recommendedTarget: "store",
+          message: `The ${name} ${gatewayCapability} owns ${gatewaySignals.localStateFields} local state fields; add Store to give shared client state an explicit owner boundary.`,
+          suggestedFileName: `${camelName(name)}${architecture.storeSuffix}`,
+          evidence: {
+            metric: "local-state-fields",
+            value: gatewaySignals.localStateFields,
+            threshold: 4
+          }
+        },
+        gatewayFileName
+      );
+    }
+  }
+  for (const owner of owners.values()) {
+    if (!owner.requiresUi) continue;
+    const name = ownershipName(owner.ownership);
+    if (!name) continue;
+    if (!owner.hasUi) {
+      const expected = `${pascalName(name)}${architecture.uiSuffix}`;
+      diagnostics.push(
+        diagnostic(
+          "SRIJIKA4106",
+          owner.anchorFile.fileName,
+          owner.anchorSpan,
+          `The ${name} ${owner.ownership.kind} has private companions but no mandatory ${expected}.`,
+          `Create ${expected} at the ${owner.ownership.kind} root. UI and its matching Connector are required owner entries; Store, Hook, Logic, API, Types, Slots, and Parts are optional capabilities.`
+        )
+      );
+    }
+    if (!owner.hasConnector) {
+      const expected = `${pascalName(name)}${architecture.connectorSuffix}`;
+      diagnostics.push(
+        diagnostic(
+          "SRIJIKA4109",
+          owner.anchorFile.fileName,
+          owner.anchorSpan,
+          `The ${name} ${owner.ownership.kind} has no mandatory matching ${expected}.`,
+          `Create ${expected} at the ${owner.ownership.kind} root. The Connector is the UI's required and only runtime gateway into Hook \u2192 Store \u2192 Logic \u2192 API.`
+        )
+      );
+    }
+  }
+  diagnostics.sort(
+    (left, right) => normalizePath(left.fileName).localeCompare(normalizePath(right.fileName)) || left.span.start - right.span.start || left.code.localeCompare(right.code)
+  );
+  return { diagnostics, recommendations };
+}
+
+// ../developer-engine/src/project.ts
+import { access, readFile as readFile2 } from "node:fs/promises";
+import { dirname, join as join2, parse as parse3, resolve as resolve2 } from "node:path";
+var MAX_METADATA_BYTES = 1024 * 1024;
+var LOCKFILES = Object.freeze([
+  { fileName: "pnpm-lock.yaml", manager: "pnpm" },
+  { fileName: "bun.lock", manager: "bun" },
+  { fileName: "bun.lockb", manager: "bun" },
+  { fileName: "yarn.lock", manager: "yarn" },
+  { fileName: "package-lock.json", manager: "npm" }
+]);
+async function pathExists(path) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function readBoundedText(path) {
+  const source = await readFile2(path, "utf8");
+  if (Buffer.byteLength(source, "utf8") > MAX_METADATA_BYTES) {
+    throw new Error(`${path} exceeds the 1 MiB metadata limit.`);
+  }
+  return source;
+}
+function recordValue(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function stringMap(value) {
+  const record2 = recordValue(value);
+  if (!record2) return {};
+  return Object.fromEntries(
+    Object.entries(record2).filter(
+      (entry) => typeof entry[1] === "string"
+    )
+  );
+}
+function packageManagerFromField(value) {
+  if (typeof value !== "string") return { manager: null };
+  const match = /^(pnpm|npm|yarn|bun)(?:@(.+))?$/.exec(value.trim());
+  if (!match?.[1]) return { manager: null };
+  const manager = match[1];
+  return match[2] ? { manager, version: match[2] } : { manager };
+}
+function architectureFromConfig(source) {
+  const parsed = JSON.parse(source);
+  const root = recordValue(parsed);
+  const architecture = recordValue(root?.["architecture"]);
+  if (!architecture || architecture["profile"] !== "feature-slot-part-v1") return void 0;
+  const result = { profile: "feature-slot-part-v1" };
+  for (const key of [
+    "featuresRoot",
+    "slotsDirectory",
+    "partsDirectory",
+    "hooksDirectory",
+    "uiSuffix",
+    "connectorSuffix",
+    "storeSuffix",
+    "logicSuffix",
+    "apiSuffix",
+    "typesSuffix"
+  ]) {
+    const value = architecture[key];
+    if (typeof value === "string" && value.length > 0) result[key] = value;
+  }
+  return result;
+}
+async function findSrijikaProjectRoot(startDirectory = process.cwd()) {
+  let candidate = resolve2(startDirectory);
+  for (; ; ) {
+    if (await pathExists(join2(candidate, "srijika.config.json")) && await pathExists(join2(candidate, "package.json"))) {
+      return candidate;
+    }
+    const parent = dirname(candidate);
+    if (parent === candidate || candidate === parse3(candidate).root) break;
+    candidate = parent;
+  }
+  throw new Error(`No Srijika project was found from ${resolve2(startDirectory)}.`);
+}
+async function inspectSrijikaProject(projectRoot) {
+  const root = await findSrijikaProjectRoot(projectRoot);
+  const packageJsonPath = join2(root, "package.json");
+  const configPath = join2(root, "srijika.config.json");
+  const packageJson = JSON.parse(await readBoundedText(packageJsonPath));
+  const configSource = await readBoundedText(configPath);
+  const declared = packageManagerFromField(packageJson.packageManager);
+  const detectedLockfiles = [];
+  for (const candidate of LOCKFILES) {
+    if (await pathExists(join2(root, candidate.fileName))) detectedLockfiles.push(candidate);
+  }
+  const lockfileMatch = detectedLockfiles.find((entry) => entry.manager === declared.manager);
+  const selectedLockfile = lockfileMatch ?? detectedLockfiles[0];
+  const packageManager = declared.manager ?? selectedLockfile?.manager ?? "npm";
+  const warnings = [];
+  if (!selectedLockfile)
+    warnings.push("No supported lockfile was found; installs are not reproducible.");
+  if (declared.manager && selectedLockfile && declared.manager !== selectedLockfile.manager) {
+    warnings.push(
+      `packageManager selects ${declared.manager}, but ${selectedLockfile.fileName} belongs to ${selectedLockfile.manager}.`
+    );
+  }
+  const scripts = stringMap(packageJson.scripts);
+  const dependencies = {
+    ...stringMap(packageJson.dependencies),
+    ...stringMap(packageJson.devDependencies)
+  };
+  const srijika = recordValue(packageJson.srijika);
+  if (srijika?.["sourceOfTruth"] !== "tsx") {
+    warnings.push("package.json does not declare srijika.sourceOfTruth as tsx.");
+  }
+  const architecture = architectureFromConfig(configSource);
+  return Object.freeze({
+    root,
+    packageJsonPath,
+    configPath,
+    projectName: typeof packageJson.name === "string" && packageJson.name.length > 0 ? packageJson.name : root.split(/[\\/]/).at(-1) ?? "srijika-project",
+    packageManager,
+    ...declared.version ? { packageManagerVersion: declared.version } : {},
+    lockfile: selectedLockfile?.fileName ?? null,
+    scripts: Object.freeze(scripts),
+    ...architecture ? { architecture } : {},
+    viteProject: typeof dependencies["vite"] === "string" || /^vite(?:\s|$)/.test(scripts["dev"] ?? ""),
+    warnings: Object.freeze(warnings)
+  });
+}
+
+// ../developer-engine/src/architecture.ts
+var SOURCE_PATTERN = /\.(?:ts|tsx|mts|cts)$/;
+var MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+var MAX_SOURCE_FILES = 4096;
+var SrijikaArchitectureIndex = class {
+  #cache = /* @__PURE__ */ new Map();
+  async check(projectRoot) {
+    const startedAt = performance.now();
+    const project = await inspectSrijikaProject(projectRoot);
+    const architecture = resolveSrijikaArchitectureConfig(project.architecture);
+    const sourceRoot = resolve3(project.root, architecture.featuresRoot);
+    const absoluteFiles = [];
+    const visit = async (folder) => {
+      const entries = await readdir(folder, { withFileTypes: true });
+      entries.sort((left, right) => left.name.localeCompare(right.name));
+      for (const entry of entries) {
+        const path = join3(folder, entry.name);
+        if (entry.isDirectory()) await visit(path);
+        else if (entry.isFile() && SOURCE_PATTERN.test(entry.name)) absoluteFiles.push(path);
+        if (absoluteFiles.length > MAX_SOURCE_FILES) {
+          throw new Error(`Architecture scan exceeds the ${MAX_SOURCE_FILES}-file safety limit.`);
+        }
+      }
+    };
+    await visit(sourceRoot);
+    const currentFiles = new Set(absoluteFiles);
+    for (const cachedPath of this.#cache.keys()) {
+      if (!currentFiles.has(cachedPath)) this.#cache.delete(cachedPath);
+    }
+    let reusedFiles = 0;
+    const files = [];
+    for (const path of absoluteFiles) {
+      const metadata = await stat2(path);
+      if (metadata.size > MAX_SOURCE_BYTES) {
+        throw new Error(`${relative(project.root, path)} exceeds the 4 MiB source limit.`);
+      }
+      const cached2 = this.#cache.get(path);
+      let source;
+      if (cached2 && cached2.size === metadata.size && cached2.modified === metadata.mtimeMs) {
+        source = cached2.source;
+        reusedFiles += 1;
+      } else {
+        source = await readFile3(path, "utf8");
+        this.#cache.set(path, { size: metadata.size, modified: metadata.mtimeMs, source });
+      }
+      files.push({ fileName: path, source });
+    }
+    const result = validateSrijikaArchitecture(files, {
+      projectRoot: project.root,
+      ...project.architecture ? { architecture: project.architecture } : {}
+    });
+    return Object.freeze({
+      root: project.root,
+      checkedFiles: files.length,
+      reusedFiles,
+      durationMillis: Math.max(0, Math.round((performance.now() - startedAt) * 10) / 10),
+      diagnostics: result.diagnostics,
+      recommendations: result.recommendations
+    });
+  }
+};
+async function checkSrijikaArchitecture(projectRoot) {
+  return new SrijikaArchitectureIndex().check(projectRoot);
+}
+
+// ../developer-engine/src/runtime.ts
+var WINDOWS = process.platform === "win32";
+
+// ../developer-engine/src/structure.ts
+import { readdir as readdir2, readFile as readFile5 } from "node:fs/promises";
+import { isAbsolute as isAbsolute2, relative as relative3, resolve as resolve5 } from "node:path";
+
+// ../project-scaffold/src/generated-pnpm-lockfile.ts
+var GENERATED_PNPM_LOCKFILE = String.raw`lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@tanstack/react-query':
+        specifier: 5.101.4
+        version: 5.101.4(react@19.2.8)
+      react:
+        specifier: 19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
+      zustand:
+        specifier: 5.0.14
+        version: 5.0.14(@types/react@19.2.18)(react@19.2.8)
+    devDependencies:
+      '@babel/core':
+        specifier: 8.0.1
+        version: 8.0.1
+      '@rolldown/plugin-babel':
+        specifier: 0.2.3
+        version: 0.2.3(@babel/core@8.0.1)(rolldown@1.2.3)(vite@8.2.0)
+      '@types/babel__core':
+        specifier: 7.20.5
+        version: 7.20.5
+      '@types/react':
+        specifier: 19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 19.2.4
+        version: 19.2.4(@types/react@19.2.18)
+      '@vitejs/plugin-react':
+        specifier: 6.0.5
+        version: 6.0.5(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(rolldown@1.2.3)(vite@8.2.0))(babel-plugin-react-compiler@1.0.0)(vite@8.2.0)
+      babel-plugin-react-compiler:
+        specifier: 1.0.0
+        version: 1.0.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 8.2.0
+        version: 8.2.0
+
+packages:
+
+  '@tanstack/query-core@5.101.4':
+    resolution: {integrity: sha512-gNwcvOJcRbLWPOLG/2OBm+zM+Yv+MKsXKEOWC57USuZDEsI71hEErQsiEGx5wX9rzWWkfwM0fVSPoiIFSsxfiw==}
+
+  '@tanstack/react-query@5.101.4':
+    resolution: {integrity: sha512-yRg2pfOCxIs4ZJW3XYYHU/WgtD04FHSnfHlpRT7h7pR77hwkdRG4wxbKe4aq6P0RvXUTBSQpQeadS1SUYUe+KA==}
+    peerDependencies:
+      react: ^18 || ^19
+
+  '@babel/code-frame@8.0.0':
+    resolution: {integrity: sha512-dYYg153EyN2Ekbqw2zAsbd6/JR+9N2SEoC7YV2GyyqMM7x9bLDTjBD6XBhSMLH0wtIVyJj03jWNriQhaN+eoCw==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/compat-data@8.0.0':
+    resolution: {integrity: sha512-DOjnob/cXOUgDOozCDeq/aK2p5y8dUIVdf6tNhEV1HQRd6I8aQ4f4fbtHRVEvb6lP3BGomrKHiS8ICAASSVQSw==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/core@8.0.1':
+    resolution: {integrity: sha512-5FgxM4dLQpMJHSiVATk8foW263dVHQHBVpXYiimNECVWG01f4nFyEbQixeT6Mwvg7TayREJ2gpKl3o2RoMdnqw==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/generator@8.0.0':
+    resolution: {integrity: sha512-NT9NrVwJsbSV6Y2FSstWa71EETOnzrjkL5/wX3D2mYHtKM+qvqB1DvR4D0Setb/gDBsHzRICifwEWMO8CnTF6g==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helper-compilation-targets@8.0.0':
+    resolution: {integrity: sha512-JwculLABZvyPvyLBpwU/E/IbH2uM3mnxNtIJpxnIfb24y1PrdVxK5Dqjle4DpgqpGRnwgC7G8IkzPdSXZrO1Ew==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helper-globals@8.0.0':
+    resolution: {integrity: sha512-lLozHOM6sWWlxNo8CYqHy4MBZeTvHXNgVPBfPOGsjPKUzHC2Az9QwB6gxdQmpwHl6GlQtbGgS+lj5887guDiLw==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helper-string-parser@7.29.7':
+    resolution: {integrity: sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/helper-string-parser@8.0.0':
+    resolution: {integrity: sha512-6mJgmFFFIIO82vvoLt9XtRC7/TkzXfts1t/SpRX4IHSzMgqoPYCWesVu1udUPUWioAE/2fcG6WuI8zrkE1gwrg==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helper-validator-identifier@7.29.7':
+    resolution: {integrity: sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/helper-validator-identifier@8.0.4':
+    resolution: {integrity: sha512-4wFaiLd0bVo4cIoTXI3zKI038NIWE/cr3jvBjejOVYVxV/m8Ltav1USiGzG1fmS5J2RhgEOgXNNK46cRPnRsrg==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helper-validator-option@8.0.0':
+    resolution: {integrity: sha512-U4Dybxh4WESWHt5XhBeExi4DrY0/DNK1aHpQbsrQXCUbFHuMweT0TpLEWKvaraV2Y6fS+ZXunsZ8zIuZIgvF2Q==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/helpers@8.0.0':
+    resolution: {integrity: sha512-wfbi91pM3py96oIiJEz7qIpyXDytgr9zQC1HEWwlGNVRAEmItuU/0a41ZUKu1sJGyhhOIpc4t5vk4PYzt8wpsg==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/parser@7.29.8':
+    resolution: {integrity: sha512-E8lTAYNB1KW+FH+VGJuZM1ioAx2E6oVlvQFRrf5P8ZZmsiJXYAD9vTFV7yyEURNzgh1dFqMZuO6tUwcARbqFCA==}
+    engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  '@babel/parser@8.0.4':
+    resolution: {integrity: sha512-srpptsAkEbbNIC/q8nT7o+m6CQe8CJUTV/t7MYc9NnWlgYVtHOb7JH6SorxMhN0kuRJjVqXbKClG6xSbPtzz+g==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+    hasBin: true
+
+  '@babel/template@8.0.0':
+    resolution: {integrity: sha512-eAD0QW/AlbamBbw0FeGiwasbCVPq5ncW0HNVyLP3B9czqLyh4gvw+5JTSNt6le9+ziAU7mqDZsKTHf3jTb4chQ==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/traverse@8.0.4':
+    resolution: {integrity: sha512-bZnmqzGG8UZneG1lLxBoWIH0G6Gr1D846Yu4/3XnY6FhCndMR49u26nTY08u/dAxWmLWF9vGQOuC+84FfIUoeg==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@babel/types@7.29.8':
+    resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/types@8.0.4':
+    resolution: {integrity: sha512-eY+Yn3dCqTGmyiq2QRU66lA5FL8lqqqvecHt0fF3uHONIa7ToYsaCiWV8lOKqAs0Rb2SjixiKFROngnulPtt2g==}
+    engines: {node: ^22.18.0 || >=24.11.0}
+
+  '@jridgewell/gen-mapping@0.3.13':
+    resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
+
+  '@jridgewell/resolve-uri@3.1.2':
+    resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
+    engines: {node: '>=6.0.0'}
+
+  '@jridgewell/sourcemap-codec@1.5.5':
+    resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@jridgewell/trace-mapping@0.3.31':
+    resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@oxc-project/types@0.143.0':
+    resolution: {integrity: sha512-u6JZdLBTLotrNC9Vd6vPssINdzcCzleKAH6EJKImQb7GtYvX5keN2dxkoK44stCc4tffE6QQRtZTXVSzsLUlWA==}
+
+  '@rolldown/binding-android-arm64@1.2.3':
+    resolution: {integrity: sha512-zrJtHDcaZJ1Fp7xf4hNl+7seH9Cn/N5TwLYkhgXREtBwAd/jaqW3uqeHxpDugJLVICWg4eW44kOQEGJ1r6jCGw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [android]
+
+  '@rolldown/binding-darwin-arm64@1.2.3':
+    resolution: {integrity: sha512-ieIiibVCp0tX7TLu2cafoNPv8wJyYi01ekXpbf8q2j7F4rGAhhXb/eQh7ge9DRBY78GwmRQtvjZDux7EDbA8kA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@rolldown/binding-darwin-x64@1.2.3':
+    resolution: {integrity: sha512-Zh9tCon19eDXJoihx0rqKhMUlMYqzwj3aPsSuHmI4RWZh62dWUL+DJN4C5YQya5TcQBJU/Fe8+rY0jhXTQITqA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [darwin]
+
+  '@rolldown/binding-freebsd-x64@1.2.3':
+    resolution: {integrity: sha512-nGbJWewA1wrXXZiQhjAT5rhibGfns5ZNkDVqxsO6zJ3f3YvpoDNNmGMSbbhLuXKjNScaBJVOAboztAWVespQMg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@rolldown/binding-linux-arm-gnueabihf@1.2.3':
+    resolution: {integrity: sha512-QNniJr5Kml0kDEB98jiDOJjXNroxIIi0IXIbdYzY26Xt1pVbeP62+KnoIZLwirOymX/0jDk/2gI/bNUv7A7OIw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm]
+    os: [linux]
+
+  '@rolldown/binding-linux-arm64-gnu@1.2.3':
+    resolution: {integrity: sha512-TkqEAcmmvH3I/q4114NB4RVt6241Dao48pF45uLcFGrwAaIn0iITgTAKP/dLjbN0R4buJjGb91+UHSoFmpgIWw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-arm64-musl@1.2.3':
+    resolution: {integrity: sha512-NHqjnxpsndf4MPymxteFAWHHfkTL8HjWh1KB7z23ofZ6QO2euONuxDXjat69dKZRALnGypg8k8SsK8vZJoXv1Q==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@rolldown/binding-linux-ppc64-gnu@1.2.3':
+    resolution: {integrity: sha512-6tbrbwfz5GB9DQ4Jwo6hy9v+vR31xZlvzZ6n5Xut6Hhx5PvrA9q/HsK8KMaYQp063iqZGXwNvZtYNLD7EM/x0w==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [ppc64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-s390x-gnu@1.2.3':
+    resolution: {integrity: sha512-oyuXxXmoZHjXC917IAPFAAv4wWAa0cM9afk8nx1+9/jNNOX1uPf8yDA6p7G0RypOfw/X0PQt5IfoquY1um+zSg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [s390x]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-x64-gnu@1.2.3':
+    resolution: {integrity: sha512-TytMwF2KVGqP2tgd0I1OY0PAv78dZRAYcF5ssDzjM34SUXCED3uXvSd5+lHoC0bTD6eEdFz7LdQNCO1y0oVk9w==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@rolldown/binding-linux-x64-musl@1.2.3':
+    resolution: {integrity: sha512-/E9m3qstrJFVPoULV25mVQblSNExY2+kBsYe4sy0Tn0yOOgJ8wZbZt3KnRbF/XeU2Gl1STKUQnDNTqhIE5MD4A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@rolldown/binding-openharmony-arm64@1.2.3':
+    resolution: {integrity: sha512-Kr0OcsoQI816i6HOl3vFHpd1K0eZyh76zgfj4c1nTyaTsd5r2Mj1lwM4R90y/qaCfmTn9eHy0SKwi98eitRxug==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [openharmony]
+
+  '@rolldown/binding-win32-arm64-msvc@1.2.3':
+    resolution: {integrity: sha512-hOtMwTqnME+/gJcH/PCZ0wn0zPUjiWOgkHpxbSJpfGKMezHltx1S7/k1SitzVa7Ww2cqrDDaFbZEhcJZO8o+Jw==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [arm64]
+    os: [win32]
+
+  '@rolldown/binding-win32-x64-msvc@1.2.3':
+    resolution: {integrity: sha512-ekcqMMkI2PlhYnfzQnB/cEdYUVVJViWvoUyLrbzgDoi3Snfc1mVBwdnc306ufA5ejy8JSPjT2RlW1nQSjW7efg==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    cpu: [x64]
+    os: [win32]
+
+  '@rolldown/plugin-babel@0.2.3':
+    resolution: {integrity: sha512-+zEk16yGlz1F9STiRr6uG9hmIXb6nprjLczV/htGptYuLoCuxb+itZ03RKCEeOhBpDDd1NU7qF6x1VLMUp62bw==}
+    engines: {node: '>=22.12.0 || ^24.0.0'}
+    peerDependencies:
+      '@babel/core': ^7.29.0 || ^8.0.0-rc.1
+      '@babel/plugin-transform-runtime': ^7.29.0 || ^8.0.0-rc.1
+      '@babel/runtime': ^7.27.0 || ^8.0.0-rc.1
+      rolldown: ^1.0.0-rc.5
+      vite: ^8.0.0
+    peerDependenciesMeta:
+      '@babel/plugin-transform-runtime':
+        optional: true
+      '@babel/runtime':
+        optional: true
+      vite:
+        optional: true
+
+  '@rolldown/pluginutils@1.0.1':
+    resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@types/babel__core@7.20.5':
+    resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
+
+  '@types/babel__generator@7.27.0':
+    resolution: {integrity: sha512-ufFd2Xi92OAVPYsy+P4n7/U7e68fex0+Ee8gSG9KX7eo084CWiQ4sdxktvdl0bOPupXtVJPY19zk6EwWqUQ8lg==}
+
+  '@types/babel__template@7.4.4':
+    resolution: {integrity: sha512-h/NUaSyG5EyxBIp8YRxo4RMe2/qQgvyowRwVMzhYhBCONbW8PUsg4lkFMrhgZhUe5z3L3MiLDuvyJ/CaPa2A8A==}
+
+  '@types/babel__traverse@7.28.0':
+    resolution: {integrity: sha512-8PvcXf70gTDZBgt9ptxJ8elBeBjcLOAcOtoO/mPJjtji1+CdGbHgm77om1GrsPxsiE+uXIpNSK64UYaIwQXd4Q==}
+
+  '@types/gensync@1.0.5':
+    resolution: {integrity: sha512-MbsRCT7mTikHwKZ0X+LVUTLRrZZRLipTuXEO9qOYO+zmjMVk81axyClMROf6uoPD9MRVu46bx8zoR0Ad9q3NAg==}
+
+  '@types/jsesc@2.5.1':
+    resolution: {integrity: sha512-9VN+6yxLOPLOav+7PwjZbxiID2bVaeq0ED4qSQmdQTdjnXJSaCVKTR58t15oqH1H5t8Ng2ZX1SabJVoN9Q34bw==}
+
+  '@types/react-dom@19.2.4':
+    resolution: {integrity: sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==}
+    peerDependencies:
+      '@types/react': ^19.2.0
+
+  '@types/react@19.2.18':
+    resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
+
+  '@vitejs/plugin-react@6.0.5':
+    resolution: {integrity: sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    peerDependencies:
+      '@rolldown/plugin-babel': ^0.1.7 || ^0.2.0
+      babel-plugin-react-compiler: ^1.0.0
+      vite: ^8.0.0
+    peerDependenciesMeta:
+      '@rolldown/plugin-babel':
+        optional: true
+      babel-plugin-react-compiler:
+        optional: true
+
+  babel-plugin-react-compiler@1.0.0:
+    resolution: {integrity: sha512-Ixm8tFfoKKIPYdCCKYTsqv+Fd4IJ0DQqMyEimo+pxUOMUR9cVPlwTrFt9Avu+3cb6Zp3mAzl+t1MrG2fxxKsxw==}
+
+  baseline-browser-mapping@2.11.12:
+    resolution: {integrity: sha512-r7WnVImvVCeFpf2DOXfy41aPWzeNg3H/A2X4dKmy1QL0MSyyk/e7z8ihJ3N6Nn2PsdhkVlqnEfnUE4a05P2aTA==}
+    engines: {node: '>=6.0.0'}
+    hasBin: true
+
+  browserslist@4.28.7:
+    resolution: {integrity: sha512-JxV13hNrFxqjOc8alRbq9dK1MM79NEXYpma2B2J4wAtpWS5zIEIKqWPGCl7N4o7Uc7B7itylh7SuDujATRyyTw==}
+    engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
+    hasBin: true
+
+  caniuse-lite@1.0.30001809:
+    resolution: {integrity: sha512-xxWVywk6a6Arlk+hymeycyn/VgqEfLDxupvhH/xiY5SJ/18kmi9o6MiO320DCUzypORHLtvh0I4i04tUhCNHNQ==}
+
+  convert-source-map@2.0.0:
+    resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  detect-libc@2.1.2:
+    resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
+    engines: {node: '>=8'}
+
+  electron-to-chromium@1.5.402:
+    resolution: {integrity: sha512-/oOpMaPT6Yg+6/1XQhyIPlzgj7Ye9zf+nNM2Uh6OcE2G2oNptWazFa+qB2Pdqqbsc9KnIDzgAntoYN0dbwOXwA==}
+
+  empathic@2.0.1:
+    resolution: {integrity: sha512-YGRs8knHhKHVShLkFET/rWAU8kmHbOV5LwN938RHI0pljAJ1Gf6SzXsSmRaEzcXTtOOmVqJ5+WtQPL5uigY50Q==}
+    engines: {node: '>=14'}
+
+  escalade@3.2.0:
+    resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
+    engines: {node: '>=6'}
+
+  fdir@6.5.0:
+    resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      picomatch: ^3 || ^4
+    peerDependenciesMeta:
+      picomatch:
+        optional: true
+
+  fsevents@2.3.3:
+    resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
+  gensync@1.0.0-beta.2:
+    resolution: {integrity: sha512-3hN7NaskYvMDLQY55gnW3NQ+mesEAepTqlg+VEbj7zzqEMBVNhzcGYYeqFo/TlYz6eQiFcp1HcsCZO+nGgS8zg==}
+    engines: {node: '>=6.9.0'}
+
+  import-meta-resolve@4.2.0:
+    resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
+
+  js-tokens@10.0.0:
+    resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
+
+  jsesc@3.1.0:
+    resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
+    engines: {node: '>=6'}
+    hasBin: true
+
+  json5@2.2.3:
+    resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
+    engines: {node: '>=6'}
+    hasBin: true
+
+  lightningcss-android-arm64@1.33.0:
+    resolution: {integrity: sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm64]
+    os: [android]
+
+  lightningcss-darwin-arm64@1.33.0:
+    resolution: {integrity: sha512-Sciaz8eenNTKn9b3t7+xr0ipTp9YxKQY4npwQ3mrRuL0BAVHBLyZxofhaKBAVtzmtRZ/zTyo0/to4B1uWG/Djg==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm64]
+    os: [darwin]
+
+  lightningcss-darwin-x64@1.33.0:
+    resolution: {integrity: sha512-Z5UPAxzrjlWNNyGy6i65cJzzvgJ5D3T6wMvs+gWpY9d7qRhANrxqAp6LhxIgZhWEw18RfJTGcRxjuLIBr+m8XQ==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [darwin]
+
+  lightningcss-freebsd-x64@1.33.0:
+    resolution: {integrity: sha512-QQM/Ti/hQajJwCY+RiWuCZ9sdtI/XQk7nDK5vC8kkdwixezOlDgvDx7+RT+QjK6FcFT4MpsuoBnHIo/O3StRRg==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [freebsd]
+
+  lightningcss-linux-arm-gnueabihf@1.33.0:
+    resolution: {integrity: sha512-N7FVBe6iS24MlM6R/4RBTxGhQheZGs7tiQ9U32UtF75NzP5Q7xWPRqLBCKxlRQRk3rY1jCIPLzx7WzOhuUIRLQ==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm]
+    os: [linux]
+
+  lightningcss-linux-arm64-gnu@1.33.0:
+    resolution: {integrity: sha512-j2v/itmy4HlNxlc6voKXYgBqNi0Ng2LShg4z7GufpEgs05P+2suBVyi9I6YHq5uoVFx9ETin3eCEhLVyXGQnKg==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  lightningcss-linux-arm64-musl@1.33.0:
+    resolution: {integrity: sha512-yiO5ROMuYQgXbC60yjZU5CYSFZGKXL0HFATXt9mHJn1+zW55oCtMI9NfcVhYLMFDL7gV7oBPon/EmMMGg2OvtQ==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  lightningcss-linux-x64-gnu@1.33.0:
+    resolution: {integrity: sha512-ar+Ju7LmcN0Jo4FpL4hpFybwNG9/3A/Br5KW2n2jyODg3MEZXaDYADdemoNS+BDNfMgKvylJLj4S5tyRActuAg==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  lightningcss-linux-x64-musl@1.33.0:
+    resolution: {integrity: sha512-RYiYbkokw0trfKqqzfF55lginwEPrD3OJDfTuJzFs1MK6iFnDenaz1fqLLtX4ITG3OktJQXOeTaw1awrBAlZPw==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  lightningcss-win32-arm64-msvc@1.33.0:
+    resolution: {integrity: sha512-1K+MPfLSFVpphzpdbfkhlWk6wBrTObBzS2T6db10PNOZgR9GoVsAWzwNyuhUYYbTp23j+4RrncfujZ4uAzXvwA==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [arm64]
+    os: [win32]
+
+  lightningcss-win32-x64-msvc@1.33.0:
+    resolution: {integrity: sha512-OlEICDx/Xl0FqSp4bry8zFnCvGpig3Gl4gCquvYwHuqJKEC1+n9NgDniFvqHGmMv1ZkqDJrDqKKSykTDX+ehuA==}
+    engines: {node: '>= 12.0.0'}
+    cpu: [x64]
+    os: [win32]
+
+  lightningcss@1.33.0:
+    resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
+    engines: {node: '>= 12.0.0'}
+
+  lru-cache@11.5.2:
+    resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
+    engines: {node: 20 || >=22}
+
+  nanoid@3.3.17:
+    resolution: {integrity: sha512-xQLf0A3HOMlgHq0n247/LRuAOYmB7dXJ/DvAxGvsSBij45XtBSmQycu+F8ODbHwns/XyFZagyL1+J0Offw1E0g==}
+    engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  node-releases@2.0.53:
+    resolution: {integrity: sha512-D9UOmYG3UH1V+ENW56t5QXBwJw1YEY18ruVeus89Rw+SyIgjPkCO84bRzO3uNIYosJbNwiabWVn48o3uJLjxFQ==}
+    engines: {node: '>=18'}
+
+  obug@2.1.4:
+    resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
+    engines: {node: '>=12.20.0'}
+
+  picocolors@1.1.1:
+    resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
+
+  picomatch@4.0.5:
+    resolution: {integrity: sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A==}
+    engines: {node: '>=12'}
+
+  postcss@8.5.26:
+    resolution: {integrity: sha512-u82N74LFzG8ca+dD8puPnplTXoGH4fTPpVGuIbt36G3qvNlkvfD0lEAZSxaly3KX8TS/L1A1gsCEmvKmBcVbkQ==}
+    engines: {node: ^10 || ^12 || >=14}
+
+  react-dom@19.2.8:
+    resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
+    peerDependencies:
+      react: ^19.2.8
+
+  react@19.2.8:
+    resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
+    engines: {node: '>=0.10.0'}
+
+  rolldown@1.2.3:
+    resolution: {integrity: sha512-rn9wpmxplLf7NLNyCk9FyWh3FM43DbY8jOzCdEPzH7uflhTftRbCEpqi6Ly2osgoU8OwObtmavMbWLaWy4LX7A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+
+  scheduler@0.27.0:
+    resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  source-map-js@1.2.1:
+    resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
+    engines: {node: '>=0.10.0'}
+
+  tinyglobby@0.2.17:
+    resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
+    engines: {node: '>=12.0.0'}
+
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  update-browserslist-db@1.3.0:
+    resolution: {integrity: sha512-x/M6q3w4Ybp91CNaS4S69UnliqR3BzRpOT6LWbksjth0S/+jhfaPJsWjt/TewpT8j9eLIojUf5jr29WextHroA==}
+    hasBin: true
+    peerDependencies:
+      browserslist: '>= 4.21.0'
+
+  vite@8.2.0:
+    resolution: {integrity: sha512-pn+CFpM0lwDeKwmOq1ZaBK/9sjorZcgqxki6MbY/jPEVd9vichIlmlD4HmQ5wdP5EgqQCFRaACBxMC7uEGc6lQ==}
+    engines: {node: ^20.19.0 || >=22.12.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^20.19.0 || >=22.12.0
+      '@vitejs/devtools': ^0.4.0
+      esbuild: ^0.27.0 || ^0.28.0
+      jiti: '>=1.21.0'
+      less: ^4.0.0
+      sass: ^1.70.0
+      sass-embedded: ^1.70.0
+      stylus: '>=0.54.8'
+      sugarss: ^5.0.0
+      terser: ^5.16.0
+      tsx: ^4.8.1
+      yaml: ^2.4.2
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      '@vitejs/devtools':
+        optional: true
+      esbuild:
+        optional: true
+      jiti:
+        optional: true
+      less:
+        optional: true
+      sass:
+        optional: true
+      sass-embedded:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+      tsx:
+        optional: true
+      yaml:
+        optional: true
+
+  zustand@5.0.14:
+    resolution: {integrity: sha512-/8tAspM5LMPr28b3fwLYrtdj77ECpfZviaP75CMTnwO8ISyaE4GDIG/9rDDYq/cH9D2Xw2A2RXglLInmVBQB/g==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
+
+snapshots:
+
+  '@tanstack/query-core@5.101.4': {}
+
+  '@tanstack/react-query@5.101.4(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.101.4
+      react: 19.2.8
+
+  '@babel/code-frame@8.0.0':
+    dependencies:
+      '@babel/helper-validator-identifier': 8.0.4
+      js-tokens: 10.0.0
+
+  '@babel/compat-data@8.0.0': {}
+
+  '@babel/core@8.0.1':
+    dependencies:
+      '@babel/code-frame': 8.0.0
+      '@babel/generator': 8.0.0
+      '@babel/helper-compilation-targets': 8.0.0
+      '@babel/helpers': 8.0.0
+      '@babel/parser': 8.0.4
+      '@babel/template': 8.0.0
+      '@babel/traverse': 8.0.4
+      '@babel/types': 8.0.4
+      '@types/gensync': 1.0.5
+      convert-source-map: 2.0.0
+      empathic: 2.0.1
+      gensync: 1.0.0-beta.2
+      import-meta-resolve: 4.2.0
+      json5: 2.2.3
+      obug: 2.1.4
+      semver: 7.8.5
+
+  '@babel/generator@8.0.0':
+    dependencies:
+      '@babel/parser': 8.0.4
+      '@babel/types': 8.0.4
+      '@jridgewell/gen-mapping': 0.3.13
+      '@jridgewell/trace-mapping': 0.3.31
+      '@types/jsesc': 2.5.1
+      jsesc: 3.1.0
+
+  '@babel/helper-compilation-targets@8.0.0':
+    dependencies:
+      '@babel/compat-data': 8.0.0
+      '@babel/helper-validator-option': 8.0.0
+      browserslist: 4.28.7
+      lru-cache: 11.5.2
+      semver: 7.8.5
+
+  '@babel/helper-globals@8.0.0': {}
+
+  '@babel/helper-string-parser@7.29.7': {}
+
+  '@babel/helper-string-parser@8.0.0': {}
+
+  '@babel/helper-validator-identifier@7.29.7': {}
+
+  '@babel/helper-validator-identifier@8.0.4': {}
+
+  '@babel/helper-validator-option@8.0.0': {}
+
+  '@babel/helpers@8.0.0':
+    dependencies:
+      '@babel/template': 8.0.0
+      '@babel/types': 8.0.4
+
+  '@babel/parser@7.29.8':
+    dependencies:
+      '@babel/types': 7.29.8
+
+  '@babel/parser@8.0.4':
+    dependencies:
+      '@babel/types': 8.0.4
+
+  '@babel/template@8.0.0':
+    dependencies:
+      '@babel/code-frame': 8.0.0
+      '@babel/parser': 8.0.4
+      '@babel/types': 8.0.4
+
+  '@babel/traverse@8.0.4':
+    dependencies:
+      '@babel/code-frame': 8.0.0
+      '@babel/generator': 8.0.0
+      '@babel/helper-globals': 8.0.0
+      '@babel/parser': 8.0.4
+      '@babel/template': 8.0.0
+      '@babel/types': 8.0.4
+      obug: 2.1.4
+
+  '@babel/types@7.29.8':
+    dependencies:
+      '@babel/helper-string-parser': 7.29.7
+      '@babel/helper-validator-identifier': 7.29.7
+
+  '@babel/types@8.0.4':
+    dependencies:
+      '@babel/helper-string-parser': 8.0.0
+      '@babel/helper-validator-identifier': 8.0.4
+
+  '@jridgewell/gen-mapping@0.3.13':
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.5.5
+      '@jridgewell/trace-mapping': 0.3.31
+
+  '@jridgewell/resolve-uri@3.1.2': {}
+
+  '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@jridgewell/trace-mapping@0.3.31':
+    dependencies:
+      '@jridgewell/resolve-uri': 3.1.2
+      '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@oxc-project/types@0.143.0': {}
+
+  '@rolldown/binding-android-arm64@1.2.3':
+    optional: true
+
+  '@rolldown/binding-darwin-arm64@1.2.3':
+    optional: true
+
+  '@rolldown/binding-darwin-x64@1.2.3':
+    optional: true
+
+  '@rolldown/binding-freebsd-x64@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-arm-gnueabihf@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-arm64-gnu@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-arm64-musl@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-ppc64-gnu@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-s390x-gnu@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-x64-gnu@1.2.3':
+    optional: true
+
+  '@rolldown/binding-linux-x64-musl@1.2.3':
+    optional: true
+
+  '@rolldown/binding-openharmony-arm64@1.2.3':
+    optional: true
+
+  '@rolldown/binding-win32-arm64-msvc@1.2.3':
+    optional: true
+
+  '@rolldown/binding-win32-x64-msvc@1.2.3':
+    optional: true
+
+  '@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(rolldown@1.2.3)(vite@8.2.0)':
+    dependencies:
+      '@babel/core': 8.0.1
+      picomatch: 4.0.5
+      rolldown: 1.2.3
+    optionalDependencies:
+      vite: 8.2.0
+
+  '@rolldown/pluginutils@1.0.1': {}
+
+  '@types/babel__core@7.20.5':
+    dependencies:
+      '@babel/parser': 7.29.8
+      '@babel/types': 7.29.8
+      '@types/babel__generator': 7.27.0
+      '@types/babel__template': 7.4.4
+      '@types/babel__traverse': 7.28.0
+
+  '@types/babel__generator@7.27.0':
+    dependencies:
+      '@babel/types': 7.29.8
+
+  '@types/babel__template@7.4.4':
+    dependencies:
+      '@babel/parser': 7.29.8
+      '@babel/types': 7.29.8
+
+  '@types/babel__traverse@7.28.0':
+    dependencies:
+      '@babel/types': 7.29.8
+
+  '@types/gensync@1.0.5': {}
+
+  '@types/jsesc@2.5.1': {}
+
+  '@types/react-dom@19.2.4(@types/react@19.2.18)':
+    dependencies:
+      '@types/react': 19.2.18
+
+  '@types/react@19.2.18':
+    dependencies:
+      csstype: 3.2.3
+
+  '@vitejs/plugin-react@6.0.5(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(rolldown@1.2.3)(vite@8.2.0))(babel-plugin-react-compiler@1.0.0)(vite@8.2.0)':
+    dependencies:
+      '@rolldown/pluginutils': 1.0.1
+      vite: 8.2.0
+    optionalDependencies:
+      '@rolldown/plugin-babel': 0.2.3(@babel/core@8.0.1)(rolldown@1.2.3)(vite@8.2.0)
+      babel-plugin-react-compiler: 1.0.0
+
+  babel-plugin-react-compiler@1.0.0:
+    dependencies:
+      '@babel/types': 7.29.8
+
+  baseline-browser-mapping@2.11.12: {}
+
+  browserslist@4.28.7:
+    dependencies:
+      baseline-browser-mapping: 2.11.12
+      caniuse-lite: 1.0.30001809
+      electron-to-chromium: 1.5.402
+      node-releases: 2.0.53
+      update-browserslist-db: 1.3.0(browserslist@4.28.7)
+
+  caniuse-lite@1.0.30001809: {}
+
+  convert-source-map@2.0.0: {}
+
+  csstype@3.2.3: {}
+
+  detect-libc@2.1.2: {}
+
+  electron-to-chromium@1.5.402: {}
+
+  empathic@2.0.1: {}
+
+  escalade@3.2.0: {}
+
+  fdir@6.5.0(picomatch@4.0.5):
+    optionalDependencies:
+      picomatch: 4.0.5
+
+  fsevents@2.3.3:
+    optional: true
+
+  gensync@1.0.0-beta.2: {}
+
+  import-meta-resolve@4.2.0: {}
+
+  js-tokens@10.0.0: {}
+
+  jsesc@3.1.0: {}
+
+  json5@2.2.3: {}
+
+  lightningcss-android-arm64@1.33.0:
+    optional: true
+
+  lightningcss-darwin-arm64@1.33.0:
+    optional: true
+
+  lightningcss-darwin-x64@1.33.0:
+    optional: true
+
+  lightningcss-freebsd-x64@1.33.0:
+    optional: true
+
+  lightningcss-linux-arm-gnueabihf@1.33.0:
+    optional: true
+
+  lightningcss-linux-arm64-gnu@1.33.0:
+    optional: true
+
+  lightningcss-linux-arm64-musl@1.33.0:
+    optional: true
+
+  lightningcss-linux-x64-gnu@1.33.0:
+    optional: true
+
+  lightningcss-linux-x64-musl@1.33.0:
+    optional: true
+
+  lightningcss-win32-arm64-msvc@1.33.0:
+    optional: true
+
+  lightningcss-win32-x64-msvc@1.33.0:
+    optional: true
+
+  lightningcss@1.33.0:
+    dependencies:
+      detect-libc: 2.1.2
+    optionalDependencies:
+      lightningcss-android-arm64: 1.33.0
+      lightningcss-darwin-arm64: 1.33.0
+      lightningcss-darwin-x64: 1.33.0
+      lightningcss-freebsd-x64: 1.33.0
+      lightningcss-linux-arm-gnueabihf: 1.33.0
+      lightningcss-linux-arm64-gnu: 1.33.0
+      lightningcss-linux-arm64-musl: 1.33.0
+      lightningcss-linux-x64-gnu: 1.33.0
+      lightningcss-linux-x64-musl: 1.33.0
+      lightningcss-win32-arm64-msvc: 1.33.0
+      lightningcss-win32-x64-msvc: 1.33.0
+
+  lru-cache@11.5.2: {}
+
+  nanoid@3.3.17: {}
+
+  node-releases@2.0.53: {}
+
+  obug@2.1.4: {}
+
+  picocolors@1.1.1: {}
+
+  picomatch@4.0.5: {}
+
+  postcss@8.5.26:
+    dependencies:
+      nanoid: 3.3.17
+      picocolors: 1.1.1
+      source-map-js: 1.2.1
+
+  react-dom@19.2.8(react@19.2.8):
+    dependencies:
+      react: 19.2.8
+      scheduler: 0.27.0
+
+  react@19.2.8: {}
+
+  rolldown@1.2.3:
+    dependencies:
+      '@oxc-project/types': 0.143.0
+      '@rolldown/pluginutils': 1.0.1
+    optionalDependencies:
+      '@rolldown/binding-android-arm64': 1.2.3
+      '@rolldown/binding-darwin-arm64': 1.2.3
+      '@rolldown/binding-darwin-x64': 1.2.3
+      '@rolldown/binding-freebsd-x64': 1.2.3
+      '@rolldown/binding-linux-arm-gnueabihf': 1.2.3
+      '@rolldown/binding-linux-arm64-gnu': 1.2.3
+      '@rolldown/binding-linux-arm64-musl': 1.2.3
+      '@rolldown/binding-linux-ppc64-gnu': 1.2.3
+      '@rolldown/binding-linux-s390x-gnu': 1.2.3
+      '@rolldown/binding-linux-x64-gnu': 1.2.3
+      '@rolldown/binding-linux-x64-musl': 1.2.3
+      '@rolldown/binding-openharmony-arm64': 1.2.3
+      '@rolldown/binding-win32-arm64-msvc': 1.2.3
+      '@rolldown/binding-win32-x64-msvc': 1.2.3
+
+  scheduler@0.27.0: {}
+
+  semver@7.8.5: {}
+
+  source-map-js@1.2.1: {}
+
+  tinyglobby@0.2.17:
+    dependencies:
+      fdir: 6.5.0(picomatch@4.0.5)
+      picomatch: 4.0.5
+
+  typescript@6.0.3: {}
+
+  update-browserslist-db@1.3.0(browserslist@4.28.7):
+    dependencies:
+      browserslist: 4.28.7
+      escalade: 3.2.0
+      picocolors: 1.1.1
+
+  vite@8.2.0:
+    dependencies:
+      lightningcss: 1.33.0
+      picomatch: 4.0.5
+      postcss: 8.5.26
+      rolldown: 1.2.3
+      tinyglobby: 0.2.17
+    optionalDependencies:
+      fsevents: 2.3.3
+
+  zustand@5.0.14(@types/react@19.2.18)(react@19.2.8):
+    optionalDependencies:
+      '@types/react': 19.2.18
+      react: 19.2.8
+`;
+
+// ../project-scaffold/src/templates.ts
+var SRIJIKA_ARCHITECTURE = Object.freeze({
+  profile: "feature-slot-part-v1",
+  featuresRoot: "src/features",
+  slotsDirectory: "slots",
+  partsDirectory: "parts",
+  hooksDirectory: "hooks",
+  uiSuffix: ".ui.tsx",
+  connectorSuffix: ".connector.tsx",
+  storeSuffix: ".store.ts",
+  logicSuffix: ".logic.ts",
+  apiSuffix: ".api.ts",
+  typesSuffix: ".types.ts"
+});
+var versions = Object.freeze({
+  babelCore: "8.0.1",
+  babelCoreTypes: "7.20.5",
+  pluginBabel: "0.2.3",
+  pluginReact: "6.0.5",
+  react: "19.2.8",
+  reactCompiler: "1.0.0",
+  reactDomTypes: "19.2.4",
+  reactTypes: "19.2.18",
+  tanstackReactQuery: "5.101.4",
+  typescript: "6.0.3",
+  vite: "8.2.0",
+  zustand: "5.0.14"
+});
+
+// ../project-scaffold/src/ownership.ts
+function targetForOwner(owner) {
+  return {
+    level: owner.level,
+    name: owner.level === "feature" ? owner.featureName : owner.level === "slot" ? owner.slotName : owner.partName,
+    folder: owner.folder
+  };
+}
+var ACTION_ROLE = {
+  featureConnector: "connector",
+  featureHook: "hook",
+  featureStore: "store",
+  featureLogic: "logic",
+  featureApi: "api",
+  featureTypes: "types",
+  slotConnector: "connector",
+  slotHook: "hook",
+  slotStore: "store",
+  slotLogic: "logic",
+  slotApi: "api",
+  slotTypes: "types",
+  partConnector: "connector",
+  partHook: "hook",
+  partStore: "store",
+  partLogic: "logic",
+  partApi: "api",
+  partTypes: "types"
+};
+function lowerFirst(value) {
+  return `${value.slice(0, 1).toLocaleLowerCase("en-US")}${value.slice(1)}`;
+}
+function fileNameFor(ownerName, role) {
+  switch (role) {
+    case "ui":
+      return `${ownerName}.ui.tsx`;
+    case "connector":
+      return `${ownerName}.connector.tsx`;
+    case "hook":
+      return `use${ownerName}.ts`;
+    case "store":
+    case "logic":
+    case "api":
+    case "types":
+      return `${lowerFirst(ownerName)}.${role}.ts`;
+  }
+}
+function filePathFor(owner, role) {
+  return `${owner.folder}/${fileNameFor(owner.name, role)}`;
+}
+function targetForAction(owner, action, rawName) {
+  if (action === "feature" || action === "slot" || action === "part") {
+    const name = rawName?.trim() ?? "";
+    if (!SRIJIKA_OWNER_NAME_PATTERN.test(name) || canonicalSrijikaOwnerName(name) !== name) {
+      throw new Error("Use normalized PascalCase for the owner name, for example Dashboard.");
+    }
+    if (action === "feature" && owner.level === "featuresRoot") {
+      return { level: "feature", name, folder: `${owner.folder}/${srijikaFolderName(name)}` };
+    }
+    if (action === "slot" && owner.level === "feature") {
+      return { level: "slot", name, folder: `${owner.folder}/slots/${srijikaFolderName(name)}` };
+    }
+    if (action === "part" && owner.level === "slot") {
+      return { level: "part", name, folder: `${owner.folder}/parts/${srijikaFolderName(name)}` };
+    }
+    throw new Error(`${action} cannot be created inside ${owner.level}.`);
+  }
+  if (owner.level === "featuresRoot") {
+    throw new Error(`Only a Feature can be created inside ${owner.folder}.`);
+  }
+  return targetForOwner(owner);
+}
+function importPath(ownerName, role) {
+  return `./${fileNameFor(ownerName, role).replace(/\.(?:ts|tsx)$/, "")}`;
+}
+function highestJunior(roles, from) {
+  const order = ["connector", "hook", "store", "logic", "api"];
+  const index = order.indexOf(from);
+  return order.slice(index + 1).find((role) => roles.has(role)) ?? null;
+}
+function sourceFor(owner, role, roles) {
+  const lowerName = lowerFirst(owner.name);
+  const junior = highestJunior(roles, role);
+  if (role === "ui") {
+    return `export interface ${owner.name}UIProps {
+  className?: string;
+}
+
+export function ${owner.name}UI({ className }: ${owner.name}UIProps) {
+  return (
+    <section className={className} data-srijika-owner="${owner.name}">
+      <h2>${owner.name}</h2>
+    </section>
+  );
+}
+`;
+  }
+  if (role === "types") {
+    return `export interface ${owner.name}Result {
+  ok: boolean;
+}
+`;
+  }
+  if (role === "api") {
+    const typeImport = roles.has("types") ? `import type { ${owner.name}Result } from '${importPath(owner.name, "types")}';
+
+` : "";
+    const resultType = roles.has("types") ? owner.name + "Result" : "{ ok: boolean }";
+    return `${typeImport}export const ${lowerName}Api = {
+  async load(): Promise<${resultType}> {
+    throw new Error('Connect ${owner.name} API transport.');
+  },
+};
+`;
+  }
+  if (role === "logic") {
+    const juniorImport = junior === "api" ? `import { ${lowerName}Api } from '${importPath(owner.name, "api")}';
+
+` : "";
+    const load = junior === "api" ? `() => ${lowerName}Api.load()` : `async () => ({ ok: true })`;
+    return `${juniorImport}export const ${lowerName}Logic = {
+  load: ${load},
+};
+`;
+  }
+  if (role === "store") {
+    const targetRole = junior === "logic" ? "logic" : junior === "api" ? "api" : null;
+    const symbol = targetRole ? `${lowerName}${targetRole === "logic" ? "Logic" : "Api"}` : null;
+    const juniorImport = targetRole && symbol ? `import { ${symbol} } from '${importPath(owner.name, targetRole)}';
+` : "";
+    const load = symbol ? `await ${symbol}.load();` : `// Add an owner action when state needs one.`;
+    return `import { create } from 'zustand';
+${juniorImport}
+interface ${owner.name}State {
+  ready: boolean;
+  load: () => Promise<void>;
+}
+
+export const use${owner.name}Store = create<${owner.name}State>((set) => ({
+  ready: false,
+  load: async () => {
+    ${load}
+    set({ ready: true });
+  },
+}));
+`;
+  }
+  if (role === "hook") {
+    const targetRole = junior === "store" ? "store" : junior === "logic" ? "logic" : junior === "api" ? "api" : null;
+    if (targetRole === "store") {
+      return `import { use${owner.name}Store } from '${importPath(owner.name, "store")}';
+
+export function use${owner.name}() {
+  return use${owner.name}Store();
+}
+`;
+    }
+    if (targetRole) {
+      const symbol = `${lowerName}${targetRole === "logic" ? "Logic" : "Api"}`;
+      return `import { ${symbol} } from '${importPath(owner.name, targetRole)}';
+
+export function use${owner.name}() {
+  return { load: ${symbol}.load };
+}
+`;
+    }
+    return `export function use${owner.name}() {
+  return {};
+}
+`;
+  }
+  const uiImport = `import { ${owner.name}UI } from '${importPath(owner.name, "ui")}';
+`;
+  if (junior === "hook") {
+    return `${uiImport}import { use${owner.name} } from '${importPath(owner.name, "hook")}';
+
+export function ${owner.name}Connector() {
+  const model = use${owner.name}();
+  void model;
+  return <${owner.name}UI />;
+}
+`;
+  }
+  if (junior === "store") {
+    return `${uiImport}import { use${owner.name}Store } from '${importPath(owner.name, "store")}';
+
+export function ${owner.name}Connector() {
+  const model = use${owner.name}Store();
+  void model;
+  return <${owner.name}UI />;
+}
+`;
+  }
+  if (junior === "logic" || junior === "api") {
+    const symbol = `${lowerName}${junior === "logic" ? "Logic" : "Api"}`;
+    return `${uiImport}import { ${symbol} } from '${importPath(owner.name, junior)}';
+
+export function ${owner.name}Connector() {
+  void ${symbol};
+  return <${owner.name}UI />;
+}
+`;
+  }
+  return `${uiImport}
+export function ${owner.name}Connector() {
+  return <${owner.name}UI />;
+}
+`;
+}
+function safelyInsertHookIntoCustomConnector(owner, currentSource) {
+  const hookSymbol = `use${owner.name}`;
+  const importSource = importPath(owner.name, "hook");
+  const modelName = `srijika${owner.name}Model`;
+  if (currentSource.includes(modelName)) return null;
+  let updated = currentSource;
+  const hookImportPattern = new RegExp(`from\\s+['"]${importSource.replaceAll(".", "\\.")}['"]`);
+  if (!hookImportPattern.test(updated)) {
+    const importLine = `import { ${hookSymbol} } from '${importSource}';
+`;
+    const directive = updated.match(/^(?:'use client'|"use client");\s*\n/);
+    const insertionOffset = directive?.[0].length ?? 0;
+    updated = `${updated.slice(0, insertionOffset)}${importLine}${updated.slice(insertionOffset)}`;
+  }
+  const connectorPattern = new RegExp(
+    `(export\\s+function\\s+${owner.name}Connector\\s*\\([^)]*\\)\\s*(?::\\s*[^\\{]+)?\\s*\\{)`
+  );
+  if (!connectorPattern.test(updated)) return null;
+  return updated.replace(
+    connectorPattern,
+    `$1
+  const ${modelName} = ${hookSymbol}();
+  void ${modelName};`
+  );
+}
+function buildSrijikaOwnershipCreationPlan(input) {
+  const allowed = srijikaStructureCreationActionsForOwner(input.owner);
+  if (!allowed.includes(input.action)) {
+    throw new Error(`${input.action} is not allowed inside ${input.owner.folder}.`);
+  }
+  const target = targetForAction(input.owner, input.action, input.name);
+  const existing = new Set(
+    (input.existingRelativePaths ?? []).map((path) => path.replaceAll("\\", "/").toLowerCase())
+  );
+  const existingSources = new Map(
+    Object.entries(input.existingSources ?? {}).map(([path, source]) => [
+      path.replaceAll("\\", "/").toLowerCase(),
+      source.replaceAll("\r\n", "\n")
+    ])
+  );
+  const composite = input.action === "feature" || input.action === "slot" || input.action === "part";
+  const plannedRoles = /* @__PURE__ */ new Set();
+  if (composite) {
+    plannedRoles.add("ui");
+    plannedRoles.add("connector");
+    for (const role of input.optionalCapabilities ?? []) plannedRoles.add(role);
+  } else {
+    const role = ACTION_ROLE[input.action];
+    if (!role) throw new Error(`Unsupported creation action: ${input.action}`);
+    plannedRoles.add(role);
+  }
+  const roleExists = (role) => existing.has(filePathFor(target, role).toLowerCase());
+  if (!composite) {
+    if (!roleExists("ui")) {
+      throw new Error(`Required ${filePathFor(target, "ui")} is missing. Create the owner first.`);
+    }
+    if (!plannedRoles.has("connector") && !roleExists("connector")) {
+      throw new Error(
+        `Required ${filePathFor(target, "connector")} is missing. Add the Connector before optional capabilities.`
+      );
+    }
+  }
+  const availableRoles = new Set(plannedRoles);
+  for (const role of ["ui", "connector", "hook", "store", "logic", "api", "types"]) {
+    if (roleExists(role)) availableRoles.add(role);
+  }
+  const orderedRoles = ["ui", "types", "api", "logic", "store", "hook", "connector"].filter((role) => plannedRoles.has(role));
+  const duplicate = orderedRoles.map((role) => filePathFor(target, role)).find((path) => existing.has(path.toLowerCase()));
+  if (duplicate) throw new Error(`${duplicate} already exists.`);
+  const updates = [];
+  if (!composite) {
+    const newRole = ACTION_ROLE[input.action];
+    const runtimeOrder = ["connector", "hook", "store", "logic", "api"];
+    let seniorRole;
+    if (newRole === "types") {
+      if (roleExists("api")) seniorRole = "api";
+    } else if (newRole) {
+      const newRoleIndex = runtimeOrder.indexOf(newRole);
+      if (newRoleIndex > 0) {
+        seniorRole = [...runtimeOrder.slice(0, newRoleIndex)].reverse().find((role) => roleExists(role));
+      }
+    }
+    if (seniorRole) {
+      const previousRoles = new Set(availableRoles);
+      if (newRole) previousRoles.delete(newRole);
+      const previousCanonicalSource = sourceFor(target, seniorRole, previousRoles).replaceAll(
+        "\r\n",
+        "\n"
+      );
+      const nextCanonicalSource = sourceFor(target, seniorRole, availableRoles);
+      if (previousCanonicalSource !== nextCanonicalSource) {
+        const seniorPath = filePathFor(target, seniorRole);
+        const currentSource = existingSources.get(seniorPath.toLowerCase());
+        if (currentSource === void 0) {
+          throw new Error(
+            `Read ${seniorPath} before adding this capability so Srijika can preserve the strict runtime chain.`
+          );
+        }
+        if (currentSource !== previousCanonicalSource && currentSource !== nextCanonicalSource) {
+          const customConnectorUpdate = input.allowCustomConnectorHookInsertion && seniorRole === "connector" && newRole === "hook" ? safelyInsertHookIntoCustomConnector(target, currentSource) : null;
+          if (customConnectorUpdate) {
+            updates.push({ relativePath: seniorPath, source: customConnectorUpdate });
+            return {
+              ownerName: target.name,
+              ownerFolder: target.folder,
+              files: orderedRoles.map((role) => ({
+                relativePath: filePathFor(target, role),
+                source: sourceFor(target, role, availableRoles)
+              })),
+              updates
+            };
+          }
+          throw new Error(
+            `${seniorPath} contains custom code. Srijika could not safely insert the new boundary; connect it in one reviewed edit.`
+          );
+        }
+        if (currentSource !== nextCanonicalSource) {
+          updates.push({ relativePath: seniorPath, source: nextCanonicalSource });
+        }
+      }
+    }
+  }
+  return {
+    ownerName: target.name,
+    ownerFolder: target.folder,
+    files: orderedRoles.map((role) => ({
+      relativePath: filePathFor(target, role),
+      source: sourceFor(target, role, availableRoles)
+    })),
+    updates
+  };
+}
+
+// ../project-scaffold/src/ownership-writer.ts
+import { randomBytes } from "node:crypto";
+import { link, lstat, mkdir, open, readFile as readFile4, rename, rm, unlink } from "node:fs/promises";
+import { dirname as dirname2, isAbsolute, relative as relative2, resolve as resolve4 } from "node:path";
+function destinationFor(root, relativePath) {
+  const normalized = relativePath.replaceAll("\\", "/");
+  if (!normalized || normalized.startsWith("/") || isAbsolute(normalized) || normalized.split("/").some((segment) => !segment || segment === "." || segment === "..")) {
+    throw new Error(`Unsafe ownership path: ${relativePath}`);
+  }
+  const destination = resolve4(root, ...normalized.split("/"));
+  const fromRoot = relative2(root, destination);
+  if (!fromRoot || fromRoot.startsWith("..") || isAbsolute(fromRoot)) {
+    throw new Error(`Unsafe ownership path: ${relativePath}`);
+  }
+  return destination;
+}
+async function assertMissing(path, relativePath) {
+  try {
+    await lstat(path);
+    throw new Error(`${relativePath} already exists.`);
+  } catch (error2) {
+    if (error2 instanceof Error && "code" in error2 && error2.code === "ENOENT") return;
+    throw error2;
+  }
+}
+async function assertRegularFile(path, relativePath) {
+  const metadata = await lstat(path);
+  if (metadata.isSymbolicLink() || !metadata.isFile()) {
+    throw new Error(`${relativePath} must be a regular file before Srijika can update it.`);
+  }
+}
+async function temporaryFileFor(destination, file) {
+  await mkdir(dirname2(destination), { recursive: true });
+  const temporary = `${destination}.${randomBytes(8).toString("hex")}.srijika.tmp`;
+  const handle = await open(temporary, "wx", 384);
+  try {
+    await handle.writeFile(file.source, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  return temporary;
+}
+async function applySrijikaOwnershipCreationPlan(projectRoot, plan, options = {}) {
+  if (!isAbsolute(projectRoot))
+    throw new TypeError("projectRoot must be an explicit absolute path.");
+  const root = resolve4(projectRoot);
+  const created = plan.files.map((file) => ({
+    file,
+    destination: destinationFor(root, file.relativePath)
+  }));
+  const updated = plan.updates.map((file) => ({
+    file,
+    destination: destinationFor(root, file.relativePath)
+  }));
+  const allPaths = [...created, ...updated].map(({ destination }) => destination.toLowerCase());
+  if (new Set(allPaths).size !== allPaths.length) {
+    throw new Error("The ownership plan contains duplicate target paths.");
+  }
+  for (const entry of created) await assertMissing(entry.destination, entry.file.relativePath);
+  for (const entry of updated) {
+    await assertRegularFile(entry.destination, entry.file.relativePath);
+    const expected = options.expectedUpdateSources?.[entry.file.relativePath];
+    if (expected !== void 0 && await readFile4(entry.destination, "utf8") !== expected) {
+      throw new Error(`${entry.file.relativePath} changed after planning; regenerate the plan.`);
+    }
+  }
+  const staged = [];
+  const committedCreates = [];
+  try {
+    for (const entry of created) {
+      staged.push({
+        ...entry,
+        temporary: await temporaryFileFor(entry.destination, entry.file),
+        mode: "create"
+      });
+    }
+    for (const entry of updated) {
+      staged.push({
+        ...entry,
+        temporary: await temporaryFileFor(entry.destination, entry.file),
+        mode: "update"
+      });
+    }
+    for (const entry of staged) {
+      if (entry.mode === "create") {
+        await link(entry.temporary, entry.destination);
+        committedCreates.push(entry.destination);
+        await unlink(entry.temporary);
+      } else {
+        await rename(entry.temporary, entry.destination);
+      }
+    }
+  } catch (error2) {
+    await Promise.all([
+      ...staged.map(({ temporary }) => rm(temporary, { force: true })),
+      ...committedCreates.map((destination) => rm(destination, { force: true }))
+    ]);
+    throw error2;
+  }
+  return Object.freeze({
+    root,
+    created: Object.freeze(created.map(({ file }) => file.relativePath)),
+    updated: Object.freeze(updated.map(({ file }) => file.relativePath))
+  });
+}
+
+// ../developer-engine/src/structure.ts
+var OPTIONAL_CAPABILITIES = Object.freeze(["hook", "store", "logic", "api", "types"]);
+async function collectSourceFiles(root, relativeFolder) {
+  const paths = [];
+  const sources = {};
+  const visit = async (relativeDirectory) => {
+    const absoluteDirectory = resolve5(root, ...relativeDirectory.split("/"));
+    const entries = await readdir2(absoluteDirectory, { withFileTypes: true }).catch(
+      (error2) => {
+        if (error2 instanceof Error && "code" in error2 && error2.code === "ENOENT") return [];
+        throw error2;
+      }
+    );
+    for (const entry of entries) {
+      const child = `${relativeDirectory}/${entry.name}`;
+      if (entry.isDirectory()) await visit(child);
+      else if (entry.isFile()) {
+        paths.push(child);
+        if (/\.(?:ts|tsx|mts|cts)$/.test(entry.name))
+          sources[child] = await readFile5(resolve5(root, ...child.split("/")), "utf8");
+      }
+    }
+  };
+  await visit(relativeFolder);
+  return { paths, sources };
+}
+function normalizedOwnerFolder(root, value) {
+  const absolute = isAbsolute2(value) ? resolve5(value) : resolve5(root, value);
+  const fromRoot = relative3(root, absolute).replaceAll("\\", "/");
+  if (!fromRoot || fromRoot.startsWith("../") || isAbsolute2(fromRoot)) {
+    throw new Error("The selected owner must remain inside the Srijika project.");
+  }
+  return fromRoot;
+}
+function actionFor(owner, kind) {
+  if (kind === "feature" || kind === "slot" || kind === "part") return kind;
+  if (owner.level === "featuresRoot") {
+    throw new Error("Only a Feature can be created directly inside src/features.");
+  }
+  const suffix = `${kind.slice(0, 1).toUpperCase()}${kind.slice(1)}`;
+  return `${owner.level}${suffix}`;
+}
+async function scaffoldSrijikaStructure(request) {
+  const root = await findSrijikaProjectRoot(request.project ?? process.cwd());
+  const project = await inspectSrijikaProject(root);
+  const architecture = resolveSrijikaArchitectureConfig(project.architecture);
+  const ownerFolder = request.ownerFolder ? normalizedOwnerFolder(root, request.ownerFolder) : request.kind === "feature" ? architecture.featuresRoot : normalizedOwnerFolder(root, process.cwd());
+  const owner = resolveSrijikaStructureOwner(ownerFolder, project.architecture);
+  if (!owner) throw new Error(`${ownerFolder} is not a canonical Feature, Slot, or Part boundary.`);
+  const action = actionFor(owner, request.kind);
+  const composite = action === "feature" || action === "slot" || action === "part";
+  if (composite && !request.name) {
+    throw new Error(`srijika add ${action} requires a normalized PascalCase name.`);
+  }
+  if (!composite && request.name) {
+    throw new Error(`${request.kind} is added to the selected owner and does not accept a name.`);
+  }
+  const optionalCapabilities = request.optionalCapabilities ?? [];
+  if (optionalCapabilities.some((capability) => !OPTIONAL_CAPABILITIES.includes(capability))) {
+    throw new Error("Only hook, store, logic, api, and types are optional owner capabilities.");
+  }
+  const existing = await collectSourceFiles(root, architecture.featuresRoot);
+  const plan = buildSrijikaOwnershipCreationPlan({
+    owner,
+    action,
+    ...request.name ? { name: request.name } : {},
+    ...composite ? { optionalCapabilities } : {},
+    existingRelativePaths: existing.paths,
+    existingSources: existing.sources,
+    allowCustomConnectorHookInsertion: true
+  });
+  const dryRun = request.dryRun ?? false;
+  if (!dryRun) {
+    await applySrijikaOwnershipCreationPlan(root, plan, {
+      expectedUpdateSources: Object.fromEntries(
+        plan.updates.flatMap((update) => {
+          const source = existing.sources[update.relativePath];
+          return source === void 0 ? [] : [[update.relativePath, source]];
+        })
+      )
+    });
+  }
+  return Object.freeze({ root, plan, dryRun });
+}
+
+// src/code-project.ts
+var MAX_PROJECT_FILES = 2e3;
+var SrijikaCodeProjectService = class {
+  #configuredRoot;
+  constructor(options = {}) {
+    this.#configuredRoot = options.projectRoot ?? process.env["SRIJIKA_PROJECT_ROOT"];
+  }
+  async root(requested) {
+    const configured = this.#configuredRoot ? await findSrijikaProjectRoot(this.#configuredRoot) : void 0;
+    if (!requested) return configured ?? findSrijikaProjectRoot(process.cwd());
+    const selected = await findSrijikaProjectRoot(requested);
+    if (configured && resolve6(selected) !== resolve6(configured)) {
+      throw new Error("This MCP server is bounded to its configured Srijika project.");
+    }
+    return selected;
+  }
+  async inspect(requested) {
+    const root = await this.root(requested);
+    const project = await inspectSrijikaProject(root);
+    const featuresRoot = project.architecture?.featuresRoot ?? "src/features";
+    const files = [];
+    const visit = async (relativeDirectory) => {
+      if (files.length >= MAX_PROJECT_FILES) return;
+      const entries = await readdir3(resolve6(root, relativeDirectory), {
+        withFileTypes: true
+      }).catch((error2) => {
+        if (error2 instanceof Error && "code" in error2 && error2.code === "ENOENT") return [];
+        throw error2;
+      });
+      for (const entry of entries) {
+        if (files.length >= MAX_PROJECT_FILES) break;
+        const child = `${relativeDirectory}/${entry.name}`.replaceAll("\\", "/");
+        if (entry.isDirectory()) await visit(child);
+        else if (entry.isFile()) files.push(child);
+      }
+    };
+    await visit(featuresRoot);
+    return {
+      contractId: "srijika.cli-first-code-project",
+      root,
+      projectName: project.projectName,
+      packageManager: project.packageManager,
+      lockfile: project.lockfile,
+      viteProject: project.viteProject,
+      architecture: project.architecture,
+      scripts: project.scripts,
+      files,
+      truncated: files.length >= MAX_PROJECT_FILES,
+      adapters: {
+        cli: "required foundation",
+        vscode: "optional",
+        studio: "optional",
+        mcp: "active without Studio"
+      }
+    };
+  }
+  async check(requested) {
+    const root = await this.root(requested);
+    const result = await checkSrijikaArchitecture(root);
+    return { ...result };
+  }
+  async scaffold(request, dryRun) {
+    const root = await this.root(request.project);
+    const result = await scaffoldSrijikaStructure({
+      project: root,
+      kind: request.kind,
+      ...request.name ? { name: request.name } : {},
+      ...request.ownerFolder ? { ownerFolder: request.ownerFolder } : {},
+      ...request.optionalCapabilities ? { optionalCapabilities: request.optionalCapabilities } : {},
+      dryRun
+    });
+    return {
+      root: result.root,
+      dryRun,
+      owner: result.plan.ownerName,
+      ownerFolder: result.plan.ownerFolder,
+      created: result.plan.files.map((file) => file.relativePath),
+      updated: result.plan.updates.map((file) => file.relativePath)
+    };
+  }
+};
 
 // src/documentation.ts
 var SRIJIKA_DOCUMENTATION = [
@@ -25936,7 +28872,8 @@ var SRIJIKA_DOCUMENTATION = [
         "runtime-selection",
         "ownership-scaffold-planning",
         "incremental-architecture-validation",
-        "vite-command-planning"
+        "vite-command-planning",
+        "software-independent-mcp-project-context"
       ],
       runtime: {
         default: "node",
@@ -25947,6 +28884,7 @@ var SRIJIKA_DOCUMENTATION = [
         reactExecution: "browser"
       },
       commands: {
+        create: "complete CLI-first onboarding: scaffold, install, validate, VS Code setup, optional Studio handoff",
         init: "create a pinned non-overwriting project",
         add: "create only canonical Feature, Slot, Part, or owner capability files",
         check: "validate the configured ownership subtree in-process",
@@ -25961,7 +28899,19 @@ var SRIJIKA_DOCUMENTATION = [
         arbitraryOwnerFolders: false,
         runtimeChangesLockfile: false,
         bunRequired: false,
-        desktopRequiredForCliOrVscode: false
+        desktopRequiredForCliOrVscode: false,
+        desktopRequiredForCodeProjectMcp: false
+      },
+      mcp: {
+        config: ".mcp.json",
+        instructions: "AGENTS.md",
+        tools: [
+          "srijika_get_code_project",
+          "srijika_check_code_project",
+          "srijika_plan_code_structure",
+          "srijika_apply_code_structure"
+        ],
+        studioBridgeOptional: true
       }
     }
   }
@@ -26431,14 +29381,14 @@ function redactSensitive(value) {
   }
   return result;
 }
-function successResult(result) {
+function successResult(result, message = "Srijika request completed.") {
   const safeResult = redactSensitive(result);
   const structuredContent = { ok: true, result: safeResult };
   return {
     content: [
       {
         type: "text",
-        text: "Srijika Studio request completed. The result is in structuredContent.result."
+        text: `${message} The result is in structuredContent.result.`
       }
     ],
     structuredContent
@@ -26506,15 +29456,104 @@ async function captureBridge(bridge, params) {
     return errorResult(error2);
   }
 }
+async function callCodeProject(operation, message) {
+  try {
+    return successResult(await operation(), message);
+  } catch (error2) {
+    return errorResult(error2);
+  }
+}
 function createSrijikaMcpServer(options = {}) {
   const bridge = options.bridgeClient ?? new SrijikaBridgeClient();
+  const codeProject = new SrijikaCodeProjectService(
+    options.projectRoot ? { projectRoot: options.projectRoot } : {}
+  );
+  const plannedStructures = /* @__PURE__ */ new Map();
   const server = new McpServer(
     { name: "srijika-studio", version: TOOL_VERSION },
     {
-      instructions: "Operate the running Srijika Studio document engine. Read the smallest useful model, include expectedRevision on every write, use createdBy references to build nested regions atomically, then validate, inspect rendered layout, and capture a clean preview."
+      instructions: "For a CLI-first TSX project, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, and capability files; these tools work without Desktop Studio. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview."
     }
   );
   registerSrijikaDocumentation(server);
+  const structureInput = {
+    kind: _enum([
+      "feature",
+      "slot",
+      "part",
+      "connector",
+      "hook",
+      "store",
+      "logic",
+      "api",
+      "types"
+    ]),
+    name: string2().regex(/^[A-Z][A-Za-z0-9]{0,63}$/).optional(),
+    ownerFolder: string2().min(1).max(1024).optional(),
+    optionalCapabilities: array(_enum(["hook", "store", "logic", "api", "types"])).max(5).default([])
+  };
+  server.registerTool(
+    "srijika_get_code_project",
+    {
+      title: "Inspect Srijika code project",
+      description: "Read bounded metadata, architecture, scripts, and canonical files without Studio.",
+      inputSchema: {},
+      annotations: READ_ONLY
+    },
+    () => callCodeProject(() => codeProject.inspect(), "Srijika code project inspected.")
+  );
+  server.registerTool(
+    "srijika_check_code_project",
+    {
+      title: "Check Srijika code project",
+      description: "Run strict shared architecture validation without Studio.",
+      inputSchema: {},
+      annotations: READ_ONLY
+    },
+    () => callCodeProject(() => codeProject.check(), "Srijika code project checked.")
+  );
+  server.registerTool(
+    "srijika_plan_code_structure",
+    {
+      title: "Plan Srijika code structure",
+      description: "Plan exact canonical files and safe rewires without writing.",
+      inputSchema: structureInput,
+      annotations: READ_ONLY
+    },
+    async (input) => {
+      try {
+        const result = await codeProject.scaffold(input, true);
+        const planId = randomUUID();
+        if (plannedStructures.size >= 32)
+          plannedStructures.delete(plannedStructures.keys().next().value);
+        plannedStructures.set(planId, input);
+        return successResult({ ...result, planId }, "Srijika structure plan completed.");
+      } catch (error2) {
+        return errorResult(error2);
+      }
+    }
+  );
+  server.registerTool(
+    "srijika_apply_code_structure",
+    {
+      title: "Apply Srijika code structure",
+      description: "Apply a reviewed one-time structure plan without overwrite.",
+      inputSchema: { planId: string2().uuid() },
+      annotations: MUTATING
+    },
+    ({ planId }) => {
+      const input = plannedStructures.get(planId);
+      if (!input)
+        return errorResult(
+          new Error("The structure plan is missing, expired, or already applied.")
+        );
+      plannedStructures.delete(planId);
+      return callCodeProject(
+        () => codeProject.scaffold(input, false),
+        "Srijika structure files created."
+      );
+    }
+  );
   server.registerTool(
     SRIJIKA_TOOL_NAMES.getCapabilities,
     {
@@ -26689,15 +29728,24 @@ function createSrijikaMcpServer(options = {}) {
 }
 
 // src/cli.ts
+function projectArgument(arguments_) {
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    if (argument === "--project") return arguments_[index + 1];
+    if (argument?.startsWith("--project=")) return argument.slice("--project=".length);
+  }
+  return process.env["SRIJIKA_PROJECT_ROOT"];
+}
 async function main() {
-  const server = createSrijikaMcpServer();
+  const projectRoot = projectArgument(process.argv.slice(2));
+  const server = createSrijikaMcpServer(projectRoot ? { projectRoot } : {});
   const transport = new StdioServerTransport(process.stdin, process.stdout, {
     maxBufferSize: 8 * 1024 * 1024
   });
   await server.connect(transport);
-  console.error("Srijika Studio MCP server ready on stdio");
+  console.error("Srijika CLI-first and Studio MCP server ready on stdio");
 }
 main().catch((error2) => {
-  console.error(error2 instanceof Error ? error2.message : "Srijika Studio MCP server failed");
+  console.error(error2 instanceof Error ? error2.message : "Srijika MCP server failed");
   process.exitCode = 1;
 });

@@ -2,19 +2,31 @@
 
 ## Purpose
 
-The plugin lets Codex read and change the same canonical `UiDocument` used by the Studio canvas, hierarchy, inspector, renderer, and code generator. It does not automate pointer coordinates and it does not maintain a second editable UI tree.
+The MCP server has two independent adapters. Code-project tools let Codex inspect,
+validate, plan, and safely scaffold the canonical TSX project without Desktop
+Studio. When Studio is running, bridge tools additionally expose its canonical
+`UiDocument`, canvas, hierarchy, inspector, renderer, and history. Neither adapter
+maintains a second editable source tree.
 
 ```mermaid
 flowchart LR
-  C["Codex task"] --> S["Srijika workflow skill"]
-  S --> M["Bundled MCP stdio server"]
-  M --> B["Authenticated bridge client"]
+  C["Codex or MCP client"] --> M["Srijika MCP stdio server"]
+  M --> P["CLI-first project adapter"]
+  P --> E["Shared developer engine"]
+  E --> T["TSX + Feature / Slot / Part files"]
+  M -. "Studio available" .-> B["Authenticated bridge client"]
   B --> H["Tauri loopback HTTP relay"]
   H --> R["Frontend RPC dispatcher"]
   R --> A["Automation protocol"]
   A --> D["Document engine and history"]
   D --> V["Canvas, hierarchy, inspector, preview, TSX"]
 ```
+
+Generated projects include `.mcp.json`, `.vscode/mcp.json`, and `AGENTS.md`.
+`npx -y @srijika/mcp-server@0.1.0 --project .` bounds all code-project tools to
+that project. The read tools publish metadata, canonical files, and diagnostics;
+the plan/apply pair uses the same atomic no-overwrite scaffold service as CLI and
+VS Code. A missing Studio descriptor affects only visual document/preview tools.
 
 ## Layers
 
@@ -57,7 +69,7 @@ Part → Slot → Feature → `src/shared` promotion rules. This is a documentat
 resource only; it does not change the bridge protocol or document format.
 
 The companion `srijika://docs/cli-runtime` resource publishes the shared
-developer-workflow contract. Codex should prefer `srijika init`, `add`, `check`,
+developer-workflow contract. Codex should prefer `srijika create`, `init`, `add`, `check`,
 `doctor`, `dev`, `build`, and `studio` instead of reconstructing package-manager
 or runtime decisions. Node is the compatibility default; Bun is explicit,
 Vite-only, and never changes dependency resolution.

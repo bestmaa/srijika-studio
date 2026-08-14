@@ -49,6 +49,8 @@ does not remove React or restrict npm-compatible React packages.
 ## Commands
 
 ```bash
+npm create srijika@latest my-app
+srijika create my-app
 srijika init my-app
 srijika add feature Dashboard --hook --store --logic --api --types
 srijika add slot Summary --in src/features/dashboard --hook --logic
@@ -62,6 +64,24 @@ srijika dev --runtime bun
 srijika build
 srijika studio
 ```
+
+`create` is the recommended product entrypoint. It performs a complete setup:
+
+1. create the pinned React/Vite project and strict ownership config;
+2. install from the frozen lockfile;
+3. run the shared architecture validator;
+4. install/recommend Srijika Language Support and open the exact folder when VS
+   Code is available;
+5. open the same folder in Desktop Studio when Studio is installed, otherwise
+   continue successfully without it.
+6. write generic and VS Code MCP configs plus `AGENTS.md`, allowing Codex or any
+   MCP client to inspect, validate, plan, and scaffold the project without Studio.
+
+`init` remains the low-level scaffold-only primitive for scripts that want to
+control every later step. `create --no-open` is the CI-safe complete setup;
+`--no-install`, `--no-vscode`, `--no-extension`, and `--no-studio` provide finer
+control. Generated VS Code tasks keep Run App, Check Architecture, and Build App
+available even without the extension.
 
 `add` accepts only canonical ownership boundaries and predefined capability
 names. A new Feature, Slot, or Part always includes UI + Connector; Hook, Store,
@@ -79,6 +99,25 @@ rewires without writing.
 | Stop managed app          | signal   | Stop App                 | Stop             | Not implicit       |
 | Open Desktop              | `studio` | external handoff         | already open     | MCP connection     |
 
+The project folder and `srijika.config.json` are the product boundary. No adapter
+owns a private project format, so installing or removing Studio never migrates or
+changes a CLI-created project.
+
+## MCP without Desktop Studio
+
+Every generated project contains `.mcp.json` and `.vscode/mcp.json` pointing to
+the pinned Srijika MCP server, plus `AGENTS.md` with the architecture contract.
+The server is bounded to that project and exposes:
+
+- `srijika_get_code_project` — metadata and bounded canonical file inventory;
+- `srijika_check_code_project` — shared strict diagnostics;
+- `srijika_plan_code_structure` — exact no-write file and rewire plan;
+- `srijika_apply_code_structure` — atomic no-overwrite Feature/Slot/Part creation.
+
+Studio bridge tools appear in the same MCP server but remain optional. If Studio
+is absent, only visual document, layout, and preview operations are unavailable;
+all code-project tools continue to work.
+
 The CLI passes `--project <absolute-path>` when launching the Desktop. The native
 app validates and opens that project through the same bounded project service.
 
@@ -92,3 +131,8 @@ Before publishing the CLI or extension:
 4. Build the VS Code bundle and run its extension-host activation smoke.
 5. Run Studio TypeScript and Rust checks, plus the desktop runtime smoke.
 6. Build the documentation portal and validate the Codex plugin.
+
+The automated release contract lives in `.github/workflows/release-npm.yml` and
+is documented in `docs/NPM_RELEASE.md`. A published GitHub Release whose tag
+matches all three public package versions triggers ordered npm publication with
+OIDC Trusted Publishing and provenance.

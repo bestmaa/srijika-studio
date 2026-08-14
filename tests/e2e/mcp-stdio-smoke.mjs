@@ -82,9 +82,11 @@ const windowsPath = (path) => execFileSync('wslpath', ['-w', path], { encoding: 
 const windowsLauncherSource =
   process.env['SRIJIKA_STUDIO_MCP_WINDOWS_LAUNCHER'] ??
   join(workspace, 'plugins/srijika-studio/scripts/run-mcp.cmd');
-const windowsLauncher = windowsLauncherSource.startsWith('/')
-  ? windowsPath(windowsLauncherSource)
-  : windowsLauncherSource;
+const windowsLauncher = useWindowsLauncher
+  ? windowsLauncherSource.startsWith('/')
+    ? windowsPath(windowsLauncherSource)
+    : windowsLauncherSource
+  : '';
 const transport = new StdioClientTransport({
   command: useWindowsLauncher ? 'cmd.exe' : process.execPath,
   args: useWindowsLauncher ? ['/d', '/s', '/c', windowsLauncher] : [bundle],
@@ -113,14 +115,16 @@ const client = new Client({ name: 'srijika-stdio-smoke', version: '1.0.0' });
 try {
   await client.connect(transport);
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 17);
+  assert.equal(tools.tools.length, 21);
+  assert(tools.tools.some(({ name }) => name === 'srijika_get_code_project'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_apply_code_structure'));
   assert(tools.tools.some(({ name }) => name === 'srijika_apply_operations'));
   assert(tools.tools.some(({ name }) => name === 'srijika_analyze_repetitions'));
   assert(tools.tools.some(({ name }) => name === 'srijika_get_generated_code'));
   assert(tools.tools.some(({ name }) => name === 'srijika_get_layout_snapshot'));
   assert(tools.tools.some(({ name }) => name === 'srijika_capture_preview'));
   const resources = await client.listResources();
-  assert.equal(resources.resources.length, 4);
+  assert.equal(resources.resources.length, 5);
   assert(resources.resources.some(({ uri }) => uri === 'srijika://docs/code-first-architecture'));
 
   const result = await client.callTool({ name: 'srijika_get_capabilities', arguments: {} });

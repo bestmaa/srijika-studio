@@ -8,6 +8,12 @@ export {
   runSrijikaCommand,
   selectSrijikaRuntime,
 } from './runtime.js';
+export { scaffoldSrijikaStructure } from './structure.js';
+export type {
+  ScaffoldSrijikaStructureRequest,
+  ScaffoldSrijikaStructureResult,
+  SrijikaStructureKind,
+} from './structure.js';
 export type {
   SrijikaArchitectureCheckResult,
   SrijikaCommandPlan,

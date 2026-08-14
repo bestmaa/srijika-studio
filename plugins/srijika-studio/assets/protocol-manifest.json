@@ -23,7 +23,10 @@
     "detailedComponentManifests": true,
     "typedRepeatConversion": true,
     "responsiveStyleWrites": true,
-    "generatedTsxInspection": true
+    "generatedTsxInspection": true,
+    "softwareIndependentCodeProjects": true,
+    "architectureValidation": true,
+    "reviewedAtomicScaffolding": true
   },
   "limits": {
     "customViewport": {
@@ -54,6 +57,12 @@
       "maxCandidates": 500
     }
   },
+  "codeProjectTools": [
+    "srijika_get_code_project",
+    "srijika_check_code_project",
+    "srijika_plan_code_structure",
+    "srijika_apply_code_structure"
+  ],
   "canonicalTools": [
     "srijika_get_capabilities",
     "srijika_get_project_summary",

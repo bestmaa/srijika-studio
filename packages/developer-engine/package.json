@@ -14,7 +14,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@srijika/architecture-rules": "workspace:*"
+    "@srijika/architecture-rules": "workspace:*",
+    "@srijika/project-scaffold": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

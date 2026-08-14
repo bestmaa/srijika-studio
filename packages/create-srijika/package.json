@@ -1,0 +1,33 @@
+{
+  "name": "create-srijika",
+  "version": "0.1.0",
+  "description": "Create a production-ready Srijika React project from the command line.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "create-srijika": "./bin/create-srijika.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestmaa/srijika-studio.git",
+    "directory": "packages/create-srijika"
+  },
+  "homepage": "https://github.com/bestmaa/srijika-studio#readme",
+  "bugs": "https://github.com/bestmaa/srijika-studio/issues",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@srijika/cli": "0.1.0"
+  }
+}

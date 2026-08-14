@@ -74,6 +74,7 @@ describe('createSrijikaProjectFileMap', () => {
         devServer: string;
         hmr: boolean;
       };
+      ai: { mcpConfig: string; instructions: string; desktopRequired: boolean };
     };
     const lockfile = files['pnpm-lock.yaml'] ?? '';
 
@@ -96,6 +97,9 @@ describe('createSrijikaProjectFileMap', () => {
       zustand: '5.0.14',
     });
     expect(packageMetadata.scripts['validate:srijika']).toBe('node scripts/srijika-validate.mjs');
+    expect(packageMetadata.scripts['mcp:srijika']).toBe(
+      'npx -y @srijika/mcp-server@0.1.0 --project .',
+    );
     expect(packageMetadata.scripts['typecheck']).toContain('validate:srijika');
     expect(packageMetadata.scripts['build']).toContain('validate:srijika');
     expect(files['scripts/srijika-validate.mjs']).toContain('Srijika architecture check passed');
@@ -129,8 +133,17 @@ describe('createSrijikaProjectFileMap', () => {
           architecture: 'feature-slot-part-v1',
           command: 'pnpm run validate:srijika',
         },
+        ai: {
+          mcpConfig: '.mcp.json',
+          instructions: 'AGENTS.md',
+          desktopRequired: false,
+        },
       }),
     );
+    expect(files['.mcp.json']).toContain('@srijika/mcp-server@0.1.0');
+    expect(files['.vscode/mcp.json']).toContain('${workspaceFolder}');
+    expect(files['.vscode/tasks.json']).toContain('Srijika: Run App');
+    expect(files['AGENTS.md']).toContain('srijika_plan_code_structure');
     expect(lockfile.startsWith("lockfileVersion: '9.0'\n")).toBe(true);
     expect(lockfile).toContain('specifier: 19.2.8');
     expect(lockfile).toContain("'@babel/core@8.0.1':");
