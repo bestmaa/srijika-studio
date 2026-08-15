@@ -1,106 +1,330 @@
 ---
-title: CLI and Fast Runtime
-description: Use Srijika from a terminal or VS Code with Vite HMR and optional Bun turbo mode.
+title: CLI-first workflow
+description: Create, validate, extend, run, and connect a Srijika project without Desktop Studio.
 ---
 
-## One engine, multiple surfaces
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
 
-Srijika Studio, the VS Code extension, the CLI, and Codex guidance share one
-Feature → Slot → Part contract. Creating or checking a project from one surface
-must produce the same paths, diagnostics, and highest-available behavior chain
-as every other surface.
+Srijika is **CLI first**. Desktop Studio is an optional visual workbench, not a
+project runtime or installation requirement. A project created from npm is a
+normal pinned React workspace that can be developed entirely from a terminal,
+VS Code, Codex, or another MCP client.
 
-## Install and start
+## Create your first project
+
+You need Node.js 22.13 or newer and npm. Run:
 
 ```bash
 npm create srijika@latest my-app
+```
+
+The published [`create-srijika`](https://www.npmjs.com/package/create-srijika)
+launcher delegates to the matching
+[`@srijika/cli`](https://www.npmjs.com/package/@srijika/cli) release. The command:
+
+1. creates a pinned React 19 + Vite + TypeScript workspace;
+2. installs the dependency graph;
+3. validates the Feature → Slot → Part architecture;
+4. installs or recommends Srijika Language Support when VS Code is available;
+5. opens the exact generated folder in VS Code when available;
+6. opens Desktop Studio only when it is installed; and
+7. writes MCP and Codex project guidance automatically.
+
+If VS Code or Studio is missing, creation still succeeds. Nothing is downloaded
+or emulated as a hidden replacement for those applications.
+
+### Terminal-only or CI creation
+
+Use `--no-open` when no application should be launched:
+
+```bash
+npm create srijika@latest my-app -- --no-open
+```
+
+Use individual switches when you need finer control:
+
+```bash
+npm create srijika@latest my-app -- \
+  --no-install \
+  --no-vscode \
+  --no-extension \
+  --no-studio
+```
+
+| Option           | Effect                                                        |
+| ---------------- | ------------------------------------------------------------- |
+| `--no-open`      | Skip both VS Code and Desktop Studio handoff.                 |
+| `--no-install`   | Generate files without installing dependencies.               |
+| `--no-vscode`    | Do not open VS Code.                                          |
+| `--no-extension` | Keep the recommendation but do not install the VS Code addon. |
+| `--no-studio`    | Never attempt the optional Desktop Studio handoff.            |
+
+## Start the real application
+
+```bash
 cd my-app
 npx @srijika/cli doctor
-npx @srijika/cli install
+npx @srijika/cli check
 npx @srijika/cli dev
 ```
 
-The public `create-srijika` launcher pins and delegates to `@srijika/cli`, giving
-Srijika the same `npm create …@latest` onboarding model as modern Vite projects.
-Releases are built and verified in GitHub Actions, then published to npm through
-OIDC Trusted Publishing with provenance.
+`dev` starts the project's real Vite development server. React Fast Refresh,
+project CSS, dependencies, Providers, Connectors, routes, and application state
+all execute through the real application—not a static design substitute.
 
-`create` is the CLI-first setup path: it creates the pinned project, installs its
-frozen dependency graph, validates the Feature → Slot → Part contract, and opens
-the exact folder in VS Code when available. It also installs or recommends
-Srijika Language Support. Desktop Studio is optional—if detected it opens the
-same project; if absent, setup succeeds and the VS Code/terminal workflow remains
-complete.
+The main project lifecycle commands are:
 
-Generated projects also contain `.mcp.json`, `.vscode/mcp.json`, and `AGENTS.md`.
-Codex or another MCP client can therefore inspect the canonical project, run the
-shared architecture check, preview exact scaffold plans, and atomically create
-Feature/Slot/Part files without Desktop Studio. Studio adds visual document,
-layout, and preview bridge tools when it is available; it is not an MCP startup
-requirement.
+```bash
+npx @srijika/cli install
+npx @srijika/cli dev
+npx @srijika/cli check
+npx @srijika/cli validate
+npx @srijika/cli build
+npx @srijika/cli preview
+```
 
-Use `--no-open` for CI, or `--no-install`, `--no-vscode`, `--no-extension`, and
-`--no-studio` to disable individual onboarding steps. Generated VS Code tasks can
-run the app, architecture check, and production build without the extension or
-Desktop Studio.
+`doctor` reports the detected Node, optional Bun, package manager, lockfile, and
+project scripts. `check --watch` keeps an incremental architecture index while
+you edit:
 
-`srijika dev` starts the project's real Vite server. React Fast Refresh,
-project CSS, dependencies, Providers, Connectors, routes, and Srijika's preview
-bridge therefore remain active.
+```bash
+npx @srijika/cli doctor --json
+npx @srijika/cli check --watch
+```
 
-## Node and Bun
+## Node and optional Bun
 
 Node is the compatibility default:
 
 ```bash
-srijika dev --runtime node
+npx @srijika/cli dev --runtime node
 ```
 
-Bun is an optional explicit Vite turbo path:
+Bun can be selected explicitly for a detected Vite project:
 
 ```bash
-srijika dev --runtime bun
+npx @srijika/cli dev --runtime bun
 ```
 
-If Bun is not installed or the selected project is not Vite-based, Srijika
-reports the reason and uses Node. React works in both modes because the React
-application still runs in the browser. The package manager and lockfile remain
-independent from this runtime choice.
+React still executes in the browser in both modes. If Bun is missing or is not
+compatible with the selected project, Srijika reports the reason and falls back
+to Node. It never silently replaces the project's package manager or lockfile.
 
-## Strict creation
+## Create strict application structure
+
+Every owner requires a pure UI file and its matching Connector. Hook, Store,
+Logic, API, and Types are optional capabilities created only when selected.
 
 ```bash
-srijika add feature Dashboard --hook --store --logic --api --types
-srijika add slot Summary --in src/features/dashboard --hook --logic
-srijika add part MetricCard --in src/features/dashboard/slots/summary --types
-srijika add logic --to src/features/dashboard
+npx @srijika/cli add feature Dashboard \
+  --hook --store --logic --api --types
+
+npx @srijika/cli add slot Summary \
+  --in src/features/dashboard \
+  --hook --logic
+
+npx @srijika/cli add part MetricCard \
+  --in src/features/dashboard/slots/summary \
+  --types
 ```
 
-New owners always include UI + Connector. Optional files are created only when
-selected. `--dry-run` shows every exact target and safe rewire without modifying
-the project. Arbitrary folders, alternate suffixes, duplicates, and layer jumps
-are rejected.
-
-## VS Code
-
-The Srijika Structure title bar includes:
-
-- **Run App** — starts the strict-port real Vite app;
-- **Stop App** — terminates the managed task;
-- **Doctor** — checks Node, optional Bun, package manager, lockfile, and scripts;
-- **Add** — opens the same ownership-aware file checklist used by Studio.
-
-Choose `auto`, `node`, or `bun` with the `srijika.runtime` setting. `auto` keeps
-the safe Node default; it never silently switches the project's runtime.
-
-## Open Desktop from CLI
+Add one missing capability to an existing owner:
 
 ```bash
-srijika studio
+npx @srijika/cli add hook --to src/features/dashboard
+npx @srijika/cli add store --to src/features/dashboard
+npx @srijika/cli add logic --to src/features/dashboard
+npx @srijika/cli add api --to src/features/dashboard
+npx @srijika/cli add types --to src/features/dashboard
 ```
 
-The CLI locates the installed Studio, passes the current validated project path,
-and Desktop opens that project through its native bounded filesystem service.
+Add `--dry-run` to an `add` command to preview every exact file and safe rewire
+without changing the project. Existing files are never overwritten.
 
-For the exact implementation and release contract, read the canonical
-[CLI and Fast Runtime reference](/reference/cli_and_fast_runtime/).
+## The progressive behavior chain
+
+Runtime behavior follows one visible direction:
+
+```text
+UI ← Connector → Hook → Store → Logic → API → Types
+```
+
+- UI is pure and is rendered only by its Connector.
+- The Connector calls the highest available runtime layer.
+- If Hook exists, Connector cannot jump directly to Store, Logic, or API.
+- If Hook does not exist but Store does, Connector calls Store.
+- If Hook and Store do not exist but Logic does, Connector calls Logic.
+- Direct Connector → API is allowed only when Hook, Store, and Logic are absent.
+- A child Part is composed through its Connector, never by importing its private UI.
+
+Srijika emits hard diagnostics for missing UI/Connector pairs, layer jumps,
+reverse dependencies, private sibling imports, and direct child-UI imports. It
+also gives non-blocking recommendations when a growing owner should add Logic,
+Hook, Store, or a Hook above Store.
+
+Read [Project anatomy](/docs/project-anatomy/) for ownership and promotion rules.
+
+## VS Code without Desktop Studio
+
+The generated workspace is complete even when Srijika Studio is not installed.
+It includes recommended extensions plus tasks for:
+
+- **Run App** — start the real Vite application;
+- **Check Architecture** — run the same rules used by CLI, MCP, and Studio; and
+- **Build App** — produce the real React production build.
+
+When Srijika Language Support is installed, the **Srijika: Structure** view and
+Explorer context menus expose the same predefined Feature, Slot, Part, Hook,
+Store, Logic, API, and Types operations as the CLI. Every action goes through the
+shared scaffold engine.
+
+## MCP without Desktop Studio
+
+Every generated project contains:
+
+```text
+.mcp.json
+.vscode/mcp.json
+AGENTS.md
+```
+
+Those files point to the pinned
+[`@srijika/mcp-server`](https://www.npmjs.com/package/@srijika/mcp-server)
+release and describe the architecture contract to Codex or another MCP client.
+The MCP server can work directly against project code without a running desktop
+application.
+
+Its software-independent tools can:
+
+- inspect the project and owner hierarchy;
+- validate architecture and return stable diagnostic identifiers;
+- preview exact Feature/Slot/Part scaffold plans; and
+- apply validated plans atomically without overwriting existing files.
+
+Studio bridge tools appear from the same MCP server only when Desktop Studio is
+running and authenticated. They add live visual document and preview operations;
+they are not required for code-project tools.
+
+For a manual MCP launch from the project root:
+
+```bash
+npx -y @srijika/mcp-server@0.1.0 --project .
+```
+
+Usually you do not need to run this yourself—the generated MCP configuration
+starts the pinned command for your editor or client.
+
+## Open the optional desktop later
+
+If Desktop Studio is installed, open the current validated project with:
+
+```bash
+npx @srijika/cli studio
+```
+
+Studio receives the exact existing project folder. It does not copy or convert
+the project, and the same TSX files remain authoritative.
+
+## What gets generated
+
+The starter includes the application shell, pinned toolchain, architecture
+configuration, example owners, portable validation, VS Code tasks, and MCP/Codex
+metadata. A typical feature follows this structure:
+
+```text
+src/features/dashboard/
+├── Dashboard.ui.tsx
+├── Dashboard.connector.tsx
+├── useDashboard.ts
+├── dashboard.store.ts
+├── dashboard.logic.ts
+├── dashboard.api.ts
+├── dashboard.types.ts
+└── slots/
+    └── summary/
+        ├── Summary.ui.tsx
+        ├── Summary.connector.tsx
+        └── parts/
+```
+
+Shared behavior is promoted to the nearest common owner: Part → Slot → Feature →
+`src/shared`. Private descendants cannot reach sideways into siblings or upward
+into owners.
+
+## Command reference
+
+```text
+srijika create <directory> [creation options]
+srijika init <directory> [--install]
+srijika add feature <Name> [capability flags]
+srijika add slot <Name> --in <feature-folder> [capability flags]
+srijika add part <Name> --in <slot-folder> [capability flags]
+srijika add <hook|store|logic|api|types> --to <owner-folder>
+srijika check [project] [--watch] [--json]
+srijika doctor [project] [--runtime node|bun] [--json]
+srijika dev [project] [--runtime node|bun] [--port 5173]
+srijika install|build|preview|validate [project]
+srijika studio [project]
+```
+
+Run `npx @srijika/cli --help` for the command list shipped by your installed
+version.
+
+## Published packages and release
+
+<CardGrid>
+  <Card title="create-srijika" icon="rocket">
+    Public `npm create` launcher for complete CLI-first onboarding.
+  </Card>
+  <Card title="@srijika/cli" icon="terminal">
+    Project creation, architecture, runtime, VS Code, and optional Studio adapter.
+  </Card>
+  <Card title="@srijika/mcp-server" icon="puzzle">
+    Software-independent project tools plus optional authenticated Studio tools.
+  </Card>
+</CardGrid>
+
+The current public release is
+[`v0.1.0`](https://github.com/bestmaa/srijika-studio/releases/tag/v0.1.0).
+Packages are verified by GitHub Actions and publish through npm
+Trusted Publishing with short-lived OIDC credentials rather than a long-lived
+repository token.
+
+<LinkButton href="https://www.npmjs.com/package/create-srijika">
+  View create-srijika on npm
+</LinkButton>
+<LinkButton href="/docs/project-anatomy/">Read project anatomy</LinkButton>
+
+## Troubleshooting
+
+### `Port 5173 is already in use`
+
+Stop the other Vite process or choose an explicit free port:
+
+```bash
+npx @srijika/cli dev --port 5174
+```
+
+### VS Code or Studio did not open
+
+The project is still complete. Open the generated folder manually and continue
+with `npx @srijika/cli dev`. Run `doctor` to see detected tools.
+
+### Architecture check failed
+
+Run:
+
+```bash
+npx @srijika/cli check
+```
+
+Fix the reported stable rule identifier. Do not bypass the error with a private
+sibling import or by jumping over an existing runtime layer.
+
+### Existing destination is not empty
+
+Choose a new empty directory. Srijika refuses to overwrite an existing project.
+
+For the exact engine and release contract, read the canonical
+[CLI and Fast Runtime reference](/reference/cli_and_fast_runtime/) and
+[npm release reference](/reference/npm_release/).

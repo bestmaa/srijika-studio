@@ -178,6 +178,35 @@ h1 {
   line-height: 1.65;
 }
 
+.hero-command {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  margin: -0.25rem 0 1.25rem;
+  border: 1px solid rgba(139, 124, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(17, 16, 20, 0.88);
+  padding: 0.8rem 1rem;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
+}
+
+.hero-command__prompt {
+  color: #7ee2ad;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+.hero-command code,
+.cta-command code {
+  color: #e7e3ef;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -418,6 +447,119 @@ h2 {
   border-top: 1px solid var(--line);
   border-left: 1px solid var(--line);
   grid-template-columns: repeat(3, 1fr);
+}
+
+.quickstart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.quick-path {
+  display: flex;
+  min-height: 390px;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.018);
+  padding: 1.7rem;
+}
+
+.quick-path--primary {
+  border-color: rgba(139, 124, 255, 0.28);
+  background: linear-gradient(180deg, rgba(139, 124, 255, 0.1), rgba(255, 255, 255, 0.018) 50%);
+}
+
+.quick-path__label {
+  margin-bottom: 2.2rem;
+  color: #a99fff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quick-path h3 {
+  margin-bottom: 0.7rem;
+  font-size: 1.1rem;
+  letter-spacing: -0.025em;
+}
+
+.quick-path p {
+  color: #8f8a99;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.quick-path p code {
+  color: #c8c2ff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78em;
+}
+
+.quick-path pre {
+  margin: auto 0 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #0d0c10;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.quick-path pre code {
+  color: #c9c4d3;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.75;
+}
+
+.quick-path > a {
+  color: #b8b1ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.quick-path > a:hover,
+.quick-path > a:focus-visible {
+  color: #fff;
+}
+
+.package-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.012);
+  padding: 1rem;
+}
+
+.package-strip span {
+  margin-right: auto;
+  color: #77717f;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.package-strip a {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  color: #aaa5b4;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  text-decoration: none;
+}
+
+.package-strip a:hover,
+.package-strip a:focus-visible {
+  border-color: rgba(139, 124, 255, 0.45);
+  color: #fff;
 }
 
 .principle {
@@ -719,6 +861,17 @@ h2 {
   line-height: 1.7;
 }
 
+.cta-command {
+  display: inline-flex;
+  max-width: 100%;
+  margin: -0.5rem 0 1.4rem;
+  border: 1px solid rgba(139, 124, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(11, 11, 14, 0.56);
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+}
+
 .footer {
   display: flex;
   min-height: 120px;
@@ -757,7 +910,8 @@ h2 {
   }
 
   .principles,
-  .roadmap {
+  .roadmap,
+  .quickstart-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -809,6 +963,7 @@ h2 {
   .principles,
   .status-grid,
   .roadmap,
+  .quickstart-grid,
   .tree-card {
     grid-template-columns: 1fr;
   }
@@ -821,8 +976,22 @@ h2 {
   }
 
   .principle,
-  .phase {
+  .phase,
+  .quick-path {
     min-height: auto;
+  }
+
+  .quick-path pre {
+    margin-top: 1.25rem;
+  }
+
+  .package-strip {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .package-strip span {
+    margin: 0 0 0.35rem;
   }
 
   .principle-number {

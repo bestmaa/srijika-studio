@@ -1,11 +1,23 @@
 ---
-title: Srijika Studio Documentation
-description: Product, authoring, architecture, and engineering documentation for Srijika Studio.
+title: Srijika Documentation
+description: Create and govern code-first React applications from CLI, VS Code, MCP, or optional Desktop Studio.
 ---
 
 import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
 
-Srijika Studio is a **code-first React application studio**. Restricted, typed `.ui.tsx` is the only persisted UI source of truth. The hierarchy, Inspector, diagnostics, and React preview are derived views of that source.
+Srijika is a **CLI-first toolchain for a code-first React application studio**.
+Create a complete project directly from npm; then use a terminal, VS Code,
+Codex/MCP, or optional Desktop Studio against the same source and architecture
+rules.
+
+```bash
+npm create srijika@latest my-app
+cd my-app
+npx @srijika/cli dev
+```
+
+Desktop Studio is not required. Restricted, typed `.ui.tsx` remains the only
+persisted UI source of truth whenever the visual workbench is used.
 
 :::caution[Public alpha]
 The current milestone is a working code-first UI foundation. Rust-backed generated APIs and business logic are planned for Phase 2; they are not part of the current product.
@@ -19,11 +31,15 @@ The current milestone is a working code-first UI foundation. Rust-backed generat
   <Card title="Learn the authoring model" icon="seti:typescript">
     See how pure UI files, connectors, stores, hooks, slots, and parts form one predictable system.
   </Card>
-  <Card title="Use CLI or VS Code" icon="terminal">
-    Create strict owners, validate architecture, and run the real Vite app with Node compatibility
-    or optional Bun turbo mode.
+  <Card title="Start from public npm" icon="terminal">
+    Create a pinned React workspace, validate its architecture, and run the real Vite application
+    without installing Desktop Studio.
   </Card>
-  <Card title="Understand the architecture" icon="puzzle">
+  <Card title="Connect VS Code or MCP" icon="puzzle">
+    Use generated editor tasks, structure actions, and software-independent MCP tools against the
+    same project files.
+  </Card>
+  <Card title="Understand the architecture" icon="seti:typescript">
     Follow source through the restricted compiler, derived document, workbench, renderer, and native
     boundary.
   </Card>
@@ -48,12 +64,15 @@ Visual tooling must never silently replace developer-owned code with a hidden fo
 
 ## Recommended path
 
-1. Read [Product status](/docs/product-status/) to establish the current boundary.
-2. Follow [Getting started](/docs/getting-started/) for the supported local workflow.
-3. Follow [Using Srijika Studio](/docs/using-studio/) for the day-to-day product workflow.
-4. Use [CLI and fast runtime](/docs/cli-runtime/) for terminal and VS Code workflows.
+1. Follow [Getting started](/docs/getting-started/) to create the first project from npm.
+2. Use the [CLI-first workflow](/docs/cli-runtime/) for terminal, VS Code, MCP, and optional Studio handoff.
+3. Read [Product status](/docs/product-status/) to establish the current boundary.
+4. Follow [Using Srijika Studio](/docs/using-studio/) only when you want the optional visual workbench.
 5. Learn [Project anatomy](/docs/project-anatomy/) and the ownership rules.
 6. Study the [Authoring model](/docs/authoring-model/) for `.ui.tsx` and connectors.
 7. Read [Architecture](/docs/architecture/) before extending the compiler or native boundary.
 
-<LinkButton href="/docs/product-status/">Begin with product status</LinkButton>
+<LinkButton href="/docs/getting-started/">Create your first project</LinkButton>
+<LinkButton href="https://www.npmjs.com/package/create-srijika" variant="minimal">
+  View create-srijika on npm
+</LinkButton>

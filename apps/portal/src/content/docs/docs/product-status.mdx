@@ -5,12 +5,16 @@ description: An honest boundary between Srijika Studio's current alpha capabilit
 
 ## Current stage
 
-Srijika Studio is in **public alpha**. The product website and documentation are publicly available, while the implementation repository remains private. The current milestone establishes a code-first UI foundation for independent React applications. The desktop shell, compiler, project workflow, diagnostics, previews, VS Code integration, and quality gates are implemented in the repository.
+Srijika is in **public alpha**. The website, documentation, and versioned npm
+packages are public, while the implementation repository remains private. The
+primary onboarding path is CLI first; Desktop Studio is an optional visual
+surface over the same project contract.
 
 ## Available now
 
 | Capability          | Current behavior                                                                                                              |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Public npm setup    | `npm create srijika@latest my-app` creates and validates a pinned application without requiring Desktop Studio.               |
 | Project scaffolding | Creates a complete pinned React 19 workspace without overwriting an existing destination.                                     |
 | Canonical UI source | Restricted, typed `.ui.tsx` is the only persisted UI authority.                                                               |
 | Compiler            | Parses without executing arbitrary project code and emits diagnostics, source spans, quick fixes, and a derived `UiDocument`. |
@@ -20,7 +24,8 @@ Srijika Studio is in **public alpha**. The product website and documentation are
 | External editing    | Opens validated project, file, and node locations directly in VS Code.                                                        |
 | Managed application | Synchronizes pinned dependencies and runs or builds the real Vite app.                                                        |
 | Language support    | Reuses the same compiler diagnostics and fixes in the Srijika VS Code extension.                                              |
-| Shared CLI          | Creates strict owners, checks architecture, audits toolchains, runs Vite, and opens Desktop from the terminal.                |
+| Shared CLI          | Creates strict owners, checks architecture, audits toolchains, runs Vite, and optionally hands off to VS Code or Studio.      |
+| Software-free MCP   | Generated MCP configuration supports inspection, validation, and safe scaffolding without a running desktop application.      |
 | Optional Bun mode   | Runs detected Vite projects through an explicit Bun turbo path while keeping Node as the compatibility default.               |
 | Native safety       | Uses Rust for path containment, bounded reads, optimistic hash checks, atomic saves, and managed processes.                   |
 
@@ -32,6 +37,17 @@ Srijika Studio is in **public alpha**. The product website and documentation are
 - The derived preview does not execute connectors or arbitrary project imports.
 - Custom component packages, signed toolchain sidecars, collaboration, and a public plugin SDK are not shipped.
 - Native Windows, macOS, and Linux artifacts still require signed platform-specific release pipelines.
+
+## Published distribution
+
+The public alpha is distributed as three coordinated npm packages:
+
+- [`create-srijika`](https://www.npmjs.com/package/create-srijika) — the `npm create` launcher;
+- [`@srijika/cli`](https://www.npmjs.com/package/@srijika/cli) — project creation, scaffolding, validation, and runtime commands; and
+- [`@srijika/mcp-server`](https://www.npmjs.com/package/@srijika/mcp-server) — project-aware tools for Codex and other MCP clients.
+
+Releases are verified in GitHub Actions and published through npm Trusted
+Publishing with provenance. See the [current GitHub release](https://github.com/bestmaa/srijika-studio/releases/tag/v0.1.0).
 
 ## Rust: present versus planned
 
