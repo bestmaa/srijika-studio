@@ -1,11 +1,86 @@
 ---
 title: Getting Started
-description: Install, run, and understand the supported Srijika Studio development workflow.
+description: Create and run a Srijika React project from npm, with or without Desktop Studio.
 ---
 
-## Toolchain
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
 
-The current development baseline uses:
+## Create an application
+
+Node.js 22.13 or newer is the only required runtime. From any parent directory,
+run:
+
+```bash
+npm create srijika@latest my-app
+cd my-app
+npx @srijika/cli check
+npx @srijika/cli dev
+```
+
+This creates a pinned React 19 + Vite + TypeScript project, installs its
+dependencies, validates the Srijika architecture, and starts the real
+application. Desktop Studio is **not required**.
+
+For CI or a terminal-only setup that must not open another application:
+
+```bash
+npm create srijika@latest my-app -- --no-open
+```
+
+<LinkButton href="/docs/cli-runtime/">Open the complete CLI guide</LinkButton>
+
+## Choose your working surface
+
+All surfaces follow the same Feature → Slot → Part contract and use the same
+scaffold and validation rules.
+
+<CardGrid>
+  <Card title="Terminal only" icon="terminal">
+    Create, extend, check, run, build, and preview the project with the published CLI. No desktop
+    application is needed.
+  </Card>
+  <Card title="VS Code" icon="seti:vscode">
+    Use generated tasks and the optional Srijika Language Support extension for structure-aware
+    creation and diagnostics.
+  </Card>
+  <Card title="Codex or MCP" icon="puzzle">
+    Generated MCP configuration lets an AI inspect, validate, preview, and safely scaffold the
+    project without Studio.
+  </Card>
+  <Card title="Desktop Studio" icon="screen">
+    Optionally open the same project for visual source selection, live application preview, UI
+    hierarchy, contracts, and bounded visual edits.
+  </Card>
+</CardGrid>
+
+## Confirm the environment
+
+```bash
+npx @srijika/cli doctor
+npx @srijika/cli check
+```
+
+`doctor` explains the detected Node version, optional Bun runtime, package
+manager, lockfile, and project scripts. `check` enforces required UI + Connector
+pairs and the progressive Connector → Hook → Store → Logic → API chain.
+
+## Add application structure
+
+```bash
+npx @srijika/cli add feature Dashboard --hook --store --logic --api --types
+npx @srijika/cli add slot Summary --in src/features/dashboard --hook --logic
+npx @srijika/cli add part MetricCard --in src/features/dashboard/slots/summary --types
+```
+
+Use `--dry-run` to inspect the exact file plan before writing it. Existing files
+are never silently overwritten.
+
+## Develop Srijika Studio itself
+
+The following steps are for contributors working on the Srijika Studio
+repository—not for developers creating an application with the public CLI.
+
+### Toolchain
 
 - Node.js 22.22.1 (minimum declared version: 22.13)
 - pnpm 11.18.0
@@ -14,8 +89,6 @@ The current development baseline uses:
 - Rust 1.97.1
 - Tauri 2
 
-## Browser development
-
 From the repository root:
 
 ```bash
@@ -23,45 +96,19 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The editor runs at `http://localhost:5173/`. The standalone interpreted preview is available at `http://localhost:5173/preview`. Port 5173 is strict; development fails instead of silently selecting another port.
+The browser editor runs at `http://localhost:5173/`. Browser mode is
+intentionally limited: it has no project-directory or process authority.
 
-Browser mode is intentionally limited. It provides an in-memory demo project and standalone `.ui.tsx` inspection, but it cannot access project directories, launch VS Code, or manage application processes.
-
-## CLI and VS Code workflow
-
-The shared CLI can create, validate, and run an independent project without
-opening Desktop:
-
-```bash
-npx @srijika/cli create my-app
-cd my-app
-npx @srijika/cli doctor
-npx @srijika/cli check
-npx @srijika/cli dev
-```
-
-Node is the compatibility default. A detected Vite project may explicitly use
-`npx @srijika/cli dev --runtime bun`; missing or incompatible Bun safely falls
-back to Node without changing the project's package manager or lockfile. See
-[CLI and fast runtime](/docs/cli-runtime/) for the complete command set.
-
-## Desktop development
+Run the complete desktop shell with:
 
 ```bash
 pnpm tauri dev
 ```
 
-The desktop shell provides the complete independent-project workflow:
+Linux and WSL require the WebKitGTK and Tauri prerequisites listed in the
+canonical [Development Setup](/reference/development/) reference.
 
-1. Create or open a validated Srijika project.
-2. Select `.ui.tsx` sources from Project Explorer.
-3. Inspect UI Nodes, contracts, diagnostics, and source ranges.
-4. Open exact project, file, or node locations in VS Code.
-5. Run or build the managed Vite application using the pinned toolchain.
-
-Linux and WSL require the native WebKitGTK and Tauri prerequisites listed in the canonical [Development Setup](/reference/development/) reference.
-
-## Quality gate
+### Contributor quality gate
 
 ```bash
 pnpm verify
@@ -71,4 +118,5 @@ cargo clippy --locked -p project-store -p studio-core -- -D warnings
 cargo test --locked -p project-store -p studio-core
 ```
 
-Full workspace Rust checks include the Tauri shell and therefore require the documented native dependencies.
+Full-workspace Rust checks include the Tauri shell and require the documented
+native dependencies.

@@ -53,6 +53,16 @@ const layers = [
 
 const currentStatus = [
   {
+    title: "Public CLI and npm launcher",
+    body: "Create a complete pinned Srijika project with npm create srijika@latest, then validate, run, and extend it from any terminal.",
+    status: "Available now",
+  },
+  {
+    title: "Software-independent MCP",
+    body: "Every generated project includes MCP and Codex metadata, so architecture-aware inspection and scaffolding work without Desktop Studio.",
+    status: "Available now",
+  },
+  {
     title: "Code-first React foundation",
     body: "Deterministic React 19 scaffolding, restricted TSX compilation, source diagnostics, last-good previews, and real project indexing are implemented.",
     status: "Available now",
@@ -99,23 +109,23 @@ export function HomeUI(props: HomeUIProps) {
     <meta name="viewport" content="width=device-width" />
     <meta
       name="description"
-      content="Srijika Studio is a code-first React application studio where typed TSX stays authoritative."
+      content="Create a code-first Srijika React app from the CLI, work in VS Code or MCP, and add Desktop Studio when you want a visual workbench."
     />
     <meta name="theme-color" content="#0b0b0e" />
     <meta name="robots" content="index, follow" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://srijika.com/" />
-    <meta property="og:title" content="Srijika Studio — Design the interface. Keep the source." />
+    <meta property="og:title" content="Srijika — CLI first. Studio when you want it." />
     <meta
       property="og:description"
-      content="A code-first React application studio where typed TSX stays authoritative."
+      content="Create from npm, work in VS Code or MCP, and use Desktop Studio as an optional visual layer."
     />
     <meta property="og:image" content="https://srijika.com/srijika-social.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://srijika.com/srijika-social.png" />
     <link rel="canonical" href="https://srijika.com/" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <title>Srijika Studio — Design the interface. Keep the source.</title>
+    <title>Srijika — CLI first. Studio when you want it.</title>
   </head>
   <body>
     <header class="site-header">
@@ -125,9 +135,10 @@ export function HomeUI(props: HomeUIProps) {
           <span>Srijika Studio</span>
         </a>
         <div class="nav-links">
+          <a href="#quickstart">Quick start</a>
           <a href="#architecture">Architecture</a>
           <a href="#status">Product status</a>
-          <a href="/docs/">Documentation</a>
+          <a href="/docs/cli-runtime/">CLI guide</a>
           <a class="nav-status" href="/docs/product-status/">Public alpha</a>
         </div>
       </nav>
@@ -136,21 +147,27 @@ export function HomeUI(props: HomeUIProps) {
     <main>
       <section class="hero shell">
         <div>
-          <p class="eyebrow">Code-first application studio</p>
-          <h1>Design the interface. <span>Keep the source.</span></h1>
+          <p class="eyebrow">CLI-first React application system</p>
+          <h1>Start in the terminal. <span>Add Studio when you want it.</span></h1>
           <p class="hero-copy">
-            Srijika Studio gives React teams a visual workbench without introducing a hidden visual
-            format. Typed TSX remains authoritative; every supported operation returns to source.
+            Create a complete Srijika project from npm, work entirely in VS Code, and connect Codex
+            or any MCP client to the same strict architecture. Desktop Studio is an optional visual
+            workbench—not a requirement.
           </p>
+          <div class="hero-command" aria-label="Create a Srijika project from npm">
+            <span class="hero-command__prompt">$</span>
+            <code>npm create srijika@latest my-app</code>
+          </div>
           <div class="actions">
-            <a class="button button--primary" href="/docs/">Explore the documentation <span>→</span></a>
-            <a class="button" href="#architecture">Understand the architecture</a>
+            <a class="button button--primary" href="/docs/cli-runtime/">Start with the CLI <span>→</span></a>
+            <a class="button" href="/docs/">Explore all documentation</a>
           </div>
           <div class="hero-facts" aria-label="Technology overview">
+            <span>npm create</span>
             <span>React 19</span>
-            <span>TypeScript 6</span>
-            <span>Tauri 2 + Rust</span>
-            <span>Public alpha</span>
+            <span>VS Code</span>
+            <span>Codex + MCP</span>
+            <span>Studio optional</span>
           </div>
         </div>
 
@@ -180,6 +197,65 @@ export function HomeUI(props: HomeUIProps) {
               </div>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section id="quickstart" class="section section--bordered shell">
+        <div class="section-heading">
+          <div>
+            <p class="kicker">Choose your surface</p>
+            <h2>One project. Three ways to work.</h2>
+          </div>
+          <p>
+            The CLI, VS Code, MCP clients, and Desktop Studio all consume the same project files,
+            validation rules, and Feature → Slot → Part ownership model. You can change surfaces
+            without migrating the project.
+          </p>
+        </div>
+
+        <div class="quickstart-grid">
+          <article class="quick-path quick-path--primary">
+            <span class="quick-path__label">01 · CLI only</span>
+            <h3>No desktop software required.</h3>
+            <p>Create, validate, scaffold, install, run, and build from an ordinary terminal.</p>
+            <pre><code>npm create srijika@latest my-app
+cd my-app
+npx @srijika/cli check
+npx @srijika/cli dev</code></pre>
+            <a href="/docs/cli-runtime/">Read the complete CLI workflow →</a>
+          </article>
+
+          <article class="quick-path">
+            <span class="quick-path__label">02 · VS Code + MCP</span>
+            <h3>Architecture-aware work in your editor.</h3>
+            <p>
+              Generated projects include VS Code tasks, <code>.mcp.json</code>,
+              <code>.vscode/mcp.json</code>, and <code>AGENTS.md</code> automatically.
+            </p>
+            <pre><code>npx @srijika/cli add feature Dashboard \
+  --hook --store --logic --api --types</code></pre>
+            <a href="/docs/cli-runtime/#mcp-without-desktop-studio">Connect an MCP client →</a>
+          </article>
+
+          <article class="quick-path">
+            <span class="quick-path__label">03 · Optional Studio</span>
+            <h3>Add the visual workbench later.</h3>
+            <p>
+              Open the same validated folder in Desktop Studio for source-derived inspection and a
+              managed live Vite preview. Your TSX remains authoritative.
+            </p>
+            <pre><code>cd my-app
+npx @srijika/cli studio</code></pre>
+            <a href="/docs/using-studio/">Read the Studio workflow →</a>
+          </article>
+        </div>
+
+        <div class="package-strip" aria-label="Published Srijika npm packages">
+          <span>Published on npm</span>
+          <a href="https://www.npmjs.com/package/create-srijika">create-srijika</a>
+          <a href="https://www.npmjs.com/package/@srijika/cli">@srijika/cli</a>
+          <a href="https://www.npmjs.com/package/@srijika/mcp-server">@srijika/mcp-server</a>
+          <a href="https://github.com/bestmaa/srijika-studio/releases/tag/v0.1.0">v0.1.0 release</a>
         </div>
       </section>
 
@@ -247,8 +323,11 @@ export function HomeUI(props: HomeUIProps) {
 │  └─ home/
 │     ├─ Home.ui.tsx
 │     ├─ Home.connector.tsx
+│     ├─ useHome.ts
 │     ├─ home.store.ts
-│     ├─ hooks/
+│     ├─ home.logic.ts
+│     ├─ home.api.ts
+│     ├─ home.types.ts
 │     └─ slots/
 │        └─ navigation/
 │           ├─ Navigation.ui.tsx
@@ -264,9 +343,9 @@ export function HomeUI(props: HomeUIProps) {
               <p>Typed props, callback events, JSX, and ReactNode slots—without hooks or business logic.</p>
             </div>
             <div class="tree-rule">
-              <span>Connectors</span>
-              <strong>Explicit application wiring</strong>
-              <p>Stores, hooks, resources, routing, and actions are composed around pure UI.</p>
+              <span>Progressive chain</span>
+              <strong>Connector → Hook → Store → Logic → API</strong>
+              <p>Each connector calls the highest available layer. Present layers cannot be skipped.</p>
             </div>
             <div class="tree-rule">
               <span>Ownership</span>
@@ -337,15 +416,16 @@ export function HomeUI(props: HomeUIProps) {
       <section class="section shell">
         <div class="cta">
           <div class="cta-content">
-            <p class="kicker">Engineering portal</p>
-            <h2>Every rule, workflow, and deliberate limit—in one place.</h2>
+            <p class="kicker">Start from npm</p>
+            <h2>Your first Srijika project is one command away.</h2>
             <p>
-              Continue into the product documentation to understand the authoring language, project
-              ownership model, desktop boundary, testing strategy, and current roadmap.
+              Use the complete CLI-first workflow without Desktop Studio, or add VS Code, MCP, and
+              the visual workbench whenever they help. The project format stays the same.
             </p>
+            <div class="cta-command"><code>npm create srijika@latest my-app</code></div>
             <div class="actions">
-              <a class="button button--primary" href="/docs/">Open documentation →</a>
-              <a class="button" href="/docs/product-status/">Review product status</a>
+              <a class="button button--primary" href="/docs/cli-runtime/">Open the CLI guide →</a>
+              <a class="button" href="/docs/">Browse all documentation</a>
             </div>
           </div>
         </div>

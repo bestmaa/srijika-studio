@@ -43,7 +43,7 @@ export default defineConfig({
             { label: 'Product status', slug: 'docs/product-status' },
             { label: 'Getting started', slug: 'docs/getting-started' },
             { label: 'Using Srijika Studio', slug: 'docs/using-studio' },
-            { label: 'CLI and fast runtime', slug: 'docs/cli-runtime' },
+            { label: 'CLI-first workflow', slug: 'docs/cli-runtime' },
           ],
         },
         {
