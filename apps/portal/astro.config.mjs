@@ -44,6 +44,7 @@ export default defineConfig({
             { label: 'Getting started', slug: 'docs/getting-started' },
             { label: 'Using Srijika Studio', slug: 'docs/using-studio' },
             { label: 'CLI-first workflow', slug: 'docs/cli-runtime' },
+            { label: 'VS Code workflow', slug: 'docs/vscode' },
           ],
         },
         {

@@ -1,0 +1,235 @@
+---
+title: VS Code workflow
+description: Build a complete Srijika project in VS Code without installing or running Desktop Studio.
+---
+
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
+
+VS Code can be the complete working surface for a Srijika application. Desktop
+Studio is optional: project creation, source editing, architecture checks, the
+real Vite runtime, and MCP all work without it.
+
+## Create and open a project
+
+```bash
+npm create srijika@latest my-app
+```
+
+When VS Code is detected, the launcher opens the exact generated project folder.
+On WSL it opens the Windows VS Code application with the matching `wsl+<distro>`
+remote target. Creation still succeeds when VS Code or the extension is absent.
+
+To prevent every automatic handoff:
+
+```bash
+npm create srijika@latest my-app -- --no-open
+```
+
+To open the folder yourself:
+
+```bash
+code my-app
+```
+
+Always open the **complete project folder**, not a loose `.ui.tsx` file. React,
+TypeScript, tasks, MCP, and ownership detection depend on workspace context.
+
+## What the generated workspace includes
+
+```text
+.vscode/
+├── extensions.json   Srijika Language Support recommendation
+├── settings.json     TSX, Emmet, and explicit Srijika fixes
+├── tasks.json        Run App, Check Architecture, Build App
+└── mcp.json          pinned project MCP server for VS Code
+.mcp.json             portable MCP configuration
+AGENTS.md              architecture instructions for AI agents
+```
+
+The project remains usable when the extension is not installed. Run the same
+operations with `npx @srijika/cli ...` from VS Code's integrated terminal.
+
+## Install Srijika Language Support
+
+The public-alpha extension is currently distributed from the Srijika repository,
+not from the Visual Studio Marketplace. For a local repository checkout:
+
+```bash
+pnpm --filter srijika-language-support install:local
+```
+
+Then run **Developer: Reload Window** in VS Code. Generated projects recommend
+the stable extension identifier `srijika.srijika-language-support`; the CLI may
+attempt that identifier automatically and safely continues if a public extension
+registry cannot provide it.
+
+Until the Marketplace package ships, developers without the Studio repository
+can still use the complete CLI, generated tasks, TypeScript IntelliSense, and MCP
+workflow.
+
+## Use the Structure view
+
+Open the **Srijika** icon in the Activity Bar and expand **Structure**. It reads
+the canonical hierarchy directly from `src/features`:
+
+```text
+Features
+└── Home
+    ├── slots
+    │   └── Navigation
+    │       └── parts
+    │           └── NavigationItem
+    └── owner capabilities
+```
+
+Every Feature, Slot, and Part has an inline `+` action. The same validated form
+is available by right-clicking an exact ownership folder in Explorer and choosing
+**Srijika: Add Feature / Slot / Part Capability…**.
+
+| Selected folder | Allowed creation                         |
+| --------------- | ---------------------------------------- |
+| `src/features`  | New Feature                              |
+| Feature root    | Missing Feature capabilities or New Slot |
+| Slot root       | Missing Slot capabilities or New Part    |
+| Part root       | Missing Part capabilities                |
+
+For a new owner, enter one PascalCase name and choose optional Hook, Store,
+Logic, API, and Types capabilities. UI + Connector are always required. The form
+shows every exact path before writing and refuses arbitrary locations,
+duplicates, and overwrites.
+
+For an existing owner, created files are shown as disabled **Created** entries.
+Choose one missing capability or **Select all missing files** to create and
+safely rewire them as one batch.
+
+## Edit UI with shared language intelligence
+
+Srijika Language Support validates every `*.ui.tsx` file on open, change, and
+save using the same restricted compiler as Studio. It adds:
+
+- editor diagnostics and exact source ranges;
+- compiler-owned Quick Fixes;
+- supported intrinsic elements after typing `<`;
+- supported props and event bindings inside JSX opening tags; and
+- project-wide Feature → Slot → Part architecture diagnostics.
+
+VS Code's built-in TypeScript service remains responsible for ordinary React,
+JSX, imports, navigation, and IntelliSense. Srijika adds only its stricter source
+and ownership contract.
+
+Run **Srijika: Check Current UI File** for the active source or **Srijika: Check
+Feature Architecture** for the whole workspace.
+
+## Create behavior without layer jumps
+
+The Structure form and context menu create the same progressive chain as the
+CLI:
+
+```text
+UI ← Connector → Hook → Store → Logic → API → Types
+```
+
+The Connector calls the highest available layer. If Hook exists, it cannot jump
+to Store, Logic, or API. Child-private modules stay below their owner; shared
+sibling behavior is promoted to the nearest common Part, Slot, Feature, or
+`src/shared` owner.
+
+Read [Project anatomy](/docs/project-anatomy/) for the complete ownership rules.
+
+## Run the real application
+
+The Structure title bar provides **Run App**, **Stop App**, and **Doctor**.
+
+- **Run App** starts the project's real strict-port Vite server.
+- **Stop App** terminates the managed VS Code task.
+- **Doctor** checks Node, optional Bun, package manager, lockfile, and scripts.
+
+You can run the generated tasks without the extension from **Terminal → Run
+Task**:
+
+- `Srijika: Run App`
+- `Srijika: Check Architecture`
+- `Srijika: Build App`
+
+The runtime default is Node. To request Bun for a detected Vite project, set:
+
+```json
+{
+  "srijika.runtime": "bun",
+  "srijika.devPort": 5173
+}
+```
+
+Changing runtime never changes the project's package manager or lockfile.
+
+## Connect Codex or another MCP client
+
+Generated `.vscode/mcp.json` starts the pinned
+`@srijika/mcp-server@0.1.0` process with `${workspaceFolder}` as the project.
+The MCP server can inspect, validate, preview scaffold plans, and atomically
+apply approved Feature/Slot/Part structure without Desktop Studio.
+
+Studio-only visual bridge tools appear only when Studio is running and
+authenticated. Code-project tools do not depend on that bridge.
+
+Read [MCP without Desktop Studio](/docs/cli-runtime/#mcp-without-desktop-studio)
+for the portable configuration and manual launch command.
+
+## Command Palette reference
+
+- **Srijika: Check Current UI File**
+- **Srijika: Check Feature Architecture**
+- **Srijika: Open Setup and Language Support Guide**
+- **Srijika: Add Feature / Slot / Part Capability…**
+- **Srijika: Refresh Structure**
+- **Srijika: Run App**
+- **Srijika: Stop App**
+- **Srijika: Install / Sync Dependencies**
+- **Srijika: Run Doctor**
+
+## Troubleshooting
+
+### Structure is empty
+
+Open the project root containing `src/features`, then run **Srijika: Refresh
+Structure**. A loose file or parent directory is not a valid ownership root.
+
+### React JSX types are missing
+
+Finish dependency installation and run **Developer: Reload Window**. Errors for
+`react/jsx-runtime` or `JSX.IntrinsicElements` indicate an incomplete or stale
+React workspace, not a Srijika element restriction.
+
+```bash
+npx @srijika/cli install
+```
+
+### Run App reports port 5173 in use
+
+Stop the existing Vite process or change `srijika.devPort` to a known free port.
+Srijika uses a strict port and does not silently move the application.
+
+### Extension is unavailable
+
+Continue with the generated tasks and terminal commands:
+
+```bash
+npx @srijika/cli check --watch
+npx @srijika/cli dev
+```
+
+The project format does not depend on the extension.
+
+<CardGrid>
+  <Card title="CLI-first workflow" icon="terminal">
+    Create, run, validate, and scaffold the same project from any terminal.
+  </Card>
+  <Card title="Project anatomy" icon="puzzle">
+    Understand Feature, Slot, Part, ownership, promotion, and the progressive chain.
+  </Card>
+</CardGrid>
+
+<LinkButton href="/docs/cli-runtime/">Open the CLI guide</LinkButton>
+<LinkButton href="/docs/project-anatomy/" variant="minimal">
+  Read project anatomy
+</LinkButton>
