@@ -92,6 +92,8 @@ a runtime step. A `*{typesSuffix}` file contains only interfaces, type aliases,
 `import type`, `export type`, and an optional empty `export {}`. It cannot expose
 a runtime value or refer to one through `typeof`, a computed property, or
 another value expression. Consume it only through `import type`/`export type`.
+UI accepts one named `props` parameter. Its interface may be local or imported
+type-only from that same owner's resolved passive Types file.
 
 Treat `SRIJIKA-ARCH-STRICT-OWNER-SHAPE`,
 `SRIJIKA-ARCH-MIXED-CAPABILITY-LAYOUT`, and

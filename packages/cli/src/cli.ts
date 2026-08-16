@@ -7,10 +7,12 @@ import { pathToFileURL } from 'node:url';
 
 import {
   checkSrijikaArchitecture,
+  checkSrijikaUiDiagnostics,
   createSrijikaDoctorReport,
   finalizeReactMigration,
   findSrijikaProjectRoot,
   formatSrijikaCommand,
+  formatSrijikaUiDiagnostic,
   inspectSrijikaProject,
   planSrijikaProjectCommand,
   runSrijikaCommand,
@@ -45,7 +47,7 @@ import {
   SRIJIKA_VSCODE_EXTENSION_ID,
 } from './vscode.js';
 
-export const SRIJIKA_CLI_VERSION = '0.3.0';
+export const SRIJIKA_CLI_VERSION = '0.3.1';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 
@@ -251,6 +253,18 @@ async function runCreate(parsed: ParsedArguments): Promise<number> {
   }
   statuses['architecture'] = `${architecture.checkedFiles} files, 0 errors`;
   if (!json) console.log(`✓ Architecture valid across ${architecture.checkedFiles} source files.`);
+  const uiDiagnostics = await checkSrijikaUiDiagnostics(result.target);
+  if (uiDiagnostics.diagnostics.length > 0) {
+    if (!json) {
+      for (const diagnostic of uiDiagnostics.diagnostics) {
+        console.error(`✗ ${formatSrijikaUiDiagnostic(diagnostic)}`);
+      }
+    }
+    return 1;
+  }
+  statuses['srijikaDiagnostics'] = `${uiDiagnostics.checkedFiles} UI files, zero diagnostics`;
+  if (!json)
+    console.log(`✓ Zero Srijika diagnostics across ${uiDiagnostics.checkedFiles} UI files.`);
 
   const open = !booleanOption(parsed, 'no-open');
   const vscodeEnabled = open && !booleanOption(parsed, 'no-vscode');
@@ -376,28 +390,48 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
   const projectArgument = parsed.positionals[0] ?? stringOption(parsed, 'project') ?? process.cwd();
   if (parsed.positionals.length > 1) throw new Error('check accepts at most one project path.');
   const json = booleanOption(parsed, 'json');
-  const printResult = (result: Awaited<ReturnType<typeof checkSrijikaArchitecture>>): void => {
+  type ProjectCheck = {
+    architecture: Awaited<ReturnType<typeof checkSrijikaArchitecture>>;
+    ui: Awaited<ReturnType<typeof checkSrijikaUiDiagnostics>>;
+  };
+  const checkProject = async (index?: SrijikaArchitectureIndex): Promise<ProjectCheck> => {
+    const [architecture, ui] = await Promise.all([
+      index ? index.check(projectArgument) : checkSrijikaArchitecture(projectArgument),
+      checkSrijikaUiDiagnostics(projectArgument),
+    ]);
+    return { architecture, ui };
+  };
+  const printResult = (result: ProjectCheck): void => {
     if (json) {
       console.log(JSON.stringify(result, null, 2));
       return;
     }
-    for (const diagnostic of result.diagnostics) {
+    for (const diagnostic of result.ui.diagnostics) {
+      console.log(`✗ ${formatSrijikaUiDiagnostic(diagnostic)}`);
+    }
+    for (const diagnostic of result.architecture.diagnostics) {
       console.log(
         `${diagnostic.severity === 'error' ? '✗' : '!'} ${diagnostic.fileName}:${diagnostic.span.line}:${diagnostic.span.column} ${diagnostic.ruleId ?? diagnostic.code} ${diagnostic.message}`,
       );
     }
     console.log(
-      `✓ Checked ${result.checkedFiles} architecture files in ${result.durationMillis} ms (${result.recommendations.length} recommendations).`,
+      `✓ Zero Srijika diagnostics across ${result.ui.checkedFiles} UI files; checked ${result.architecture.checkedFiles} architecture files in ${result.architecture.durationMillis} ms (${result.architecture.recommendations.length} recommendations).`,
     );
   };
   if (!booleanOption(parsed, 'watch')) {
-    const result = await checkSrijikaArchitecture(projectArgument);
+    const result = await checkProject();
     printResult(result);
-    return result.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? 1 : 0;
+    return result.ui.diagnostics.length > 0 ||
+      result.architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+      ? 1
+      : 0;
   }
   let project = await inspectSrijikaProject(projectArgument);
   const index = new SrijikaArchitectureIndex();
-  printResult(await index.check(project.root));
+  printResult({
+    architecture: await index.check(project.root),
+    ui: await checkSrijikaUiDiagnostics(project.root),
+  });
   let watchAllUntilProjectIsValid = false;
   console.log(
     `→ Watching ${project.root} for project config, aliases, entry, Feature, and Shared changes; unchanged source text is reused.`,
@@ -428,7 +462,10 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
           .then((nextProject) => {
             project = nextProject;
             watchAllUntilProjectIsValid = false;
-            return index.check(project.root);
+            return Promise.all([
+              index.check(project.root),
+              checkSrijikaUiDiagnostics(project.root),
+            ]).then(([architecture, ui]) => ({ architecture, ui }));
           })
           .then(printResult)
           .catch((error) => {

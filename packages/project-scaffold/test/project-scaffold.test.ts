@@ -113,7 +113,7 @@ describe('createSrijikaProjectFileMap', () => {
     });
     expect(packageMetadata.scripts['validate:srijika']).toBe('node scripts/srijika-validate.mjs');
     expect(packageMetadata.scripts['mcp:srijika']).toBe(
-      'npx -y @srijika/mcp-server@0.3.0 --project .',
+      'npx -y @srijika/mcp-server@0.3.1 --project .',
     );
     expect(packageMetadata.scripts['typecheck']).toContain('validate:srijika');
     expect(packageMetadata.scripts['build']).toContain('validate:srijika');
@@ -155,7 +155,7 @@ describe('createSrijikaProjectFileMap', () => {
         },
       }),
     );
-    expect(files['.mcp.json']).toContain('@srijika/mcp-server@0.3.0');
+    expect(files['.mcp.json']).toContain('@srijika/mcp-server@0.3.1');
     expect(files['.vscode/mcp.json']).toContain('${workspaceFolder}');
     expect(files['.vscode/tasks.json']).toContain('Srijika: Run App');
     expect(files['AGENTS.md']).toContain('srijika_plan_code_structure');

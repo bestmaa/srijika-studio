@@ -11,6 +11,8 @@ export interface SrijikaSourceSpan {
   line: number;
   /** One-based column number for editor and CLI presentation. */
   column: number;
+  /** Present when the authoritative declaration lives outside the compiled UI file. */
+  fileName?: string;
 }
 
 export interface SrijikaSourceEdit {
@@ -80,6 +82,22 @@ export interface CompileSrijikaTsxOptions {
   documentId?: string;
   documentKind?: 'page' | 'component';
   revision?: number;
+  /**
+   * Bounded, caller-resolved type-only modules. The compiler never reads the
+   * filesystem or resolves modules by itself.
+   */
+  resolvedTypeModules?: readonly SrijikaResolvedTypeModule[];
+}
+
+export interface SrijikaResolvedTypeModule {
+  /** Exact relative module specifier used by the UI import. */
+  specifier: string;
+  /** Canonical project-relative or absolute source path used for provenance. */
+  fileName: string;
+  /** UTF-8 TypeScript source from the already-validated owner-local Types file. */
+  source: string;
+  /** Optional caller-computed content hash used by editors for cache identity. */
+  hash?: string;
 }
 
 export type SrijikaComponentContractEntryKind = 'prop' | 'event' | 'slot';
@@ -91,6 +109,11 @@ interface SrijikaComponentContractEntryBase {
   typeSource: string;
   /** Exact source span of the declared props-interface property signature. */
   span: SrijikaSourceSpan;
+  contractSource?: {
+    kind: 'local' | 'imported';
+    fileName: string;
+    hash?: string;
+  };
 }
 
 /**
@@ -173,6 +196,7 @@ export interface InsertSrijikaContractMemberInput {
 export type InsertSrijikaContractMemberFailureReason =
   | 'invalid-source'
   | 'missing-props-interface'
+  | 'external-props-contract'
   | 'invalid-contract-name'
   | 'contract-member-exists'
   | 'contract-limit-reached'

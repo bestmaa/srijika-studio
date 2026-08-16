@@ -8,6 +8,7 @@ import {
   verifyReactMigration,
   verifyReactMigrationSlice,
   type ApplyReactMigrationSliceRequest,
+  type ReactMigrationCommandStatus,
   type StartReactMigrationRequest,
   type VerifyReactMigrationRequest,
 } from '@srijika/developer-engine';
@@ -20,6 +21,7 @@ export interface SrijikaReactMigrationScanRequest {
 export interface SrijikaReactMigrationSliceVerificationRequest {
   target: string;
   sliceId: string;
+  commands: readonly ReactMigrationCommandStatus[];
 }
 
 export interface SrijikaReactMigrationCaller {
@@ -65,7 +67,7 @@ export class SrijikaReactMigrationService implements SrijikaReactMigrationCaller
   }
 
   verifySlice(request: SrijikaReactMigrationSliceVerificationRequest): Promise<unknown> {
-    return verifyReactMigrationSlice(request.target, request.sliceId);
+    return verifyReactMigrationSlice(request.target, request.sliceId, request.commands);
   }
 
   verify(request: VerifyReactMigrationRequest): Promise<unknown> {

@@ -1,4 +1,8 @@
-export { compileSrijikaTsx, SRIJIKA_INTRINSIC_TAGS } from './compiler';
+export {
+  compileSrijikaTsx,
+  srijikaTypeOnlyModuleSpecifiers,
+  SRIJIKA_INTRINSIC_TAGS,
+} from './compiler';
 export {
   SRIJIKA_INTRINSIC_ATTRIBUTES,
   SRIJIKA_INTRINSIC_EVENTS,
@@ -42,6 +46,7 @@ export type {
   SrijikaDiagnosticSeverity,
   SrijikaQuickFix,
   SrijikaQuickFixKind,
+  SrijikaResolvedTypeModule,
   SrijikaSourceEdit,
   SrijikaSourceMap,
   SrijikaSourceSpan,

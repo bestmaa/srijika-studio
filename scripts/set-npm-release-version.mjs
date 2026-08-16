@@ -11,6 +11,7 @@ const jsonFiles = [
   'packages/cli/package.json',
   'packages/mcp-server/package.json',
   'packages/create-srijika/package.json',
+  'apps/vscode-srijika/package.json',
 ];
 
 for (const relativePath of jsonFiles) {
@@ -45,6 +46,25 @@ const replacements = [
     path: 'packages/create-srijika/test/create-srijika.test.mjs',
     pattern: /assert\.equal\(version\.stdout\.trim\(\), '[^']+'\);/,
     replacement: `assert.equal(version.stdout.trim(), '${version}');`,
+  },
+  ...[
+    'apps/portal/src/pages/index.astro',
+    'apps/portal/src/content/docs/docs/product-status.mdx',
+    'apps/portal/src/content/docs/docs/cli-runtime.mdx',
+  ].map((path) => ({
+    path,
+    pattern: /v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
+    replacement: `v${version}`,
+  })),
+  {
+    path: 'docs/NPM_RELEASE.md',
+    pattern: /pnpm release:version \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
+    replacement: `pnpm release:version ${version}`,
+  },
+  {
+    path: 'docs/NPM_RELEASE.md',
+    pattern: /v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
+    replacement: `v${version}`,
   },
 ];
 

@@ -273,6 +273,33 @@ function propsContract(
   return declaration ? { propsName: parameter.name.text, declaration } : null;
 }
 
+function hasImportedPropsContract(sourceFile: ts.SourceFile, sourceMap: SrijikaSourceMap): boolean {
+  const component = findMappedComponent(sourceFile, sourceMap.component);
+  const parameter = component?.parameters[0];
+  if (
+    !parameter?.type ||
+    !ts.isTypeReferenceNode(parameter.type) ||
+    !ts.isIdentifier(parameter.type.typeName)
+  ) {
+    return false;
+  }
+  const localName = parameter.type.typeName.text;
+  return sourceFile.statements.some((statement) => {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !statement.importClause?.namedBindings ||
+      !ts.isNamedImports(statement.importClause.namedBindings)
+    ) {
+      return false;
+    }
+    return statement.importClause.namedBindings.elements.some(
+      (element) =>
+        element.name.text === localName &&
+        (statement.importClause?.isTypeOnly === true || element.isTypeOnly),
+    );
+  });
+}
+
 function contractMember(
   declaration: ts.InterfaceDeclaration,
   sourceFile: ts.SourceFile,
@@ -423,6 +450,14 @@ export function insertSrijikaContractMember(
   }
   const contract = propsContract(sourceFile, sourceMap);
   if (!contract) {
+    if (hasImportedPropsContract(sourceFile, sourceMap)) {
+      return {
+        ok: false,
+        reason: 'external-props-contract',
+        message:
+          'This UI contract lives in its owner Types file; edit that file through an atomic multi-file action.',
+      };
+    }
     return {
       ok: false,
       reason: 'missing-props-interface',

@@ -56,7 +56,10 @@ import {
 } from '../../lib/architecture-diagnostics';
 import { projectServiceErrorMessage } from '../../lib/error-message';
 import { persistPreviewDocument, persistPreviewViewportSize } from '../../lib/preview-channel';
-import { useCodeProjectStore } from '../../store/code-project-store';
+import {
+  resolvedCodeProjectTypeModules,
+  useCodeProjectStore,
+} from '../../store/code-project-store';
 import {
   loadProjectSessionRecovery,
   projectDisplayName,
@@ -447,6 +450,7 @@ export function CodeFirstStudio() {
     (state) => state.selectArchitectureDiagnostic,
   );
   const applyQuickFix = useCodeProjectStore((state) => state.applyQuickFix);
+  const setResolvedTypeModules = useCodeProjectStore((state) => state.setResolvedTypeModules);
 
   const projectRoot = useProjectSessionStore((state) => state.rootPath);
   const projectDisplay = useProjectSessionStore((state) => state.displayName);
@@ -719,14 +723,28 @@ export function CodeFirstStudio() {
         }
       : currentFiles;
     browserProjectFilesRef.current = nextFiles;
-    setArchitectureRoots(architectureConfigFromFileMap(nextFiles));
+    const resolvedArchitecture = architectureConfigFromFileMap(nextFiles);
+    setArchitectureRoots(resolvedArchitecture);
     setArchitectureAnalysis(analyzeCodeProjectFileMap(nextFiles));
+    setResolvedTypeModules(
+      resolvedCodeProjectTypeModules({
+        fileName,
+        source,
+        uiSuffix: resolvedArchitecture.uiSuffix,
+        typesSuffix: resolvedArchitecture.typesSuffix,
+        sourceByFileName: new Map(
+          Object.entries(nextFiles).map(([path, fileSource]) => [path, { source: fileSource }]),
+        ),
+      }),
+    );
   }, [
     activeUiSourcePath,
     clearArchitectureAnalysis,
+    fileName,
     projectEntries,
     projectRoot,
     setArchitectureAnalysis,
+    setResolvedTypeModules,
     source,
   ]);
 
@@ -888,7 +906,24 @@ export function CodeFirstStudio() {
             setArchitectureAnalysis(
               analyzeCodeProjectFileMap(architectureFiles, loadedArchitecture.path),
             );
-            setArchitectureRoots(architectureConfigFromFileMap(architectureFiles));
+            const resolvedArchitecture = architectureConfigFromFileMap(architectureFiles);
+            setArchitectureRoots(resolvedArchitecture);
+            if (latest.sourcePath) {
+              setResolvedTypeModules(
+                resolvedCodeProjectTypeModules({
+                  fileName: latest.sourcePath,
+                  source: latest.source,
+                  uiSuffix: resolvedArchitecture.uiSuffix,
+                  typesSuffix: resolvedArchitecture.typesSuffix,
+                  sourceByFileName: new Map(
+                    loadedArchitecture.sources.map((entry) => [
+                      entry.path,
+                      { source: entry.source, hash: entry.hash },
+                    ]),
+                  ),
+                }),
+              );
+            }
             architectureTruncated = loadedArchitecture.truncated;
           }
         } catch (error) {
@@ -925,6 +960,7 @@ export function CodeFirstStudio() {
       openLoadedSource,
       replaceProjectIndex,
       setArchitectureAnalysis,
+      setResolvedTypeModules,
       setProjectIndexError,
       setProjectIndexLoading,
     ],

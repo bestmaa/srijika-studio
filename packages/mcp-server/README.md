@@ -18,7 +18,8 @@ For migration, use the `srijika_create_react_migration` → scan → plan → re
 slice apply/verify → global verify → finalize flow. The source is never written;
 equal, nested, overlapping, or symlink-aliased roots fail closed. Every applied
 slice includes source-to-target traceability and writes atomically inside the
-target. Unsupported or ambiguous behavior remains blocking, and finalization
+target. Each slice advances only after zero Srijika diagnostics, architecture,
+TypeScript, and production build pass. Unsupported or ambiguous behavior remains blocking, and finalization
 requires current source-baseline, traceability, architecture, build, typecheck,
 and test evidence. The read-only `srijika://docs/react-migration` resource is the
 machine-readable contract. The server does not claim arbitrary automatic

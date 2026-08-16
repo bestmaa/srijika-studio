@@ -24,4 +24,32 @@ describe('VS Code compiler adapter', () => {
       severity: 'error',
     });
   });
+
+  it('resolves one canonical owner-local type-only props contract', () => {
+    const fileName = '/project/src/features/home/Home.ui.tsx';
+    const result = compileUiSource(
+      {
+        fileName,
+        source: `import type { HomeUIProps } from './Home.types';
+export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; }`,
+      },
+      {
+        sourceByFileName: new Map([
+          [
+            '/project/src/features/home/Home.types.ts',
+            'export interface HomeUIProps { title: string; }',
+          ],
+        ]),
+      },
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.componentContract[0]).toMatchObject({
+      name: 'title',
+      contractSource: {
+        kind: 'imported',
+        fileName: '/project/src/features/home/Home.types.ts',
+      },
+    });
+  });
 });

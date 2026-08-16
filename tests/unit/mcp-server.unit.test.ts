@@ -494,6 +494,13 @@ describe('Srijika MCP server', () => {
         writesOutsideTargetAllowed: false,
       },
       verificationEvidence: {
+        sliceGate: {
+          srijikaDiagnostics: 'zero',
+          architecture: 'passed',
+          typecheck: 'passed',
+          productionBuild: 'passed',
+          advanceOnlyWhenAllPass: true,
+        },
         alwaysRequired: ['typecheck', 'build', 'test'],
         routeFilesPresent: {
           name: 'routes',
@@ -523,6 +530,7 @@ describe('Srijika MCP server', () => {
       expect.arrayContaining([
         'source-unchanged',
         'complete-source-to-target-traceability',
+        'zero-srijika-diagnostics',
         'strict-srijika-architecture',
         'build',
         'typecheck',
@@ -653,9 +661,21 @@ describe('Srijika MCP server', () => {
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
       arguments: { target, slice },
     });
-    await client.callTool({
+    const weakSliceVerification = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
       arguments: { target, sliceId: slice.id },
+    });
+    expect(weakSliceVerification.isError).toBe(true);
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
+      arguments: {
+        target,
+        sliceId: slice.id,
+        commands: [
+          { name: 'typecheck', status: 'passed' },
+          { name: 'build', status: 'passed' },
+        ],
+      },
     });
     const commands = [
       { name: 'typecheck' as const, status: 'passed' as const },
@@ -677,7 +697,14 @@ describe('Srijika MCP server', () => {
       arguments: { target, commands },
     });
     expect(applyMigrationSlice).toHaveBeenCalledWith({ target, slice });
-    expect(verifyMigrationSlice).toHaveBeenCalledWith({ target, sliceId: slice.id });
+    expect(verifyMigrationSlice).toHaveBeenCalledWith({
+      target,
+      sliceId: slice.id,
+      commands: [
+        { name: 'typecheck', status: 'passed' },
+        { name: 'build', status: 'passed' },
+      ],
+    });
     expect(verifyMigration).toHaveBeenCalledWith({ target, commands });
     expect(finalizeMigration).toHaveBeenCalledWith({ target, commands });
 

@@ -395,7 +395,7 @@ function sourceFor(
       owner.mode === 'primitive' && roles.has('types')
         ? `import type { ${owner.name}UIProps } from '${importPath(owner.name, 'types', architecture)}';\n\nexport type { ${owner.name}UIProps } from '${importPath(owner.name, 'types', architecture)}';\n\n`
         : `export interface ${owner.name}UIProps {\n  className?: string;\n}\n\n`;
-    return `${propsImport}export function ${owner.name}UI({ className }: ${owner.name}UIProps) {\n  return (\n    <section className={className} data-srijika-owner="${owner.name}">\n      <h2>${owner.name}</h2>\n    </section>\n  );\n}\n`;
+    return `${propsImport}export function ${owner.name}UI(props: ${owner.name}UIProps) {\n  return (\n    <section className={props.className} data-srijika-owner="${owner.name}">\n      <h2>${owner.name}</h2>\n    </section>\n  );\n}\n`;
   }
   if (role === 'types') {
     if (owner.mode === 'primitive') {

@@ -16,6 +16,10 @@ import {
 } from '../src/index.js';
 
 const roots: string[] = [];
+const sliceEvidence = [
+  { name: 'typecheck', status: 'passed' },
+  { name: 'build', status: 'passed' },
+] as const;
 
 async function reactFixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'srijika-react-source-'));
@@ -77,6 +81,7 @@ describe('React migration engine', () => {
     });
 
     const targetUi = 'src/shared/ui/migrated-widget/MigratedWidget.ui.tsx';
+    const targetTypes = 'src/shared/ui/migrated-widget/migratedWidget.types.ts';
     await applyReactMigrationSlice({
       target,
       slice: {
@@ -84,15 +89,29 @@ describe('React migration engine', () => {
         title: 'React components and widgets',
         writes: [
           {
+            relativePath: targetTypes,
+            content:
+              'export interface MigratedWidgetUIProps { label: string; className?: string }\n',
+          },
+          {
             relativePath: targetUi,
             content:
-              'export interface MigratedWidgetUIProps { label: string; className?: string }\nexport function MigratedWidgetUI({ label, className }: MigratedWidgetUIProps) {\n  return <button className={className}>{label}</button>;\n}\n',
+              "import type { MigratedWidgetUIProps } from './migratedWidget.types';\nexport function MigratedWidgetUI(props: MigratedWidgetUIProps) {\n  return <button className={props.className}>{props.label}</button>;\n}\n",
           },
         ],
-        mappings: [{ sourcePath: 'src/Widget.jsx', targetPaths: [targetUi], kind: 'migrated' }],
+        mappings: [
+          {
+            sourcePath: 'src/Widget.jsx',
+            targetPaths: [targetUi, targetTypes],
+            kind: 'migrated',
+          },
+        ],
       },
     });
-    await verifyReactMigrationSlice(target, 'ui');
+    await expect(verifyReactMigrationSlice(target, 'ui')).rejects.toThrow(
+      /requires passed typecheck evidence/u,
+    );
+    await verifyReactMigrationSlice(target, 'ui', sliceEvidence);
     await applyReactMigrationSlice({
       target,
       slice: {
@@ -102,7 +121,7 @@ describe('React migration engine', () => {
         mappings: [{ sourcePath: 'src/widget.css', targetPaths: [targetUi], kind: 'style' }],
       },
     });
-    await verifyReactMigrationSlice(target, 'presentation');
+    await verifyReactMigrationSlice(target, 'presentation', sliceEvidence);
     await applyReactMigrationSlice({
       target,
       slice: {
@@ -119,7 +138,7 @@ describe('React migration engine', () => {
         ],
       },
     });
-    const sliceVerified = await verifyReactMigrationSlice(target, 'verification');
+    const sliceVerified = await verifyReactMigrationSlice(target, 'verification', sliceEvidence);
     expect(sliceVerified.appliedSlices.every((slice) => slice.verified)).toBe(true);
 
     const verified = await verifyReactMigration({
@@ -157,7 +176,11 @@ describe('React migration engine', () => {
         },
       ],
     });
-    expect(visuallyVerified.verification).toMatchObject({ passed: true, sourceUnchanged: true });
+    expect(visuallyVerified.verification).toMatchObject({
+      passed: true,
+      sourceUnchanged: true,
+      srijikaDiagnosticsValid: true,
+    });
     const commands = visuallyVerified.verification?.commands;
     if (!commands) throw new Error('Expected migration verification command evidence.');
     await expect(finalizeReactMigration({ target, commands })).resolves.toMatchObject({
@@ -233,6 +256,27 @@ describe('React migration engine', () => {
         },
       }),
     ).rejects.toThrow(/project-relative/u);
+
+    await expect(
+      applyReactMigrationSlice({
+        target,
+        slice: {
+          id: 'ui',
+          title: 'React components and widgets',
+          writes: [
+            {
+              relativePath: 'src/shared/ui/broken/Broken.ui.tsx',
+              content:
+                'export interface BrokenUIProps { label: string }\nexport function BrokenUI({ label }: BrokenUIProps) { return <div>{label}</div>; }\n',
+            },
+          ],
+          mappings: [],
+        },
+      }),
+    ).rejects.toThrow(/zero Srijika diagnostics/u);
+    await expect(
+      readFile(join(target, 'src/shared/ui/broken/Broken.ui.tsx'), 'utf8'),
+    ).rejects.toThrow();
 
     const outside = await mkdtemp(join(tmpdir(), 'srijika-react-symlink-outside-'));
     roots.push(outside);

@@ -569,6 +569,8 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         returnPath: 'Return results through the same chain and map them to typed UI props.',
         uiIsolation:
           'Only the matching Connector renders an owner UI. Every UI renderer, including a configured entry outside ownership roots, is behavior-free: no Hook invocation (identifier or property access), browser/runtime API access, runtime-layer import, request, state, effect, or business logic; data and events enter through typed props.',
+        uiPropsContract:
+          'UI accepts one named props parameter. Its named interface is local or resolved from that same owner passive Types file through a relative import type; destructuring, runtime imports, unresolved contracts, and cross-owner contract imports fail.',
         composition:
           'Feature Connectors compose Slot Connectors; Slot Connectors compose Part Connectors. Parent and sibling owners never import child UI directly. The only cross-owner UI exception is pure UI composition of a canonical Shared UI Primitive.',
         passiveTypes:
@@ -760,6 +762,7 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
       completionEvidence: [
         'source-unchanged',
         'complete-source-to-target-traceability',
+        'zero-srijika-diagnostics',
         'strict-srijika-architecture',
         'build',
         'typecheck',
@@ -768,6 +771,13 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         'responsive-visual-evidence-when-applicable',
       ],
       verificationEvidence: {
+        sliceGate: {
+          srijikaDiagnostics: 'zero',
+          architecture: 'passed',
+          typecheck: 'passed',
+          productionBuild: 'passed',
+          advanceOnlyWhenAllPass: true,
+        },
         alwaysRequired: ['typecheck', 'build', 'test'],
         routeFilesPresent: {
           name: 'routes',

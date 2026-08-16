@@ -272,6 +272,23 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     ...migrationTargetInput,
     commands: migrationCommandEvidenceList.optional(),
   };
+  const migrationSliceEvidence = z
+    .array(
+      z.object({
+        name: z.enum(['typecheck', 'build']),
+        status: z.literal('passed'),
+        details: z.string().max(8_192).optional(),
+      }),
+    )
+    .length(2)
+    .superRefine((commands, context) => {
+      const names = new Set(commands.map((command) => command.name));
+      for (const name of ['typecheck', 'build'] as const) {
+        if (!names.has(name)) {
+          context.addIssue({ code: 'custom', message: `Missing passed ${name} evidence.` });
+        }
+      }
+    });
   const migrationSliceInput = z.object({
     id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
     title: z.string().min(1).max(320),
@@ -324,7 +341,8 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     'srijika_check_code_project',
     {
       title: 'Check Srijika code project',
-      description: 'Run strict shared architecture validation without Studio.',
+      description:
+        'Run the canonical project gate without Studio: zero Srijika UI diagnostics plus strict architecture validation.',
       inputSchema: {},
       annotations: READ_ONLY,
     },
@@ -458,7 +476,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Apply reviewed React migration slice',
       description:
-        'Atomically apply one Codex-reviewed semantic slice inside the target only, with explicit source-to-target mappings. It never writes the source and rejects stale, unsafe, unsupported, or untraceable work.',
+        'Atomically apply one Codex-reviewed semantic slice inside the target only. UI writes must have zero Srijika diagnostics before any target file is committed.',
       inputSchema: {
         ...migrationTargetInput,
         slice: migrationSliceInput,
@@ -498,16 +516,26 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Verify React migration slice',
       description:
-        'Verify one applied slice against source immutability, traceability, strict Srijika architecture, and its required evidence before another slice proceeds.',
+        'Advance only after this fixed gate: zero Srijika diagnostics; architecture passed; TypeScript passed; production build passed.',
       inputSchema: {
         ...migrationTargetInput,
         sliceId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
+        commands: migrationSliceEvidence,
       },
       annotations: MUTATING,
     },
-    (request) =>
+    ({ target, sliceId, commands }) =>
       callCodeProject(
-        () => reactMigration.verifySlice(request),
+        () =>
+          reactMigration.verifySlice({
+            target,
+            sliceId,
+            commands: commands.map(({ name, status, details }) => ({
+              name,
+              status,
+              ...(details === undefined ? {} : { details }),
+            })),
+          }),
         'React migration slice verification completed.',
       ),
   );

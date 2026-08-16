@@ -39,9 +39,10 @@ Codex owns semantic analysis and the reviewed source-to-Srijika mapping.
    root plus a slice containing its exact planned ID/title, target writes, and
    traceability entries. The engine resolves the persisted session and reviewed
    plan from the target. A slice write is atomic and cannot touch the source.
-5. **Verify each slice** — call `srijika_verify_react_migration_slice`. Fix
-   architecture, typecheck, test, route, or traceability failures before moving
-   to the next slice.
+5. **Verify each slice** — call `srijika_verify_react_migration_slice` with
+   passed `typecheck` and `build` evidence. The fixed gate is: zero Srijika
+   diagnostics → architecture pass → TypeScript pass → production build pass.
+   Stop and fix before moving to the next slice.
 6. **Verify the application** — call `srijika_verify_react_migration`. Require
    the source baseline to match, all source items to be mapped or explicitly
    blocked, strict architecture to pass, and build/typecheck/tests to pass. When

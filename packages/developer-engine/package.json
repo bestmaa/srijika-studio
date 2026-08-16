@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@srijika/architecture-rules": "workspace:*",
-    "@srijika/project-scaffold": "workspace:*"
+    "@srijika/project-scaffold": "workspace:*",
+    "@srijika/tsx-compiler": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.1.2",

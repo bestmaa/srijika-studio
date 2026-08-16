@@ -19,6 +19,15 @@ export {
 } from './runtime.js';
 export { scaffoldSrijikaStructure } from './structure.js';
 export {
+  assertSrijikaUiWritesValid,
+  checkSrijikaUiDiagnostics,
+  formatSrijikaUiDiagnostic,
+} from './ui-diagnostics.js';
+export type {
+  SrijikaProspectiveUiWrite,
+  SrijikaUiDiagnosticCheckResult,
+} from './ui-diagnostics.js';
+export {
   applyReactMigrationSlice,
   buildReactMigrationCliArguments,
   finalizeReactMigration,
@@ -44,6 +53,7 @@ export type {
   ReactMigrationPlanSlice,
   ReactMigrationSession,
   ReactMigrationSlice,
+  ReactMigrationSliceVerification,
   ReactMigrationSourceMapping,
   ReactMigrationVerification,
   ReactMigrationWrite,

@@ -51,7 +51,9 @@
     "failClosedMigrationVerification": true,
     "conditionalRouteAndVisualEvidence": true,
     "semanticRouteDiscovery": true,
-    "responsiveVisualEvidenceDetails": true
+    "responsiveVisualEvidenceDetails": true,
+    "resolvedOwnerTypeOnlyUiProps": true,
+    "zeroDiagnosticMigrationSliceGate": true
   },
   "limits": {
     "customViewport": {

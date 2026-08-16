@@ -172,6 +172,8 @@ export function activate(context: vscode.ExtensionContext): void {
   let architectureTimer: NodeJS.Timeout | undefined;
   let architectureRun = 0;
   const uiSuffixByWorkspace = new Map<string, string>();
+  const typesSuffixByWorkspace = new Map<string, string>();
+  const sourceByFileNameByWorkspace = new Map<string, ReadonlyMap<string, string>>();
   const structureProvider = new SrijikaStructureTreeProvider();
   const structureView = vscode.window.createTreeView('srijika.structure', {
     treeDataProvider: structureProvider,
@@ -246,6 +248,7 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       architecture = resolveSrijikaArchitectureConfig(architecture);
       uiSuffixByWorkspace.set(folder.uri.toString(), architecture.uiSuffix);
+      typesSuffixByWorkspace.set(folder.uri.toString(), architecture.typesSuffix);
       configuredWorkspaces += 1;
 
       let uris: readonly vscode.Uri[];
@@ -381,6 +384,16 @@ export function activate(context: vscode.ExtensionContext): void {
         continue;
       }
       checkedFiles += files.length;
+      const sourceByFileName = new Map(files.map((file) => [file.fileName, file.source]));
+      sourceByFileNameByWorkspace.set(folder.uri.toString(), sourceByFileName);
+      for (const document of vscode.workspace.textDocuments) {
+        if (
+          vscode.workspace.getWorkspaceFolder(document.uri)?.uri.toString() ===
+          folder.uri.toString()
+        ) {
+          compilations.delete(document.uri.toString());
+        }
+      }
 
       const diagnostics = validateArchitectureWorkspace({
         projectRoot: folder.uri.fsPath,
@@ -413,6 +426,36 @@ export function activate(context: vscode.ExtensionContext): void {
         entry.diagnostics.push(diagnostic);
         nextDiagnostics.set(key, entry);
       }
+      for (const sourceFile of files) {
+        if (!isSrijikaUiSourcePath(sourceFile.fileName, architecture.uiSuffix)) continue;
+        const compiled = compileUiSource(
+          { fileName: sourceFile.fileName, source: sourceFile.source },
+          {
+            uiSuffix: architecture.uiSuffix,
+            typesSuffix: architecture.typesSuffix,
+            sourceByFileName,
+          },
+        );
+        issueCount += compiled.diagnostics.length;
+        for (const compilerDiagnostic of compiled.diagnostics) {
+          const model = diagnosticToEditorDiagnostic(
+            sourceFile.source,
+            compilerDiagnostic,
+            sourceFile.document ? positionResolverFor(sourceFile.document) : undefined,
+          );
+          const diagnostic = new vscode.Diagnostic(
+            toVscodeRange(model.range),
+            model.message,
+            toVscodeSeverity(model.severity),
+          );
+          diagnostic.code = model.code;
+          diagnostic.source = DIAGNOSTIC_SOURCE;
+          const key = sourceFile.uri.toString();
+          const entry = nextDiagnostics.get(key) ?? { uri: sourceFile.uri, diagnostics: [] };
+          entry.diagnostics.push(diagnostic);
+          nextDiagnostics.set(key, entry);
+        }
+      }
     }
 
     if (run !== architectureRun) return;
@@ -420,6 +463,7 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const { uri, diagnostics } of nextDiagnostics.values()) {
       architectureCollection.set(uri, diagnostics);
     }
+    for (const document of vscode.workspace.textDocuments) compileDocument(document);
     for (const line of statusLines) output.appendLine(`Architecture setup: ${line}`);
     const coverageNotes = [
       skippedByFileLimit > 0
@@ -501,7 +545,24 @@ export function activate(context: vscode.ExtensionContext): void {
 
     try {
       const source = document.getText();
-      const result = compileUiSource({ fileName: document.fileName, source });
+      const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+      const workspaceKey = workspaceFolder?.uri.toString();
+      const result = compileUiSource(
+        { fileName: document.fileName, source },
+        workspaceKey
+          ? {
+              ...(uiSuffixByWorkspace.get(workspaceKey)
+                ? { uiSuffix: uiSuffixByWorkspace.get(workspaceKey)! }
+                : {}),
+              ...(typesSuffixByWorkspace.get(workspaceKey)
+                ? { typesSuffix: typesSuffixByWorkspace.get(workspaceKey)! }
+                : {}),
+              ...(sourceByFileNameByWorkspace.get(workspaceKey)
+                ? { sourceByFileName: sourceByFileNameByWorkspace.get(workspaceKey)! }
+                : {}),
+            }
+          : {},
+      );
       const resolvePosition = positionResolverFor(document);
       const diagnostics = result.diagnostics.map((compilerDiagnostic) => {
         const model = diagnosticToEditorDiagnostic(source, compilerDiagnostic, resolvePosition);

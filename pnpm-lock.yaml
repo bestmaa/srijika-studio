@@ -306,7 +306,7 @@ importers:
   packages/create-srijika:
     dependencies:
       '@srijika/cli':
-        specifier: 0.3.0
+        specifier: 0.3.1
         version: link:../cli
 
   packages/developer-engine:
@@ -317,6 +317,9 @@ importers:
       '@srijika/project-scaffold':
         specifier: workspace:*
         version: link:../project-scaffold
+      '@srijika/tsx-compiler':
+        specifier: workspace:*
+        version: link:../tsx-compiler
     devDependencies:
       '@types/node':
         specifier: 26.1.2

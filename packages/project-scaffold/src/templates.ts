@@ -220,7 +220,7 @@ dist
       mcpServers: {
         'srijika-project': {
           command: 'npx',
-          args: ['-y', '@srijika/mcp-server@0.3.0', '--project', '.'],
+          args: ['-y', '@srijika/mcp-server@0.3.1', '--project', '.'],
           cwd: '.',
         },
       },
@@ -230,7 +230,7 @@ dist
         'srijika-project': {
           type: 'stdio',
           command: 'npx',
-          args: ['-y', '@srijika/mcp-server@0.3.0', '--project', '${workspaceFolder}'],
+          args: ['-y', '@srijika/mcp-server@0.3.1', '--project', '${workspaceFolder}'],
         },
       },
     }),
@@ -319,6 +319,10 @@ adapters; the files in this folder are the source of truth.
 - Shared never imports \`src/features\`. Features consume only a primitive UI,
   Widget Connector, or a Capability's highest available runtime gateway;
   passive Types contracts may cross that boundary only through type-only syntax.
+- UI uses one named \`props\` parameter. Its Props interface may be local or
+  imported type-only from that owner's resolved passive Types file.
+- After every write or migration slice: zero Srijika diagnostics → architecture
+  pass → TypeScript pass → production build pass. Stop and fix before continuing.
 - Prefer \`npx @srijika/cli add ...\` for structural creation and run
   \`npx @srijika/cli check\` after edits. Never overwrite generated owner files.
 - React Query is absent by default. Enable it only for a new project with the
@@ -445,7 +449,7 @@ Studio later requires no migration: open this same project folder.
       scripts: {
         dev: 'vite',
         'validate:srijika': 'node scripts/srijika-validate.mjs',
-        'mcp:srijika': 'npx -y @srijika/mcp-server@0.3.0 --project .',
+        'mcp:srijika': 'npx -y @srijika/mcp-server@0.3.1 --project .',
         build: 'pnpm run validate:srijika && tsc -p tsconfig.json && vite build',
         preview: 'vite preview',
         typecheck: 'pnpm run validate:srijika && tsc -p tsconfig.json',

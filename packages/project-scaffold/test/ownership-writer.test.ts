@@ -554,6 +554,10 @@ describe('canonical Shared creation plans', () => {
     expect(plan.updates[0]?.source).toContain(
       "import type { ActionButtonUIProps } from './actionButton.types';",
     );
+    expect(plan.updates[0]?.source).toContain(
+      'export function ActionButtonUI(props: ActionButtonUIProps)',
+    );
+    expect(plan.updates[0]?.source).toContain('className={props.className}');
     expect(plan.updates[0]?.source).not.toContain('export interface ActionButtonUIProps');
 
     expect(() =>

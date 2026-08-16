@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 
 import {
   checkSrijikaArchitecture,
+  checkSrijikaUiDiagnostics,
   findSrijikaProjectRoot,
   inspectSrijikaProject,
   scaffoldSrijikaStructure,
@@ -75,8 +76,17 @@ export class SrijikaCodeProjectService {
 
   async check(requested?: string): Promise<Record<string, unknown>> {
     const root = await this.root(requested);
-    const result = await checkSrijikaArchitecture(root);
-    return { ...result };
+    const [architecture, srijikaUi] = await Promise.all([
+      checkSrijikaArchitecture(root),
+      checkSrijikaUiDiagnostics(root),
+    ]);
+    return {
+      ...architecture,
+      srijikaUi,
+      passed:
+        srijikaUi.diagnostics.length === 0 &&
+        !architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
+    };
   }
 
   async scaffold(

@@ -3,11 +3,13 @@ import { create } from 'zustand';
 import type { UiDocument } from '@srijika/contracts';
 import {
   compileSrijikaTsx,
+  srijikaTypeOnlyModuleSpecifiers,
   type SrijikaDiagnostic,
   type SrijikaComponentContractEntry,
   type SrijikaQuickFix,
   type SrijikaSourceEdit,
   type SrijikaSourceMap,
+  type SrijikaResolvedTypeModule,
 } from '@srijika/tsx-compiler';
 
 import type { CodeProjectArchitectureAnalysis } from '../lib/architecture-diagnostics';
@@ -33,6 +35,7 @@ export interface CompileCodeProjectSourceInput {
   sourcePath?: string | null;
   lastValidDocument?: UiDocument | null;
   lastValidComponentContract?: readonly SrijikaComponentContractEntry[];
+  resolvedTypeModules?: readonly SrijikaResolvedTypeModule[];
 }
 
 export interface CompileCodeProjectSourceResult {
@@ -62,6 +65,7 @@ export interface CodeProjectState {
   architectureRecommendations: CodeProjectArchitectureAnalysis['recommendations'];
   architectureCheckedFileCount: number;
   selectedArchitectureDiagnosticIndex: number | null;
+  resolvedTypeModules: readonly SrijikaResolvedTypeModule[];
   loadSource: (input: LoadCodeProjectSourceInput) => void;
   clearSource: () => void;
   updateSource: (source: string) => void;
@@ -70,6 +74,7 @@ export interface CodeProjectState {
   setArchitectureAnalysis: (analysis: CodeProjectArchitectureAnalysis) => void;
   clearArchitectureAnalysis: () => void;
   selectArchitectureDiagnostic: (index: number | null) => void;
+  setResolvedTypeModules: (modules: readonly SrijikaResolvedTypeModule[]) => void;
   applyQuickFix: (fix: SrijikaQuickFix) => boolean;
 }
 
@@ -97,6 +102,51 @@ function sourceIdentity(fileName: string, sourcePath: string | null | undefined)
   return normalizedPath ? `path:${normalizedPath}` : `file:${fileName.trim()}`;
 }
 
+function normalizeModulePath(value: string): string {
+  const prefix = value.startsWith('/') ? '/' : '';
+  const parts: string[] = [];
+  for (const segment of value.replaceAll('\\', '/').split('/')) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') parts.pop();
+    else parts.push(segment);
+  }
+  return `${prefix}${parts.join('/')}`;
+}
+
+export function resolvedCodeProjectTypeModules(input: {
+  fileName: string;
+  source: string;
+  uiSuffix: string;
+  typesSuffix: string;
+  sourceByFileName: ReadonlyMap<string, { source: string; hash?: string }>;
+}): readonly SrijikaResolvedTypeModule[] {
+  if (!input.fileName.toLowerCase().endsWith(input.uiSuffix.toLowerCase())) return [];
+  const expected = `${input.fileName.slice(0, -input.uiSuffix.length)}${input.typesSuffix}`;
+  const slash = input.fileName.replaceAll('\\', '/').lastIndexOf('/');
+  const directory = slash >= 0 ? input.fileName.slice(0, slash) : '.';
+  const sourceByPath = new Map(
+    [...input.sourceByFileName.entries()].map(([path, value]) => [
+      normalizeModulePath(path),
+      value,
+    ]),
+  );
+  return srijikaTypeOnlyModuleSpecifiers(input.source).flatMap((specifier) => {
+    const unresolved = normalizeModulePath(`${directory}/${specifier}`);
+    const candidate = /\.(?:ts|tsx)$/i.test(unresolved) ? unresolved : `${unresolved}.ts`;
+    if (candidate.toLowerCase() !== normalizeModulePath(expected).toLowerCase()) return [];
+    const module = sourceByPath.get(candidate);
+    if (!module) return [];
+    return [
+      {
+        specifier,
+        fileName: candidate,
+        source: module.source,
+        ...(module.hash ? { hash: module.hash } : {}),
+      },
+    ];
+  });
+}
+
 function hasErrors(diagnostics: readonly SrijikaDiagnostic[]): boolean {
   return diagnostics.some((diagnostic) => diagnostic.severity === 'error');
 }
@@ -117,6 +167,7 @@ export function compileCodeProjectSource(
       documentId: studio.selectedPageId,
       documentKind: 'page',
       revision: studio.document.revision + 1,
+      ...(input.resolvedTypeModules ? { resolvedTypeModules: input.resolvedTypeModules } : {}),
     },
   );
   const previousDocument = input.lastValidDocument ?? null;
@@ -227,6 +278,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
   architectureRecommendations: [],
   architectureCheckedFileCount: 0,
   selectedArchitectureDiagnosticIndex: null,
+  resolvedTypeModules: [],
 
   loadSource: (input) => {
     const current = get();
@@ -240,6 +292,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourcePath,
       lastValidDocument: isSameSource ? current.lastValidDocument : null,
       lastValidComponentContract: isSameSource ? current.componentContract : [],
+      resolvedTypeModules: isSameSource ? current.resolvedTypeModules : [],
     });
     set({
       hasLoadedSource: true,
@@ -272,6 +325,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       architectureRecommendations: [],
       architectureCheckedFileCount: 0,
       selectedArchitectureDiagnosticIndex: null,
+      resolvedTypeModules: [],
     }),
 
   updateSource: (source) => {
@@ -283,6 +337,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourcePath: current.sourcePath,
       lastValidDocument: current.lastValidDocument,
       lastValidComponentContract: current.componentContract,
+      resolvedTypeModules: current.resolvedTypeModules,
     });
     set({
       hasLoadedSource: true,
@@ -311,6 +366,24 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
           : null,
       selectedArchitectureDiagnosticIndex: null,
     })),
+
+  setResolvedTypeModules: (modules) => {
+    const current = get();
+    const resolvedTypeModules = Object.freeze([...modules]);
+    if (!current.hasLoadedSource) {
+      set({ resolvedTypeModules });
+      return;
+    }
+    const compilation = compileCodeProjectSource({
+      fileName: current.fileName,
+      source: current.source,
+      sourcePath: current.sourcePath,
+      lastValidDocument: current.lastValidDocument,
+      lastValidComponentContract: current.componentContract,
+      resolvedTypeModules,
+    });
+    set({ resolvedTypeModules, ...compilation, selectedDiagnosticIndex: null });
+  },
 
   setArchitectureAnalysis: (analysis) =>
     set((state) => {

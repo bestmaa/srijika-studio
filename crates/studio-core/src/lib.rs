@@ -7692,7 +7692,7 @@ fn shared_primitive_ui_source(
         format!("export interface {name}UIProps {{\n  className?: string;\n}}\n\n")
     };
     format!(
-        "{props_contract}export function {name}UI({{ className }}: {name}UIProps) {{\n  return (\n    <section className={{className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
+        "{props_contract}export function {name}UI(props: {name}UIProps) {{\n  return (\n    <section className={{props.className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
     )
 }
 
@@ -7702,7 +7702,7 @@ fn shared_primitive_types_source(name: &str) -> String {
 
 fn shared_widget_ui_source(name: &str) -> String {
     format!(
-        "export interface {name}UIProps {{\n  className?: string;\n}}\n\nexport function {name}UI({{ className }}: {name}UIProps) {{\n  return (\n    <section className={{className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
+        "export interface {name}UIProps {{\n  className?: string;\n}}\n\nexport function {name}UI(props: {name}UIProps) {{\n  return (\n    <section className={{props.className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
     )
 }
 
@@ -9215,7 +9215,7 @@ export function DashboardConnector() {
         assert_eq!(
             fs::read_to_string(project.join("src/shared/ui/badge/Badge.ui.tsx"))
                 .expect("read typed primitive UI"),
-            "import type { BadgeUIProps } from './badge.types';\n\nexport type { BadgeUIProps } from './badge.types';\n\nexport function BadgeUI({ className }: BadgeUIProps) {\n  return (\n    <section className={className} data-srijika-owner=\"Badge\">\n      <h2>Badge</h2>\n    </section>\n  );\n}\n"
+            "import type { BadgeUIProps } from './badge.types';\n\nexport type { BadgeUIProps } from './badge.types';\n\nexport function BadgeUI(props: BadgeUIProps) {\n  return (\n    <section className={props.className} data-srijika-owner=\"Badge\">\n      <h2>Badge</h2>\n    </section>\n  );\n}\n"
         );
 
         core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
@@ -9273,7 +9273,7 @@ export function DashboardConnector() {
             ]
         );
         let widget = project.join("src/shared/widgets/profile-card");
-        let expected_ui = "export interface ProfileCardUIProps {\n  className?: string;\n}\n\nexport function ProfileCardUI({ className }: ProfileCardUIProps) {\n  return (\n    <section className={className} data-srijika-owner=\"ProfileCard\">\n      <h2>ProfileCard</h2>\n    </section>\n  );\n}\n";
+        let expected_ui = "export interface ProfileCardUIProps {\n  className?: string;\n}\n\nexport function ProfileCardUI(props: ProfileCardUIProps) {\n  return (\n    <section className={props.className} data-srijika-owner=\"ProfileCard\">\n      <h2>ProfileCard</h2>\n    </section>\n  );\n}\n";
         let expected_connector = "import { ProfileCardUI } from './ProfileCard.ui';\nimport { useProfileCard } from './useProfileCard';\n\nexport function ProfileCardConnector() {\n  const model = useProfileCard();\n  void model;\n  return <ProfileCardUI />;\n}\n";
         let expected_hook = "import { useProfileCardStore } from './profileCard.store';\n\nexport function useProfileCard() {\n  return useProfileCardStore();\n}\n";
         let expected_store = "import { create } from 'zustand';\nimport { profileCardLogic } from './profileCard.logic';\n\ninterface ProfileCardState {\n  ready: boolean;\n  load: () => Promise<void>;\n}\n\nexport const useProfileCardStore = create<ProfileCardState>((set) => ({\n  ready: false,\n  load: async () => {\n    await profileCardLogic.load();\n    set({ ready: true });\n  },\n}));\n";

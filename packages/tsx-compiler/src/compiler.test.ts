@@ -26,6 +26,159 @@ function applyEdits(
 }
 
 describe('compileSrijikaTsx', () => {
+  it('compiles a resolved owner-local type-only props interface', () => {
+    const source = `import type { CardUIProps } from './card.types';
+
+export function CardUI(props: CardUIProps) {
+  return <button onClick={props.onOpen}>{props.title}</button>;
+}`;
+    const result = compileSrijikaTsx('Card.ui.tsx', source, {
+      resolvedTypeModules: [
+        {
+          specifier: './card.types',
+          fileName: 'Card.types.ts',
+          source: `import type { ReactNode } from 'react';
+export interface CardUIProps {
+  title: string;
+  onOpen: () => void;
+  footerSlot?: ReactNode;
+}`,
+          hash: 'card-types-hash',
+        },
+      ],
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.document).not.toBeNull();
+    expect(result.componentContract).toMatchObject([
+      {
+        name: 'title',
+        kind: 'prop',
+        contractSource: {
+          kind: 'imported',
+          fileName: 'Card.types.ts',
+          hash: 'card-types-hash',
+        },
+      },
+      {
+        name: 'onOpen',
+        kind: 'event',
+        contractSource: {
+          kind: 'imported',
+          fileName: 'Card.types.ts',
+          hash: 'card-types-hash',
+        },
+      },
+      {
+        name: 'footerSlot',
+        kind: 'slot',
+        contractSource: {
+          kind: 'imported',
+          fileName: 'Card.types.ts',
+          hash: 'card-types-hash',
+        },
+      },
+    ]);
+    expect(
+      insertSrijikaContractMember(source, result.sourceMap, {
+        kind: 'prop',
+        name: 'subtitle',
+        required: false,
+        dataType: 'string',
+      }),
+    ).toMatchObject({ ok: false, reason: 'external-props-contract' });
+  });
+
+  it('fails closed when an imported props contract is unresolved or not passive', () => {
+    const source = `import type { CardUIProps } from './card.types';
+export function CardUI(props: CardUIProps) {
+  return <div>{props.title}</div>;
+}`;
+    const unresolved = compileSrijikaTsx('Card.ui.tsx', source);
+    expect(
+      unresolved.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === 'SRIJIKA1003' && diagnostic.message.includes('could not be resolved'),
+      ),
+    ).toBe(true);
+    expect(unresolved.diagnostics.flatMap((diagnostic) => diagnostic.quickFixes ?? [])).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'create-props-interface' })]),
+    );
+
+    const runtimeTypes = compileSrijikaTsx('Card.ui.tsx', source, {
+      resolvedTypeModules: [
+        {
+          specifier: './card.types',
+          fileName: 'Card.types.ts',
+          source: `export interface CardUIProps { title: string; }
+export const runtime = true;`,
+        },
+      ],
+    });
+    expect(
+      runtimeTypes.diagnostics.some(
+        (diagnostic) => diagnostic.code === 'SRIJIKA1003' && diagnostic.message.includes('passive'),
+      ),
+    ).toBe(true);
+
+    const duplicateInterface = compileSrijikaTsx('Card.ui.tsx', source, {
+      resolvedTypeModules: [
+        {
+          specifier: './card.types',
+          fileName: 'Card.types.ts',
+          source: `export interface CardUIProps { title: string; }
+export interface CardUIProps { subtitle?: string; }`,
+        },
+      ],
+    });
+    expect(
+      duplicateInterface.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === 'SRIJIKA1003' && diagnostic.message.includes('exactly one interface'),
+      ),
+    ).toBe(true);
+
+    const emptyExportMarker = compileSrijikaTsx('Card.ui.tsx', source, {
+      resolvedTypeModules: [
+        {
+          specifier: './card.types',
+          fileName: 'Card.types.ts',
+          source: `export {};
+export interface CardUIProps { title: string; }`,
+        },
+      ],
+    });
+    expect(emptyExportMarker.diagnostics).toEqual([]);
+  });
+
+  it('accepts an aliased named type import and rejects value imports', () => {
+    const types = {
+      specifier: './card.types',
+      fileName: 'Card.types.ts',
+      source: 'export interface PublicCardProps { title: string; }',
+    } as const;
+    const aliased = compileSrijikaTsx(
+      'Card.ui.tsx',
+      `import type { PublicCardProps as CardUIProps } from './card.types';
+export function CardUI(props: CardUIProps) { return <div>{props.title}</div>; }`,
+      { resolvedTypeModules: [types] },
+    );
+    expect(aliased.diagnostics).toEqual([]);
+
+    const valueImport = compileSrijikaTsx(
+      'Card.ui.tsx',
+      `import { PublicCardProps as CardUIProps } from './card.types';
+export function CardUI(props: CardUIProps) { return <div>{props.title}</div>; }`,
+      { resolvedTypeModules: [types] },
+    );
+    expect(
+      valueImport.diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === 'SRIJIKA1003' && diagnostic.message.includes('import type'),
+      ),
+    ).toBe(true);
+  });
+
   it('compiles typed nested props, intrinsic elements, value ternaries, and structural conditions', () => {
     const source = `
 export interface ProfileProps {

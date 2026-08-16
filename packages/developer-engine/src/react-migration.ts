@@ -11,6 +11,11 @@ import {
   SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
   SrijikaProjectFileSystem,
 } from './project-filesystem.js';
+import {
+  assertSrijikaUiWritesValid,
+  checkSrijikaUiDiagnostics,
+  formatSrijikaUiDiagnostic,
+} from './ui-diagnostics.js';
 
 const SESSION_VERSION = 1 as const;
 const SESSION_PATH = '.srijika/migrations/react/session.json';
@@ -105,6 +110,7 @@ export interface ReactMigrationAppliedSlice {
   appliedAt: string;
   writes: readonly { relativePath: string; sha256: string }[];
   verified: boolean;
+  verification?: ReactMigrationSliceVerification;
 }
 
 export interface ReactMigrationCommandStatus {
@@ -116,11 +122,19 @@ export interface ReactMigrationCommandStatus {
 export interface ReactMigrationVerification {
   checkedAt: string;
   sourceUnchanged: boolean;
+  srijikaDiagnosticsValid: boolean;
   architectureValid: boolean;
   unmappedSourcePaths: readonly string[];
   commands: readonly ReactMigrationCommandStatus[];
   errors: readonly string[];
   passed: boolean;
+}
+
+export interface ReactMigrationSliceVerification {
+  checkedAt: string;
+  srijikaDiagnosticsValid: boolean;
+  architectureValid: boolean;
+  commands: readonly ReactMigrationCommandStatus[];
 }
 
 export interface ReactMigrationSession {
@@ -751,6 +765,7 @@ export async function applyReactMigrationSlice(
       }
     }
   }
+  await assertSrijikaUiWritesValid(session.targetRoot, request.slice.writes);
   for (const write of request.slice.writes) {
     if (Buffer.byteLength(write.content, 'utf8') > MAX_FILE_BYTES) {
       throw new Error(`${write.relativePath} exceeds the 4 MiB migration write limit.`);
@@ -829,6 +844,7 @@ export async function applyReactMigrationSlice(
 export async function verifyReactMigrationSlice(
   targetDirectory: string,
   sliceId: string,
+  commands: readonly ReactMigrationCommandStatus[] = [],
 ): Promise<ReactMigrationSession> {
   const session = await readSession(targetDirectory);
   const selected = session.appliedSlices.find((slice) => slice.id === sliceId);
@@ -842,16 +858,46 @@ export async function verifyReactMigrationSlice(
     if (actual !== write.sha256)
       throw new Error(`${write.relativePath} changed after slice application.`);
   }
+  const uiDiagnostics = await checkSrijikaUiDiagnostics(session.targetRoot);
+  if (uiDiagnostics.diagnostics.length > 0) {
+    throw new Error(
+      `Migration slice ${sliceId} requires zero Srijika diagnostics: ${uiDiagnostics.diagnostics
+        .slice(0, 8)
+        .map(formatSrijikaUiDiagnostic)
+        .join(
+          ' | ',
+        )}${uiDiagnostics.diagnostics.length > 8 ? ` | ${uiDiagnostics.diagnostics.length - 8} more` : ''}`,
+    );
+  }
   const architecture = await checkSrijikaArchitecture(session.targetRoot);
   if (architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error')) {
     throw new Error(`Migration slice ${sliceId} does not pass Srijika architecture validation.`);
   }
+  const normalized = normalizedCommands(commands);
+  for (const name of ['typecheck', 'build'] as const) {
+    const evidence = normalized.find((command) => command.name === name);
+    if (evidence?.status !== 'passed') {
+      throw new Error(`Migration slice ${sliceId} requires passed ${name} evidence.`);
+    }
+  }
+  const checkedAt = new Date().toISOString();
   const next: ReactMigrationSession = {
     ...session,
-    updatedAt: new Date().toISOString(),
+    updatedAt: checkedAt,
     appliedSlices: Object.freeze(
       session.appliedSlices.map((slice) =>
-        slice.id === sliceId ? Object.freeze({ ...slice, verified: true }) : slice,
+        slice.id === sliceId
+          ? Object.freeze({
+              ...slice,
+              verified: true,
+              verification: Object.freeze({
+                checkedAt,
+                srijikaDiagnosticsValid: true,
+                architectureValid: true,
+                commands: Object.freeze(normalized),
+              }),
+            })
+          : slice,
       ),
     ),
   };
@@ -896,6 +942,7 @@ export async function verifyReactMigration(
   const session = await readSession(request.target);
   const rescanned = await scanReactMigrationSource(session.sourceRoot);
   const sourceUnchanged = rescanned.snapshotSha256 === session.inventory.snapshotSha256;
+  const uiDiagnostics = await checkSrijikaUiDiagnostics(session.targetRoot);
   const architecture = await checkSrijikaArchitecture(session.targetRoot);
   const architectureErrors = architecture.diagnostics.filter(
     (diagnostic) => diagnostic.severity === 'error',
@@ -938,6 +985,7 @@ export async function verifyReactMigration(
   }
   const errors = [
     ...(sourceUnchanged ? [] : ['React source changed after migration started.']),
+    ...uiDiagnostics.diagnostics.map(formatSrijikaUiDiagnostic),
     ...architectureErrors.map((diagnostic) => diagnostic.message),
     ...(unmappedSourcePaths.length === 0
       ? []
@@ -951,6 +999,7 @@ export async function verifyReactMigration(
   const verification: ReactMigrationVerification = Object.freeze({
     checkedAt: new Date().toISOString(),
     sourceUnchanged,
+    srijikaDiagnosticsValid: uiDiagnostics.diagnostics.length === 0,
     architectureValid: architectureErrors.length === 0,
     unmappedSourcePaths: Object.freeze(unmappedSourcePaths),
     commands: Object.freeze(commands),

@@ -4,7 +4,8 @@
     "types": ["node", "vitest/globals"],
     "paths": {
       "@srijika/architecture-rules": ["../architecture-rules/src/index.ts"],
-      "@srijika/project-scaffold": ["../project-scaffold/src/index.ts"]
+      "@srijika/project-scaffold": ["../project-scaffold/src/index.ts"],
+      "@srijika/tsx-compiler": ["../tsx-compiler/src/index.ts"]
     }
   },
   "include": ["src", "test", "vitest.config.ts"]

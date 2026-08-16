@@ -1,6 +1,6 @@
 {
   "name": "srijika-studio",
-  "version": "0.3.0+codex.20260816084955",
+  "version": "0.3.1+codex.20260816121522",
   "description": "Build, migrate, scaffold, inspect, validate, and run CLI-first Srijika React projects from Codex, with optional Studio visual tools.",
   "author": {
     "name": "Srijika Studio"

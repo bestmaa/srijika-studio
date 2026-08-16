@@ -44,9 +44,10 @@ Architecture, and Build App tasks, so Studio is never required.
 phase 1. It never writes to the source: it captures a bounded hash inventory,
 creates or resumes a distinct target, and persists the reviewed slice plan and
 source-to-target mappings under `.srijika/migrations/react/`. Apply semantic
-slices through Codex/MCP, then use `migrate verify`; completion requires an
-unchanged source, full mapped-or-ignored traceability, verified slices, clean
-Srijika architecture, and typecheck/build/test evidence. Next.js, Remix, React
+slices through Codex/MCP. Every slice requires zero Srijika diagnostics,
+architecture pass, TypeScript pass, and production build pass before the next
+slice. Then use `migrate verify`; completion requires an unchanged source, full
+mapped-or-ignored traceability, verified slices, and typecheck/build/test evidence. Next.js, Remix, React
 Native, and Expo fail closed until dedicated adapters are available.
 
 `behavior-hook` and `store-slice` accept only a PascalCase suffix. The shared

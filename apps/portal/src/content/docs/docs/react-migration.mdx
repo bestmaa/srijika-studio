@@ -85,6 +85,7 @@ Before completion Srijika checks:
 
 - the source baseline is unchanged;
 - every source item is mapped, blocked, or explicitly reviewed;
+- every resolved UI source has zero Srijika diagnostics;
 - strict Feature → Slot → Part → Shared architecture passes;
 - build, typecheck, and tests pass; and
 - route and representative visual/responsive evidence exists when applicable.
@@ -103,3 +104,7 @@ measurements. Duplicate or oversized evidence is rejected.
 
 If any evidence is missing or stale, the session remains incomplete and reports
 the exact blocker.
+
+For every slice, use the short gate: **zero Srijika diagnostics → architecture
+pass → TypeScript pass → production build pass**. Do not start the next slice
+until all four pass.

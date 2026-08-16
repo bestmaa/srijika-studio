@@ -45,6 +45,12 @@ interface ContractEntry {
   slot: boolean;
 }
 
+interface ResolvedTypeModuleSource {
+  fileName: string;
+  hash?: string;
+  sourceFile: ts.SourceFile;
+}
+
 function mergeShapes(shapes: readonly ValueShape[]): ValueShape {
   const first = shapes[0];
   if (!first) return { kind: 'unknown' };
@@ -155,6 +161,38 @@ function hasModifier(node: ts.Node, kind: ts.SyntaxKind): boolean {
     ts.canHaveModifiers(node) &&
     (ts.getModifiers(node)?.some((modifier) => modifier.kind === kind) ?? false)
   );
+}
+
+function isTypeOnlyImportDeclaration(statement: ts.ImportDeclaration): boolean {
+  const clause = statement.importClause;
+  if (!clause) return false;
+  if (clause.isTypeOnly) return true;
+  return (
+    !clause.name &&
+    !!clause.namedBindings &&
+    ts.isNamedImports(clause.namedBindings) &&
+    clause.namedBindings.elements.every((element) => element.isTypeOnly)
+  );
+}
+
+function isPassiveTypeModuleStatement(statement: ts.Statement): boolean {
+  if (ts.isImportDeclaration(statement)) return isTypeOnlyImportDeclaration(statement);
+  if (ts.isInterfaceDeclaration(statement) || ts.isTypeAliasDeclaration(statement)) return true;
+  if (ts.isExportDeclaration(statement)) {
+    if (statement.isTypeOnly) return true;
+    return (
+      !statement.moduleSpecifier &&
+      !!statement.exportClause &&
+      ts.isNamedExports(statement.exportClause) &&
+      statement.exportClause.elements.length === 0
+    );
+  }
+  return ts.isEmptyStatement(statement);
+}
+
+function containsTypeQuery(node: ts.Node): boolean {
+  if (ts.isTypeQueryNode(node)) return true;
+  return node.getChildren().some(containsTypeQuery);
 }
 
 function propertyName(node: ts.PropertyName): string | null {
@@ -318,10 +356,13 @@ class SrijikaTsxCompiler {
   readonly #propSpans: Record<string, SrijikaSourceSpan> = {};
   readonly #contract = new Map<string, ContractEntry>();
   readonly #missingTypes: MissingTypeEntry[] = [];
+  readonly #resolvedTypeModules = new Map<string, ResolvedTypeModuleSource>();
   #component: ts.FunctionDeclaration | null = null;
   #propsParameter: ts.ParameterDeclaration | null = null;
   #propsName: string | null = null;
   #propsInterface: ts.InterfaceDeclaration | null = null;
+  #propsContractSource: ResolvedTypeModuleSource | null = null;
+  #externalDiagnosticAnchor: ts.Node | null = null;
   #needsPropsInterface = false;
 
   constructor(fileName: string, source: string, options: CompileSrijikaTsxOptions) {
@@ -333,6 +374,20 @@ class SrijikaTsxCompiler {
       ts.ScriptKind.TSX,
     );
     this.#options = options;
+    for (const module of options.resolvedTypeModules ?? []) {
+      if (this.#resolvedTypeModules.has(module.specifier)) continue;
+      this.#resolvedTypeModules.set(module.specifier, {
+        fileName: module.fileName,
+        ...(module.hash ? { hash: module.hash } : {}),
+        sourceFile: ts.createSourceFile(
+          module.fileName,
+          module.source,
+          ts.ScriptTarget.Latest,
+          true,
+          ts.ScriptKind.TS,
+        ),
+      });
+    }
   }
 
   compile(): CompileSrijikaTsxResult {
@@ -462,15 +517,28 @@ class SrijikaTsxCompiler {
       )
       .sort(
         (left, right) =>
-          left.declaration.getStart(this.#sourceFile) -
-          right.declaration.getStart(this.#sourceFile),
+          left.declaration.getStart(left.declaration.getSourceFile()) -
+          right.declaration.getStart(right.declaration.getSourceFile()),
       )
       .map((entry): SrijikaComponentContractEntry => {
+        const declarationSource = entry.declaration.getSourceFile();
+        const imported = declarationSource !== this.#sourceFile;
         const base = {
           name: entry.name,
           required: entry.required,
-          typeSource: entry.declaration.type?.getText(this.#sourceFile) ?? 'unknown',
+          typeSource: entry.declaration.type?.getText(declarationSource) ?? 'unknown',
           span: this.#span(entry.declaration),
+          ...(imported
+            ? {
+                contractSource: {
+                  kind: 'imported' as const,
+                  fileName: declarationSource.fileName,
+                  ...(this.#propsContractSource?.hash
+                    ? { hash: this.#propsContractSource.hash }
+                    : {}),
+                },
+              }
+            : {}),
         };
         if (entry.slot) return { ...base, kind: 'slot' };
         if (entry.eventSignature) {
@@ -563,18 +631,25 @@ class SrijikaTsxCompiler {
     }
 
     const interfaceName = parameter.type.typeName.text;
-    const declaration = this.#sourceFile.statements.find(
+    let declaration = this.#sourceFile.statements.find(
       (statement): statement is ts.InterfaceDeclaration =>
         ts.isInterfaceDeclaration(statement) && statement.name.text === interfaceName,
     );
     if (!declaration) {
-      this.#needsPropsInterface = true;
-      this.#addDiagnostic(
-        'SRIJIKA1003',
-        `Props type ${interfaceName} must be declared as an interface in this UI file.`,
-        parameter.type,
-      );
-      return;
+      const imported = this.#resolveImportedPropsInterface(interfaceName, parameter.type);
+      if (imported === undefined) {
+        this.#needsPropsInterface = true;
+        this.#addDiagnostic(
+          'SRIJIKA1003',
+          `Props type ${interfaceName} must be declared in this UI file or imported type-only from its resolved owner Types file.`,
+          parameter.type,
+        );
+        return;
+      }
+      if (imported === null) return;
+      declaration = imported.declaration;
+      this.#propsContractSource = imported.module;
+      this.#externalDiagnosticAnchor = parameter.type;
     }
     this.#propsInterface = declaration;
     if (declaration.heritageClauses && declaration.heritageClauses.length > 0) {
@@ -637,9 +712,112 @@ class SrijikaTsxCompiler {
         slot,
       };
       this.#contract.set(name, entry);
-      this.#propSpans[name] = this.#span(member.name);
+      if (!this.#propsContractSource) this.#propSpans[name] = this.#span(member.name);
       if (!member.type) this.#missingTypes.push({ entry, declaration: member });
     }
+  }
+
+  #resolveImportedPropsInterface(
+    localName: string,
+    anchor: ts.Node,
+  ): { declaration: ts.InterfaceDeclaration; module: ResolvedTypeModuleSource } | null | undefined {
+    const matches: Array<{
+      declaration: ts.ImportDeclaration;
+      importedName: string;
+      specifier: string;
+      typeOnly: boolean;
+    }> = [];
+    for (const statement of this.#sourceFile.statements) {
+      if (
+        !ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteral(statement.moduleSpecifier) ||
+        !statement.importClause?.namedBindings ||
+        !ts.isNamedImports(statement.importClause.namedBindings)
+      ) {
+        continue;
+      }
+      for (const element of statement.importClause.namedBindings.elements) {
+        if (element.name.text !== localName) continue;
+        matches.push({
+          declaration: statement,
+          importedName: (element.propertyName ?? element.name).text,
+          specifier: statement.moduleSpecifier.text,
+          typeOnly: statement.importClause.isTypeOnly || element.isTypeOnly,
+        });
+      }
+    }
+    if (matches.length === 0) return undefined;
+    if (matches.length !== 1) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Props type ${localName} must have one unambiguous owner-local type import.`,
+        anchor,
+      );
+      return null;
+    }
+    const imported = matches[0]!;
+    if (!imported.typeOnly || !/^\.\.?\//.test(imported.specifier)) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Props type ${localName} must use an owner-local relative import type.`,
+        imported.declaration,
+      );
+      return null;
+    }
+    const module = this.#resolvedTypeModules.get(imported.specifier);
+    if (!module) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Props type ${localName} could not be resolved from ${imported.specifier}. Open the Srijika project root or fix the canonical Types path.`,
+        imported.declaration.moduleSpecifier,
+      );
+      return null;
+    }
+    const parseDiagnostics = (
+      module.sourceFile as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+    ).parseDiagnostics;
+    if (parseDiagnostics.length > 0) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Resolved Types module ${imported.specifier} contains invalid TypeScript syntax.`,
+        imported.declaration.moduleSpecifier,
+      );
+      return null;
+    }
+    if (
+      module.sourceFile.statements.some((statement) => !isPassiveTypeModuleStatement(statement))
+    ) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Resolved Types module ${imported.specifier} must contain passive type-only declarations.`,
+        imported.declaration.moduleSpecifier,
+      );
+      return null;
+    }
+    const declarations = module.sourceFile.statements.filter(
+      (statement): statement is ts.InterfaceDeclaration =>
+        ts.isInterfaceDeclaration(statement) &&
+        statement.name.text === imported.importedName &&
+        hasModifier(statement, ts.SyntaxKind.ExportKeyword),
+    );
+    if (declarations.length !== 1) {
+      this.#addDiagnostic(
+        'SRIJIKA1003',
+        `Resolved Types module ${imported.specifier} must export exactly one interface ${imported.importedName}.`,
+        imported.declaration.moduleSpecifier,
+      );
+      return null;
+    }
+    const declaration = declarations[0]!;
+    if (containsTypeQuery(declaration)) {
+      this.#addDiagnostic(
+        'SRIJIKA1005',
+        'Imported Srijika props interfaces cannot reference runtime values with typeof.',
+        imported.declaration.moduleSpecifier,
+      );
+      return null;
+    }
+    return { declaration, module };
   }
 
   #eventSignature(node: ts.TypeNode): EventSignature | null {
@@ -716,7 +894,8 @@ class SrijikaTsxCompiler {
       };
     }
     if (ts.isTypeReferenceNode(node)) {
-      const name = node.typeName.getText(this.#sourceFile);
+      const sourceFile = node.getSourceFile();
+      const name = node.typeName.getText(sourceFile);
       if ((name === 'Array' || name === 'ReadonlyArray') && node.typeArguments?.length === 1) {
         return { kind: 'array', item: this.#parseType(node.typeArguments[0]!, resolving) };
       }
@@ -724,11 +903,11 @@ class SrijikaTsxCompiler {
         return { kind: 'object', fields: {}, additionalProperties: true };
       }
       if (resolving.has(name)) return { kind: 'unknown' };
-      const interfaceDeclaration = this.#sourceFile.statements.find(
+      const interfaceDeclaration = sourceFile.statements.find(
         (statement): statement is ts.InterfaceDeclaration =>
           ts.isInterfaceDeclaration(statement) && statement.name.text === name,
       );
-      const typeAliasDeclaration = this.#sourceFile.statements.find(
+      const typeAliasDeclaration = sourceFile.statements.find(
         (statement): statement is ts.TypeAliasDeclaration =>
           ts.isTypeAliasDeclaration(statement) && statement.name.text === name,
       );
@@ -791,7 +970,8 @@ class SrijikaTsxCompiler {
         required: member.questionToken === undefined,
         shape: member.type ? this.#parseType(member.type, resolving) : { kind: 'unknown' },
       };
-      this.#propSpans[name] = this.#span(member.name);
+      if (member.getSourceFile() === this.#sourceFile)
+        this.#propSpans[name] = this.#span(member.name);
       if (!member.type) {
         const syntheticEntry: ContractEntry = {
           name,
@@ -822,7 +1002,7 @@ class SrijikaTsxCompiler {
 
   #isReactNodeType(node: ts.TypeNode): boolean {
     if (!ts.isTypeReferenceNode(node)) return false;
-    const typeName = node.typeName.getText(this.#sourceFile);
+    const typeName = node.typeName.getText(node.getSourceFile());
     return typeName === 'ReactNode' || typeName === 'React.ReactNode';
   }
 
@@ -1662,7 +1842,8 @@ class SrijikaTsxCompiler {
     existingParentPath: readonly string[],
     suggestedType: ValueType,
   ): readonly { start: number; end: number; newText: string }[] {
-    if (!this.#propsInterface) return [];
+    if (!this.#propsInterface || this.#propsInterface.getSourceFile() !== this.#sourceFile)
+      return [];
     const container = this.#contractContainer(existingParentPath);
     if (!container) return [];
     const missingPath = fullPath.slice(existingParentPath.length);
@@ -1707,6 +1888,14 @@ class SrijikaTsxCompiler {
 
   #emitDeferredContractDiagnostics(): void {
     for (const missing of this.#missingTypes) {
+      if (missing.declaration.getSourceFile() !== this.#sourceFile) {
+        this.#addDiagnostic(
+          'SRIJIKA1003',
+          `Imported prop ${missing.entry.name} must declare an explicit type in the owner Types file.`,
+          missing.declaration,
+        );
+        continue;
+      }
       const suggested = missing.entry.eventSignature
         ? ('event' as const)
         : shapeValueType(missing.entry.shape);
@@ -1829,16 +2018,18 @@ class SrijikaTsxCompiler {
   }
 
   #span(nodeOrStart: ts.Node | number, explicitEnd?: number): SrijikaSourceSpan {
-    const start =
-      typeof nodeOrStart === 'number' ? nodeOrStart : nodeOrStart.getStart(this.#sourceFile);
+    const sourceFile =
+      typeof nodeOrStart === 'number' ? this.#sourceFile : nodeOrStart.getSourceFile();
+    const start = typeof nodeOrStart === 'number' ? nodeOrStart : nodeOrStart.getStart(sourceFile);
     const end =
       typeof nodeOrStart === 'number' ? (explicitEnd ?? nodeOrStart + 1) : nodeOrStart.getEnd();
-    const location = this.#sourceFile.getLineAndCharacterOfPosition(start);
+    const location = sourceFile.getLineAndCharacterOfPosition(start);
     return {
       start,
       end,
       line: location.line + 1,
       column: location.character + 1,
+      ...(sourceFile !== this.#sourceFile ? { fileName: sourceFile.fileName } : {}),
     };
   }
 
@@ -1850,10 +2041,16 @@ class SrijikaTsxCompiler {
     quickFixes?: readonly SrijikaQuickFix[],
   ): void {
     const severity = typeof severityOrEnd === 'number' ? 'error' : severityOrEnd;
+    const anchoredNode =
+      typeof nodeOrStart !== 'number' &&
+      nodeOrStart.getSourceFile() !== this.#sourceFile &&
+      this.#externalDiagnosticAnchor
+        ? this.#externalDiagnosticAnchor
+        : nodeOrStart;
     const span =
-      typeof nodeOrStart === 'number'
+      typeof anchoredNode === 'number'
         ? this.#span(nodeOrStart, typeof severityOrEnd === 'number' ? severityOrEnd : undefined)
-        : this.#span(nodeOrStart);
+        : this.#span(anchoredNode);
     const diagnostic: SrijikaDiagnostic = {
       code,
       severity,
@@ -1876,4 +2073,41 @@ export function compileSrijikaTsx(
   options: CompileSrijikaTsxOptions = {},
 ): CompileSrijikaTsxResult {
   return new SrijikaTsxCompiler(fileName, source, options).compile();
+}
+
+/**
+ * Returns exact relative specifiers used by named type-only imports. Callers
+ * can resolve these through their own bounded project filesystem and pass the
+ * resulting sources back through `resolvedTypeModules`.
+ */
+export function srijikaTypeOnlyModuleSpecifiers(source: string): readonly string[] {
+  const sourceFile = ts.createSourceFile(
+    'Srijika.ui.tsx',
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  return Object.freeze(
+    [
+      ...new Set(
+        sourceFile.statements.flatMap((statement) => {
+          if (
+            !ts.isImportDeclaration(statement) ||
+            !ts.isStringLiteral(statement.moduleSpecifier) ||
+            !/^\.\.?\//.test(statement.moduleSpecifier.text) ||
+            !statement.importClause?.namedBindings ||
+            !ts.isNamedImports(statement.importClause.namedBindings) ||
+            !(
+              statement.importClause.isTypeOnly ||
+              statement.importClause.namedBindings.elements.some((element) => element.isTypeOnly)
+            )
+          ) {
+            return [];
+          }
+          return [statement.moduleSpecifier.text];
+        }),
+      ),
+    ].sort((left, right) => left.localeCompare(right)),
+  );
 }

@@ -127,6 +127,9 @@ Treat migration as a reviewable, resumable program rather than a bulk copy. Call
 analyze one source slice and submit only that reviewed slice to
 `srijika_apply_react_migration_slice`. Verify the slice before continuing.
 
+Every slice has one fixed gate: **zero Srijika diagnostics → architecture pass
+→ TypeScript pass → production build pass**. Stop and fix before continuing.
+
 Never edit the source root. Never use a target that is the source, contains the
 source, is contained by the source, or is a nonempty unrelated project. The
 engine inventories and guards the filesystem; Codex remains responsible for the
@@ -136,7 +139,7 @@ a blocker, not permission to guess.
 
 Before finalization, call `srijika_verify_react_migration` and require source
 immutability, complete source-to-target traceability, Srijika architecture,
-build, typecheck, and test evidence. Add route and visual evidence when the
+zero Srijika diagnostics, build, typecheck, and test evidence. Add route and visual evidence when the
 source exposes those surfaces. Do not describe migration as guaranteed
 zero-loss; report every blocker and unmapped source item. Finalize only after
 the session reports all required gates passing.

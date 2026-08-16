@@ -213,7 +213,8 @@ The shared Srijika compiler reports editor diagnostics when a file ending in
 the resolved `uiSuffix` (`.ui.tsx` by default) exceeds any of these project
 rules:
 
-- 200 meaningful lines in the exported UI function. Its local props interface,
+- 200 meaningful lines in the exported UI function. Its local or resolved
+  owner-local type-only props interface,
   blank lines, and comments are excluded from this function count.
 - 300 meaningful lines in the complete resolved UI Source file.
 - 16 top-level component contract members. Data props, events, ReactNode slots,

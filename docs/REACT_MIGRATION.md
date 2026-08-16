@@ -69,8 +69,9 @@ Use the tools in this order:
    required evidence.
 4. `srijika_apply_react_migration_slice` — apply one Codex-reviewed slice as an
    atomic target-only change.
-5. `srijika_verify_react_migration_slice` — verify the slice before another
-   slice is accepted.
+5. `srijika_verify_react_migration_slice` — require zero Srijika diagnostics,
+   valid architecture, passed TypeScript evidence, and passed production-build
+   evidence before another slice is accepted.
 6. `srijika_get_react_migration_status` — resume from persisted session state.
 7. `srijika_verify_react_migration` — run session-wide source, traceability,
    architecture, build, typecheck, and test gates.
@@ -107,6 +108,7 @@ Finalization requires current evidence for:
 - source baseline unchanged;
 - complete source-to-target mapping or explicitly reviewed blocker/exception;
 - strict Srijika architecture;
+- zero Srijika compiler diagnostics across every resolved UI source;
 - build, typecheck, and tests;
 - route inventory equivalence when the source has routing; and
 - representative responsive/visual comparison when visual behavior is in

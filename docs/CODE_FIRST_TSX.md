@@ -59,7 +59,8 @@ A file ending in the resolved UI suffix must:
 
 - export exactly one named function component;
 - accept zero props or one named `props` parameter;
-- reference a named interface declared in the same file when props are used;
+- reference a named interface declared in the UI file or resolved through an
+  owner-local relative `import type` from its passive Types file;
 - keep the component body to directives plus one JSX return;
 - use supported intrinsic JSX elements and explicit attributes;
 - bind button interaction through a local `() => void` props callback, for example `onClick={props.onLaunch}`;
@@ -73,7 +74,7 @@ the resolved UI suffix (canonical default `.ui.tsx`):
 
 - the exported UI function may contain at most **200 meaningful lines**;
 - the complete UI source file may contain at most **300 meaningful lines**;
-- the local props interface may declare at most **16 top-level members**.
+- the local or resolved owner Types props interface may declare at most **16 top-level members**.
 
 Meaningful-line counting ignores blank lines and comments. The 200-line function
 limit starts at the exported function and therefore excludes the colocated props
@@ -115,7 +116,7 @@ The compiler never evaluates the module. Unsupported syntax produces a `SRIJIKAâ
 
 - VS Code edits TSX directly; Studio notices the changed content hash and recompiles.
 - Studio quick fixes and supported visual controls produce bounded AST source edits, then recompile.
-- Inspector can add common presets or one validated custom TypeScript type expression; it writes only the local props interface and then recompiles that TSX.
+- Inspector can add common presets or one validated custom TypeScript type expression; it writes only a local props interface. Imported owner Types contracts remain read-only until an atomic multi-file action edits their source file.
 - A stale expected hash prevents Studio from overwriting newer VS Code work.
 - Unsupported visual mutations stay read-only until a lossless source writer exists for them.
 

@@ -6,6 +6,7 @@ import {
   DEFAULT_CODE_PROJECT_FILE_NAME,
   DEFAULT_CODE_PROJECT_SOURCE,
   compileCodeProjectSource,
+  resolvedCodeProjectTypeModules,
   useCodeProjectStore,
 } from '../../apps/studio/src/store/code-project-store';
 import { useStudioStore } from '../../apps/studio/src/store/studio-store';
@@ -306,5 +307,40 @@ export function Profile(props: ProfileProps) {
       value: 'Standalone',
     });
     expect(result.lastValidDocument).toBe(useStudioStore.getState().document);
+  });
+
+  it('recompiles an owner UI from its resolved passive Types contract', () => {
+    const fileName = '/project/src/features/home/Home.ui.tsx';
+    const source = `import type { HomeUIProps } from './Home.types';
+export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; }`;
+    useCodeProjectStore.getState().loadSource({ fileName, sourcePath: fileName, source });
+    expect(useCodeProjectStore.getState().diagnostics).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'SRIJIKA1003' })]),
+    );
+
+    const modules = resolvedCodeProjectTypeModules({
+      fileName,
+      source,
+      uiSuffix: '.ui.tsx',
+      typesSuffix: '.types.ts',
+      sourceByFileName: new Map([
+        [
+          '/project/src/features/home/Home.types.ts',
+          { source: 'export interface HomeUIProps { title: string; }', hash: 'types-hash' },
+        ],
+      ]),
+    });
+    useCodeProjectStore.getState().setResolvedTypeModules(modules);
+
+    expect(useCodeProjectStore.getState()).toMatchObject({
+      compileStatus: 'valid',
+      diagnostics: [],
+      componentContract: [
+        {
+          name: 'title',
+          contractSource: { kind: 'imported', hash: 'types-hash' },
+        },
+      ],
+    });
   });
 });
