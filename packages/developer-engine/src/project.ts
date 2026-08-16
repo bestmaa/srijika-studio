@@ -1,11 +1,17 @@
-import { access, readFile } from 'node:fs/promises';
 import { dirname, join, parse, resolve } from 'node:path';
 
-import type { SrijikaArchitectureConfig } from '@srijika/architecture-rules';
+import {
+  parseSrijikaProjectConfig,
+  parseSrijikaTypeScriptPathAliases,
+} from '@srijika/architecture-rules';
 
 import type { SrijikaPackageManager, SrijikaProjectMetadata } from './types.js';
+import { SrijikaProjectFileSystem } from './project-filesystem.js';
 
-const MAX_METADATA_BYTES = 1024 * 1024;
+const MAX_PACKAGE_JSON_BYTES = 1024 * 1024;
+const MAX_ARCHITECTURE_CONFIG_BYTES = 64 * 1024;
+const MAX_TSCONFIG_BYTES = 1024 * 1024;
+const MAX_ENTRY_SOURCE_BYTES = 4 * 1024 * 1024;
 
 interface PackageJsonShape {
   name?: unknown;
@@ -23,23 +29,6 @@ const LOCKFILES = Object.freeze([
   { fileName: 'yarn.lock', manager: 'yarn' },
   { fileName: 'package-lock.json', manager: 'npm' },
 ] as const);
-
-async function pathExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function readBoundedText(path: string): Promise<string> {
-  const source = await readFile(path, 'utf8');
-  if (Buffer.byteLength(source, 'utf8') > MAX_METADATA_BYTES) {
-    throw new Error(`${path} exceeds the 1 MiB metadata limit.`);
-  }
-  return source;
-}
 
 function recordValue(value: unknown): Readonly<Record<string, unknown>> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -68,38 +57,19 @@ function packageManagerFromField(value: unknown): {
   return match[2] ? { manager, version: match[2] } : { manager };
 }
 
-function architectureFromConfig(source: string): Partial<SrijikaArchitectureConfig> | undefined {
-  const parsed: unknown = JSON.parse(source);
-  const root = recordValue(parsed);
-  const architecture = recordValue(root?.['architecture']);
-  if (!architecture || architecture['profile'] !== 'feature-slot-part-v1') return undefined;
-  const result: Partial<SrijikaArchitectureConfig> = { profile: 'feature-slot-part-v1' };
-  for (const key of [
-    'featuresRoot',
-    'slotsDirectory',
-    'partsDirectory',
-    'hooksDirectory',
-    'uiSuffix',
-    'connectorSuffix',
-    'storeSuffix',
-    'logicSuffix',
-    'apiSuffix',
-    'typesSuffix',
-  ] as const) {
-    const value = architecture[key];
-    if (typeof value === 'string' && value.length > 0) result[key] = value;
-  }
-  return result;
-}
-
 export async function findSrijikaProjectRoot(startDirectory = process.cwd()): Promise<string> {
   let candidate = resolve(startDirectory);
   for (;;) {
-    if (
-      (await pathExists(join(candidate, 'srijika.config.json'))) &&
-      (await pathExists(join(candidate, 'package.json')))
-    ) {
-      return candidate;
+    let fileSystem: SrijikaProjectFileSystem | undefined;
+    try {
+      fileSystem = await SrijikaProjectFileSystem.open(candidate);
+    } catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+    }
+    if (fileSystem) {
+      const hasConfig = await fileSystem.isRegularFile('srijika.config.json');
+      const hasPackage = await fileSystem.isRegularFile('package.json');
+      if (hasConfig && hasPackage) return fileSystem.root;
     }
     const parent = dirname(candidate);
     if (parent === candidate || candidate === parse(candidate).root) break;
@@ -110,14 +80,18 @@ export async function findSrijikaProjectRoot(startDirectory = process.cwd()): Pr
 
 export async function inspectSrijikaProject(projectRoot: string): Promise<SrijikaProjectMetadata> {
   const root = await findSrijikaProjectRoot(projectRoot);
+  const fileSystem = await SrijikaProjectFileSystem.open(root);
   const packageJsonPath = join(root, 'package.json');
   const configPath = join(root, 'srijika.config.json');
-  const packageJson = JSON.parse(await readBoundedText(packageJsonPath)) as PackageJsonShape;
-  const configSource = await readBoundedText(configPath);
+  const packageJson = JSON.parse(
+    (await fileSystem.readText(packageJsonPath, MAX_PACKAGE_JSON_BYTES)).source,
+  ) as PackageJsonShape;
+  const configSource = (await fileSystem.readText(configPath, MAX_ARCHITECTURE_CONFIG_BYTES))
+    .source;
   const declared = packageManagerFromField(packageJson.packageManager);
   const detectedLockfiles = [] as Array<{ fileName: string; manager: SrijikaPackageManager }>;
   for (const candidate of LOCKFILES) {
-    if (await pathExists(join(root, candidate.fileName))) detectedLockfiles.push(candidate);
+    if (await fileSystem.isRegularFile(candidate.fileName)) detectedLockfiles.push(candidate);
   }
   const lockfileMatch = detectedLockfiles.find((entry) => entry.manager === declared.manager);
   const selectedLockfile = lockfileMatch ?? detectedLockfiles[0];
@@ -140,11 +114,22 @@ export async function inspectSrijikaProject(projectRoot: string): Promise<Srijik
     warnings.push('package.json does not declare srijika.sourceOfTruth as tsx.');
   }
 
-  const architecture = architectureFromConfig(configSource);
+  const projectConfig = parseSrijikaProjectConfig(configSource);
+  // The authoritative entry may intentionally live outside the configured
+  // ownership roots, but it is still part of the project contract. Validate it
+  // through the same no-symlink, bounded, fatal-UTF-8 reader before any command
+  // reports the project as healthy.
+  await fileSystem.readText(projectConfig.entry, MAX_ENTRY_SOURCE_BYTES);
+  const aliases = (await fileSystem.isRegularFile('tsconfig.json'))
+    ? parseSrijikaTypeScriptPathAliases(
+        (await fileSystem.readText('tsconfig.json', MAX_TSCONFIG_BYTES)).source,
+      )
+    : {};
   return Object.freeze({
     root,
     packageJsonPath,
     configPath,
+    entry: projectConfig.entry,
     projectName:
       typeof packageJson.name === 'string' && packageJson.name.length > 0
         ? packageJson.name
@@ -153,7 +138,8 @@ export async function inspectSrijikaProject(projectRoot: string): Promise<Srijik
     ...(declared.version ? { packageManagerVersion: declared.version } : {}),
     lockfile: selectedLockfile?.fileName ?? null,
     scripts: Object.freeze(scripts),
-    ...(architecture ? { architecture } : {}),
+    architecture: projectConfig.architecture,
+    aliases,
     viteProject:
       typeof dependencies['vite'] === 'string' || /^vite(?:\s|$)/.test(scripts['dev'] ?? ''),
     warnings: Object.freeze(warnings),

@@ -171,16 +171,25 @@ describe('desktop code project services', () => {
     const source = 'export const home = true;\n';
     const configSource = JSON.stringify({
       sourceOfTruth: 'tsx',
-      entry: 'src/features/home/Home.ui.tsx',
-      architecture: { profile: 'feature-slot-part-v1' },
+      entry: 'application/domain/features/home/Home.view.tsx',
+      architecture: {
+        profile: 'feature-slot-part-v1',
+        featuresRoot: 'application/domain/features',
+        sharedRoot: 'application/domain/shared',
+        uiSuffix: '.view.tsx',
+      },
+    });
+    const tsconfigSource = JSON.stringify({
+      compilerOptions: { paths: { '@/*': ['application/*'] } },
     });
     invokeMock.mockResolvedValueOnce({
       path: '/projects/demo',
       configSource,
+      tsconfigSource,
       sources: [
         {
-          path: '/projects/demo/src/features/home/Home.ui.tsx',
-          relativePath: 'src/features/home/Home.ui.tsx',
+          path: '/projects/demo/application/domain/features/home/Home.view.tsx',
+          relativePath: 'application/domain/features/home/Home.view.tsx',
           bytes: source.length,
           hash: 'fnv1a64:0123456789abcdef',
           source,
@@ -192,10 +201,11 @@ describe('desktop code project services', () => {
     await expect(loadCodeProjectArchitectureSources('/projects/demo')).resolves.toEqual({
       path: '/projects/demo',
       configSource,
+      tsconfigSource,
       sources: [
         {
-          path: '/projects/demo/src/features/home/Home.ui.tsx',
-          relativePath: 'src/features/home/Home.ui.tsx',
+          path: '/projects/demo/application/domain/features/home/Home.view.tsx',
+          relativePath: 'application/domain/features/home/Home.view.tsx',
           bytes: source.length,
           hash: 'fnv1a64:0123456789abcdef',
           source,
@@ -236,6 +246,105 @@ describe('desktop code project services', () => {
     await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(
       'invalid architecture sources',
     );
+
+    for (const entry of [
+      '../Home.ui.tsx',
+      'src\\Home.ui.tsx',
+      'src//Home.ui.tsx',
+      `${Array.from({ length: 32 }, () => 'nested').join('/')}/Home.ui.tsx`,
+    ]) {
+      invokeMock.mockResolvedValueOnce({
+        path: '/projects/demo',
+        configSource: JSON.stringify({ sourceOfTruth: 'tsx', entry }),
+        sources: [],
+        truncated: false,
+      });
+      await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(
+        'invalid architecture sources',
+      );
+    }
+
+    invokeMock.mockResolvedValueOnce({
+      path: '/projects/demo',
+      configSource,
+      tsconfigSource: 42,
+      sources: [],
+      truncated: false,
+    });
+    await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(
+      'invalid architecture sources',
+    );
+
+    invokeMock.mockResolvedValueOnce({
+      path: '/projects/demo',
+      configSource,
+      sources: [
+        {
+          path: '/projects/demo/application/domain/features/home/runtime.jsx',
+          relativePath: 'application/domain/features/home/runtime.jsx',
+          bytes: source.length,
+          hash: 'fnv1a64:0123456789abcdef',
+          source,
+        },
+      ],
+      truncated: false,
+    });
+    await expect(loadCodeProjectArchitectureSources('/projects/demo')).resolves.toMatchObject({
+      sources: [{ relativePath: 'application/domain/features/home/runtime.jsx' }],
+    });
+
+    invokeMock.mockResolvedValueOnce({
+      path: '/projects/demo',
+      configSource,
+      sources: [
+        {
+          path: '/projects/demo/application/domain/features/home/ambient.d.ts',
+          relativePath: 'application/domain/features/home/ambient.d.ts',
+          bytes: source.length,
+          hash: 'fnv1a64:0123456789abcdef',
+          source,
+        },
+      ],
+      truncated: false,
+    });
+    await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(
+      'invalid architecture source',
+    );
+
+    invokeMock.mockResolvedValueOnce({
+      path: '/projects/demo',
+      configSource,
+      sources: [
+        {
+          path: '/projects/demo/application/domain/features/home/ambient.d.tsx',
+          relativePath: 'application/domain/features/home/ambient.d.tsx',
+          bytes: source.length,
+          hash: 'fnv1a64:0123456789abcdef',
+          source,
+        },
+      ],
+      truncated: false,
+    });
+    await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(
+      'invalid architecture source',
+    );
+
+    for (const [architecture, message] of [
+      [{ featuresRoot: 'src/features' }, /architecture\.profile is required/],
+      [{ profile: 'feature-slot-part-v2' }, /Unsupported Srijika architecture profile/],
+    ] as const) {
+      invokeMock.mockResolvedValueOnce({
+        path: '/projects/demo',
+        configSource: JSON.stringify({
+          sourceOfTruth: 'tsx',
+          entry: 'src/features/home/Home.ui.tsx',
+          architecture,
+        }),
+        sources: [],
+        truncated: false,
+      });
+      await expect(loadCodeProjectArchitectureSources('/projects/demo')).rejects.toThrow(message);
+    }
   });
 
   it('loads validated project preview stylesheets without exposing an arbitrary file reader', async () => {
@@ -522,6 +631,84 @@ describe('desktop code project services', () => {
     await expect(scaffoldCodeProjectStructure(companionRequest)).resolves.toMatchObject({
       capability: companionRequest.capability,
       files: [{ role: 'partHook' }],
+    });
+  });
+
+  it('parses strict shared Widget and headless Capability scaffold responses', async () => {
+    const widgetRequest = {
+      projectPath: '/projects/demo',
+      featureName: 'ProfileCard',
+      capability: {
+        kind: 'sharedWidget' as const,
+        createConnector: true,
+        createHook: false,
+        createStore: false,
+        createLogic: false,
+        createApi: false,
+        createTypes: true,
+      },
+    };
+    invokeMock.mockResolvedValueOnce({
+      projectPath: '/projects/demo',
+      featureName: 'ProfileCard',
+      featurePath: 'src/shared/widgets/profile-card',
+      capability: widgetRequest.capability,
+      files: [
+        {
+          path: '/projects/demo/src/shared/widgets/profile-card/ProfileCard.ui.tsx',
+          relativePath: 'src/shared/widgets/profile-card/ProfileCard.ui.tsx',
+          role: 'sharedWidgetUi',
+          bytes: 120,
+          hash: 'fnv1a64:shared-widget-ui',
+        },
+        {
+          path: '/projects/demo/src/shared/widgets/profile-card/ProfileCard.connector.tsx',
+          relativePath: 'src/shared/widgets/profile-card/ProfileCard.connector.tsx',
+          role: 'sharedWidgetConnector',
+          bytes: 80,
+          hash: 'fnv1a64:shared-widget-connector',
+        },
+      ],
+      bytes: 200,
+    });
+
+    await expect(scaffoldCodeProjectStructure(widgetRequest)).resolves.toMatchObject({
+      featurePath: 'src/shared/widgets/profile-card',
+      files: [{ role: 'sharedWidgetUi' }, { role: 'sharedWidgetConnector' }],
+    });
+
+    const capabilityRequest = {
+      projectPath: '/projects/demo',
+      featureName: 'AuthSession',
+      capability: {
+        kind: 'sharedCapability' as const,
+        createHook: true,
+        createStore: false,
+        createLogic: false,
+        createApi: false,
+        createTypes: false,
+      },
+    };
+    invokeMock.mockResolvedValueOnce({
+      projectPath: '/projects/demo',
+      featureName: 'AuthSession',
+      featurePath: 'src/shared/capabilities/auth-session',
+      capability: capabilityRequest.capability,
+      files: [
+        {
+          path: '/projects/demo/src/shared/capabilities/auth-session/useAuthSession.ts',
+          relativePath: 'src/shared/capabilities/auth-session/useAuthSession.ts',
+          role: 'sharedCapabilityHook',
+          bytes: 80,
+          hash: 'fnv1a64:shared-capability-hook',
+        },
+      ],
+      bytes: 80,
+    });
+
+    await expect(scaffoldCodeProjectStructure(capabilityRequest)).resolves.toMatchObject({
+      featurePath: 'src/shared/capabilities/auth-session',
+      files: [{ role: 'sharedCapabilityHook' }],
     });
   });
 

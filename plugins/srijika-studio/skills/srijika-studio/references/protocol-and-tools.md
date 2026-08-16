@@ -16,6 +16,11 @@ Choose the adapter from the request. For filesystem structure, CLI-first project
 
 The Studio desktop process owns the canonical document. The MCP server is a thin authenticated client and does not keep a second mutable copy.
 
+The plugin ships this server as a self-contained Node bundle, including the
+TypeScript parser used for code-project inspection. Do not add bare runtime
+imports that depend on repository-level `node_modules`; the isolated plugin
+bundle smoke is the release boundary. Node.js `>=22.13.0` is required.
+
 ## Software-independent code-project tools
 
 | Tool                           | Use                                                                            |
@@ -28,6 +33,42 @@ The Studio desktop process owns the canonical document. The MCP server is a thin
 The MCP process is bounded to the project passed with `--project`. Never apply an
 unreviewed plan, invent alternate owner folders, or reuse an already-consumed
 `planId`.
+
+An omitted `architecture` block uses defaults; an explicit block without exact
+profile `feature-slot-part-v1` fails closed. Generated validation reloads current
+config. CLI watch uses a filtered project-root watcher, reloads config before
+each check, observes config/tsconfig/entry/resolved roots and future-root
+ancestors, and recovers after temporarily invalid config. Studio/VS Code
+exact-file plus safe-move previews come from the canonical planner. MCP clients
+must preserve that behavior instead of emitting default paths themselves.
+
+The complete config requires `sourceOfTruth: "tsx"`, a bounded configured entry,
+and—when architecture exists—exact profile plus twelve root/directory/suffix
+overrides. The entry stays authoritative and counted even outside ownership
+roots. JSONC `tsconfig.json` paths are the custom alias authority: `extends` is
+rejected, nonempty `references` are rejected (absent/empty is valid),
+`compilerOptions.baseUrl` must be omitted, and only exact or slash-delimited
+terminal `/*` aliases are accepted. Vite-only aliases are unsupported.
+`SRIJIKA4119` blocks computed module targets and
+`SRIJIKA4120` blocks unresolved declared/reserved project aliases.
+`SRIJIKA4121` blocks governed relative or `src/...` source imports that are
+missing, outside the configured roots, or absent from the complete scan;
+CSS/static assets are exempt. Complete
+validation and migration scans are symlink-safe and capped at 4,096 sources,
+32,768 entries, 4,096 directories, depth 32, 4 MiB/source, and 24 MiB total.
+
+For `srijika_plan_code_structure`, shared composite `kind` values are exactly
+`shared-ui`, `shared-widget`, and `shared-capability`. Shared UI permits only
+optional Types; Shared Widget requires UI + Connector and permits the normal
+optional runtime chain; Shared Capability forbids UI/Connector and requires at
+least one runtime layer. Review all derived paths just as for Feature, Slot, and
+Part plans. Never emulate a shared plan with generic filesystem writes.
+
+Read `srijika://docs/code-first-architecture` before interpreting a custom
+architecture. It publishes the bounded roots/directories/suffixes contract,
+strict UI external-runtime policy, passive Types rule, and `SRIJIKA4118`
+framework-free Logic boundary. Reject traversal, overlap, duplicate canonical
+names, and symlink escapes instead of reconstructing a different plan.
 
 ## Read tools
 

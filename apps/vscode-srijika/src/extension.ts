@@ -3,6 +3,8 @@ import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 
 import {
+  parseSrijikaTypeScriptPathAliases,
+  resolveSrijikaArchitectureConfig,
   resolveSrijikaStructureOwner,
   type SrijikaStructureCreationAction,
   type SrijikaStructureOwnerContext,
@@ -11,10 +13,12 @@ import type { SrijikaComponentContractEntry, SrijikaDiagnostic } from '@srijika/
 
 import {
   architectureDiagnosticToEditorDiagnostic,
-  parseSrijikaArchitectureConfig,
+  parseSrijikaCodeProjectConfig,
   validateArchitectureWorkspace,
 } from './architecture-adapter';
+import { isSrijikaUiSourcePath, srijikaArchitectureWatchPatterns } from './architecture-discovery';
 import {
+  assertCompleteArchitectureScanBudget,
   selectArchitectureScanBudget,
   SRIJIKA_ARCHITECTURE_SCAN_LIMITS,
 } from './architecture-scan-budget';
@@ -23,6 +27,7 @@ import { extractCssClassNames, srijikaJsxCompletions } from './completion-model'
 import { SRIJIKA_CREATION_ACTION_LABELS } from './creation-presentation';
 import {
   renderSrijikaCreationWebview,
+  srijikaOwnershipPlanPreviewPaths,
   type SrijikaCreationMode,
   type SrijikaOwnerFilePresentation,
 } from './creation-webview';
@@ -36,13 +41,20 @@ import {
   type SrijikaOptionalOwnerCapability,
   type SrijikaOwnershipCreationPlan,
 } from './ownership-creation';
+import { upgradedSrijikaPortableValidator } from './portable-validator-sync';
 import { SrijikaStructureTreeItem, SrijikaStructureTreeProvider } from './structure-view';
 import { SrijikaRuntimeController } from './runtime-controller';
+import {
+  discoverSafeSrijikaMigrationSources,
+  discoverSafeSrijikaSources,
+  openSafeSrijikaWorkspace,
+} from './safe-workspace-files';
 
 const DIAGNOSTIC_SOURCE = 'Srijika';
 const ARCHITECTURE_DIAGNOSTIC_SOURCE = 'Srijika Architecture';
 const UI_FILE_SUFFIX = '.ui.tsx';
 const MAX_ARCHITECTURE_CONFIG_BYTES = 64 * 1024;
+const MAX_TSCONFIG_BYTES = 1024 * 1024;
 
 interface ArchitectureSourceCandidate {
   uri: vscode.Uri;
@@ -56,10 +68,9 @@ interface CachedCompilation {
   componentContract: readonly SrijikaComponentContractEntry[];
 }
 
-function isSrijikaUiDocument(document: vscode.TextDocument): boolean {
+function isSrijikaUiDocument(document: vscode.TextDocument, uiSuffix = UI_FILE_SUFFIX): boolean {
   return (
-    document.languageId === 'typescriptreact' &&
-    document.fileName.toLowerCase().endsWith(UI_FILE_SUFFIX)
+    document.languageId === 'typescriptreact' && isSrijikaUiSourcePath(document.fileName, uiSuffix)
   );
 }
 
@@ -98,6 +109,50 @@ function positionResolverFor(
   };
 }
 
+function isFileNotFoundError(error: unknown): boolean {
+  return (
+    (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') ||
+    (error instanceof Error && 'code' in error && error.code === 'ENOENT')
+  );
+}
+
+async function assertNoWorkspaceSymlinkAncestors(
+  workspaceFolder: vscode.WorkspaceFolder,
+  relativePaths: readonly string[],
+): Promise<void> {
+  const checked = new Set<string>();
+  for (const relativePath of relativePaths) {
+    const normalized = relativePath.replaceAll('\\', '/').replace(/^\.\/+/, '');
+    const segments = normalized.split('/');
+    if (
+      !normalized ||
+      normalized.startsWith('/') ||
+      /^[A-Za-z]:/.test(normalized) ||
+      segments.some((segment) => !segment || segment === '.' || segment === '..')
+    ) {
+      throw new Error('Srijika refused an unsafe workspace-relative creation path.');
+    }
+    for (let length = 1; length <= segments.length; length += 1) {
+      const ancestor = segments.slice(0, length).join('/');
+      if (checked.has(ancestor)) continue;
+      checked.add(ancestor);
+      try {
+        const stat = await vscode.workspace.fs.stat(
+          vscode.Uri.joinPath(workspaceFolder.uri, ...segments.slice(0, length)),
+        );
+        if ((stat.type & vscode.FileType.SymbolicLink) !== 0) {
+          throw new Error(
+            'Srijika refused to read or write through a symbolic link inside the workspace.',
+          );
+        }
+      } catch (error) {
+        if (isFileNotFoundError(error)) break;
+        throw error;
+      }
+    }
+  }
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const collection = vscode.languages.createDiagnosticCollection('srijika');
   const architectureCollection =
@@ -108,11 +163,19 @@ export function activate(context: vscode.ExtensionContext): void {
   let cssClassNamesPromise: Promise<readonly string[]> | null = null;
   let architectureTimer: NodeJS.Timeout | undefined;
   let architectureRun = 0;
+  const uiSuffixByWorkspace = new Map<string, string>();
   const structureProvider = new SrijikaStructureTreeProvider();
   const structureView = vscode.window.createTreeView('srijika.structure', {
     treeDataProvider: structureProvider,
     showCollapseAll: true,
   });
+  const isConfiguredSrijikaUiDocument = (document: vscode.TextDocument): boolean => {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const uiSuffix = workspaceFolder
+      ? (uiSuffixByWorkspace.get(workspaceFolder.uri.toString()) ?? UI_FILE_SUFFIX)
+      : UI_FILE_SUFFIX;
+    return isSrijikaUiDocument(document, uiSuffix);
+  };
 
   const runArchitectureCheck = async (run: number, showSummary = false): Promise<void> => {
     if (run !== architectureRun) return;
@@ -122,7 +185,6 @@ export function activate(context: vscode.ExtensionContext): void {
       { uri: vscode.Uri; diagnostics: vscode.Diagnostic[] }
     >();
     const statusLines: string[] = [];
-    const textDecoder = new TextDecoder();
     const textEncoder = new TextEncoder();
     let checkedFiles = 0;
     let issueCount = 0;
@@ -135,32 +197,35 @@ export function activate(context: vscode.ExtensionContext): void {
 
     for (const folder of workspaceFolders) {
       if (run !== architectureRun) return;
-      const configUri = vscode.Uri.joinPath(folder.uri, 'srijika.config.json');
       let architecture;
+      let authoritativeEntry: string | undefined;
+      let aliases: Readonly<Record<string, string>> = {};
+      let fileSystem: Awaited<ReturnType<typeof openSafeSrijikaWorkspace>>;
       try {
-        const configStat = await vscode.workspace.fs.stat(configUri);
+        fileSystem = await openSafeSrijikaWorkspace(folder.uri.fsPath);
+        const config = await fileSystem.readText(
+          'srijika.config.json',
+          MAX_ARCHITECTURE_CONFIG_BYTES,
+        );
         if (run !== architectureRun) return;
-        if (configStat.size > MAX_ARCHITECTURE_CONFIG_BYTES) {
-          skippedWorkspaces += 1;
-          statusLines.push(
-            `${folder.name}: architecture check skipped because srijika.config.json exceeds 64 KiB.`,
+        const projectConfig = parseSrijikaCodeProjectConfig(config.source);
+        architecture = projectConfig.architecture;
+        authoritativeEntry = projectConfig.entry;
+        await fileSystem.readText(
+          authoritativeEntry,
+          SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile,
+        );
+        if (await fileSystem.isRegularFile('tsconfig.json')) {
+          aliases = parseSrijikaTypeScriptPathAliases(
+            (await fileSystem.readText('tsconfig.json', MAX_TSCONFIG_BYTES)).source,
           );
-          continue;
         }
-        const configBytes = await vscode.workspace.fs.readFile(configUri);
-        if (run !== architectureRun) return;
-        if (configBytes.byteLength > MAX_ARCHITECTURE_CONFIG_BYTES) {
-          skippedWorkspaces += 1;
-          statusLines.push(
-            `${folder.name}: architecture check skipped because srijika.config.json exceeds 64 KiB.`,
-          );
-          continue;
-        }
-        architecture = parseSrijikaArchitectureConfig(textDecoder.decode(configBytes));
-      } catch {
+      } catch (error) {
         skippedWorkspaces += 1;
         statusLines.push(
-          `${folder.name}: architecture check skipped; no readable srijika.config.json was found.`,
+          isFileNotFoundError(error)
+            ? `${folder.name}: architecture check skipped; no readable srijika.config.json was found.`
+            : `${folder.name}: architecture check failed closed; ${error instanceof Error ? error.message : String(error)}`,
         );
         continue;
       }
@@ -171,20 +236,27 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         continue;
       }
+      architecture = resolveSrijikaArchitectureConfig(architecture);
+      uiSuffixByWorkspace.set(folder.uri.toString(), architecture.uiSuffix);
       configuredWorkspaces += 1;
 
       let uris: readonly vscode.Uri[];
       try {
-        uris = await vscode.workspace.findFiles(
-          new vscode.RelativePattern(folder, 'src/**/*.{ts,tsx,mts,cts}'),
-          new vscode.RelativePattern(folder, '**/{node_modules,dist,build,.git,.srijika}/**'),
-          SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxFiles + 1,
+        const discovered = await discoverSafeSrijikaSources(fileSystem, architecture);
+        uris = discovered.map(({ relativePath }) =>
+          vscode.Uri.joinPath(folder.uri, ...relativePath.split('/')),
         );
-      } catch {
+        if (authoritativeEntry) {
+          const entryUri = vscode.Uri.joinPath(folder.uri, ...authoritativeEntry.split('/'));
+          if (!uris.some((uri) => uri.toString() === entryUri.toString())) {
+            uris = [...uris, entryUri];
+          }
+        }
+      } catch (error) {
         skippedWorkspaces += 1;
         configuredWorkspaces -= 1;
         statusLines.push(
-          `${folder.name}: architecture check skipped; source files could not be listed.`,
+          `${folder.name}: architecture check failed closed; ${error instanceof Error ? error.message : String(error)}`,
         );
         continue;
       }
@@ -197,6 +269,7 @@ export function activate(context: vscode.ExtensionContext): void {
         value: ArchitectureSourceCandidate;
         byteLength: number;
       }> = [];
+      let workspaceReadFailure: string | undefined;
       for (const uri of uris) {
         if (run !== architectureRun) return;
         const document = openDocuments.get(uri.toString());
@@ -209,21 +282,41 @@ export function activate(context: vscode.ExtensionContext): void {
           continue;
         }
         try {
-          const stat = await vscode.workspace.fs.stat(uri);
+          const stat = await fileSystem.inspectRegularFile(uri.fsPath);
           if (run !== architectureRun) return;
           candidates.push({
             value: { uri, document: undefined, source: undefined },
             byteLength: stat.size,
           });
-        } catch {
+        } catch (error) {
           skippedUnreadable += 1;
+          workspaceReadFailure = error instanceof Error ? error.message : String(error);
+          break;
         }
+      }
+      if (workspaceReadFailure) {
+        skippedWorkspaces += 1;
+        configuredWorkspaces -= 1;
+        statusLines.push(
+          `${folder.name}: architecture check failed closed; ${workspaceReadFailure}`,
+        );
+        continue;
       }
 
       const budget = selectArchitectureScanBudget(candidates);
       skippedByFileLimit += budget.skippedByFileLimit;
       skippedOversized += budget.skippedOversized;
       skippedByTotalLimit += budget.skippedByTotalLimit;
+      try {
+        assertCompleteArchitectureScanBudget(budget);
+      } catch (error) {
+        skippedWorkspaces += 1;
+        configuredWorkspaces -= 1;
+        statusLines.push(
+          `${folder.name}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        continue;
+      }
       let actualWorkspaceBytes = 0;
       const files: Array<{
         fileName: string;
@@ -240,18 +333,23 @@ export function activate(context: vscode.ExtensionContext): void {
             source = candidate.value.source;
             byteLength = textEncoder.encode(source).byteLength;
           } else {
-            const bytes = await vscode.workspace.fs.readFile(candidate.value.uri);
+            const read = await fileSystem.readText(
+              candidate.value.uri.fsPath,
+              SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile,
+            );
             if (run !== architectureRun) return;
-            byteLength = bytes.byteLength;
-            source = textDecoder.decode(bytes);
+            byteLength = read.size;
+            source = read.source;
           }
           if (byteLength > SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile) {
             skippedOversized += 1;
-            continue;
+            workspaceReadFailure = `${candidate.value.uri.fsPath} exceeds the 4 MiB source limit.`;
+            break;
           }
           if (actualWorkspaceBytes + byteLength > SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxTotalBytes) {
             skippedByTotalLimit += 1;
-            continue;
+            workspaceReadFailure = 'The source corpus exceeds the 24 MiB aggregate limit.';
+            break;
           }
           actualWorkspaceBytes += byteLength;
           files.push({
@@ -260,9 +358,19 @@ export function activate(context: vscode.ExtensionContext): void {
             uri: candidate.value.uri,
             document: candidate.value.document,
           });
-        } catch {
+        } catch (error) {
           skippedUnreadable += 1;
+          workspaceReadFailure = error instanceof Error ? error.message : String(error);
+          break;
         }
+      }
+      if (workspaceReadFailure) {
+        skippedWorkspaces += 1;
+        configuredWorkspaces -= 1;
+        statusLines.push(
+          `${folder.name}: architecture check failed closed; ${workspaceReadFailure}`,
+        );
+        continue;
       }
       checkedFiles += files.length;
 
@@ -270,6 +378,7 @@ export function activate(context: vscode.ExtensionContext): void {
         projectRoot: folder.uri.fsPath,
         files,
         architecture,
+        aliases,
       });
       issueCount += diagnostics.length;
       const filesByName = new Map(files.map((file) => [file.fileName.replaceAll('\\', '/'), file]));
@@ -320,7 +429,12 @@ export function activate(context: vscode.ExtensionContext): void {
       `Architecture: ${issueCount} issue(s) across ${checkedFiles} source file(s) in ${configuredWorkspaces} configured workspace(s); ${skippedWorkspaces} workspace(s) skipped.${coverageNotes.length > 0 ? ` Limited coverage: ${coverageNotes.join('; ')}.` : ''}`,
     );
     if (showSummary) {
-      if (configuredWorkspaces === 0) {
+      if (skippedWorkspaces > 0) {
+        output.show(true);
+        void vscode.window.showWarningMessage(
+          'Srijika architecture check failed closed for one or more workspaces. See Srijika output.',
+        );
+      } else if (configuredWorkspaces === 0) {
         output.show(true);
         void vscode.window.showInformationMessage(
           'Srijika architecture check skipped. Add a supported architecture block to srijika.config.json.',
@@ -371,7 +485,11 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const compileDocument = (document: vscode.TextDocument): CachedCompilation | undefined => {
-    if (!isSrijikaUiDocument(document)) return undefined;
+    if (!isConfiguredSrijikaUiDocument(document)) {
+      collection.delete(document.uri);
+      compilations.delete(document.uri.toString());
+      return undefined;
+    }
 
     try {
       const source = document.getText();
@@ -420,8 +538,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const checkCurrentFile = vscode.commands.registerCommand('srijika.checkCurrentFile', () => {
     const document = vscode.window.activeTextEditor?.document;
-    if (!document || !isSrijikaUiDocument(document)) {
-      void vscode.window.showWarningMessage('Open a *.ui.tsx file to run Srijika validation.');
+    if (!document || !isConfiguredSrijikaUiDocument(document)) {
+      void vscode.window.showWarningMessage(
+        'Open the configured Srijika UI source file to run validation.',
+      );
       return;
     }
 
@@ -451,80 +571,208 @@ export function activate(context: vscode.ExtensionContext): void {
     await vscode.commands.executeCommand('markdown.showPreview', readme);
   });
 
-  const resolveCreationTarget = (
+  const architectureForCreation = async (workspaceFolder: vscode.WorkspaceFolder) => {
+    uiSuffixByWorkspace.delete(workspaceFolder.uri.toString());
+    let architecture = resolveSrijikaArchitectureConfig();
+    try {
+      const fileSystem = await openSafeSrijikaWorkspace(workspaceFolder.uri.fsPath);
+      const config = await fileSystem.readText(
+        'srijika.config.json',
+        MAX_ARCHITECTURE_CONFIG_BYTES,
+      );
+      const parsed = parseSrijikaCodeProjectConfig(config.source);
+      await fileSystem.readText(parsed.entry, SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile);
+      architecture = resolveSrijikaArchitectureConfig(parsed.architecture);
+    } catch (error) {
+      if (!isFileNotFoundError(error)) throw error;
+    }
+    uiSuffixByWorkspace.set(workspaceFolder.uri.toString(), architecture.uiSuffix);
+    return architecture;
+  };
+
+  const resolveCreationTarget = async (
     target: vscode.Uri | SrijikaStructureTreeItem,
-  ): {
+  ): Promise<{
     resource: vscode.Uri;
     workspaceFolder: vscode.WorkspaceFolder;
     owner: SrijikaStructureOwnerContext;
-  } => {
-    const resource =
-      target instanceof SrijikaStructureTreeItem
-        ? vscode.Uri.joinPath(
-            target.workspaceFolder.uri,
-            ...target.structureOwner.relativeFolder.split('/'),
-          )
-        : target;
+    architecture: ReturnType<typeof resolveSrijikaArchitectureConfig>;
+  }> => {
+    if (target instanceof SrijikaStructureTreeItem) {
+      const architecture = await architectureForCreation(target.workspaceFolder);
+      const owner = resolveSrijikaStructureOwner(
+        target.structureOwner.relativeFolder,
+        architecture,
+      );
+      if (!owner) {
+        throw new Error('The selected Srijika owner is stale or no longer canonical.');
+      }
+      return {
+        resource: vscode.Uri.joinPath(
+          target.workspaceFolder.uri,
+          ...target.structureOwner.relativeFolder.split('/'),
+        ),
+        workspaceFolder: target.workspaceFolder,
+        owner,
+        architecture,
+      };
+    }
+    const resource = target;
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(resource);
     if (!workspaceFolder) throw new Error('Select a folder inside an open workspace.');
     const relativeFolder = vscode.workspace
       .asRelativePath(resource, false)
       .replaceAll('\\', '/')
       .replace(/^\/+|\/+$/g, '');
-    const owner = resolveSrijikaStructureOwner(relativeFolder);
+    const architecture = await architectureForCreation(workspaceFolder);
+    const owner = resolveSrijikaStructureOwner(relativeFolder, architecture);
     if (!owner) {
       throw new Error(
-        'Creation is allowed only at src/features, a Feature root, a Slot root, or a Part root.',
+        `Creation is strict: select ${architecture.featuresRoot}, a Feature/Slot/Part owner, ${architecture.sharedRoot}, or a canonical Shared owner.`,
       );
     }
-    return { resource, workspaceFolder, owner };
+    return { resource, workspaceFolder, owner, architecture };
   };
 
   interface ExistingOwnershipState {
     paths: readonly string[];
     sources: Readonly<Record<string, string>>;
+    aliases: Readonly<Record<string, string>>;
   }
 
   const existingOwnershipState = async (
     workspaceFolder: vscode.WorkspaceFolder,
-    owner: SrijikaStructureOwnerContext,
   ): Promise<ExistingOwnershipState> => {
-    const sourceUris = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(workspaceFolder, '**/*.{ts,tsx,mts,cts}'),
-      '**/{node_modules,dist,build,target,.git}/**',
-      20_000,
+    const fileSystem = await openSafeSrijikaWorkspace(workspaceFolder.uri.fsPath);
+    const discovered = await discoverSafeSrijikaMigrationSources(fileSystem);
+    const sourceUris = discovered.map(({ relativePath }) =>
+      vscode.Uri.joinPath(workspaceFolder.uri, ...relativePath.split('/')),
     );
-    const paths = sourceUris.map((uri) =>
-      vscode.workspace.asRelativePath(uri, false).replaceAll('\\', '/'),
+    const paths = discovered.map(({ relativePath }) => relativePath);
+    const projectFiles = sourceUris.map((uri, index) => ({
+      uri,
+      relativePath: paths[index] ?? '',
+    }));
+    await assertNoWorkspaceSymlinkAncestors(
+      workspaceFolder,
+      projectFiles.map(({ relativePath }) => relativePath),
     );
-    const ownerPrefix = `${owner.folder}/`;
-    const directOwnerFiles = sourceUris
-      .map((uri, index) => ({ uri, relativePath: paths[index] ?? '' }))
-      .filter(
-        ({ relativePath }) =>
-          relativePath.startsWith(ownerPrefix) &&
-          !relativePath.slice(ownerPrefix.length).includes('/'),
-      );
+    const openDocuments = new Map(
+      vscode.workspace.textDocuments.map((document) => [document.uri.toString(), document]),
+    );
     const sources: Record<string, string> = {};
-    for (const { uri, relativePath } of directOwnerFiles) {
-      sources[relativePath] = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
+    let totalBytes = 0;
+    for (const { uri, relativePath } of projectFiles) {
+      const openSource = openDocuments.get(uri.toString())?.getText();
+      if (openSource !== undefined) {
+        const byteLength = Buffer.byteLength(openSource, 'utf8');
+        if (byteLength > SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile) {
+          throw new Error(`${relativePath} exceeds the 4 MiB source limit.`);
+        }
+        totalBytes += byteLength;
+        sources[relativePath] = openSource;
+      } else {
+        const read = await fileSystem.readText(
+          uri.fsPath,
+          SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile,
+        );
+        totalBytes += read.size;
+        sources[relativePath] = read.source;
+      }
+      if (totalBytes > SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxTotalBytes) {
+        throw new Error('Ownership inventory exceeds the 24 MiB aggregate source limit.');
+      }
     }
-    return { paths, sources };
+    const aliases = (await fileSystem.isRegularFile('tsconfig.json'))
+      ? parseSrijikaTypeScriptPathAliases(
+          (await fileSystem.readText('tsconfig.json', MAX_TSCONFIG_BYTES)).source,
+        )
+      : {};
+    return { paths, sources, aliases };
   };
 
   const commitOwnershipPlan = async (
     workspaceFolder: vscode.WorkspaceFolder,
     plan: SrijikaOwnershipCreationPlan,
   ): Promise<void> => {
+    await assertNoWorkspaceSymlinkAncestors(workspaceFolder, [
+      plan.ownerFolder,
+      ...plan.files.map(({ relativePath }) => relativePath),
+      ...plan.updates.map(({ relativePath }) => relativePath),
+      ...(plan.moves ?? []).flatMap(({ fromRelativePath, toRelativePath }) => [
+        fromRelativePath,
+        toRelativePath,
+      ]),
+      'scripts/srijika-validate.mjs',
+    ]);
     await vscode.workspace.fs.createDirectory(
       vscode.Uri.joinPath(workspaceFolder.uri, ...plan.ownerFolder.split('/')),
     );
+    for (const relativePath of [
+      ...plan.files.map(({ relativePath }) => relativePath),
+      ...(plan.moves ?? []).map(({ toRelativePath }) => toRelativePath),
+    ]) {
+      const segments = relativePath.split('/');
+      segments.pop();
+      await vscode.workspace.fs.createDirectory(
+        vscode.Uri.joinPath(workspaceFolder.uri, ...segments),
+      );
+    }
     const edit = new vscode.WorkspaceEdit();
     const updateDocuments = new Map<string, vscode.TextDocument>();
+    const managedToolingUpdates: string[] = [];
+    try {
+      const fileSystem = await openSafeSrijikaWorkspace(workspaceFolder.uri.fsPath);
+      const configUri = vscode.Uri.joinPath(workspaceFolder.uri, 'srijika.config.json');
+      const validatorRelativePath = 'scripts/srijika-validate.mjs';
+      const validatorUri = vscode.Uri.joinPath(
+        workspaceFolder.uri,
+        ...validatorRelativePath.split('/'),
+      );
+      const [config, validatorDocument] = await Promise.all([
+        fileSystem.readText(configUri.fsPath, MAX_ARCHITECTURE_CONFIG_BYTES),
+        vscode.workspace.openTextDocument(validatorUri),
+      ]);
+      const validatorMetadata = await fileSystem.inspectRegularFile(validatorUri.fsPath);
+      if (validatorMetadata.size > SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile) {
+        throw new Error('scripts/srijika-validate.mjs exceeds the 4 MiB tooling limit.');
+      }
+      if (!validatorDocument.isDirty) {
+        const upgradedSource = upgradedSrijikaPortableValidator(
+          config.source,
+          validatorDocument.getText(),
+        );
+        if (upgradedSource) {
+          updateDocuments.set(validatorRelativePath, validatorDocument);
+          managedToolingUpdates.push(validatorRelativePath);
+          edit.replace(
+            validatorUri,
+            new vscode.Range(
+              new vscode.Position(0, 0),
+              validatorDocument.positionAt(validatorDocument.getText().length),
+            ),
+            upgradedSource,
+          );
+        }
+      }
+    } catch {
+      // Older or custom projects may omit the generated portable validator. Ownership creation
+      // remains valid, and no unknown tooling file is ever created or overwritten here.
+    }
     for (const file of plan.files) {
       const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, ...file.relativePath.split('/'));
       edit.createFile(fileUri, { overwrite: false, ignoreIfExists: false });
       edit.insert(fileUri, new vscode.Position(0, 0), file.source);
+    }
+    for (const move of plan.moves ?? []) {
+      const sourceUri = vscode.Uri.joinPath(
+        workspaceFolder.uri,
+        ...move.fromRelativePath.split('/'),
+      );
+      const targetUri = vscode.Uri.joinPath(workspaceFolder.uri, ...move.toRelativePath.split('/'));
+      edit.createFile(targetUri, { overwrite: false, ignoreIfExists: false });
+      edit.insert(targetUri, new vscode.Position(0, 0), move.source);
+      edit.deleteFile(sourceUri, { recursive: false, ignoreIfNotExists: false });
     }
     for (const update of plan.updates) {
       const updateUri = vscode.Uri.joinPath(workspaceFolder.uri, ...update.relativePath.split('/'));
@@ -540,7 +788,12 @@ export function activate(context: vscode.ExtensionContext): void {
       throw new Error('VS Code rejected the ownership scaffold. No existing file was overwritten.');
     }
     await persistSrijikaOwnershipFiles(
-      [...plan.files, ...plan.updates].map(({ relativePath }) => relativePath),
+      [
+        ...plan.files.map(({ relativePath }) => relativePath),
+        ...plan.updates.map(({ relativePath }) => relativePath),
+        ...(plan.moves ?? []).map(({ toRelativePath }) => toRelativePath),
+        ...managedToolingUpdates,
+      ],
       async (relativePath) =>
         updateDocuments.get(relativePath) ??
         (await vscode.workspace.openTextDocument(
@@ -569,32 +822,64 @@ export function activate(context: vscode.ExtensionContext): void {
         return owner.slotName;
       case 'part':
         return owner.partName;
+      case 'sharedRoot':
+        return 'Shared';
+      case 'sharedUi':
+      case 'sharedWidget':
+      case 'sharedCapability':
+        return owner.sharedName;
     }
   };
 
   const openOwnershipCreator = async (
     target: vscode.Uri | SrijikaStructureTreeItem,
   ): Promise<void> => {
-    const { workspaceFolder, owner } = resolveCreationTarget(target);
-    const existingAtOpen = await existingOwnershipState(workspaceFolder, owner);
+    const { workspaceFolder, owner, architecture } = await resolveCreationTarget(target);
+    const existingAtOpen = await existingOwnershipState(workspaceFolder);
     const allowedActions = availableSrijikaOwnershipCreationActions(
       owner,
       existingAtOpen.paths,
       existingAtOpen.sources,
+      architecture,
     );
     const isChildAction = (
       action: SrijikaStructureCreationAction,
-    ): action is 'feature' | 'slot' | 'part' =>
-      action === 'feature' || action === 'slot' || action === 'part';
-    const missingOwnerActions = allowedActions.filter((action) => !isChildAction(action));
+    ): action is 'feature' | 'slot' | 'part' | 'sharedUi' | 'sharedWidget' | 'sharedCapability' =>
+      action === 'feature' ||
+      action === 'slot' ||
+      action === 'part' ||
+      action === 'sharedUi' ||
+      action === 'sharedWidget' ||
+      action === 'sharedCapability';
+    const isExpansionAction = (
+      action: SrijikaStructureCreationAction,
+    ): action is
+      | 'featureBehaviorHook'
+      | 'featureStoreSlice'
+      | 'slotBehaviorHook'
+      | 'slotStoreSlice'
+      | 'partBehaviorHook'
+      | 'partStoreSlice'
+      | 'sharedWidgetBehaviorHook'
+      | 'sharedWidgetStoreSlice'
+      | 'sharedCapabilityBehaviorHook'
+      | 'sharedCapabilityStoreSlice' =>
+      action.endsWith('BehaviorHook') || action.endsWith('StoreSlice');
+    const missingOwnerActions = allowedActions.filter(
+      (action) => !isChildAction(action) && !isExpansionAction(action),
+    );
     const childActions = allowedActions.filter(isChildAction).map((action) => ({
       action,
       ...SRIJIKA_CREATION_ACTION_LABELS[action],
     }));
+    const expansionActions = allowedActions.filter(isExpansionAction).map((action) => ({
+      action,
+      ...SRIJIKA_CREATION_ACTION_LABELS[action],
+    }));
     const ownerFilesFor = (existing: ExistingOwnershipState): SrijikaOwnerFilePresentation[] =>
-      owner.level === 'featuresRoot'
+      owner.level === 'featuresRoot' || owner.level === 'sharedRoot'
         ? []
-        : srijikaOwnershipFileStatuses(owner, existing.paths).map((status) => ({
+        : srijikaOwnershipFileStatuses(owner, existing.paths, architecture).map((status) => ({
             ...status,
             label:
               status.role === 'ui'
@@ -615,34 +900,75 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.ViewColumn.Active,
       { enableScripts: true },
     );
-    const selectedChildAction = childActions[0]?.action;
+    let selectedChildAction = childActions[0]?.action;
+    let selectedExpansionAction = expansionActions[0]?.action;
     let selectedMode: SrijikaCreationMode =
-      owner.level === 'featuresRoot'
+      owner.level === 'featuresRoot' || owner.level === 'sharedRoot'
         ? 'childOwner'
         : missingOwnerActions.length > 0
           ? 'ownerFiles'
-          : selectedChildAction
-            ? 'childOwner'
-            : 'ownerFiles';
+          : selectedExpansionAction
+            ? 'ownerExpansion'
+            : selectedChildAction
+              ? 'childOwner'
+              : 'ownerFiles';
     let selectedOwnerActions: readonly SrijikaStructureCreationAction[] = [];
     let name = '';
     let optionalCapabilities: readonly SrijikaOptionalOwnerCapability[] = [];
     let creating = false;
 
+    const buildSelectedPlan = (existing: ExistingOwnershipState): SrijikaOwnershipCreationPlan => {
+      if (selectedMode === 'ownerFiles') {
+        if (owner.level === 'featuresRoot' || owner.level === 'sharedRoot') {
+          throw new Error('A structure root does not own runtime capability files.');
+        }
+        return buildSrijikaOwnershipCapabilityBatchPlan({
+          owner,
+          actions: selectedOwnerActions,
+          existingRelativePaths: existing.paths,
+          existingSources: existing.sources,
+          aliases: existing.aliases,
+          architecture,
+        });
+      }
+      if (selectedMode === 'ownerExpansion') {
+        if (!selectedExpansionAction) {
+          throw new Error('No private Hook or Store action is available.');
+        }
+        return buildSrijikaOwnershipCreationPlan({
+          owner,
+          action: selectedExpansionAction,
+          name,
+          existingRelativePaths: existing.paths,
+          existingSources: existing.sources,
+          aliases: existing.aliases,
+          architecture,
+        });
+      }
+      if (!selectedChildAction) {
+        throw new Error('No child owner is valid at this boundary.');
+      }
+      return buildSrijikaOwnershipCreationPlan({
+        owner,
+        action: selectedChildAction,
+        ...(name ? { name } : {}),
+        optionalCapabilities,
+        existingRelativePaths: existing.paths,
+        existingSources: existing.sources,
+        aliases: existing.aliases,
+        architecture,
+      });
+    };
+
     const render = async (error?: string): Promise<void> => {
       let plan: SrijikaOwnershipCreationPlan | undefined;
-      const existing = await existingOwnershipState(workspaceFolder, owner);
-      if (error === undefined && selectedMode === 'ownerFiles' && selectedOwnerActions.length > 0) {
+      const existing = await existingOwnershipState(workspaceFolder);
+      const hasPreviewableSelection =
+        (selectedMode === 'ownerFiles' && selectedOwnerActions.length > 0) ||
+        ((selectedMode === 'ownerExpansion' || selectedMode === 'childOwner') && Boolean(name));
+      if (error === undefined && hasPreviewableSelection) {
         try {
-          if (owner.level === 'featuresRoot') {
-            throw new Error('Features root does not own runtime capability files.');
-          }
-          plan = buildSrijikaOwnershipCapabilityBatchPlan({
-            owner,
-            actions: selectedOwnerActions,
-            existingRelativePaths: existing.paths,
-            existingSources: existing.sources,
-          });
+          plan = buildSelectedPlan(existing);
         } catch (planError) {
           error = planError instanceof Error ? planError.message : String(planError);
         }
@@ -652,9 +978,11 @@ export function activate(context: vscode.ExtensionContext): void {
         ownerLabel: ownerDisplayName(owner),
         ownerFiles: ownerFilesFor(existing),
         childActions,
+        expansionActions,
         selectedMode,
         selectedOwnerActions,
         ...(selectedChildAction ? { selectedChildAction } : {}),
+        ...(selectedExpansionAction ? { selectedExpansionAction } : {}),
         name,
         optionalCapabilities,
         ...(plan ? { plan } : {}),
@@ -673,14 +1001,37 @@ export function activate(context: vscode.ExtensionContext): void {
       if (
         candidate['type'] !== 'changeMode' &&
         candidate['type'] !== 'changeOwnerSelection' &&
+        candidate['type'] !== 'preview' &&
         candidate['type'] !== 'create'
       )
         return;
-      if (candidate['mode'] !== 'ownerFiles' && candidate['mode'] !== 'childOwner') {
-        await render('Choose either this owner files or its new child owner.');
+      if (
+        candidate['mode'] !== 'ownerFiles' &&
+        candidate['mode'] !== 'ownerExpansion' &&
+        candidate['mode'] !== 'childOwner'
+      ) {
+        await render('Choose owner files, a private behavior, or a new child owner.');
         return;
       }
       selectedMode = candidate['mode'];
+      const expansionActionSet = new Set<SrijikaStructureCreationAction>(
+        expansionActions.map(({ action }) => action),
+      );
+      if (
+        typeof candidate['action'] === 'string' &&
+        expansionActionSet.has(candidate['action'] as SrijikaStructureCreationAction)
+      ) {
+        selectedExpansionAction = candidate['action'] as typeof selectedExpansionAction;
+      }
+      const childActionSet = new Set<SrijikaStructureCreationAction>(
+        childActions.map(({ action }) => action),
+      );
+      if (
+        typeof candidate['action'] === 'string' &&
+        childActionSet.has(candidate['action'] as SrijikaStructureCreationAction)
+      ) {
+        selectedChildAction = candidate['action'] as typeof selectedChildAction;
+      }
       const missingOwnerActionSet = new Set<SrijikaStructureCreationAction>(missingOwnerActions);
       selectedOwnerActions = Array.isArray(candidate['ownerActions'])
         ? candidate['ownerActions'].filter(
@@ -704,6 +1055,29 @@ export function activate(context: vscode.ExtensionContext): void {
               allowedCapabilities.has(value as SrijikaOptionalOwnerCapability),
           )
         : [];
+      if (candidate['type'] === 'preview') {
+        const requestId = candidate['requestId'];
+        if (typeof requestId !== 'number' || !Number.isSafeInteger(requestId) || requestId < 1) {
+          return;
+        }
+        try {
+          const existing = await existingOwnershipState(workspaceFolder);
+          const plan = buildSelectedPlan(existing);
+          await panel.webview.postMessage({
+            type: 'previewResult',
+            requestId,
+            previewFiles: srijikaOwnershipPlanPreviewPaths(plan),
+          });
+        } catch (previewError) {
+          await panel.webview.postMessage({
+            type: 'previewResult',
+            requestId,
+            previewFiles: [],
+            error: previewError instanceof Error ? previewError.message : String(previewError),
+          });
+        }
+        return;
+      }
       if (candidate['type'] === 'changeMode' || candidate['type'] === 'changeOwnerSelection') {
         await render();
         return;
@@ -712,35 +1086,12 @@ export function activate(context: vscode.ExtensionContext): void {
       creating = true;
 
       try {
-        const existing = await existingOwnershipState(workspaceFolder, owner);
-        const plan =
-          selectedMode === 'ownerFiles'
-            ? owner.level === 'featuresRoot'
-              ? (() => {
-                  throw new Error('Features root does not own runtime capability files.');
-                })()
-              : buildSrijikaOwnershipCapabilityBatchPlan({
-                  owner,
-                  actions: selectedOwnerActions,
-                  existingRelativePaths: existing.paths,
-                  existingSources: existing.sources,
-                })
-            : selectedChildAction
-              ? buildSrijikaOwnershipCreationPlan({
-                  owner,
-                  action: selectedChildAction,
-                  ...(name ? { name } : {}),
-                  optionalCapabilities,
-                  existingRelativePaths: existing.paths,
-                  existingSources: existing.sources,
-                })
-              : (() => {
-                  throw new Error('No child owner is valid at this boundary.');
-                })();
+        const existing = await existingOwnershipState(workspaceFolder);
+        const plan = buildSelectedPlan(existing);
         await commitOwnershipPlan(workspaceFolder, plan);
         panel.dispose();
         void vscode.window.showInformationMessage(
-          `Srijika created ${plan.files.length} validated file${plan.files.length === 1 ? '' : 's'}${plan.updates.length > 0 ? ` and safely rewired ${plan.updates.length} senior file${plan.updates.length === 1 ? '' : 's'}` : ''} for ${plan.ownerName}.`,
+          `Srijika created ${plan.files.length} validated file${plan.files.length === 1 ? '' : 's'}${(plan.moves?.length ?? 0) > 0 ? `, organized ${plan.moves?.length ?? 0} gateway` : ''}${plan.updates.length > 0 ? `, and safely rewired ${plan.updates.length} senior file${plan.updates.length === 1 ? '' : 's'}` : ''} for ${plan.ownerName}.`,
         );
       } catch (creationError) {
         creating = false;
@@ -815,10 +1166,10 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const completions = vscode.languages.registerCompletionItemProvider(
-    { language: 'typescriptreact', pattern: `**/*${UI_FILE_SUFFIX}` },
+    { language: 'typescriptreact', pattern: '**/*.tsx' },
     {
       async provideCompletionItems(document, position) {
-        if (!isSrijikaUiDocument(document)) return [];
+        if (!isConfiguredSrijikaUiDocument(document)) return [];
         const source = document.getText();
         const compilation = compilationFor(document);
         const cssClassNames = await workspaceCssClassNames();
@@ -864,10 +1215,10 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const codeActions = vscode.languages.registerCodeActionsProvider(
-    { language: 'typescriptreact', pattern: `**/*${UI_FILE_SUFFIX}` },
+    { language: 'typescriptreact', pattern: '**/*.tsx' },
     {
       provideCodeActions(document, _range, actionContext) {
-        if (!isSrijikaUiDocument(document)) return [];
+        if (!isConfiguredSrijikaUiDocument(document)) return [];
         const compilation = compilationFor(document);
         if (!compilation) return [];
 
@@ -914,6 +1265,8 @@ export function activate(context: vscode.ExtensionContext): void {
     [
       { language: 'typescript', pattern: '**/*.{ts,mts,cts}' },
       { language: 'typescriptreact', pattern: '**/*.tsx' },
+      { language: 'javascript', pattern: '**/*.{js,mjs,cjs}' },
+      { language: 'javascriptreact', pattern: '**/*.jsx' },
     ],
     {
       provideCodeActions(_document, _range, actionContext) {
@@ -941,33 +1294,87 @@ export function activate(context: vscode.ExtensionContext): void {
     { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] },
   );
 
-  const architectureSourceWatcher = vscode.workspace.createFileSystemWatcher(
-    '**/src/**/*.{ts,tsx,mts,cts}',
-  );
   const architectureConfigWatcher =
     vscode.workspace.createFileSystemWatcher('**/srijika.config.json');
+  const typeScriptConfigWatcher = vscode.workspace.createFileSystemWatcher('**/tsconfig.json');
+  let architectureSourceWatcherSubscriptions: vscode.Disposable[] = [];
+  let architectureWatcherRefreshRun = 0;
+  const disposeArchitectureSourceWatchers = (): void => {
+    for (const disposable of architectureSourceWatcherSubscriptions) disposable.dispose();
+    architectureSourceWatcherSubscriptions = [];
+  };
+  const refreshArchitectureSourceWatchers = async (): Promise<void> => {
+    const run = ++architectureWatcherRefreshRun;
+    const next: vscode.Disposable[] = [];
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+      let projectConfig;
+      try {
+        const fileSystem = await openSafeSrijikaWorkspace(folder.uri.fsPath);
+        const config = await fileSystem.readText(
+          'srijika.config.json',
+          MAX_ARCHITECTURE_CONFIG_BYTES,
+        );
+        projectConfig = parseSrijikaCodeProjectConfig(config.source);
+      } catch {
+        continue;
+      }
+      for (const pattern of srijikaArchitectureWatchPatterns(
+        projectConfig.architecture,
+        projectConfig.entry,
+      )) {
+        const watcher = vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(folder, pattern),
+        );
+        next.push(
+          watcher,
+          watcher.onDidCreate(() => {
+            structureProvider.refresh();
+            scheduleArchitectureCheck(0);
+          }),
+          watcher.onDidChange(() => scheduleArchitectureCheck()),
+          watcher.onDidDelete(() => {
+            structureProvider.refresh();
+            scheduleArchitectureCheck(0);
+          }),
+        );
+      }
+    }
+    if (run !== architectureWatcherRefreshRun) {
+      for (const disposable of next) disposable.dispose();
+      return;
+    }
+    disposeArchitectureSourceWatchers();
+    architectureSourceWatcherSubscriptions = next;
+    for (const document of vscode.workspace.textDocuments) compileDocument(document);
+  };
+  const onArchitectureConfigChanged = (): void => {
+    structureProvider.refresh();
+    scheduleArchitectureCheck(0);
+    void refreshArchitectureSourceWatchers();
+  };
   const watcherSubscriptions = [
-    architectureSourceWatcher.onDidCreate(() => {
+    architectureConfigWatcher.onDidCreate(onArchitectureConfigChanged),
+    architectureConfigWatcher.onDidChange(onArchitectureConfigChanged),
+    architectureConfigWatcher.onDidDelete(onArchitectureConfigChanged),
+    typeScriptConfigWatcher.onDidCreate(onArchitectureConfigChanged),
+    typeScriptConfigWatcher.onDidChange(onArchitectureConfigChanged),
+    typeScriptConfigWatcher.onDidDelete(onArchitectureConfigChanged),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
       structureProvider.refresh();
       scheduleArchitectureCheck(0);
+      void refreshArchitectureSourceWatchers();
     }),
-    architectureSourceWatcher.onDidChange(() => scheduleArchitectureCheck()),
-    architectureSourceWatcher.onDidDelete(() => {
-      structureProvider.refresh();
-      scheduleArchitectureCheck(0);
-    }),
-    architectureConfigWatcher.onDidCreate(() => scheduleArchitectureCheck(0)),
-    architectureConfigWatcher.onDidChange(() => scheduleArchitectureCheck(0)),
-    architectureConfigWatcher.onDidDelete(() => scheduleArchitectureCheck(0)),
   ];
+  void refreshArchitectureSourceWatchers();
 
   const openSubscription = vscode.workspace.onDidOpenTextDocument(compileDocument);
   const changeSubscription = vscode.workspace.onDidChangeTextDocument(({ document }) => {
     if (document.fileName.toLowerCase().endsWith('.css')) cssClassNamesPromise = null;
     compileDocument(document);
     if (
-      /\.(?:ts|tsx|mts|cts)$/.test(document.fileName) ||
-      document.fileName.endsWith('srijika.config.json')
+      /\.(?:[cm]?[jt]s|[jt]sx)$/.test(document.fileName) ||
+      document.fileName.endsWith('srijika.config.json') ||
+      document.fileName.endsWith('tsconfig.json')
     ) {
       scheduleArchitectureCheck();
     }
@@ -976,8 +1383,9 @@ export function activate(context: vscode.ExtensionContext): void {
     if (document.fileName.toLowerCase().endsWith('.css')) cssClassNamesPromise = null;
     compileDocument(document);
     if (
-      /\.(?:ts|tsx|mts|cts)$/.test(document.fileName) ||
-      document.fileName.endsWith('srijika.config.json')
+      /\.(?:[cm]?[jt]s|[jt]sx)$/.test(document.fileName) ||
+      document.fileName.endsWith('srijika.config.json') ||
+      document.fileName.endsWith('tsconfig.json')
     ) {
       scheduleArchitectureCheck(0);
     }
@@ -1009,8 +1417,8 @@ export function activate(context: vscode.ExtensionContext): void {
     completions,
     codeActions,
     architectureCodeActions,
-    architectureSourceWatcher,
     architectureConfigWatcher,
+    typeScriptConfigWatcher,
     ...watcherSubscriptions,
     openSubscription,
     changeSubscription,
@@ -1019,6 +1427,8 @@ export function activate(context: vscode.ExtensionContext): void {
     {
       dispose() {
         architectureRun += 1;
+        architectureWatcherRefreshRun += 1;
+        disposeArchitectureSourceWatchers();
         if (architectureTimer) clearTimeout(architectureTimer);
       },
     },

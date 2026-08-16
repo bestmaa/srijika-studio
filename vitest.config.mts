@@ -20,6 +20,7 @@ const aliases = {
   '@srijika/tsx-compiler': source('./packages/tsx-compiler/src/index.ts'),
   '@srijika/project-scaffold/templates': source('./packages/project-scaffold/src/templates.ts'),
   '@srijika/project-scaffold/types': source('./packages/project-scaffold/src/types.ts'),
+  '@srijika/project-scaffold/ownership': source('./packages/project-scaffold/src/ownership.ts'),
   '@srijika/project-scaffold': source('./packages/project-scaffold/src/index.ts'),
 };
 

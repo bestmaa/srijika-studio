@@ -1,6 +1,6 @@
 {
   "name": "@srijika/mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CLI-first Srijika project MCP tools with optional Studio bridge support.",
   "license": "Apache-2.0",
   "type": "module",
@@ -24,6 +24,9 @@
   },
   "homepage": "https://github.com/bestmaa/srijika-studio#readme",
   "bugs": "https://github.com/bestmaa/srijika-studio/issues",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "build": "node ./scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",

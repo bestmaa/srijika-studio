@@ -1,6 +1,6 @@
 # UI document format
 
-`UiDocument` is Srijika's normalized, versioned renderer IR. In the code-first architecture it is compiled from `.ui.tsx` and is **not** the persisted authoring source. Source offsets live in the compiler's separate `SrijikaSourceMap`; Studio keeps the last valid document only as a derived preview/read model. Legacy engine and migration tests may still serialize this schema.
+`UiDocument` is Srijika's normalized, versioned renderer IR. In the code-first architecture it is compiled from the file ending in the resolved UI suffix (canonical default `.ui.tsx`) and is **not** the persisted authoring source. Source offsets live in the compiler's separate `SrijikaSourceMap`; Studio keeps the last valid document only as a derived preview/read model. Legacy engine and migration tests may still serialize this schema.
 
 Child relationships live only in element slots or structural-node child arrays; `parentId` is derived so the graph cannot contain two competing parent relationships.
 

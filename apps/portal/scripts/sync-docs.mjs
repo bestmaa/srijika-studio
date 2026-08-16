@@ -11,7 +11,7 @@ const destinationDirectory = join(portalRoot, 'src/content/docs/reference');
 const titleOverrides = new Map([
   ['CODE_FIRST_TSX.md', 'Code-first Srijika TSX'],
   ['CLI_AND_FAST_RUNTIME.md', 'CLI and Fast Runtime'],
-  ['FEATURE_SLOT_PART_ARCHITECTURE.md', 'Feature, Slot, and Part Architecture'],
+  ['FEATURE_SLOT_PART_ARCHITECTURE.md', 'Feature, Slot, Part, and Shared Architecture'],
   ['MVP_ACCEPTANCE.md', 'UI MVP Acceptance'],
   ['UI_DOCUMENT_FORMAT.md', 'UI Document Format'],
   ['codex-plugin-architecture.md', 'Codex Plugin Architecture'],

@@ -1,6 +1,6 @@
 {
   "name": "srijika-studio",
-  "version": "0.1.0+codex.20260814143840",
+  "version": "0.1.0+codex.20260816001641",
   "description": "Build, scaffold, inspect, validate, and run CLI-first Srijika React projects from Codex, with optional Studio visual tools.",
   "author": {
     "name": "Srijika Studio"
@@ -12,13 +12,17 @@
   "interface": {
     "displayName": "Srijika Studio",
     "shortDescription": "Build Srijika projects with or without Studio",
-    "longDescription": "Use software-independent MCP tools for strict Feature, Slot, and Part project inspection, validation, planning, and atomic scaffolding. When Srijika Studio is available, connect through its private authenticated bridge to inspect hierarchy, apply visual document operations, validate generated TSX, inspect rendered geometry, and capture clean previews.",
+    "longDescription": "Use software-independent MCP tools for strict Feature, Slot, Part, and Shared UI/Widget/Headless project inspection, validation, planning, and atomic scaffolding, including behavior-free UI, passive Types, canonical ownership, and promotion/split guidance. When Srijika Studio is available, connect through its private authenticated bridge to inspect hierarchy, apply visual document operations, validate generated TSX, inspect rendered geometry, and capture clean previews.",
     "developerName": "Srijika Studio",
     "category": "Developer Tools",
     "capabilities": [
       "Recreate screenshot designs",
       "Build and edit React UI",
       "Scaffold and validate code-first projects",
+      "Create strict cross-feature shared owners",
+      "Enforce behavior-free UI and passive Types",
+      "Validate deterministic aliases and project imports",
+      "Follow live custom architecture changes",
       "Operate CLI-first projects without Desktop Studio",
       "Run Vite with Node or optional Bun",
       "Normalize repeated UI into typed React maps",

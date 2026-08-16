@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const repository = 'https://github.com/bestmaa/srijika-studio.git';
+const requiredNodeEngine = '>=22.13.0';
 const releasePackages = [
   { directory: 'packages/cli', name: '@srijika/cli', files: ['dist/cli.mjs'] },
   {
@@ -31,6 +32,9 @@ for (const releasePackage of releasePackages) {
   }
   if (manifest.repository?.url !== repository) {
     throw new Error(`${manifest.name} repository URL must match the GitHub OIDC repository.`);
+  }
+  if (manifest.engines?.node !== requiredNodeEngine) {
+    throw new Error(`${manifest.name} must require Node.js ${requiredNodeEngine}.`);
   }
   const packed = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: directory,

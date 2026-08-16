@@ -76,6 +76,17 @@ const UI_ENTRY: CodeProjectEntry = {
   isUiSource: true,
 };
 
+function entryForProject(relativePath: string, kind: 'directory' | 'file'): CodeProjectEntry {
+  return {
+    path: `${PROJECT_ROOT}/${relativePath}`,
+    relativePath,
+    kind,
+    bytes: kind === 'file' ? 0 : null,
+    hash: kind === 'file' ? `${relativePath}-hash` : null,
+    isUiSource: relativePath.endsWith('.ui.tsx'),
+  };
+}
+
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
@@ -257,6 +268,169 @@ describe('code-first project navigation', () => {
     expect(screen.getByRole('textbox', { name: 'Srijika TSX source' })).toBeVisible();
   });
 
+  it('propagates configured ownership roots from the native project read into discovery and previews', async () => {
+    const featuresRoot = 'application/domain/features';
+    const sharedRoot = 'application/domain/shared';
+    const configuredEntryPath = `${PROJECT_ROOT}/${featuresRoot}/home/Home.view.tsx`;
+    const configuredEntry: CodeProjectEntry = {
+      path: configuredEntryPath,
+      relativePath: `${featuresRoot}/home/Home.view.tsx`,
+      kind: 'file',
+      bytes: SOURCE.length,
+      hash: 'configured-home-v1',
+      isUiSource: true,
+    };
+    const entries = [
+      entryForProject('application', 'directory'),
+      entryForProject('application/domain', 'directory'),
+      entryForProject(featuresRoot, 'directory'),
+      entryForProject(sharedRoot, 'directory'),
+      entryForProject(`${featuresRoot}/home`, 'directory'),
+      configuredEntry,
+    ];
+    serviceMocks.scanCodeProject.mockResolvedValue({
+      path: PROJECT_ROOT,
+      entrySourcePath: configuredEntryPath,
+      entries,
+      truncated: false,
+    });
+    serviceMocks.loadTsxSource.mockResolvedValue({
+      path: configuredEntryPath,
+      bytes: SOURCE.length,
+      hash: 'configured-home-v1',
+      source: SOURCE,
+    });
+    serviceMocks.loadCodeProjectArchitectureSources.mockResolvedValue({
+      path: PROJECT_ROOT,
+      tsconfigSource: JSON.stringify({
+        compilerOptions: {
+          paths: { '@features/*': [`${featuresRoot}/*`] },
+        },
+      }),
+      configSource: JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: `${featuresRoot}/home/Home.view.tsx`,
+        architecture: {
+          profile: 'feature-slot-part-v1',
+          featuresRoot,
+          sharedRoot,
+          slotsDirectory: 'regions',
+          partsDirectory: 'fragments',
+          hooksDirectory: 'effects',
+          storesDirectory: 'state',
+          uiSuffix: '.view.tsx',
+          connectorSuffix: '.gateway.tsx',
+          storeSuffix: '.state.ts',
+          logicSuffix: '.rules.ts',
+          apiSuffix: '.transport.ts',
+          typesSuffix: '.contract.ts',
+        },
+      }),
+      sources: [
+        {
+          path: configuredEntryPath,
+          relativePath: `${featuresRoot}/home/Home.view.tsx`,
+          bytes: SOURCE.length,
+          hash: 'fnv1a64:0123456789abcdef',
+          source: SOURCE,
+        },
+        {
+          path: `${PROJECT_ROOT}/${featuresRoot}/home/Home.gateway.tsx`,
+          relativePath: `${featuresRoot}/home/Home.gateway.tsx`,
+          bytes: 118,
+          hash: 'fnv1a64:fedcba9876543210',
+          source:
+            "import { HomeUI } from '@features/home/Home.view';\n\nexport function HomeConnector() { return <HomeUI />; }\n",
+        },
+      ],
+      truncated: false,
+    });
+    serviceMocks.getProjectRuntimeStatus.mockResolvedValue(runtimeStatus(true));
+
+    render(<CodeFirstStudio />);
+
+    const explorer = screen.getByRole('region', { name: 'Project Explorer' });
+    await waitFor(() =>
+      expect(serviceMocks.loadTsxSource).toHaveBeenCalledWith(configuredEntryPath),
+    );
+    await waitFor(() =>
+      expect(useCodeProjectStore.getState().architectureCheckedFileCount).toBe(2),
+    );
+    expect(
+      useCodeProjectStore
+        .getState()
+        .architectureDiagnostics.some((diagnostic) => diagnostic.code === 4120),
+    ).toBe(false);
+    const livePreview = await screen.findByTitle<HTMLIFrameElement>('Live Srijika project preview');
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: 'http://127.0.0.1:5173',
+        source: livePreview.contentWindow,
+        data: {
+          type: 'srijika:preview-select',
+          version: 1,
+          source: `${featuresRoot}/home/Home.view.tsx:4:7`,
+        },
+      }),
+    );
+    expect(
+      await screen.findByText(
+        `Selected the live element from ${featuresRoot}/home/Home.view.tsx:4.`,
+      ),
+    ).toBeVisible();
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        origin: 'http://127.0.0.1:5173',
+        source: livePreview.contentWindow,
+        data: {
+          type: 'srijika:preview-runtime-state',
+          version: 1,
+          state: 'ready',
+          uiSource: `${featuresRoot}/home/Home.view.tsx`,
+        },
+      }),
+    );
+    expect(await screen.findByText('live Home.view.tsx')).toBeVisible();
+    expect(within(explorer).getByTitle(`${featuresRoot}/home/Home.view.tsx`)).toBeVisible();
+    await waitFor(() =>
+      expect(within(explorer).getByTitle(`New feature in ${featuresRoot}`)).toBeVisible(),
+    );
+    fireEvent.click(within(explorer).getByRole('button', { name: 'New UI' }));
+    let dialog = screen.getByRole('dialog', { name: 'Create UI page' });
+    fireEvent.change(within(dialog).getByLabelText('Name'), {
+      target: { value: 'Reports' },
+    });
+    expect(within(dialog).getByText('src/pages/Reports.view.tsx')).toBeVisible();
+    expect(within(dialog).getByText('src/pages/Reports.gateway.tsx')).toBeVisible();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(
+      within(explorer).getByRole('button', {
+        name: `Add capability inside ${featuresRoot}`,
+      }),
+    );
+    dialog = screen.getByRole('dialog', { name: 'Add to Features' });
+    fireEvent.change(within(dialog).getByLabelText('New Feature name'), {
+      target: { value: 'Dashboard' },
+    });
+    expect(within(dialog).getByText(`${featuresRoot}/dashboard/Dashboard.view.tsx`)).toBeVisible();
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Close structure creation dialog' }),
+    );
+
+    fireEvent.click(
+      within(explorer).getByRole('button', {
+        name: `Add capability inside ${sharedRoot}`,
+      }),
+    );
+    dialog = screen.getByRole('dialog', { name: 'Add to Shared' });
+    fireEvent.change(within(dialog).getByLabelText('Shared UI Primitive name'), {
+      target: { value: 'StatusBadge' },
+    });
+    expect(
+      within(dialog).getByText(`${sharedRoot}/ui/status-badge/StatusBadge.view.tsx`),
+    ).toBeVisible();
+  });
+
   it('creates a feature from the Structure guide and opens its required UI source', async () => {
     const featureUiPath = `${PROJECT_ROOT}/src/features/dashboard/Dashboard.ui.tsx`;
     const featureSource = `export function DashboardUI() {
@@ -385,6 +559,97 @@ describe('code-first project navigation', () => {
     await waitFor(() => {
       expect(useCodeProjectStore.getState().sourcePath).toBe(featureUiPath);
       expect(useProjectSessionStore.getState().selectedPath).toBe(featureUiPath);
+    });
+  });
+
+  it('creates a Shared UI Primitive from the project tree and opens its source', async () => {
+    const sharedUiPath = `${PROJECT_ROOT}/src/shared/ui/status-badge/StatusBadge.ui.tsx`;
+    const sharedSource = `export function StatusBadgeUI() {
+  return <span>Status</span>;
+}
+`;
+    const baseEntries: CodeProjectEntry[] = [
+      entryForProject('src', 'directory'),
+      entryForProject('src/shared', 'directory'),
+      entryForProject('src/shared/.gitkeep', 'file'),
+      UI_ENTRY,
+    ];
+    const createdEntry: CodeProjectEntry = {
+      path: sharedUiPath,
+      relativePath: 'src/shared/ui/status-badge/StatusBadge.ui.tsx',
+      kind: 'file',
+      bytes: sharedSource.length,
+      hash: 'status-badge-v1',
+      isUiSource: true,
+    };
+
+    act(() => {
+      useProjectSessionStore.getState().attachProject({
+        rootPath: PROJECT_ROOT,
+        displayName: 'srijika-demo',
+        entries: baseEntries,
+        activeUiSourcePath: SOURCE_PATH,
+      });
+    });
+    serviceMocks.scaffoldCodeProjectStructure.mockResolvedValue({
+      projectPath: PROJECT_ROOT,
+      featureName: 'StatusBadge',
+      featurePath: 'src/shared/ui/status-badge',
+      capability: { kind: 'sharedUi', createTypes: false },
+      files: [
+        {
+          path: sharedUiPath,
+          relativePath: createdEntry.relativePath,
+          role: 'sharedUi',
+          bytes: sharedSource.length,
+          hash: 'status-badge-v1',
+        },
+      ],
+      bytes: sharedSource.length,
+    });
+    serviceMocks.loadTsxSource.mockImplementation((path: string) =>
+      Promise.resolve(
+        path === sharedUiPath
+          ? {
+              path: sharedUiPath,
+              bytes: sharedSource.length,
+              hash: 'status-badge-v1',
+              source: sharedSource,
+            }
+          : {
+              path: SOURCE_PATH,
+              bytes: SOURCE.length,
+              hash: 'home-v1',
+              source: SOURCE,
+            },
+      ),
+    );
+    serviceMocks.scanCodeProject.mockResolvedValue({
+      path: PROJECT_ROOT,
+      entrySourcePath: SOURCE_PATH,
+      entries: [...baseEntries, createdEntry],
+      truncated: false,
+    });
+
+    render(<CodeFirstStudio />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add capability inside src/shared' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add to Shared' });
+    fireEvent.change(within(dialog).getByLabelText('Shared UI Primitive name'), {
+      target: { value: 'StatusBadge' },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create Shared UI Primitive' }));
+
+    await waitFor(() =>
+      expect(serviceMocks.scaffoldCodeProjectStructure).toHaveBeenCalledWith({
+        projectPath: PROJECT_ROOT,
+        featureName: 'StatusBadge',
+        capability: { kind: 'sharedUi', createTypes: false },
+      }),
+    );
+    await waitFor(() => expect(serviceMocks.loadTsxSource).toHaveBeenCalledWith(sharedUiPath));
+    await waitFor(() => {
+      expect(useCodeProjectStore.getState().sourcePath).toBe(sharedUiPath);
+      expect(useProjectSessionStore.getState().selectedPath).toBe(sharedUiPath);
     });
   });
 

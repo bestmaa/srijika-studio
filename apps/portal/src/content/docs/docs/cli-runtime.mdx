@@ -12,7 +12,13 @@ VS Code, Codex, or another MCP client.
 
 ## Create your first project
 
-You need Node.js 22.13 or newer and npm. Run:
+You need Node.js 22.13.0 or newer and npm. Run:
+
+```bash
+npm create srijika@latest
+```
+
+Srijika asks for the project name. You can also provide it directly:
 
 ```bash
 npm create srijika@latest my-app
@@ -45,19 +51,26 @@ Use individual switches when you need finer control:
 
 ```bash
 npm create srijika@latest my-app -- \
+  --react-query \
   --no-install \
   --no-vscode \
   --no-extension \
   --no-studio
 ```
 
-| Option           | Effect                                                        |
-| ---------------- | ------------------------------------------------------------- |
-| `--no-open`      | Skip both VS Code and Desktop Studio handoff.                 |
-| `--no-install`   | Generate files without installing dependencies.               |
-| `--no-vscode`    | Do not open VS Code.                                          |
-| `--no-extension` | Keep the recommendation but do not install the VS Code addon. |
-| `--no-studio`    | Never attempt the optional Desktop Studio handoff.            |
+| Option           | Effect                                                                      |
+| ---------------- | --------------------------------------------------------------------------- |
+| `--react-query`  | Opt into TanStack Query, QueryClient, and the application Provider wrapper. |
+| `--no-open`      | Skip both VS Code and Desktop Studio handoff.                               |
+| `--no-install`   | Generate files without installing dependencies.                             |
+| `--no-vscode`    | Do not open VS Code.                                                        |
+| `--no-extension` | Keep the recommendation but do not install the VS Code addon.               |
+| `--no-studio`    | Never attempt the optional Desktop Studio handoff.                          |
+
+The default scaffold is deliberately minimal: it does not install
+`@tanstack/react-query` or generate a Query Provider. Ordinary Hooks, Stores,
+Logic, and API files work without it. Choose `--react-query` only when the app
+needs server cache, retry, invalidation, or mutation lifecycle.
 
 ## Start the real application
 
@@ -69,8 +82,9 @@ npx @srijika/cli dev
 ```
 
 `dev` starts the project's real Vite development server. React Fast Refresh,
-project CSS, dependencies, Providers, Connectors, routes, and application state
-all execute through the real application—not a static design substitute.
+project CSS, dependencies, configured Providers, Connectors, routes, and
+application state all execute through the real application—not a static design
+substitute.
 
 The main project lifecycle commands are:
 
@@ -112,8 +126,10 @@ to Node. It never silently replaces the project's package manager or lockfile.
 
 ## Create strict application structure
 
-Every owner requires a pure UI file and its matching Connector. Hook, Store,
-Logic, API, and Types are optional capabilities created only when selected.
+Every Feature, Slot, Part, and Shared Widget requires a pure UI file and its
+matching Connector. Shared UI is UI + optional Types only. A Shared Headless
+Capability has no UI or Connector and requires at least one Hook, Store, Logic,
+or API runtime layer. Optional files are created only when selected.
 
 ```bash
 npx @srijika/cli add feature Dashboard \
@@ -138,6 +154,29 @@ npx @srijika/cli add api --to src/features/dashboard
 npx @srijika/cli add types --to src/features/dashboard
 ```
 
+Expand a gateway only when a second independent behavior or state concern is
+needed. You provide only the suffix; Srijika derives the owner-prefixed name,
+moves the gateway, rewires imports, and removes the old root file:
+
+```bash
+npx @srijika/cli add behavior-hook Keyboard --in src/features/dashboard
+npx @srijika/cli add store-slice Filters --in src/features/dashboard
+```
+
+Create cross-feature code only through one strict shared owner kind:
+
+```bash
+npx @srijika/cli add shared-ui Button --types
+npx @srijika/cli add shared-widget UserMenu --hook --store --logic --api --types
+npx @srijika/cli add shared-capability Auth --hook --store --logic --api --types
+```
+
+A Shared UI Primitive has pure UI plus optional Types and receives everything
+through props. A Shared Widget requires UI + Connector and supports the normal
+optional runtime chain. A Shared Headless Capability forbids UI/Connector and
+requires at least one of Hook, Store, Logic, or API. `src/shared` never accepts
+freehand folders or Feature imports.
+
 Add `--dry-run` to an `add` command to preview every exact file and safe rewire
 without changing the project. Existing files are never overwritten.
 
@@ -146,7 +185,7 @@ without changing the project. Existing files are never overwritten.
 Runtime behavior follows one visible direction:
 
 ```text
-UI ← Connector → Hook → Store → Logic → API → Types
+UI ← Connector → Hook → Store → Logic → API → Backend
 ```
 
 - UI is pure and is rendered only by its Connector.
@@ -156,13 +195,81 @@ UI ← Connector → Hook → Store → Logic → API → Types
 - If Hook and Store do not exist but Logic does, Connector calls Logic.
 - Direct Connector → API is allowed only when Hook, Store, and Logic are absent.
 - A child Part is composed through its Connector, never by importing its private UI.
+- Every UI rejects Hook calls (including `React.useState`) and browser/runtime
+  APIs such as `fetch`, `XMLHttpRequest`, `WebSocket`, `localStorage`, and
+  `sessionStorage`; it also rejects external state/router/request/query
+  lifecycle and callable utility behavior. External UI imports are limited to
+  types, styles/assets, safe React JSX support, and JSX-only presentational
+  bindings; values/events enter through typed props.
+- Types is passive and is never a runtime step. A file ending in the resolved
+  Types suffix (canonical default `.types.ts`) contains only
+  interfaces, type aliases, `import type`, `export type`, and optional
+  `export {}`; it declares/references no runtime values.
 
 Srijika emits hard diagnostics for missing UI/Connector pairs, layer jumps,
 reverse dependencies, private sibling imports, and direct child-UI imports. It
 also gives non-blocking recommendations when a growing owner should add Logic,
 Hook, Store, or a Hook above Store.
 
+Stable hard IDs include `SRIJIKA4116` /
+`SRIJIKA-ARCH-DIRECT-CHILD-UI` and `SRIJIKA4117` /
+`SRIJIKA-ARCH-PASSIVE-TYPES`. `SRIJIKA4118` /
+`SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN` keeps Logic framework-free: pure business
+validation/transforms remain, while React/query/router/state lifecycle belongs
+in Hook, Connector, or Store and transport belongs in API. Shared freehand paths, alternate owner spelling,
+and runtime cycles also fail. `SRIJIKA-ARCH-RECOMMEND-PROMOTE-OWNER` is attached
+to the blocking ownership diagnostic with two-consumer evidence;
+`SRIJIKA-ARCH-RECOMMEND-SPLIT-OWNER` is emitted as non-blocking `SRIJIKA4202`
+only when the exact 200/300/16 UI guardrails are exceeded.
+
+`SRIJIKA4119` / `SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT` rejects computed
+module targets inside governed roots. `SRIJIKA4120` /
+`SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS` rejects unresolved declared/reserved
+project aliases. `SRIJIKA4121` / `SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT`
+requires every governed relative or `src/...` source import to resolve inside
+the scanned configured ownership roots; CSS/static assets are exempt.
+
 Read [Project anatomy](/docs/project-anatomy/) for ownership and promotion rules.
+
+### Safe custom architecture configuration
+
+CLI honors custom roots, structural directory names, and suffixes from the
+`architecture` object in `srijika.config.json`. Roots must be bounded
+project-relative and non-overlapping; the four directory names must be
+case-insensitively distinct single segments; suffixes must be
+case-insensitively distinct, non-overlapping basename-only `.tsx`/`.ts` values.
+Traversal, absolute paths, backslashes, overlapping roots, duplicate names, and
+symlink escapes are rejected before project discovery, planning, or writes.
+
+When `architecture` is absent, canonical defaults apply. When it exists, it
+must declare `"profile": "feature-slot-part-v1"` exactly. Missing and
+unsupported profiles fail closed on every Srijika surface instead of silently
+falling back.
+
+The project also requires exact `sourceOfTruth: "tsx"` and a bounded relative
+entry ending in the resolved UI suffix. That entry is included in strict UI and
+import validation and in the source budget even outside ownership roots.
+Architecture has twelve supported
+root/directory/suffix overrides plus its required profile. Root
+`tsconfig.json` is JSONC: `extends` is rejected, `references` must be absent or
+empty, and `compilerOptions.baseUrl` must be omitted. Exact and slash-delimited
+terminal `/*` `paths` aliases are used, while Vite-only aliases are unsupported
+until mirrored there.
+
+Config and source reads are symlink-safe and capped at 64 KiB for project
+config, 1 MiB for `tsconfig.json`, and 4,096 sources / 32,768 entries / 4,096
+directories / depth 32 / 4 MiB per source / 24 MiB total for complete
+validation and full-project migration. Limit failures never yield partial
+success.
+
+`scripts/srijika-validate.mjs` reloads the current config at execution time, so
+valid changes to roots, directories, or suffixes do not require regenerating
+the script. `srijika check --watch` installs one recursive project-root watcher
+and filters normal events to config, root `tsconfig.json`, entry, resolved
+Feature/Shared roots, and future-root ancestors. It reloads config before each
+check, ignores generated/vendor directories, stays alive through temporarily
+invalid config, and resumes resolved filtering after recovery.
+Flat-to-folder Hook/Store changes rewire the complete safe project TS/JS corpus.
 
 ## VS Code without Desktop Studio
 
@@ -201,7 +308,7 @@ Its software-independent tools can:
 
 - inspect the project and owner hierarchy;
 - validate architecture and return stable diagnostic identifiers;
-- preview exact Feature/Slot/Part scaffold plans; and
+- preview exact Feature/Slot/Part and strict shared-owner scaffold plans; and
 - apply validated plans atomically without overwriting existing files.
 
 Studio bridge tools appear from the same MCP server only when Desktop Studio is
@@ -211,7 +318,7 @@ they are not required for code-project tools.
 For a manual MCP launch from the project root:
 
 ```bash
-npx -y @srijika/mcp-server@0.1.0 --project .
+npx -y @srijika/mcp-server@0.2.0 --project .
 ```
 
 Usually you do not need to run this yourself—the generated MCP configuration
@@ -238,8 +345,12 @@ metadata. A typical feature follows this structure:
 src/features/dashboard/
 ├── Dashboard.ui.tsx
 ├── Dashboard.connector.tsx
-├── useDashboard.ts
-├── dashboard.store.ts
+├── hooks/                         expanded alternative to flat useDashboard.ts
+│   ├── useDashboard.ts            public Hook gateway
+│   └── useDashboardFilters.ts
+├── stores/                        expanded alternative to flat dashboard.store.ts
+│   ├── dashboard.store.ts         public Store gateway
+│   └── dashboardFilters.store.ts
 ├── dashboard.logic.ts
 ├── dashboard.api.ts
 ├── dashboard.types.ts
@@ -254,15 +365,25 @@ Shared behavior is promoted to the nearest common owner: Part → Slot → Featu
 `src/shared`. Private descendants cannot reach sideways into siblings or upward
 into owners.
 
+Flat `useDashboard.ts` and `dashboard.store.ts` are the small-owner gateways.
+On expansion, they move to `hooks/useDashboard.ts` and
+`stores/dashboard.store.ts`; the root copies must disappear. Private files stay
+one level deep and use only owner-derived names.
+
 ## Command reference
 
 ```text
-srijika create <directory> [creation options]
-srijika init <directory> [--install]
+srijika create [directory] [creation options]
+srijika init [directory] [--install]
 srijika add feature <Name> [capability flags]
 srijika add slot <Name> --in <feature-folder> [capability flags]
 srijika add part <Name> --in <slot-folder> [capability flags]
 srijika add <hook|store|logic|api|types> --to <owner-folder>
+srijika add behavior-hook <Behavior> --in <owner-folder>
+srijika add store-slice <Concern> --in <owner-folder>
+srijika add shared-ui <Name> [--types]
+srijika add shared-widget <Name> [--hook --store --logic --api --types]
+srijika add shared-capability <Name> <--hook|--store|--logic|--api> [capability flags]
 srijika check [project] [--watch] [--json]
 srijika doctor [project] [--runtime node|bun] [--json]
 srijika dev [project] [--runtime node|bun] [--port 5173]

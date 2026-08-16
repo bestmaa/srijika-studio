@@ -3296,6 +3296,7 @@ dependencies = [
 name = "studio-core"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "project-store",
  "serde",
  "serde_json",

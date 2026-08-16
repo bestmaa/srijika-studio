@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "srijika-studio": {
-      "command": "cmd.exe",
-      "args": ["/d", "/s", "/c", "scripts\\run-mcp.cmd"],
+      "command": "node",
+      "args": ["scripts/run-mcp.mjs"],
       "cwd": "."
     }
   }

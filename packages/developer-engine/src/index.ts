@@ -2,6 +2,15 @@ export { checkSrijikaArchitecture, SrijikaArchitectureIndex } from './architectu
 export { createSrijikaDoctorReport } from './doctor.js';
 export { findSrijikaProjectRoot, inspectSrijikaProject } from './project.js';
 export {
+  SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+  SrijikaProjectFileSystem,
+} from './project-filesystem.js';
+export type {
+  SrijikaSafeProjectFile,
+  SrijikaSafeProjectWalkOptions,
+  SrijikaSafeTextFile,
+} from './project-filesystem.js';
+export {
   formatSrijikaCommand,
   inspectSrijikaTool,
   planSrijikaProjectCommand,

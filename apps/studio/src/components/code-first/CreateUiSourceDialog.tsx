@@ -15,6 +15,8 @@ export interface CreateUiSourceInput {
 
 export interface CreateUiSourceDialogProps {
   initialFolder?: string | undefined;
+  uiSuffix?: string | undefined;
+  connectorSuffix?: string | undefined;
   existingRelativePaths: readonly string[];
   onClose: () => void;
   onCreate: (input: CreateUiSourceInput) => Promise<string | null>;
@@ -57,6 +59,8 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
 
 export function CreateUiSourceDialog({
   initialFolder,
+  uiSuffix = '.ui.tsx',
+  connectorSuffix = '.connector.tsx',
   existingRelativePaths,
   onClose,
   onCreate,
@@ -76,8 +80,10 @@ export function CreateUiSourceDialog({
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const normalizedDirectory = normalizedFolder(folder);
-  const uiFileName = componentName ? `${componentName}.ui.tsx` : 'Name.ui.tsx';
-  const connectorFileName = componentName ? `${componentName}.connector.tsx` : 'Name.connector.tsx';
+  const uiFileName = componentName ? `${componentName}${uiSuffix}` : `Name${uiSuffix}`;
+  const connectorFileName = componentName
+    ? `${componentName}${connectorSuffix}`
+    : `Name${connectorSuffix}`;
   const relativePath = `${normalizedDirectory || 'src'}/${uiFileName}`;
   const connectorPath = `${normalizedDirectory || 'src'}/${connectorFileName}`;
   const existingPaths = useMemo(
@@ -136,8 +142,8 @@ export function CreateUiSourceDialog({
       return;
     }
     const finalFolder = normalizedFolder(folder);
-    const finalRelativePath = `${finalFolder}/${trimmedName}.ui.tsx`;
-    const finalConnectorPath = `${finalFolder}/${trimmedName}.connector.tsx`;
+    const finalRelativePath = `${finalFolder}/${trimmedName}${uiSuffix}`;
+    const finalConnectorPath = `${finalFolder}/${trimmedName}${connectorSuffix}`;
     if (
       existingPaths.has(finalRelativePath.toLocaleLowerCase('en-US')) ||
       (createConnector && existingPaths.has(finalConnectorPath.toLocaleLowerCase('en-US')))

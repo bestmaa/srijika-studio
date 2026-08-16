@@ -5,7 +5,7 @@ description: How restricted UI files, connectors, contracts, conditions, and saf
 
 ## One authority
 
-Every visual component is authored in a file ending in `.ui.tsx`. The source file is canonical. Studio never saves a derived JSON document over developer-owned TSX.
+Every visual component is authored in a file ending in the project's resolved UI suffix (canonical default `.ui.tsx`). The source file is canonical. Studio never saves a derived JSON document over developer-owned TSX.
 
 ```tsx
 export interface ProfileUIProps {
@@ -29,7 +29,7 @@ export function ProfileUI(props: ProfileUIProps) {
 
 ## UI responsibility
 
-A `.ui.tsx` file may describe:
+A file ending in the resolved UI suffix may describe:
 
 - explicit JSX structure and intrinsic elements;
 - typed local props contracts;
@@ -39,6 +39,25 @@ A `.ui.tsx` file may describe:
 - conditions, nullish fallback, and supported ternaries.
 
 It does not own hooks, effects, stores, requests, mutations, routing, or business logic.
+That includes identifier Hooks such as `useProfile()`, property Hooks such as
+`React.useState()`, and browser/runtime APIs such as `fetch`,
+`XMLHttpRequest`, `WebSocket`, `localStorage`, and `sessionStorage`. Put that
+behavior in the matching Connector/runtime chain and pass only values and event
+callbacks into UI through typed props.
+
+Every UI also blocks external runtime behavior such as state, router, request,
+query-lifecycle, and callable utility modules. Its external imports are limited
+to type-only contracts, styles/assets, safe React JSX support, and
+presentational bindings used exclusively as JSX tags.
+Presentational assets are CSS-family files; images/icons; web fonts; audio; and
+video (`svg/png/jpeg/gif/webp/avif/ico`, `woff/woff2/ttf/otf/eot`,
+`mp3/wav/ogg`, and `mp4/webm`). Arbitrary data or executable module extensions
+are not treated as assets.
+
+This remains true for `src/shared/ui`. A Shared UI Primitive is not a smaller
+Feature: it has no Connector or runtime chain. It receives all data, event
+callbacks, and `ReactNode` composition through typed props, so another pure UI
+can reuse it without inheriting hidden state or network behavior.
 
 ## Connector responsibility
 
@@ -52,6 +71,51 @@ export function HomeConnector() {
 ```
 
 This boundary keeps visual contracts reusable and allows the compiler to derive a safe read model without executing arbitrary application modules.
+
+Reusable visual behavior belongs in a Shared Widget instead of a Shared UI
+Primitive. A widget has required UI + Connector and the same optional
+Hook → Store → Logic → API chain used by Feature owners. Consumers compose its
+Connector, never its private UI or runtime implementation.
+
+Only an owner's matching Connector imports and renders that owner UI. A parent
+or sibling imports the child Connector, never the child `.ui.tsx`. The only
+cross-owner exception is a pure UI composing the public UI boundary of a
+canonical Shared UI Primitive. Direct child UI imports fail with `SRIJIKA4116`
+and `SRIJIKA-ARCH-DIRECT-CHILD-UI`.
+
+## Passive Types
+
+The file ending in the resolved Types suffix (canonical default `.types.ts`) is a passive contract rather than a runtime layer. Keep only
+interfaces, type aliases, `import type`, `export type`, and an optional empty
+`export {}`. Do not declare/export runtime constants or functions, and do not
+refer to runtime values with `typeof` or computed value expressions. Consumers
+must use `import type`/`export type`; violations fail with `SRIJIKA4117` and
+`SRIJIKA-ARCH-PASSIVE-TYPES`.
+
+## Logic responsibility
+
+`*.logic.ts` is framework-free and deterministic. Keep business rules, pure
+validation/authorization, deterministic transforms, aggregation, and
+orchestration through the matching API here. Passive Types and pure utility
+libraries are valid.
+
+React/Hook lifecycle, React Query/query-cache lifecycle, router lifecycle,
+client-state lifecycle, browser globals, and request transport are not Logic.
+Move them to Hook, Connector, Store, or API. Direct/aliased transport calls and
+request modules such as `node:http`, `node:https`, `undici`, `cross-fetch`,
+`node-fetch`, and `ofetch` fail too. These violations fail with `SRIJIKA4118` and
+`SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN` without removing pure validation or
+transformation from Logic.
+
+## Provable project imports
+
+Governed Feature and Shared sources must have a complete, statically provable
+module graph. Computed `import()` or `require()` targets fail with
+`SRIJIKA4119`. Declared or reserved project aliases that do not resolve through
+root JSONC `tsconfig.json` to a scanned governed source fail with
+`SRIJIKA4120`; a Vite-only alias is not portable. Missing or outside-root
+relative/`src/...` source imports fail with `SRIJIKA4121`. CSS and static-asset
+imports remain valid, and external packages use bare specifiers.
 
 ## Safe edits
 

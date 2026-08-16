@@ -6,7 +6,10 @@ import type {
   SrijikaUiSourcePair,
   SrijikaUiSourcePairOptions,
 } from './types.js';
-import { GENERATED_PNPM_LOCKFILE } from './generated-pnpm-lockfile.js';
+import {
+  GENERATED_PNPM_LOCKFILE,
+  GENERATED_PNPM_LOCKFILE_WITH_REACT_QUERY,
+} from './generated-pnpm-lockfile.js';
 
 const DEFAULT_PROJECT_NAME = 'srijika-app';
 const DEFAULT_DISPLAY_NAME = 'Srijika App';
@@ -20,9 +23,11 @@ const TOOLCHAIN_VERSION = '1';
 const SRIJIKA_ARCHITECTURE = Object.freeze({
   profile: 'feature-slot-part-v1' as const,
   featuresRoot: 'src/features',
+  sharedRoot: 'src/shared',
   slotsDirectory: 'slots',
   partsDirectory: 'parts',
   hooksDirectory: 'hooks',
+  storesDirectory: 'stores',
   uiSuffix: '.ui.tsx',
   connectorSuffix: '.connector.tsx',
   storeSuffix: '.store.ts',
@@ -179,8 +184,16 @@ const resolveOptions = (
   if (!VSCODE_EXTENSION_ID_PATTERN.test(vscodeExtensionId)) {
     throw new TypeError('vscodeExtensionId must use the "publisher.extension" format.');
   }
+  if (options.reactQuery !== undefined && typeof options.reactQuery !== 'boolean') {
+    throw new TypeError('reactQuery must be a boolean.');
+  }
 
-  return { projectName, displayName, vscodeExtensionId };
+  return {
+    projectName,
+    displayName,
+    vscodeExtensionId,
+    reactQuery: options.reactQuery ?? false,
+  };
 };
 
 /**
@@ -190,7 +203,7 @@ const resolveOptions = (
 export const createSrijikaProjectFileMap = (
   options: SrijikaProjectScaffoldOptions = {},
 ): SrijikaProjectFileMap => {
-  const { displayName, projectName, vscodeExtensionId } = resolveOptions(options);
+  const { displayName, projectName, reactQuery, vscodeExtensionId } = resolveOptions(options);
   const displayNameExpression = JSON.stringify(displayName);
 
   const files: Record<string, string> = {
@@ -207,7 +220,7 @@ dist
       mcpServers: {
         'srijika-project': {
           command: 'npx',
-          args: ['-y', '@srijika/mcp-server@0.1.0', '--project', '.'],
+          args: ['-y', '@srijika/mcp-server@0.2.0', '--project', '.'],
           cwd: '.',
         },
       },
@@ -217,7 +230,7 @@ dist
         'srijika-project': {
           type: 'stdio',
           command: 'npx',
-          args: ['-y', '@srijika/mcp-server@0.1.0', '--project', '${workspaceFolder}'],
+          args: ['-y', '@srijika/mcp-server@0.2.0', '--project', '${workspaceFolder}'],
         },
       },
     }),
@@ -285,11 +298,31 @@ adapters; the files in this folder are the source of truth.
 - Every Feature, Slot, and Part requires a pure \`*.ui.tsx\` plus its matching
   \`*.connector.tsx\` runtime gateway.
 - Follow the highest available chain without jumping an existing layer:
-  Connector → Hook → Store → Logic → API → Types.
+  Connector → Hook → Store → Logic → API. Types are passive contracts, never a
+  runtime hop; consume them only with \`import type\` / \`export type\` where the
+  ownership rules allow them. A Types file must not expose runtime values.
+- Start with flat useOwner.ts and owner.store.ts gateways. Adding a second Hook
+  behavior or Store concern moves the public gateway into hooks/useOwner.ts or
+  stores/owner.store.ts, rewires imports, and removes the root copy. Never mix
+  both layouts. Private names must be useOwner<Behavior>.ts or
+  owner<Concern>.store.ts, one folder level deep, with no index.ts.
 - Keep child-private imports downward. Promote shared sibling behavior to the
   nearest common Part, Slot, Feature, or \`src/shared\` owner.
+- \`src/shared\` has exactly three owner shapes:
+  - \`ui/<kebab-name>\` requires pure \`<Name>.ui.tsx\`, permits optional
+    \`<camel>.types.ts\`, and forbids Connector, Hook, Store, Logic, API, and
+    runtime imports. Values and events enter only through typed props.
+  - \`widgets/<kebab-name>\` requires UI + Connector and may add the same
+    Hook → Store → Logic → API chain plus passive Types.
+  - \`capabilities/<kebab-name>\` is headless (no UI/Connector), may add Hook,
+    Store, Logic, API, and Types, and must expose at least one runtime gateway.
+- Shared never imports \`src/features\`. Features consume only a primitive UI,
+  Widget Connector, or a Capability's highest available runtime gateway;
+  passive Types contracts may cross that boundary only through type-only syntax.
 - Prefer \`npx @srijika/cli add ...\` for structural creation and run
   \`npx @srijika/cli check\` after edits. Never overwrite generated owner files.
+- React Query is absent by default. Enable it only for a new project with the
+  explicit \`--react-query\` create/init option.
 - MCP clients should connect through \`.mcp.json\` and call
   \`srijika_get_code_project\` before planning changes. Plan with
   \`srijika_plan_code_structure\`, review its paths, then pass its one-time
@@ -306,9 +339,16 @@ the same folder in VS Code to edit its source.
 
 - \`src/features/home/Home.ui.tsx\` is the typed visual source of truth.
 - \`Home.connector.tsx\` composes named slots and calls the highest available owner capability.
-- \`useHome.ts\` is the feature Hook gateway for React lifecycle, queries, cache, and Store access.
+- \`useHome.ts\` is the feature Hook gateway for React lifecycle and Store access.
+  Query/cache lifecycle belongs there only when the project was explicitly created
+  with \`--react-query\` (or another query library was deliberately configured).
 - \`home.store.ts\` owns shared Home client state; slot-private state stays inside
   that slot's folder and never leaks to a parent or sibling.
+- If Home grows, use \`srijika add behavior-hook <Behavior> --in src/features/home\`
+  or \`srijika add store-slice <Concern> --in src/features/home\`. Srijika moves
+  the public gateway into \`hooks/useHome.ts\` or \`stores/home.store.ts\`,
+  rewires imports, removes the root copy, and creates the owner-prefixed private
+  file. Flat and expanded layouts never coexist.
 - Srijika Studio derives hierarchy, Inspector, and diagnostics from the UI source;
   generated IR is never a second persisted source. In an attached desktop project,
   Start App runs this real Vite application and UI Source selection renders the
@@ -324,13 +364,25 @@ the same folder in VS Code to edit its source.
 
 - Open **Structure** in Srijika Studio to see the Feature → Slot → Part ownership
   model and its allowed import directions.
-- Select a feature to add an optional Connector, Store, Hook, or named Slot.
-- Select a slot to add its optional Connector, Store, Hook, or private Part.
+- Select a feature to add optional Hook, Store, Logic, API, Types, or a named Slot;
+  its required UI + Connector pair is always present.
+- Select a slot to add those optional capabilities or a private Part; its required
+  UI + Connector pair is always present too.
 - Srijika creates canonical typed files without overwriting existing source, then
   refreshes the project tree. Manual coding remains in VS Code and Studio watches
   the same project folder for changes.
 - Move deliberately cross-feature code to \`src/shared\`; never import a slot's
   private store, hook, or part from its parent, sibling, or another feature.
+- Create strict Shared owners from the canonical root:
+  - \`srijika add shared-ui ActionButton --in src/shared --types\`
+  - \`srijika add shared-widget UserMenu --in src/shared --hook --store --types\`
+  - \`srijika add shared-capability Auth --in src/shared --hook --api --types\`
+  Shared UI is pure UI + optional Types, Widgets require UI + Connector, and
+  headless Capabilities require at least one Hook/Store/Logic/API gateway.
+  Shared never imports Features; consumers enter through primitive UI, Widget
+  Connector, or the Capability's highest available runtime gateway. Types remain
+  passive: use only \`import type\` / \`export type\`; never export runtime values
+  from a \`*.types.ts\` file.
 
 ## VS Code setup
 
@@ -356,6 +408,8 @@ the pinned toolchain:
 \`pnpm dev\`
 
 \`pnpm typecheck\` checks TypeScript and \`pnpm build\` creates a production build.
+React Query is intentionally absent from the default starter; pass
+\`--react-query\` to \`srijika create\` or \`srijika init\` only when the project needs it.
 VS Code users can also run the generated **Srijika: Run App**, **Srijika: Check
 Architecture**, and **Srijika: Build App** tasks without Desktop Studio. Installing
 Studio later requires no migration: open this same project folder.
@@ -391,13 +445,13 @@ Studio later requires no migration: open this same project folder.
       scripts: {
         dev: 'vite',
         'validate:srijika': 'node scripts/srijika-validate.mjs',
-        'mcp:srijika': 'npx -y @srijika/mcp-server@0.1.0 --project .',
+        'mcp:srijika': 'npx -y @srijika/mcp-server@0.2.0 --project .',
         build: 'pnpm run validate:srijika && tsc -p tsconfig.json && vite build',
         preview: 'vite preview',
         typecheck: 'pnpm run validate:srijika && tsc -p tsconfig.json',
       },
       dependencies: {
-        '@tanstack/react-query': versions.tanstackReactQuery,
+        ...(reactQuery ? { '@tanstack/react-query': versions.tanstackReactQuery } : {}),
         react: versions.react,
         'react-dom': versions.react,
         zustand: versions.zustand,
@@ -419,7 +473,9 @@ Studio later requires no migration: open this same project folder.
         toolchain: 'srijika.toolchain.json',
       },
     }),
-    'pnpm-lock.yaml': GENERATED_PNPM_LOCKFILE,
+    'pnpm-lock.yaml': reactQuery
+      ? GENERATED_PNPM_LOCKFILE_WITH_REACT_QUERY
+      : GENERATED_PNPM_LOCKFILE,
     // pnpm 11 reads installation settings from pnpm-workspace.yaml. Hoisted
     // packages are real directories rather than a top-level symlink graph,
     // which keeps React types visible to VS Code across Windows/WSL mounts.
@@ -439,6 +495,9 @@ nodeLinker: hoisted
   <path d="M20 25.5c0-7 5.7-12.5 12.7-12.5H51L42.5 22H32.7a3.5 3.5 0 0 0 0 7h6.6a12.5 12.5 0 1 1 0 25H21l8.5-9h9.8a3.5 3.5 0 1 0 0-7h-6.6C25.7 38 20 32.5 20 25.5Z" fill="url(#orbit)" />
 </svg>
 `),
+    // Keep the canonical Shared creation root visible in fresh Git checkouts.
+    // Shared owners themselves are still created only through validated actions.
+    'src/shared/.gitkeep': '',
     'src/App.tsx': sourceFile(`
 import { HomeConnector } from './features/home/Home.connector';
 
@@ -446,7 +505,9 @@ export function App() {
   return <HomeConnector />;
 }
 `),
-    'src/app/AppProviders.tsx': sourceFile(`
+    ...(reactQuery
+      ? {
+          'src/app/AppProviders.tsx': sourceFile(`
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
@@ -456,7 +517,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 `),
-    'src/app/query-client.ts': sourceFile(`
+          'src/app/query-client.ts': sourceFile(`
 import { QueryClient } from '@tanstack/react-query';
 
 export const queryClient = new QueryClient({
@@ -469,6 +530,8 @@ export const queryClient = new QueryClient({
   },
 });
 `),
+        }
+      : {}),
     'src/features/home/Home.connector.tsx': sourceFile(`
 import { HomeUI } from './Home.ui';
 import { NavigationConnector } from './slots/navigation/Navigation.connector';
@@ -712,7 +775,8 @@ export function HomeUI(props: HomeUIProps) {
   );
 }
 `),
-    'src/main.tsx': sourceFile(`
+    'src/main.tsx': reactQuery
+      ? sourceFile(`
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -734,11 +798,34 @@ createRoot(rootElement).render(
     </AppProviders>
   </StrictMode>,
 );
+`)
+      : sourceFile(`
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+
+import { App } from './App';
+import './srijika/preview-bridge';
+import './styles.css';
+
+const rootElement = document.getElementById('root');
+
+if (rootElement === null) {
+  throw new Error('The root element is missing.');
+}
+
+createRoot(rootElement).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
 `),
     'src/srijika/preview-bridge.ts': sourceFile(`
 // @generated by Srijika Studio. The desktop runtime may replace this infrastructure file.
+// @srijika-config-driven-preview-v2
 import { createElement, StrictMode, type ComponentType, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+
+import projectConfig from '../../srijika.config.json' with { type: 'json' };
 
 const LIVE_PREVIEW_VERSION = 1;
 const SELECT_MESSAGE = 'srijika:preview-select';
@@ -747,8 +834,193 @@ const RUNTIME_STATE_MESSAGE = 'srijika:preview-runtime-state';
 const HIT_TEST_MESSAGE = 'srijika:preview-hit-test';
 const DROP_TARGET_MESSAGE = 'srijika:preview-drop-target';
 const SOURCE_ATTRIBUTE = 'data-srijika-source';
-const UI_SOURCE_PATTERN = /^src\\/[A-Za-z0-9_./ -]+\\.ui\\.tsx$/;
-const SOURCE_LOCATION_PATTERN = /^(src\\/[A-Za-z0-9_./ -]+\\.ui\\.tsx):\\d+:\\d+$/;
+
+interface PreviewArchitecture {
+  sourceRoots: readonly string[];
+  entrySource: string;
+  uiSuffix: string;
+  connectorSuffix: string;
+}
+
+function safeArchitectureRoot(value: unknown, fallback: string, field: string): string {
+  const root = value === undefined ? fallback : value;
+  if (
+    typeof root !== 'string' ||
+    !root ||
+    root.includes('\\0') ||
+    root.includes('\\\\') ||
+    root.startsWith('/') ||
+    root.endsWith('/') ||
+    /^[A-Za-z]:/.test(root)
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  const segments = root.split('/');
+  if (
+    segments.length > 10 ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  return root;
+}
+
+function safeTsxSuffix(value: unknown, fallback: string, field: string): string {
+  const suffix = value === undefined ? fallback : value;
+  if (
+    typeof suffix !== 'string' ||
+    !suffix.startsWith('.') ||
+    !suffix.endsWith('.tsx') ||
+    suffix.includes('\\0') ||
+    suffix.includes('/') ||
+    suffix.includes('\\\\') ||
+    suffix.endsWith('.d.ts') ||
+    suffix.endsWith('.d.tsx')
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  return suffix;
+}
+
+function safeTsSuffix(value: unknown, fallback: string, field: string): string {
+  const suffix = value === undefined ? fallback : value;
+  if (
+    typeof suffix !== 'string' ||
+    !suffix.startsWith('.') ||
+    !suffix.endsWith('.ts') ||
+    suffix.includes('\\0') ||
+    suffix.includes('/') ||
+    suffix.includes('\\\\') ||
+    suffix.endsWith('.d.ts')
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  return suffix;
+}
+
+function safeArchitectureDirectory(value: unknown, fallback: string, field: string): string {
+  const directory = safeArchitectureRoot(value, fallback, field);
+  if (directory.includes('/')) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  return directory;
+}
+
+function assertDistinct(values: readonly string[], label: string): void {
+  if (new Set(values.map((value) => value.toLowerCase())).size !== values.length) {
+    throw new Error('Invalid Srijika preview architecture: ' + label + ' must be distinct.');
+  }
+}
+
+function assertUnambiguousSuffixes(values: readonly string[]): void {
+  const canonical = values.map((value) => value.toLowerCase());
+  if (
+    canonical.some((suffix, index) =>
+      canonical.some((other, otherIndex) => index !== otherIndex && suffix.endsWith(other)),
+    )
+  ) {
+    throw new Error(
+      'Invalid Srijika preview architecture: file suffixes must be distinct and non-overlapping.',
+    );
+  }
+}
+
+function safeEntrySource(value: unknown): string {
+  const entry = value;
+  if (
+    typeof entry !== 'string' ||
+    !entry ||
+    entry.includes('\\0') ||
+    entry.includes('\\\\') ||
+    entry.startsWith('/') ||
+    entry.endsWith('/') ||
+    /^[A-Za-z]:/.test(entry)
+  ) {
+    throw new Error('Invalid Srijika preview entry.');
+  }
+  const segments = entry.split('/');
+  if (
+    segments.length > 32 ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error('Invalid Srijika preview entry.');
+  }
+  return entry;
+}
+
+function previewArchitecture(value: unknown): PreviewArchitecture {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid Srijika preview project config.');
+  }
+  const root = value as Record<string, unknown>;
+  if (root['sourceOfTruth'] !== 'tsx') {
+    throw new Error('Srijika preview sourceOfTruth must be tsx.');
+  }
+  const architectureValue = root['architecture'];
+  if (
+    architectureValue !== undefined &&
+    (!architectureValue || typeof architectureValue !== 'object' || Array.isArray(architectureValue))
+  ) {
+    throw new Error('Invalid Srijika preview architecture object.');
+  }
+  const architecture = (architectureValue ?? {}) as Record<string, unknown>;
+  if (architectureValue !== undefined && architecture['profile'] !== 'feature-slot-part-v1') {
+    throw new Error('Srijika preview requires architecture.profile feature-slot-part-v1.');
+  }
+  for (const field of [
+    'featuresRoot', 'sharedRoot', 'slotsDirectory', 'partsDirectory', 'hooksDirectory',
+    'storesDirectory', 'uiSuffix', 'connectorSuffix', 'storeSuffix', 'logicSuffix',
+    'apiSuffix', 'typesSuffix',
+  ]) {
+    if (architecture[field] !== undefined && typeof architecture[field] !== 'string') {
+      throw new Error('Invalid Srijika preview architecture ' + field + '.');
+    }
+  }
+  const featuresRoot = safeArchitectureRoot(
+    architecture['featuresRoot'],
+    'src/features',
+    'featuresRoot',
+  );
+  const sharedRoot = safeArchitectureRoot(architecture['sharedRoot'], 'src/shared', 'sharedRoot');
+  const canonicalFeaturesRoot = featuresRoot.toLowerCase();
+  const canonicalSharedRoot = sharedRoot.toLowerCase();
+  if (
+    canonicalFeaturesRoot === canonicalSharedRoot ||
+    canonicalFeaturesRoot.startsWith(canonicalSharedRoot + '/') ||
+    canonicalSharedRoot.startsWith(canonicalFeaturesRoot + '/')
+  ) {
+    throw new Error('Srijika preview architecture roots must not overlap.');
+  }
+  const uiSuffix = safeTsxSuffix(architecture['uiSuffix'], '.ui.tsx', 'uiSuffix');
+  const connectorSuffix = safeTsxSuffix(
+    architecture['connectorSuffix'],
+    '.connector.tsx',
+    'connectorSuffix',
+  );
+  const directories = [
+    safeArchitectureDirectory(architecture['slotsDirectory'], 'slots', 'slotsDirectory'),
+    safeArchitectureDirectory(architecture['partsDirectory'], 'parts', 'partsDirectory'),
+    safeArchitectureDirectory(architecture['hooksDirectory'], 'hooks', 'hooksDirectory'),
+    safeArchitectureDirectory(architecture['storesDirectory'], 'stores', 'storesDirectory'),
+  ];
+  const suffixes = [
+    uiSuffix,
+    connectorSuffix,
+    safeTsSuffix(architecture['storeSuffix'], '.store.ts', 'storeSuffix'),
+    safeTsSuffix(architecture['logicSuffix'], '.logic.ts', 'logicSuffix'),
+    safeTsSuffix(architecture['apiSuffix'], '.api.ts', 'apiSuffix'),
+    safeTsSuffix(architecture['typesSuffix'], '.types.ts', 'typesSuffix'),
+  ];
+  assertDistinct(directories, 'directory names');
+  assertUnambiguousSuffixes(suffixes);
+  const entrySource = safeEntrySource(root['entry']);
+  if (!entrySource.endsWith(uiSuffix)) {
+    throw new Error('Srijika preview entry must end with the configured UI suffix.');
+  }
+  return { sourceRoots: [featuresRoot, sharedRoot], entrySource, uiSuffix, connectorSuffix };
+}
+
+const PREVIEW_ARCHITECTURE = previewArchitecture(projectConfig);
 
 type RuntimeState = 'loading' | 'ready' | 'error';
 type RuntimeModule = Record<string, unknown>;
@@ -767,7 +1039,6 @@ interface HitTestMessage {
   y: number;
 }
 
-const connectorModules = import.meta.glob<RuntimeModule>('../**/*.connector.tsx');
 const providerModules = import.meta.glob<RuntimeModule>('../**/AppProviders.{ts,tsx}');
 let runtimeHost: HTMLDivElement | null = null;
 let runtimeRoot: Root | null = null;
@@ -800,12 +1071,33 @@ function isHitTestMessage(value: unknown): value is HitTestMessage {
   );
 }
 
+function isUiSource(value: string): boolean {
+  if (
+    !value ||
+    value.includes('\\0') ||
+    value.includes('\\\\') ||
+    value.startsWith('/') ||
+    value.endsWith('/') ||
+    !value.endsWith(PREVIEW_ARCHITECTURE.uiSuffix)
+  ) {
+    return false;
+  }
+  const segments = value.split('/');
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return false;
+  return (
+    value === PREVIEW_ARCHITECTURE.entrySource ||
+    PREVIEW_ARCHITECTURE.sourceRoots.some((root) => value.startsWith(root + '/'))
+  );
+}
+
 function selectedUiSource(message: SelectedSourceMessage): string | null {
-  if (typeof message.uiSource === 'string' && UI_SOURCE_PATTERN.test(message.uiSource)) {
+  if (typeof message.uiSource === 'string' && isUiSource(message.uiSource)) {
     return message.uiSource;
   }
   if (typeof message.source !== 'string') return null;
-  return SOURCE_LOCATION_PATTERN.exec(message.source)?.[1] ?? null;
+  const location = /^(.*):(\\d+):(\\d+)$/.exec(message.source);
+  const source = location?.[1];
+  return source && isUiSource(source) ? source : null;
 }
 
 function publishRuntimeState(state: RuntimeState, uiSource: string, error?: string): void {
@@ -821,13 +1113,20 @@ function publishRuntimeState(state: RuntimeState, uiSource: string, error?: stri
   );
 }
 
-function connectorModuleKey(uiSource: string): string {
-  return '../' + uiSource.slice('src/'.length).replace(/\\.ui\\.tsx$/, '.connector.tsx');
+function connectorProjectPath(uiSource: string): string {
+  return (
+    uiSource.slice(0, -PREVIEW_ARCHITECTURE.uiSuffix.length) +
+    PREVIEW_ARCHITECTURE.connectorSuffix
+  );
+}
+
+function connectorModuleUrl(uiSource: string): string {
+  return '/' + connectorProjectPath(uiSource).split('/').map(encodeURIComponent).join('/');
 }
 
 function connectorExportName(uiSource: string): string {
   const fileName = uiSource.split('/').at(-1) ?? '';
-  return fileName.replace(/\\.ui\\.tsx$/, '') + 'Connector';
+  return fileName.slice(0, -PREVIEW_ARCHITECTURE.uiSuffix.length) + 'Connector';
 }
 
 function componentExport(module: RuntimeModule, preferredName: string): ComponentType | null {
@@ -913,12 +1212,10 @@ async function renderSelectedConnector(uiSource: string): Promise<void> {
   publishRuntimeState('loading', uiSource);
   const root = ensureRuntimeRoot(uiSource);
   try {
-    const key = connectorModuleKey(uiSource);
-    const loader = connectorModules[key];
-    if (!loader) {
-      throw new Error('Required Connector module was not found at ' + key.slice(3) + '.');
-    }
-    const [module, Provider] = await Promise.all([loader(), providerComponent()]);
+    const [module, Provider] = await Promise.all([
+      import(/* @vite-ignore */ connectorModuleUrl(uiSource)) as Promise<RuntimeModule>,
+      providerComponent(),
+    ]);
     if (generation !== selectionGeneration || activeUiSource !== uiSource) return;
     const Connector = componentExport(module, connectorExportName(uiSource));
     if (!Connector) {
@@ -1722,17 +2019,213 @@ import react, { reactCompilerPreset } from '@vitejs/plugin-react';
 import * as ts from 'typescript';
 import { defineConfig, type Plugin } from 'vite';
 
-function srijikaPreviewSourcePlugin(): Plugin {
+import projectConfig from './srijika.config.json' with { type: 'json' };
+
+interface SrijikaPreviewArchitecture {
+  sourceRoots: readonly string[];
+  entrySource: string;
+  uiSuffix: string;
+}
+
+function safePreviewRoot(value: unknown, fallback: string, field: string): string {
+  const root = value === undefined ? fallback : value;
+  if (
+    typeof root !== 'string' ||
+    !root ||
+    root.includes('\\0') ||
+    root.includes('\\\\') ||
+    root.startsWith('/') ||
+    root.endsWith('/') ||
+    /^[A-Za-z]:/.test(root)
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  const segments = root.split('/');
+  if (
+    segments.length > 10 ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  }
+  return root;
+}
+
+function safePreviewUiSuffix(value: unknown): string {
+  const suffix = value === undefined ? '.ui.tsx' : value;
+  if (
+    typeof suffix !== 'string' ||
+    !suffix.startsWith('.') ||
+    !suffix.endsWith('.tsx') ||
+    suffix.includes('\\0') ||
+    suffix.includes('/') ||
+    suffix.includes('\\\\') ||
+    suffix.endsWith('.d.ts') ||
+    suffix.endsWith('.d.tsx')
+  ) {
+    throw new Error('Invalid Srijika preview architecture uiSuffix.');
+  }
+  return suffix;
+}
+
+function safePreviewTsxSuffix(value: unknown, fallback: string, field: string): string {
+  const suffix = value === undefined ? fallback : value;
+  if (
+    typeof suffix !== 'string' || !suffix.startsWith('.') || !suffix.endsWith('.tsx') ||
+    suffix.includes('\\0') || suffix.includes('/') || suffix.includes('\\\\') ||
+    suffix.endsWith('.d.ts') || suffix.endsWith('.d.tsx')
+  ) throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  return suffix;
+}
+
+function safePreviewTsSuffix(value: unknown, fallback: string, field: string): string {
+  const suffix = value === undefined ? fallback : value;
+  if (
+    typeof suffix !== 'string' || !suffix.startsWith('.') || !suffix.endsWith('.ts') ||
+    suffix.includes('\\0') || suffix.includes('/') || suffix.includes('\\\\') ||
+    suffix.endsWith('.d.ts')
+  ) throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  return suffix;
+}
+
+function safePreviewDirectory(value: unknown, fallback: string, field: string): string {
+  const directory = safePreviewRoot(value, fallback, field);
+  if (directory.includes('/')) throw new Error('Invalid Srijika preview architecture ' + field + '.');
+  return directory;
+}
+
+function assertPreviewDistinct(values: readonly string[], label: string): void {
+  if (new Set(values.map((value) => value.toLowerCase())).size !== values.length) {
+    throw new Error('Invalid Srijika preview architecture: ' + label + ' must be distinct.');
+  }
+}
+
+function assertPreviewUnambiguousSuffixes(values: readonly string[]): void {
+  const canonical = values.map((value) => value.toLowerCase());
+  if (
+    canonical.some((suffix, index) =>
+      canonical.some((other, otherIndex) => index !== otherIndex && suffix.endsWith(other)),
+    )
+  ) {
+    throw new Error(
+      'Invalid Srijika preview architecture: file suffixes must be distinct and non-overlapping.',
+    );
+  }
+}
+
+function safePreviewEntry(value: unknown): string {
+  const entry = value;
+  if (
+    typeof entry !== 'string' ||
+    !entry ||
+    entry.includes('\\0') ||
+    entry.includes('\\\\') ||
+    entry.startsWith('/') ||
+    entry.endsWith('/') ||
+    /^[A-Za-z]:/.test(entry)
+  ) {
+    throw new Error('Invalid Srijika preview entry.');
+  }
+  const segments = entry.split('/');
+  if (
+    segments.length > 32 ||
+    segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    throw new Error('Invalid Srijika preview entry.');
+  }
+  return entry;
+}
+
+function resolvePreviewArchitecture(value: unknown): SrijikaPreviewArchitecture {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid Srijika preview project config.');
+  }
+  const root = value as Record<string, unknown>;
+  if (root['sourceOfTruth'] !== 'tsx') throw new Error('Srijika preview sourceOfTruth must be tsx.');
+  const architectureValue = root['architecture'];
+  if (
+    architectureValue !== undefined &&
+    (!architectureValue || typeof architectureValue !== 'object' || Array.isArray(architectureValue))
+  ) throw new Error('Invalid Srijika preview architecture object.');
+  const architecture = (architectureValue ?? {}) as Record<string, unknown>;
+  if (architectureValue !== undefined && architecture['profile'] !== 'feature-slot-part-v1') {
+    throw new Error('Srijika preview requires architecture.profile feature-slot-part-v1.');
+  }
+  for (const field of [
+    'featuresRoot', 'sharedRoot', 'slotsDirectory', 'partsDirectory', 'hooksDirectory',
+    'storesDirectory', 'uiSuffix', 'connectorSuffix', 'storeSuffix', 'logicSuffix',
+    'apiSuffix', 'typesSuffix',
+  ]) {
+    if (architecture[field] !== undefined && typeof architecture[field] !== 'string') {
+      throw new Error('Invalid Srijika preview architecture ' + field + '.');
+    }
+  }
+  const featuresRoot = safePreviewRoot(
+    architecture['featuresRoot'],
+    'src/features',
+    'featuresRoot',
+  );
+  const sharedRoot = safePreviewRoot(architecture['sharedRoot'], 'src/shared', 'sharedRoot');
+  const canonicalFeaturesRoot = featuresRoot.toLowerCase();
+  const canonicalSharedRoot = sharedRoot.toLowerCase();
+  if (
+    canonicalFeaturesRoot === canonicalSharedRoot ||
+    canonicalFeaturesRoot.startsWith(canonicalSharedRoot + '/') ||
+    canonicalSharedRoot.startsWith(canonicalFeaturesRoot + '/')
+  ) {
+    throw new Error('Srijika preview architecture roots must not overlap.');
+  }
+  const uiSuffix = safePreviewUiSuffix(architecture['uiSuffix']);
+  const connectorSuffix = safePreviewTsxSuffix(
+    architecture['connectorSuffix'], '.connector.tsx', 'connectorSuffix',
+  );
+  assertPreviewDistinct([
+    safePreviewDirectory(architecture['slotsDirectory'], 'slots', 'slotsDirectory'),
+    safePreviewDirectory(architecture['partsDirectory'], 'parts', 'partsDirectory'),
+    safePreviewDirectory(architecture['hooksDirectory'], 'hooks', 'hooksDirectory'),
+    safePreviewDirectory(architecture['storesDirectory'], 'stores', 'storesDirectory'),
+  ], 'directory names');
+  assertPreviewUnambiguousSuffixes([
+    uiSuffix,
+    connectorSuffix,
+    safePreviewTsSuffix(architecture['storeSuffix'], '.store.ts', 'storeSuffix'),
+    safePreviewTsSuffix(architecture['logicSuffix'], '.logic.ts', 'logicSuffix'),
+    safePreviewTsSuffix(architecture['apiSuffix'], '.api.ts', 'apiSuffix'),
+    safePreviewTsSuffix(architecture['typesSuffix'], '.types.ts', 'typesSuffix'),
+  ]);
+  const entrySource = safePreviewEntry(root['entry']);
+  if (!entrySource.endsWith(uiSuffix)) {
+    throw new Error('Srijika preview entry must end with the configured UI suffix.');
+  }
+  return {
+    sourceRoots: [featuresRoot, sharedRoot],
+    entrySource,
+    uiSuffix,
+  };
+}
+
+const previewArchitecture = resolvePreviewArchitecture(projectConfig);
+
+function srijikaPreviewSourcePlugin(architecture: SrijikaPreviewArchitecture): Plugin {
+  let projectRoot = '';
   return {
     name: 'srijika-preview-source-locations',
     apply: 'serve',
     enforce: 'pre',
+    configResolved(config) {
+      projectRoot = config.root.replaceAll('\\\\', '/').replace(/\\/$/, '');
+    },
     transform(source, id) {
       const cleanId = id.split('?', 1)[0]?.replaceAll('\\\\', '/');
-      if (!cleanId?.endsWith('.ui.tsx')) return null;
-      const sourceIndex = cleanId.lastIndexOf('/src/');
-      if (sourceIndex < 0) return null;
-      const relativePath = cleanId.slice(sourceIndex + 1);
+      const projectPrefix = projectRoot + '/';
+      if (!cleanId?.startsWith(projectPrefix)) return null;
+      const relativePath = cleanId.slice(projectPrefix.length);
+      if (
+        !relativePath.endsWith(architecture.uiSuffix) ||
+        (relativePath !== architecture.entrySource &&
+          !architecture.sourceRoots.some((root) => relativePath.startsWith(root + '/')))
+      ) {
+        return null;
+      }
       const sourceFile = ts.createSourceFile(
         cleanId,
         source,
@@ -1776,7 +2269,11 @@ function srijikaPreviewSourcePlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [srijikaPreviewSourcePlugin(), react(), babel({ presets: [reactCompilerPreset()] })],
+  plugins: [
+    srijikaPreviewSourcePlugin(previewArchitecture),
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
+  ],
 });
 `),
   };

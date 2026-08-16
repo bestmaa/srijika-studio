@@ -5,14 +5,27 @@ description: The Feature, Slot, and Part ownership model used by generated Sriji
 
 ## Canonical structure
 
+This tree shows canonical defaults. A valid `architecture` block may override
+the roots, structural directory names, and file suffixes; every Srijika surface
+uses those resolved values.
+
 ```text
 src/
+├─ app/                                  optional application-wide composition
 ├─ features/
 │  └─ dashboard/
 │     ├─ Dashboard.ui.tsx                required
 │     ├─ Dashboard.connector.tsx         required
-│     ├─ useDashboard.ts                 optional Hook
-│     ├─ dashboard.store.ts              optional Store
+│     ├─ useDashboard.ts                 flat Hook gateway (small mode)
+│     ├─ hooks/                          expanded Hook mode (alternative)
+│     │  ├─ useDashboard.ts              only public gateway
+│     │  ├─ useDashboardFilters.ts       private behavior
+│     │  └─ useDashboardSelection.ts     private behavior
+│     ├─ dashboard.store.ts              flat Store gateway (small mode)
+│     ├─ stores/                         expanded Store mode (alternative)
+│     │  ├─ dashboard.store.ts           only public gateway
+│     │  ├─ dashboardFilters.store.ts    private concern
+│     │  └─ dashboardSelection.store.ts  private concern
 │     ├─ dashboard.logic.ts              optional Logic
 │     ├─ dashboard.api.ts                optional API
 │     ├─ dashboard.types.ts              optional owner types
@@ -34,7 +47,28 @@ src/
 │                 ├─ metricCard.logic.ts
 │                 ├─ metricCard.api.ts
 │                 └─ metricCard.types.ts
-└─ shared/
+├─ shared/
+│  ├─ ui/
+│  │  └─ button/
+│  │     ├─ Button.ui.tsx                required pure UI
+│  │     └─ button.types.ts              optional Types
+│  ├─ widgets/
+│  │  └─ user-menu/
+│  │     ├─ UserMenu.ui.tsx              required
+│  │     ├─ UserMenu.connector.tsx       required
+│  │     ├─ useUserMenu.ts               optional Hook
+│  │     ├─ userMenu.store.ts            optional Store
+│  │     ├─ userMenu.logic.ts            optional Logic
+│  │     ├─ userMenu.api.ts              optional API
+│  │     └─ userMenu.types.ts            optional Types
+│  └─ capabilities/
+│     └─ auth/
+│        ├─ useAuth.ts                   optional Hook
+│        ├─ auth.store.ts                optional Store
+│        ├─ auth.logic.ts                optional Logic
+│        ├─ auth.api.ts                  optional API
+│        └─ auth.types.ts                optional Types
+└─ srijika/                               generated Studio/preview integration
 ```
 
 Creating a Feature, Slot, or Part always creates its matching UI and Connector.
@@ -51,12 +85,15 @@ src/features -> New Feature
 Feature root  -> Feature capabilities or New Slot
 Slot root     -> Slot capabilities or New Part
 Part root     -> Part capabilities only
+src/shared    -> Shared UI, Shared Widget, or Shared Headless Capability
 ```
 
 New owners use one normalized PascalCase name. Srijika derives the kebab-case
-folder and exact related file names, always includes UI + Connector, adds only
-the checked optional capabilities, preflights every target, and never
-overwrites. Arbitrary folders and alternate suffixes are not creation targets.
+folder and exact related file names, adds only the valid selected capabilities,
+preflights every target, and never overwrites. Feature, Slot, Part, and Shared
+Widget owners require UI + Connector; Shared UI requires only UI, and a Shared
+Headless Capability has neither. Arbitrary folders and alternate suffixes are
+not creation targets.
 
 ## What each owner means
 
@@ -74,7 +111,18 @@ A Part is a smaller implementation detail belonging to one Slot. Its behavior ch
 
 ### Shared
 
-`src/shared` is deliberate cross-feature code. It is not a shortcut around unclear ownership. Code moves there only when multiple features genuinely share the same stable capability.
+`src/shared` is deliberate cross-feature code. It is not a shortcut around
+unclear ownership. Code moves there only when multiple features genuinely share
+the same stable capability, and it must use one of the three strict shared owner
+kinds below.
+
+### App and Srijika infrastructure
+
+`src/app` is developer-owned application-wide composition such as routing,
+providers, and global bootstrapping. It is created only when needed.
+`src/srijika` is generated integration used by Studio selection and live preview;
+change the Srijika generator rather than hand-editing that folder in every
+project.
 
 ## Progressive behavior chain
 
@@ -96,9 +144,77 @@ An existing intermediate capability may not be skipped. Results return through
 the same path and become typed UI props. `Types` is type-only and is not a
 runtime step.
 
+### Hard UI and Types boundaries
+
+Every file ending in the resolved UI suffix (canonical default `.ui.tsx`) is a behavior-free renderer. It can read typed props, invoke
+an event callback supplied through props, and compose `ReactNode` props. It
+cannot call identifier or property Hooks (`useHome()`, `React.useState()`),
+access browser/runtime APIs (`fetch`, `XMLHttpRequest`, `WebSocket`,
+`localStorage`, `sessionStorage`), import a runtime layer, or own request,
+state, effect, routing, mutation, or business behavior. External state, router,
+request, query-lifecycle, and callable utility modules are also blocked; only
+type-only contracts, styles/assets, safe React JSX support, and JSX-only
+presentational bindings are allowed.
+Those violations use `SRIJIKA4101` /
+`SRIJIKA-ARCH-UI-RUNTIME-IMPORT`.
+
+Only the matching Connector renders an owner UI. Parent and sibling owners
+compose a child Connector, never the child's `.ui.tsx`. Pure UI composition of
+a canonical Shared UI Primitive is the only cross-owner UI exception. A direct
+child UI import fails with `SRIJIKA4116` /
+`SRIJIKA-ARCH-DIRECT-CHILD-UI`.
+
+Every file ending in the resolved Types suffix (canonical default `.types.ts`) is passive. It contains only interfaces, type aliases,
+`import type`, `export type`, and an optional empty `export {}`. It declares no
+runtime value and does not reference one through `typeof`, a computed property,
+or another value expression. Every consumer uses `import type`/`export type`.
+Violations fail with `SRIJIKA4117` / `SRIJIKA-ARCH-PASSIVE-TYPES`.
+
+Logic is framework-free and deterministic. Pure business validation,
+authorization, transforms, aggregation, and API orchestration remain valid,
+but React/Hook, React Query/query-cache, router, and client-state lifecycle fail
+with `SRIJIKA4118` / `SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN`. Those concerns belong
+in Hook, Connector, or Store; request transport belongs in API.
+
+Computed module targets inside governed roots fail with `SRIJIKA4119` /
+`SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT`. Unresolved declared/reserved aliases
+fail with `SRIJIKA4120` / `SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS`. Every
+relative or `src/...` source import from a governed file must resolve to a
+scanned source inside the configured ownership roots or fail with `SRIJIKA4121`
+/ `SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT`; CSS and static assets are exempt.
+
+## When an owner has many Hooks or Stores
+
+Keep exactly one public gateway for each capability. Flat and expanded are
+alternatives, never simultaneous:
+
+```text
+hooks/useDashboard.ts
+  → hooks/useDashboardFilters.ts
+  → hooks/useDashboardSelection.ts
+
+stores/dashboard.store.ts
+  → stores/dashboardFilters.store.ts
+  → stores/dashboardSelection.store.ts
+```
+
+Start with the flat gateway only. When a second independent lifecycle/cache
+behavior appears, Srijika atomically moves the gateway into `hooks/`, creates
+the owner-prefixed helper, rewires imports, and removes the root gateway. Store
+expansion does the same into `stores/` for a second cohesive state concern.
+Both migrations scan and rewire the complete bounded TS/JS project—not only the
+Feature/Shared roots—before removing the flat gateway. Unsafe entries,
+symlinks, nested-project ambiguity, stale source, truncation, or a byte-limit
+failure abort before any write.
+Only `hooks/useDashboard.ts` is callable by the Connector in expanded mode, and
+only `stores/dashboard.store.ts` may compose private Store concerns. Child
+owners and siblings must use the public gateway or promote genuinely shared
+state upward. These folders stay one level deep; mixed modes, `index.ts`,
+alternate names, and arbitrary nested folders fail validation.
+
 The responsibilities remain narrow:
 
-- Hook: React lifecycle, TanStack Query, server cache, retry, and mutations.
+- Hook: React lifecycle and optional TanStack Query server cache, retry, and mutations.
 - Store: shared client state, selectors, and synchronous transitions.
 - Logic: business rules, validation, transformation, and orchestration.
 - API: HTTP transport and request/response parsing.
@@ -123,6 +239,111 @@ two Slots need it       → their Feature root
 two Features need it    → src/shared
 ```
 
+## The three shared owner kinds
+
+### Shared UI Primitive
+
+Use `src/shared/ui/<name>/` for Button, Input, Modal, Spinner, and similar pure
+visual pieces. UI is required; Types is optional. Connector, Hook, Store, Logic,
+and API are forbidden. Every value and event arrives through typed props. A
+pure UI may import this public UI boundary directly.
+
+### Shared Widget
+
+Use `src/shared/widgets/<name>/` for reusable visual behavior such as UserMenu,
+NotificationBell, or FileUploader. UI + Connector are required. Hook, Store,
+Logic, API, and Types are optional. Consumers compose only the Connector. Hook
+and Store use the same flat-to-folder expansion and single public gateway as a
+Feature, Slot, or Part.
+
+### Shared Headless Capability
+
+Use `src/shared/capabilities/<name>/` for authentication/session, permissions,
+analytics, or a common HTTP boundary. UI and Connector are forbidden. Choose
+Hook, Store, Logic, API, and optional Types, with at least one runtime layer.
+Types alone is invalid. Consumers use only the highest available public
+boundary: Hook, otherwise Store, otherwise Logic, otherwise API.
+
+Shared code never imports `src/features`. Feature consumers never import a
+private shared helper or skip an existing shared layer. Only `shared/ui`,
+`shared/widgets`, and `shared/capabilities` are accepted; freehand `utils`,
+`common`, barrels, alternate names, and deeper folders fail validation. Every
+owner folder uses its exact derived kebab-case spelling. Runtime dependencies
+between Shared owners must remain acyclic; type-only edges are passive and do
+not form runtime cycles.
+
+The stable shared rule IDs are
+`SRIJIKA-ARCH-SHARED-REVERSE-DEPENDENCY`,
+`SRIJIKA-ARCH-SHARED-PRIVATE-IMPORT`, and
+`SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY`.
+
+```bash
+npx @srijika/cli add shared-ui Button --types
+npx @srijika/cli add shared-widget UserMenu --hook --store --logic --api --types
+npx @srijika/cli add shared-capability Auth --hook --store --logic --api --types
+```
+
+CLI, VS Code, Studio, and MCP preview and apply the same canonical plan.
+
+## React Query is optional
+
+The default project is minimal: no TanStack Query dependency, QueryClient, or
+Provider is generated. Opt in only for server caching and mutation lifecycle:
+
+```bash
+npm create srijika@latest my-app -- --react-query
+```
+
+Ordinary Hooks, local state, Stores, Logic, and API files do not require React
+Query. Runtime selection (Node or Bun) is a separate decision.
+
+## Safe custom paths and suffixes
+
+The `architecture` object in `srijika.config.json` may customize Feature/Shared
+roots, Slot/Part/Hook/Store directory names, and the canonical UI, Connector,
+Store, Logic, API, and Types suffixes. The same safety contract applies on every
+surface:
+
+- roots are project-relative, at most 10 segments, and non-overlapping;
+- structural directory names are case-insensitively distinct single segments;
+- suffixes are case-insensitively distinct, non-overlapping basename-only
+  `.tsx`/`.ts` values and never `.d.ts`/`.d.tsx`;
+- traversal, absolute paths, backslashes, empty/`.`/`..` segments, and overlap
+  are rejected; and
+- readers/writers reject symlinked roots, configs, source files, and scope
+  ancestors before filesystem access.
+
+The project object itself requires `"sourceOfTruth": "tsx"` and a normalized
+project-relative `entry` ending in the resolved UI suffix. That authoritative
+entry is strictly validated and counted even outside ownership roots. Architecture is
+optional, but when present it has exact profile plus twelve supported override
+fields: `featuresRoot`, `sharedRoot`, `slotsDirectory`, `partsDirectory`,
+`hooksDirectory`, `storesDirectory`, `uiSuffix`, `connectorSuffix`,
+`storeSuffix`, `logicSuffix`, `apiSuffix`, and `typesSuffix`.
+
+Omitting `architecture` uses the canonical defaults. Supplying it requires the
+exact `feature-slot-part-v1` profile; a missing or unsupported profile fails
+closed on generated validation, CLI, VS Code, Studio, and MCP. The generated
+validator reads current config on every run. `check --watch` uses a filtered
+project-root watcher for config, root `tsconfig.json`, entry, resolved roots,
+and future-root ancestors, staying alive through temporarily invalid config.
+Exact-file/safe-move previews come from the canonical planner with those
+resolved names.
+
+Root `tsconfig.json` is parsed as JSONC. `extends` is rejected, `references`
+must be absent or empty, and `compilerOptions.baseUrl` must be omitted. Srijika
+accepts exact or slash-delimited terminal `/*` `compilerOptions.paths`, uses the
+first in-project target, and recognizes generated `@/`, `@features/`, and
+`@shared/` aliases. Unresolved
+reserved `~/`, `#...`, `@app`, and `@src` imports fail closed. An alias declared
+only in Vite is unsupported until it is also declared in `tsconfig.json`.
+
+The exact safety budgets are 64 KiB for `srijika.config.json`, 1 MiB for
+`tsconfig.json`, and—per complete validation/migration corpus—4,096 TS/JS
+sources, 32,768 entries, 4,096 directories, depth 32, 4 MiB per source, and
+24 MiB total. Studio also uses the configured entry, UI suffix, and Connector
+suffix in its managed live preview.
+
 ## Intelligent guidance
 
 Structural no-jump and ownership violations are errors. Complexity guidance is
@@ -132,15 +353,22 @@ deterministic v1 and non-blocking:
 - recommend Hook for cache/retry/polling/subscriptions, two async handlers, or three React lifecycle Hooks;
 - recommend Store when state is shared by two descendants, crosses two ownership boundaries, or reaches four related local fields;
 - recommend Hook above Store at five Store selectors/actions or when Store actions absorb async lifecycle/cache;
-- recommend promotion when siblings duplicate or import one private capability.
+- emit `SRIJIKA-ARCH-RECOMMEND-PROMOTE-OWNER` with `owner-consumers=2`
+  evidence on the blocking private-ownership diagnostic when a private runtime
+  capability crosses an owner boundary; and
+- emit `SRIJIKA-ARCH-RECOMMEND-SPLIT-OWNER` as non-blocking `SRIJIKA4202` only
+  above 200 UI-function lines, 300 UI-file lines, or 16 contract members.
 
 The complete contract, diagrams, stable recommendation IDs, and diagnostics are
 available in the canonical [Feature, Slot, and Part Architecture](/reference/feature_slot_part_architecture/) reference.
 
 ## Complexity limits
 
-- Maximum 200 meaningful lines in the exported UI function.
-- Maximum 300 meaningful lines in one `.ui.tsx` file.
-- Maximum 16 top-level contract members across data, events, and slots.
+There is no application-wide Feature, Slot, Part, file, or line-count limit.
+The guardrails keep each public UI owner reviewable:
+
+- Maximum 200 meaningful lines in the exported UI function; split starts at 201.
+- Maximum 300 meaningful lines in one resolved-UI-suffix source; split starts at 301.
+- Maximum 16 top-level contract members across data, events, and slots; split starts at 17.
 
 When UI exceeds a limit, extract a meaningful slot or part. When state crosses an ownership boundary, promote its owner instead of bypassing the architecture.

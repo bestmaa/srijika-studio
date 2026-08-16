@@ -7,7 +7,7 @@ import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
 
 ## Create an application
 
-Node.js 22.13 or newer is the only required runtime. From any parent directory,
+Node.js 22.13.0 or newer is the only required runtime. From any parent directory,
 run:
 
 ```bash
@@ -25,6 +25,13 @@ For CI or a terminal-only setup that must not open another application:
 
 ```bash
 npm create srijika@latest my-app -- --no-open
+```
+
+The starter is minimal and does not include TanStack Query by default. Opt in
+only when the application needs server caching or mutation lifecycle:
+
+```bash
+npm create srijika@latest my-app -- --react-query
 ```
 
 <LinkButton href="/docs/cli-runtime/">Open the complete CLI guide</LinkButton>
@@ -70,10 +77,15 @@ pairs and the progressive Connector → Hook → Store → Logic → API chain.
 npx @srijika/cli add feature Dashboard --hook --store --logic --api --types
 npx @srijika/cli add slot Summary --in src/features/dashboard --hook --logic
 npx @srijika/cli add part MetricCard --in src/features/dashboard/slots/summary --types
+npx @srijika/cli add shared-ui Button --types
+npx @srijika/cli add shared-widget UserMenu --hook --store
+npx @srijika/cli add shared-capability Auth --hook --store --logic --api --types
 ```
 
 Use `--dry-run` to inspect the exact file plan before writing it. Existing files
-are never silently overwritten.
+are never silently overwritten. Shared creation is limited to pure UI,
+UI+Connector Widget, or UI-less Headless Capability owners; arbitrary shared
+folders are rejected.
 
 ## Develop Srijika Studio itself
 
@@ -82,7 +94,7 @@ repository—not for developers creating an application with the public CLI.
 
 ### Toolchain
 
-- Node.js 22.22.1 (minimum declared version: 22.13)
+- Node.js 22.22.1 (minimum declared and release-CI-tested version: 22.13.0)
 - pnpm 11.18.0
 - TypeScript 6.0.3
 - React 19.2.8

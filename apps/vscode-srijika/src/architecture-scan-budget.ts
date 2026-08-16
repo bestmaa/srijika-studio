@@ -55,3 +55,18 @@ export function selectArchitectureScanBudget<T>(
     acceptedBytes,
   };
 }
+
+/** A strict architecture result is valid only when the entire selected corpus was inspected. */
+export function assertCompleteArchitectureScanBudget<T>(
+  selection: ArchitectureBudgetSelection<T>,
+): void {
+  if (
+    selection.skippedByFileLimit > 0 ||
+    selection.skippedOversized > 0 ||
+    selection.skippedByTotalLimit > 0
+  ) {
+    throw new Error(
+      'Srijika architecture check failed closed because source files were omitted by a file or byte safety limit.',
+    );
+  }
+}

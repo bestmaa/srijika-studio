@@ -29,8 +29,8 @@ sequenceDiagram
   User->>Studio: Start App
   Studio->>Vite: build, start, wait for loopback readiness
   Vite-->>Studio: ready URL
-  Studio->>Bridge: selected .ui.tsx path + source marker
-  Bridge->>Connector: dynamic import matching .connector.tsx
+  Studio->>Bridge: selected configured-UI path + source marker
+  Bridge->>Connector: Vite import using configured Connector suffix
   Connector-->>Bridge: real Provider/Hook/Store/Logic/API render
   Bridge-->>Studio: loading / ready / error
   User->>Connector: click rendered element
@@ -39,8 +39,9 @@ sequenceDiagram
 ```
 
 Studio starts one project process. Changing UI Sources does not restart Vite.
-The development bridge uses a static `import.meta.glob` pattern so Vite owns
-module transforms, dependency resolution, React Fast Refresh, and HMR.
+The development bridge converts the validated configured UI path into a
+same-project Vite module URL, so Vite owns module transforms, dependency
+resolution, React Fast Refresh, and HMR.
 
 ## Connector resolution
 
@@ -59,6 +60,15 @@ src/features/dashboard/Dashboard.connector.tsx
 and expects `DashboardConnector`, with a single Connector/default export as a
 compatibility fallback. A missing or invalid Connector is shown as a real live
 runtime error and reported to Studio; the derived renderer is not substituted.
+
+Those names are canonical defaults, not hardcoded preview rules. The bridge
+reads `srijika.config.json`, requires its normalized `entry`, and uses resolved
+`featuresRoot`, `sharedRoot`, `uiSuffix`, and `connectorSuffix`. For example,
+selecting `application/modules/home/Home.view.tsx` in a project configured with
+`.view.tsx` and `.gateway.tsx` imports
+`application/modules/home/Home.gateway.tsx`. The configured entry is the initial
+Studio source and remains a valid live-preview selection even when it is outside
+the default `src/features` spelling.
 
 If the project exposes `AppProviders`, the selected Connector is wrapped with
 it. This keeps QueryClient and other project providers active. The Connector
@@ -90,7 +100,9 @@ browser renders the application's regular entry experience.
 New projects contain the current generated bridge. Immediately before the
 required start-time build, native Studio atomically upgrades only a recognizable
 older Srijika-generated `src/srijika/preview-bridge.ts`. Missing, symlinked, or
-custom application-owned files are never overwritten.
+custom application-owned files are never overwritten. The upgraded bridge is
+config-driven, so valid entry or suffix changes do not require regenerating the
+project.
 
 If a project does not acknowledge the runtime protocol within five seconds,
 Studio labels the bridge unavailable instead of claiming that source switching

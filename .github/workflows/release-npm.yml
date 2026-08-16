@@ -6,6 +6,8 @@ on:
       - '.github/workflows/release-npm.yml'
       - 'packages/cli/**'
       - 'packages/create-srijika/**'
+      - 'packages/architecture-rules/**'
+      - 'packages/developer-engine/**'
       - 'packages/mcp-server/**'
       - 'packages/project-scaffold/**'
       - 'scripts/*npm*.mjs'
@@ -31,8 +33,14 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify release artifacts
+    name: Verify release artifacts (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node:
+          - '22.13.0'
+          - '24'
     permissions:
       contents: read
     env:
@@ -47,7 +55,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: '24'
+          node-version: ${{ matrix.node }}
           package-manager-cache: false
 
       - name: Install frozen workspace
@@ -59,6 +67,12 @@ jobs:
       - name: Run regression suite
         run: pnpm test
 
+      - name: Run generated-project install and build smoke
+        if: matrix.node == '24'
+        env:
+          SRIJIKA_RUN_GENERATED_PROJECT_SMOKE: '1'
+        run: pnpm --filter @srijika/project-scaffold test
+
       - name: Build public packages
         run: pnpm release:build
 
@@ -66,7 +80,7 @@ jobs:
         run: pnpm --filter create-srijika test
 
       - name: Test MCP package transports
-        run: pnpm test:mcp:stdio && pnpm test:mcp:code
+        run: pnpm test:mcp:stdio && pnpm test:mcp:isolated && pnpm test:mcp:code
 
       - name: Verify package metadata and tarball contents
         run: pnpm release:verify
@@ -102,7 +116,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and re-verify release artifacts
-        run: pnpm release:build && pnpm release:verify
+        run: pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify
 
       - name: Publish CLI, MCP server, and create launcher
         run: pnpm release:publish

@@ -40,9 +40,11 @@ describe('createSrijikaProjectFileMap', () => {
       'src/features/home/slots/navigation/Navigation.ui.tsx',
     ]);
     expect(first['src/App.tsx']).toContain('<HomeConnector />');
-    expect(first['src/main.tsx']).toContain('<AppProviders>');
-    expect(first['src/app/AppProviders.tsx']).toContain('QueryClientProvider');
-    expect(first['src/app/query-client.ts']).toContain('new QueryClient');
+    expect(first['src/main.tsx']).toContain('<App />');
+    expect(first['src/main.tsx']).not.toContain('AppProviders');
+    expect(first['src/app/AppProviders.tsx']).toBeUndefined();
+    expect(first['src/app/query-client.ts']).toBeUndefined();
+    expect(first['src/shared/.gitkeep']).toBe('');
     expect(first['src/features/home/Home.ui.tsx']).toContain(
       'Build React interfaces with a clear thread',
     );
@@ -50,6 +52,20 @@ describe('createSrijikaProjectFileMap', () => {
     expect(first['src/styles.css']).toContain('@media (max-width: 680px)');
     expect(first['src/styles.css']).toContain('@media (prefers-reduced-motion: reduce)');
     expect(first['public/srijika-mark.svg']).toContain('linearGradient');
+  });
+
+  it('adds TanStack React Query only when explicitly requested', () => {
+    const files = createSrijikaProjectFileMap({ reactQuery: true });
+    const packageMetadata = JSON.parse(files['package.json'] ?? '{}') as {
+      dependencies: Record<string, string>;
+    };
+
+    expect(packageMetadata.dependencies['@tanstack/react-query']).toBe('5.101.4');
+    expect(files['src/main.tsx']).toContain("import { AppProviders } from './app/AppProviders';");
+    expect(files['src/main.tsx']).toContain('<AppProviders>');
+    expect(files['src/app/AppProviders.tsx']).toContain('QueryClientProvider');
+    expect(files['src/app/query-client.ts']).toContain('new QueryClient');
+    expect(files['pnpm-lock.yaml']).toContain("'@tanstack/react-query':");
   });
 
   it('pins a portable toolchain and frozen pnpm lockfile without version ranges', () => {
@@ -91,14 +107,13 @@ describe('createSrijikaProjectFileMap', () => {
       Object.values({ ...packageMetadata.dependencies, ...packageMetadata.devDependencies }),
     ).not.toContainEqual(expect.stringMatching(/^[*~^]|^(?:file|link|workspace):/));
     expect(packageMetadata.dependencies).toEqual({
-      '@tanstack/react-query': '5.101.4',
       react: '19.2.8',
       'react-dom': '19.2.8',
       zustand: '5.0.14',
     });
     expect(packageMetadata.scripts['validate:srijika']).toBe('node scripts/srijika-validate.mjs');
     expect(packageMetadata.scripts['mcp:srijika']).toBe(
-      'npx -y @srijika/mcp-server@0.1.0 --project .',
+      'npx -y @srijika/mcp-server@0.2.0 --project .',
     );
     expect(packageMetadata.scripts['typecheck']).toContain('validate:srijika');
     expect(packageMetadata.scripts['build']).toContain('validate:srijika');
@@ -140,11 +155,20 @@ describe('createSrijikaProjectFileMap', () => {
         },
       }),
     );
-    expect(files['.mcp.json']).toContain('@srijika/mcp-server@0.1.0');
+    expect(files['.mcp.json']).toContain('@srijika/mcp-server@0.2.0');
     expect(files['.vscode/mcp.json']).toContain('${workspaceFolder}');
     expect(files['.vscode/tasks.json']).toContain('Srijika: Run App');
     expect(files['AGENTS.md']).toContain('srijika_plan_code_structure');
+    expect(files['AGENTS.md']).toContain('`src/shared` has exactly three owner shapes');
+    expect(files['AGENTS.md']).toContain('Shared never imports `src/features`');
+    expect(files['AGENTS.md']).toContain('explicit `--react-query`');
+    expect(files['README.md']).toContain('srijika add shared-ui ActionButton');
+    expect(files['README.md']).toContain('srijika add shared-widget UserMenu');
+    expect(files['README.md']).toContain('srijika add shared-capability Auth');
+    expect(files['README.md']).toContain('React Query is intentionally absent');
     expect(lockfile.startsWith("lockfileVersion: '9.0'\n")).toBe(true);
+    expect(lockfile).not.toContain('@tanstack/react-query');
+    expect(lockfile).not.toContain('@tanstack/query-core');
     expect(lockfile).toContain('specifier: 19.2.8');
     expect(lockfile).toContain("'@babel/core@8.0.1':");
     expect(lockfile).not.toMatch(
@@ -165,16 +189,29 @@ describe('createSrijikaProjectFileMap', () => {
     const files = createSrijikaProjectFileMap();
 
     expect(files['vite.config.ts']).toContain("apply: 'serve'");
-    expect(files['vite.config.ts']).toContain("endsWith('.ui.tsx')");
+    expect(files['vite.config.ts']).toContain(
+      "import projectConfig from './srijika.config.json' with { type: 'json' }",
+    );
+    expect(files['vite.config.ts']).toContain('relativePath.endsWith(architecture.uiSuffix)');
+    expect(files['vite.config.ts']).toContain('relativePath !== architecture.entrySource');
+    expect(files['vite.config.ts']).toContain('architecture.sourceRoots.some');
     expect(files['vite.config.ts']).toContain('data-srijika-source');
     expect(files['src/main.tsx']).toContain("import './srijika/preview-bridge';");
     expect(files['src/srijika/preview-bridge.ts']).toContain('srijika:preview-select');
     expect(files['src/srijika/preview-bridge.ts']).toContain('srijika:preview-runtime-state');
+    expect(files['src/srijika/preview-bridge.ts']).toContain('@srijika-config-driven-preview-v2');
     expect(files['src/srijika/preview-bridge.ts']).toContain(
-      "import.meta.glob<RuntimeModule>('../**/*.connector.tsx')",
+      "import projectConfig from '../../srijika.config.json' with { type: 'json' }",
+    );
+    expect(files['src/srijika/preview-bridge.ts']).toContain('PREVIEW_ARCHITECTURE.uiSuffix');
+    expect(files['src/srijika/preview-bridge.ts']).toContain(
+      'value === PREVIEW_ARCHITECTURE.entrySource',
     );
     expect(files['src/srijika/preview-bridge.ts']).toContain(
-      ".replace(/\\.ui\\.tsx$/, '.connector.tsx')",
+      'PREVIEW_ARCHITECTURE.connectorSuffix',
+    );
+    expect(files['src/srijika/preview-bridge.ts']).toContain(
+      'import(/* @vite-ignore */ connectorModuleUrl(uiSource))',
     );
     expect(files['src/srijika/preview-bridge.ts']).toContain('if (!import.meta.env.DEV');
   });
@@ -256,9 +293,11 @@ describe('createSrijikaProjectFileMap', () => {
       architecture: {
         profile: 'feature-slot-part-v1',
         featuresRoot: 'src/features',
+        sharedRoot: 'src/shared',
         slotsDirectory: 'slots',
         partsDirectory: 'parts',
         hooksDirectory: 'hooks',
+        storesDirectory: 'stores',
       },
       project: {
         name: 'srijika-dashboard',
@@ -300,6 +339,9 @@ describe('createSrijikaProjectFileMap', () => {
     );
     expect(() => createSrijikaProjectFileMap({ vscodeExtensionId: 'missing-publisher' })).toThrow(
       /vscodeExtensionId/,
+    );
+    expect(() => createSrijikaProjectFileMap({ reactQuery: 'yes' as unknown as boolean })).toThrow(
+      /reactQuery/,
     );
   });
 });
@@ -365,7 +407,9 @@ describe('writeSrijikaProject', () => {
 
     expect(result.absoluteTarget).toBe(target);
     expect(result.files).toContain('src/features/home/Home.ui.tsx');
+    expect(result.files).toContain('src/shared/.gitkeep');
     expect(result.files).toContain('pnpm-lock.yaml');
+    await expect(readFile(join(target, 'src/shared/.gitkeep'), 'utf8')).resolves.toBe('');
     await expect(readFile(join(target, 'srijika.config.json'), 'utf8')).resolves.toContain(
       '"sourceOfTruth": "tsx"',
     );

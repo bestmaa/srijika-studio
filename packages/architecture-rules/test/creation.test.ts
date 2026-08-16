@@ -6,6 +6,7 @@ import {
   srijikaFolderName,
   srijikaStructureCreationActionsForOwner,
   SRIJIKA_OWNER_FILE_CONTRACT,
+  SRIJIKA_SHARED_FILE_CONTRACT,
 } from '../src';
 
 describe('strict Srijika structure creation contract', () => {
@@ -30,6 +31,14 @@ describe('strict Srijika structure creation contract', () => {
     expect(
       resolveSrijikaStructureOwner('src/features/audit-dashboard/slots/navigation/parts'),
     ).toBeNull();
+    expect(resolveSrijikaStructureOwner('src/features/AuditDashboard')).toBeNull();
+    expect(resolveSrijikaStructureOwner('src/features/audit_dashboard')).toBeNull();
+    expect(
+      resolveSrijikaStructureOwner('src/features/audit-dashboard/slots/MainNavigation'),
+    ).toBeNull();
+    expect(
+      resolveSrijikaStructureOwner('src/features/audit-dashboard/slots/navigation/parts/User_Menu'),
+    ).toBeNull();
   });
 
   it('exposes only the allowed actions at each owner boundary', () => {
@@ -43,7 +52,9 @@ describe('strict Srijika structure creation contract', () => {
     expect(srijikaStructureCreationActionsForOwner(feature)).toEqual([
       'featureConnector',
       'featureHook',
+      'featureBehaviorHook',
       'featureStore',
+      'featureStoreSlice',
       'featureLogic',
       'featureApi',
       'featureTypes',
@@ -76,5 +87,38 @@ describe('strict Srijika structure creation contract', () => {
         featuresRoot: 'app/modules',
       }),
     ).toBeNull();
+  });
+
+  it('resolves only canonical Shared owner categories and exposes deterministic actions', () => {
+    expect(resolveSrijikaStructureOwner('src/shared')).toEqual({
+      level: 'sharedRoot',
+      folder: 'src/shared',
+    });
+    const primitive = resolveSrijikaStructureOwner('src/shared/ui/action-button');
+    const widget = resolveSrijikaStructureOwner('src/shared/widgets/user-menu');
+    const capability = resolveSrijikaStructureOwner('src/shared/capabilities/auth');
+    expect(primitive).toMatchObject({ level: 'sharedUi', sharedName: 'ActionButton' });
+    expect(widget).toMatchObject({ level: 'sharedWidget', sharedName: 'UserMenu' });
+    expect(capability).toMatchObject({ level: 'sharedCapability', sharedName: 'Auth' });
+    expect(resolveSrijikaStructureOwner('src/shared/random/auth')).toBeNull();
+    expect(resolveSrijikaStructureOwner('src/shared/widgets/user-menu/private')).toBeNull();
+    expect(resolveSrijikaStructureOwner('src/shared/ui/ActionButton')).toBeNull();
+    expect(resolveSrijikaStructureOwner('src/shared/widgets/user_menu')).toBeNull();
+    if (!primitive || !widget || !capability) throw new Error('Expected Shared owners.');
+    expect(srijikaStructureCreationActionsForOwner(primitive)).toEqual(['sharedUiTypes']);
+    expect(srijikaStructureCreationActionsForOwner(widget)).toContain('sharedWidgetConnector');
+    expect(srijikaStructureCreationActionsForOwner(capability)).not.toContain(
+      'sharedCapabilityConnector',
+    );
+    expect(SRIJIKA_SHARED_FILE_CONTRACT.capability.minimumRuntimeCapabilities).toBe(1);
+  });
+
+  it('honors a configured Shared root', () => {
+    expect(
+      resolveSrijikaStructureOwner('app/common/widgets/toast', {
+        profile: 'feature-slot-part-v1',
+        sharedRoot: 'app/common',
+      }),
+    ).toMatchObject({ level: 'sharedWidget', sharedName: 'Toast' });
   });
 });

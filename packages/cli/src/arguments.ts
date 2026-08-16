@@ -19,6 +19,7 @@ const BOOLEAN_OPTIONS = new Set([
   'logic',
   'api',
   'types',
+  'react-query',
   'watch',
   'no-install',
   'no-open',

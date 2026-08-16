@@ -12,13 +12,21 @@ describe('Srijika Structure sidebar model', () => {
     'src/features/dashboard/slots/navigation',
     'src/features/dashboard/slots/navigation/parts/user-menu',
     'src/features/dashboard/random-folder',
+    'src/shared/ui/button',
+    'src/shared/widgets/user-menu',
+    'src/shared/capabilities/auth',
+    'src/shared/freehand/nope',
     'src/components/legacy-home',
   ]);
 
-  it('shows only canonical Feature, Slot, and Part owner folders', () => {
+  it('shows only canonical Feature, Slot, Part, and Shared owner folders', () => {
     expect(owners.map(({ relativeFolder }) => relativeFolder)).toEqual([
       'src/features',
+      'src/shared',
       'src/features/dashboard',
+      'src/shared/ui/button',
+      'src/shared/widgets/user-menu',
+      'src/shared/capabilities/auth',
       'src/features/dashboard/slots/navigation',
       'src/features/dashboard/slots/navigation/parts/user-menu',
     ]);
@@ -35,5 +43,46 @@ describe('Srijika Structure sidebar model', () => {
     expect(part && parentSrijikaStructureFolder(part)).toBe(
       'src/features/dashboard/slots/navigation',
     );
+  });
+
+  it('builds Shared UI, Widget, and Headless owners directly below Shared', () => {
+    const shared = owners.find(({ level }) => level === 'sharedRoot');
+    expect(shared && childSrijikaStructureOwners(owners, shared.relativeFolder)).toEqual([
+      expect.objectContaining({ level: 'sharedUi', name: 'Button' }),
+      expect.objectContaining({ level: 'sharedWidget', name: 'UserMenu' }),
+      expect.objectContaining({ level: 'sharedCapability', name: 'Auth' }),
+    ]);
+  });
+
+  it('honors configured Feature and Shared roots', () => {
+    const configured = buildSrijikaStructureTreeOwners(
+      [
+        'product/features/dashboard',
+        'product/features/dashboard/regions/summary',
+        'product/features/dashboard/regions/summary/pieces/card',
+        'common/widgets/toast',
+      ],
+      {
+        featuresRoot: 'product/features',
+        sharedRoot: 'common',
+        slotsDirectory: 'regions',
+        partsDirectory: 'pieces',
+      },
+    );
+    expect(configured.map(({ relativeFolder }) => relativeFolder)).toEqual([
+      'product/features',
+      'common',
+      'product/features/dashboard',
+      'common/widgets/toast',
+      'product/features/dashboard/regions/summary',
+      'product/features/dashboard/regions/summary/pieces/card',
+    ]);
+    const feature = configured.find(({ level }) => level === 'feature');
+    const slot = configured.find(({ level }) => level === 'slot');
+    const part = configured.find(({ level }) => level === 'part');
+    expect(feature && childSrijikaStructureOwners(configured, feature.relativeFolder)).toEqual([
+      slot,
+    ]);
+    expect(slot && childSrijikaStructureOwners(configured, slot.relativeFolder)).toEqual([part]);
   });
 });

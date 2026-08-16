@@ -48,6 +48,8 @@ import {
 } from '../../lib/project-service';
 import {
   analyzeCodeProjectFileMap,
+  architectureConfigFromFileMap,
+  type CodeProjectArchitectureConfig,
   type CodeProjectArchitectureDiagnostic,
 } from '../../lib/architecture-diagnostics';
 import { projectServiceErrorMessage } from '../../lib/error-message';
@@ -92,6 +94,7 @@ const EXTERNAL_SOURCE_POLL_MS = 1_500;
 const NAVIGATOR_ORDER_KEY = 'srijika-studio:navigator-order:v1';
 type NavigatorPanelId = 'project' | 'components' | 'nodes';
 const DEFAULT_NAVIGATOR_ORDER: readonly NavigatorPanelId[] = ['project', 'components', 'nodes'];
+const DEFAULT_ARCHITECTURE_ROOTS: CodeProjectArchitectureConfig = architectureConfigFromFileMap({});
 
 function initialNavigatorOrder(): readonly NavigatorPanelId[] {
   try {
@@ -494,6 +497,9 @@ export function CodeFirstStudio() {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [structureGuideOpen, setStructureGuideOpen] = useState(false);
+  const [architectureRoots, setArchitectureRoots] = useState<CodeProjectArchitectureConfig>(
+    DEFAULT_ARCHITECTURE_ROOTS,
+  );
   const [projectChooserOpen, setProjectChooserOpen] = useState(false);
   const [componentSelectionFile, setComponentSelectionFile] = useState<string | null>(null);
   const [sourceVisible, setSourceVisible] = useState(true);
@@ -600,6 +606,10 @@ export function CodeFirstStudio() {
       ? `${activeUiSourceEntry.relativePath}:${sourceMap.nodes[selectedNodeId].line}:${sourceMap.nodes[selectedNodeId].column}`
       : `${activeUiSourceEntry.relativePath}:1:1`
     : null;
+  const livePreviewUiSources = useMemo(
+    () => projectEntries.filter((entry) => entry.isUiSource).map((entry) => entry.relativePath),
+    [projectEntries],
+  );
   const textDraft =
     textDraftState?.nodeId === selectedNodeId ? textDraftState.value : (selectedLiteralText ?? '');
   const canEditSelectedText = useMemo(() => {
@@ -696,6 +706,7 @@ export function CodeFirstStudio() {
     const currentFiles = browserProjectFilesRef.current;
     if (!currentFiles) {
       clearArchitectureAnalysis();
+      setArchitectureRoots(DEFAULT_ARCHITECTURE_ROOTS);
       return;
     }
     const activeEntry = projectEntryForPath(projectEntries, activeUiSourcePath);
@@ -706,6 +717,7 @@ export function CodeFirstStudio() {
         }
       : currentFiles;
     browserProjectFilesRef.current = nextFiles;
+    setArchitectureRoots(architectureConfigFromFileMap(nextFiles));
     setArchitectureAnalysis(analyzeCodeProjectFileMap(nextFiles));
   }, [
     activeUiSourcePath,
@@ -858,6 +870,9 @@ export function CodeFirstStudio() {
             const architectureFiles: Record<string, string> = {
               'srijika.config.json': loadedArchitecture.configSource,
             };
+            if (loadedArchitecture.tsconfigSource !== undefined) {
+              architectureFiles['tsconfig.json'] = loadedArchitecture.tsconfigSource;
+            }
             for (const architectureSource of loadedArchitecture.sources) {
               architectureFiles[architectureSource.relativePath] = architectureSource.source;
             }
@@ -871,6 +886,7 @@ export function CodeFirstStudio() {
             setArchitectureAnalysis(
               analyzeCodeProjectFileMap(architectureFiles, loadedArchitecture.path),
             );
+            setArchitectureRoots(architectureConfigFromFileMap(architectureFiles));
             architectureTruncated = loadedArchitecture.truncated;
           }
         } catch (error) {
@@ -879,6 +895,7 @@ export function CodeFirstStudio() {
             isProjectSessionCurrent(generation, rootPath)
           ) {
             clearArchitectureAnalysis();
+            setArchitectureRoots(DEFAULT_ARCHITECTURE_ROOTS);
             architectureRefreshError = errorMessage(error);
           }
         }
@@ -1064,7 +1081,12 @@ export function CodeFirstStudio() {
         setMessage(`Created code-first project at ${created.path}`);
       } else {
         const memoryRoot = 'srijika-memory:/srijika-app';
-        const entries = codeProjectEntriesFromFileMap(generated.files, memoryRoot);
+        const generatedArchitecture = architectureConfigFromFileMap(generated.files);
+        const entries = codeProjectEntriesFromFileMap(
+          generated.files,
+          memoryRoot,
+          generatedArchitecture,
+        );
         const activeEntry = entries.find((entry) => entry.relativePath === generated.entryPath);
         browserProjectFilesRef.current = generated.files;
         const browserStyles = generated.files['src/styles.css'];
@@ -1288,9 +1310,11 @@ export function CodeFirstStudio() {
       setMessage('Wait for the active project task to finish before adding a capability.');
       return;
     }
-    const owner = structureOwnerFromFolder(folder);
+    const owner = structureOwnerFromFolder(folder, architectureRoots);
     if (!owner) {
-      setMessage('Select an exact feature, slot, or part owner folder under src/features.');
+      setMessage(
+        `Select ${architectureRoots.featuresRoot}, an exact Feature/Slot/Part owner, ${architectureRoots.sharedRoot}, or an exact Shared owner folder.`,
+      );
       return;
     }
     setStructureDialogOwner(owner);
@@ -1308,7 +1332,9 @@ export function CodeFirstStudio() {
     const createsUi =
       input.capability.kind === 'feature' ||
       input.capability.kind === 'slot' ||
-      input.capability.kind === 'part';
+      input.capability.kind === 'part' ||
+      input.capability.kind === 'sharedUi' ||
+      input.capability.kind === 'sharedWidget';
     if (
       createsUi &&
       useCodeProjectStore.getState().dirty &&
@@ -1333,7 +1359,12 @@ export function CodeFirstStudio() {
       }
 
       const createdUi = created.files.find(
-        (file) => file.role === 'featureUi' || file.role === 'slotUi' || file.role === 'partUi',
+        (file) =>
+          file.role === 'featureUi' ||
+          file.role === 'slotUi' ||
+          file.role === 'partUi' ||
+          file.role === 'sharedUi' ||
+          file.role === 'sharedWidgetUi',
       );
       let previewWarning: string | null = null;
       if (createdUi) {
@@ -1440,7 +1471,8 @@ export function CodeFirstStudio() {
             ...currentFiles,
             [input.relativePath]: pair.uiSource,
           };
-      const nextEntries = codeProjectEntriesFromFileMap(nextFiles);
+      const nextArchitecture = architectureConfigFromFileMap(nextFiles);
+      const nextEntries = codeProjectEntriesFromFileMap(nextFiles, undefined, nextArchitecture);
       const createdEntry = nextEntries.find(
         (entry) => entry.kind === 'file' && entry.relativePath === input.relativePath,
       );
@@ -1488,7 +1520,7 @@ export function CodeFirstStudio() {
     if (!needsUiLoad) {
       if (entry.kind === 'file' && !entry.isUiSource) {
         setMessage(
-          `${entry.relativePath} is selected. Srijika opens .ui.tsx files; edit other project files in VS Code.`,
+          `${entry.relativePath} is selected. Srijika opens ${architectureRoots.uiSuffix} files; edit other project files in VS Code.`,
         );
       }
       return;
@@ -1674,7 +1706,11 @@ export function CodeFirstStudio() {
     }
     if (browserProjectFilesRef.current) {
       replaceProjectIndex({
-        entries: codeProjectEntriesFromFileMap(browserProjectFilesRef.current),
+        entries: codeProjectEntriesFromFileMap(
+          browserProjectFilesRef.current,
+          undefined,
+          architectureConfigFromFileMap(browserProjectFilesRef.current),
+        ),
       });
       setMessage('Refreshed the in-memory project explorer.');
     }
@@ -2065,8 +2101,13 @@ export function CodeFirstStudio() {
 
   const handleLiveComponentDrop = (componentId: string, targetSource: string | null): void => {
     let targetNodeId = visualTargetNodeId;
-    const match = /^(src\/[A-Za-z0-9_./ -]+\.ui\.tsx):(\d+):(\d+)$/.exec(targetSource ?? '');
-    if (match && sourceMap && activeUiSourceEntry?.relativePath === match[1]) {
+    const match = /^([A-Za-z0-9_./ -]+):(\d+):(\d+)$/.exec(targetSource ?? '');
+    if (
+      match &&
+      match[1]?.endsWith(architectureRoots.uiSuffix) &&
+      sourceMap &&
+      activeUiSourceEntry?.relativePath === match[1]
+    ) {
       targetNodeId =
         nodeIdAtSourceLocation(source, sourceMap.nodes, Number(match[2]), Number(match[3])) ??
         targetNodeId;
@@ -2387,12 +2428,13 @@ export function CodeFirstStudio() {
                   truncated={projectIndexTruncated}
                   creationDisabled={projectCreationBlocked}
                   standaloneSourceName={standaloneSourceName}
+                  architectureRoots={architectureRoots}
                   dragHandleProps={navigatorDragHandle('project')}
                   onRefresh={handleRefreshProject}
                   onNewProject={() => void handleNewProject()}
                   onOpenProject={() => void handleOpenProject()}
                   onCreatePage={openCreateUiDialog}
-                  onCreateFeature={() => openCreateStructureDialog('src/features')}
+                  onCreateFeature={() => openCreateStructureDialog(architectureRoots.featuresRoot)}
                   onCreateStructure={
                     desktopMode && projectRoot ? openCreateStructureDialog : undefined
                   }
@@ -2578,6 +2620,8 @@ export function CodeFirstStudio() {
                 <LiveCodeProjectFrame
                   url={liveProjectUrl}
                   selectedSource={selectedLiveSource}
+                  uiSuffix={architectureRoots.uiSuffix}
+                  allowedUiSources={livePreviewUiSources}
                   onSelectSource={(location) => void handleLivePreviewSourceSelection(location)}
                   onRuntimeState={setLivePreviewRuntimeState}
                   dragActive={draggedComponentId !== null}
@@ -2902,12 +2946,13 @@ export function CodeFirstStudio() {
       {settingsOpen && <SettingsDialog open onClose={() => setSettingsOpen(false)} />}
       {structureGuideOpen && (
         <StructureGuideDialog
+          architectureRoots={architectureRoots}
           onClose={() => setStructureGuideOpen(false)}
           onCreateStructure={
             desktopMode && projectRoot
               ? () => {
                   setStructureGuideOpen(false);
-                  openCreateStructureDialog('src/features');
+                  openCreateStructureDialog(architectureRoots.featuresRoot);
                 }
               : undefined
           }
@@ -2916,6 +2961,8 @@ export function CodeFirstStudio() {
       {createDialogRequest && (
         <CreateUiSourceDialog
           initialFolder={createDialogRequest.folder}
+          uiSuffix={architectureRoots.uiSuffix}
+          connectorSuffix={architectureRoots.connectorSuffix}
           existingRelativePaths={projectEntries.map((entry) => entry.relativePath)}
           onClose={closeCreateUiDialog}
           onCreate={handleCreateUiSource}
@@ -2924,6 +2971,7 @@ export function CodeFirstStudio() {
       {structureDialogOwner && (
         <CreateStructureItemDialog
           owner={structureDialogOwner}
+          architectureRoots={architectureRoots}
           existingRelativePaths={projectEntries.map((entry) => entry.relativePath)}
           onClose={() => setStructureDialogOwner(null)}
           onCreate={handleCreateStructure}

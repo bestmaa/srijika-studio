@@ -66,13 +66,13 @@ pnpm tauri dev
 The Tauri window loads the same React editor. Native Open/Save uses the system dialog plugin and narrow Rust commands; browser mode falls back to upload/download. Saved document paths must be absolute and end in `.json`.
 
 Code-first projects are independent directories containing `srijika.config.json` and
-an entry ending in `.ui.tsx`. The desktop shell can scan the project, open validated
+an entry ending in the resolved UI suffix (canonical default `.ui.tsx`). The desktop shell can scan the project, open validated
 locations in VS Code, and manage frozen pnpm install/run/build tasks. Browser mode
 uses an in-memory project and cannot launch native editors or processes.
 
 After a project is attached, **New UI** calls the narrow
 `create_code_project_ui_source` boundary. Native code accepts only a PascalCase
-route page below `src/pages` and atomically creates its required `.ui.tsx`/Connector
+route page below `src/pages` and atomically creates its required UI/Connector
 pair. **New Feature** uses the ownership-aware structure scaffold below
 `src/features/<feature>`. The retired `src/components` feature root is not exposed by
 Studio. General source files are still created in VS Code.

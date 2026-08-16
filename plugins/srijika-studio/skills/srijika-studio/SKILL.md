@@ -1,6 +1,6 @@
 ---
 name: srijika-studio
-description: Build, inspect, scaffold, validate, debug, and preview Srijika React projects through CLI-first project MCP tools and an optional authenticated Studio bridge. Use for Feature/Slot/Part project structure even without Desktop Studio, or for visual document, hierarchy, renderer, and preview work when Studio is running.
+description: Build, inspect, scaffold, validate, debug, and preview Srijika React projects through CLI-first project MCP tools and an optional authenticated Studio bridge. Use for Feature/Slot/Part/strict Shared project structure even without Desktop Studio, or for visual document, hierarchy, renderer, and preview work when Studio is running.
 ---
 
 # Srijika Studio
@@ -64,7 +64,52 @@ Do not request or reproduce the full canonical document unless replacement, migr
 
 Read [document-model.md](references/document-model.md) when constructing expressions, public props, events, styles, or AST nodes. Read [protocol-and-tools.md](references/protocol-and-tools.md) for exact tool behavior and operation examples.
 
-When creating, moving, or reviewing code-first Features, Slots, Parts, Connectors, Hooks, Stores, Logic, APIs, or owner Types, read [code-first-architecture.md](references/code-first-architecture.md). Resolve the exact owner folder through its strict creation matrix before writing: new owners always include UI + Connector, optional capabilities come only from the checked set, paths are preflighted without overwrite, and arbitrary folders or alternate names are forbidden. Apply the highest-available/no-jump chain and nearest-common-owner promotion rules. The same machine-readable contract is available from the read-only MCP resource `srijika://docs/code-first-architecture`.
+When creating, moving, or reviewing code-first Features, Slots, Parts, strict Shared owners, Connectors, Hooks, Stores, Logic, APIs, or owner Types, read [code-first-architecture.md](references/code-first-architecture.md). Resolve the exact owner folder through its strict creation matrix before writing: Feature/Slot/Part and Shared Widget owners always include UI + Connector; Shared UI has pure UI plus optional Types only; Shared Headless Capability forbids UI/Connector and requires at least one runtime layer. Optional capabilities come only from the checked set, paths are preflighted without overwrite, and arbitrary folders or alternate names are forbidden. Apply the highest-available/no-jump chain and nearest-common-owner promotion rules. Shared code never imports Features, and consumers use only public Shared boundaries. The same machine-readable contract is available from the read-only MCP resource `srijika://docs/code-first-architecture`.
+
+Treat every file ending in the resolved UI suffix (canonical default `.ui.tsx`)
+as a behavior-free renderer: only its matching Connector
+renders it, except that pure UIs may compose canonical Shared UI Primitives.
+Never put Hook calls (including `React.useState`), browser/runtime globals
+(including transport, storage, timers, workers, observers, DOM/navigation,
+`window`, `globalThis`, `self`, `process`, `Deno`, or `Bun`), external runtime
+behavior, requests, state, effects, or business behavior in UI. UI
+external imports are limited to types, styles/assets, safe React JSX support,
+and bindings used only as JSX tags. The static asset allowlist is CSS-family,
+image/icon, font, audio, and video extensions documented by the architecture
+resource; do not treat arbitrary data/module extensions as assets. Treat every
+file ending in the resolved Types suffix (canonical default `.types.ts`) as a
+passive contract consumed with `import type`/`export type`; never add runtime
+declarations or runtime-value references. Do not silence
+`SRIJIKA-ARCH-DIRECT-CHILD-UI`/`SRIJIKA4116` or
+`SRIJIKA-ARCH-PASSIVE-TYPES`/`SRIJIKA4117`. Keep Logic framework-free and
+deterministic: retain pure validation, authorization, transforms, aggregation,
+and API orchestration there, but move React/query/router/state lifecycle to
+Hook, Connector, or Store. Never silence
+`SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN`/`SRIJIKA4118`. Resolve custom architecture
+roots, structural directory names, and suffixes through the validated project
+config; reject traversal, overlap, duplicate names/suffixes, suffixes that end
+with another configured suffix, and symlink escapes. Comparisons are
+case-insensitive. When the `architecture` block is absent, use canonical defaults; when
+it exists, require exact profile `feature-slot-part-v1` and fail closed on a
+missing/unsupported profile. Treat generated validation as runtime-config-aware.
+CLI watch is one filtered project-root watcher that reloads config, observes
+config/tsconfig/entry/resolved roots plus future-root ancestors, and stays alive
+through temporarily invalid configuration. Treat VS Code/Studio exact file and
+safe-move previews as canonical planner output—never invent hardcoded
+paths. Require exact `sourceOfTruth: "tsx"`, a configured entry ending in the
+resolved UI suffix, and the full twelve-field architecture surface. The entry
+remains authoritative and strict even when it is outside both ownership roots.
+Parse aliases only from root JSONC `tsconfig.json`: reject `extends`, permit
+only absent/empty `references`, require `compilerOptions.baseUrl` to be omitted,
+and accept only exact or slash-delimited terminal `/*` paths whose first target
+stays inside the project. Never assume a Vite-only alias is portable. Do not silence computed module target
+`SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT`/`SRIJIKA4119` or unresolved local alias
+`SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS`/`SRIJIKA4120`. Require every governed
+relative or `src/...` source import to resolve inside the scanned ownership
+roots; do not silence `SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT`/`SRIJIKA4121`.
+CSS/static assets remain exempt. Honor emitted
+`SRIJIKA-ARCH-RECOMMEND-PROMOTE-OWNER` and
+`SRIJIKA-ARCH-RECOMMEND-SPLIT-OWNER` evidence instead of inventing a bypass.
 
 For structural writes, call `srijika_plan_code_structure` first and review every
 created/updated path. Then pass its one-time `planId` to

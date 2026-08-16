@@ -14,7 +14,15 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
-type GuideSection = 'overview' | 'blueprint' | 'runtime' | 'boundaries' | 'checklist';
+import {
+  DEFAULT_SRIJIKA_ARCHITECTURE,
+  resolveSrijikaArchitectureConfig,
+  type SrijikaArchitectureConfig,
+} from '@srijika/architecture-rules';
+
+import type { CodeProjectArchitectureConfig } from '../../lib/architecture-diagnostics';
+
+type GuideSection = 'overview' | 'blueprint' | 'shared' | 'runtime' | 'boundaries' | 'checklist';
 
 const GUIDE_SECTIONS: readonly {
   id: GuideSection;
@@ -23,6 +31,7 @@ const GUIDE_SECTIONS: readonly {
 }[] = [
   { id: 'overview', label: 'Overview', description: 'The ownership model' },
   { id: 'blueprint', label: 'Blueprint', description: 'Feature, slot, and part files' },
+  { id: 'shared', label: 'Shared', description: 'Cross-feature public owners' },
   { id: 'runtime', label: 'Runtime path', description: 'The progressive capability ladder' },
   { id: 'boundaries', label: 'Boundaries', description: 'Allowed and forbidden access' },
   { id: 'checklist', label: 'Checklist', description: 'What Srijika creates and when' },
@@ -31,6 +40,7 @@ const GUIDE_SECTIONS: readonly {
 interface StructureGuideDialogProps {
   onClose: () => void;
   onCreateStructure?: (() => void) | undefined;
+  architectureRoots?: Partial<SrijikaArchitectureConfig> | undefined;
 }
 
 interface TreeLineProps {
@@ -77,7 +87,7 @@ function AccessMark({ allowed, label }: { allowed: boolean; label: string }) {
   );
 }
 
-function OverviewSection() {
+function OverviewSection({ uiSuffix, storeSuffix }: CodeProjectArchitectureConfig) {
   return (
     <div
       className="code-first-structure-section"
@@ -109,7 +119,7 @@ function OverviewSection() {
           <div>
             <h4>UI stays pure</h4>
             <p>
-              <code>.ui.tsx</code> renders typed props only. Its matching Connector is the only
+              <code>{uiSuffix}</code> renders typed props only. Its matching Connector is the only
               runtime entry allowed to render it.
             </p>
           </div>
@@ -119,8 +129,10 @@ function OverviewSection() {
           <div>
             <h4>Capability creates files</h4>
             <p>
-              UI and Connector establish every owner. Hook, Store, Logic, API, and Types appear only
-              when that owner needs them.
+              UI and Connector establish every visual behavior owner. Hook, Store, Logic, API, and
+              Types appear only when that owner needs them. Shared UI stays pure, while a headless
+              Shared Capability deliberately has no UI or Connector. A second Hook/Store concern
+              moves its gateway into one canonical folder; flat and expanded layouts never coexist.
             </p>
           </div>
         </article>
@@ -145,7 +157,7 @@ function OverviewSection() {
           </div>
         </div>
         <div className="code-first-rule-path" aria-label="Allowed ownership path">
-          <span>home.store.ts</span>
+          <span>{`home${storeSuffix}`}</span>
           <ChevronRight size={15} aria-hidden="true" />
           <span>Navigation Connector</span>
           <ChevronRight size={15} aria-hidden="true" />
@@ -153,7 +165,7 @@ function OverviewSection() {
           <CheckCircle2 size={17} aria-label="Allowed" />
         </div>
         <div className="code-first-rule-path is-forbidden" aria-label="Forbidden sibling import">
-          <span>navigation.store.ts</span>
+          <span>{`navigation${storeSuffix}`}</span>
           <ChevronRight size={15} aria-hidden="true" />
           <span>Header Connector</span>
           <X size={17} aria-label="Not allowed" />
@@ -163,7 +175,19 @@ function OverviewSection() {
   );
 }
 
-function BlueprintSection() {
+function BlueprintSection({
+  featuresRoot,
+  slotsDirectory,
+  partsDirectory,
+  hooksDirectory,
+  storesDirectory,
+  uiSuffix,
+  connectorSuffix,
+  storeSuffix,
+  logicSuffix,
+  apiSuffix,
+  typesSuffix,
+}: CodeProjectArchitectureConfig) {
   return (
     <div
       className="code-first-structure-section"
@@ -191,56 +215,68 @@ function BlueprintSection() {
         <section className="code-first-structure-tree" aria-label="Annotated feature file tree">
           <header>
             <FolderTree size={16} aria-hidden="true" />
-            <strong>src/features/home</strong>
+            <strong>{featuresRoot}/home</strong>
             <span>HOME OWNER SCOPE</span>
           </header>
           <ul aria-label="Annotated feature file tree">
             <TreeLine
               depth={0}
-              name="Home.ui.tsx"
+              name={`Home${uiSuffix}`}
               badge="required"
               note="Pure page layout and typed slot contract"
             />
             <TreeLine
               depth={0}
-              name="Home.connector.tsx"
+              name={`Home${connectorSuffix}`}
               badge="required"
               note="The only runtime entry allowed to render HomeUI"
             />
             <TreeLine
               depth={0}
-              name="useHome.ts"
+              name={`${hooksDirectory}/useHome.ts`}
               badge="conditional"
-              note="Senior React lifecycle, query, cache, and orchestration gateway"
+              note="Expanded public Hook gateway (flat useHome.ts is the small alternative)"
             />
             <TreeLine
               depth={0}
-              name="home.store.ts"
-              badge="conditional"
-              note="Shared client state and actions for the complete Home subtree"
+              name={`${hooksDirectory}/useHomeKeyboard.ts`}
+              badge="private"
+              note="Owner-derived private Hook behavior; one folder level only"
             />
             <TreeLine
               depth={0}
-              name="home.logic.ts"
+              name={`${storesDirectory}/home${storeSuffix}`}
+              badge="conditional"
+              note={`Expanded public Store gateway (flat home${storeSuffix} is the small alternative)`}
+            />
+            <TreeLine
+              depth={0}
+              name={`${storesDirectory}/homeFilters${storeSuffix}`}
+              badge="private"
+              note="Owner-derived private Store concern; composed only by its gateway"
+            />
+            <TreeLine
+              depth={0}
+              name={`home${logicSuffix}`}
               badge="conditional"
               note="Business rules, validation, transformation, and orchestration"
             />
             <TreeLine
               depth={0}
-              name="home.api.ts"
+              name={`home${apiSuffix}`}
               badge="conditional"
               note="HTTP request and response boundary only"
             />
             <TreeLine
               depth={0}
-              name="home.types.ts"
+              name={`home${typesSuffix}`}
               badge="conditional"
               note="Owner-safe contracts shared by the progressive layers"
             />
             <TreeLine
               depth={0}
               icon={<FolderTree size={14} />}
-              name="slots/"
+              name={`${slotsDirectory}/`}
               badge="conditional"
               note="Named visual regions owned by Home"
             />
@@ -253,13 +289,13 @@ function BlueprintSection() {
             />
             <TreeLine
               depth={2}
-              name="Navigation.ui.tsx"
+              name={`Navigation${uiSuffix}`}
               badge="required"
               note="Required after the navigation slot is created"
             />
             <TreeLine
               depth={2}
-              name="Navigation.connector.tsx"
+              name={`Navigation${connectorSuffix}`}
               badge="required"
               note="The only runtime entry allowed to render NavigationUI"
             />
@@ -271,44 +307,44 @@ function BlueprintSection() {
             />
             <TreeLine
               depth={2}
-              name="navigation.store.ts"
+              name={`navigation${storeSuffix}`}
               badge="conditional"
               note="Shared state for Navigation and its parts only"
             />
             <TreeLine
               depth={2}
-              name="navigation.logic.ts"
+              name={`navigation${logicSuffix}`}
               badge="conditional"
               note="Navigation business rules and transformations"
             />
             <TreeLine
               depth={2}
-              name="navigation.api.ts"
+              name={`navigation${apiSuffix}`}
               badge="conditional"
               note="Navigation server communication"
             />
             <TreeLine
               depth={2}
-              name="navigation.types.ts"
+              name={`navigation${typesSuffix}`}
               badge="conditional"
               note="Navigation-owned contracts"
             />
             <TreeLine
               depth={2}
               icon={<FolderTree size={14} />}
-              name="parts/"
+              name={`${partsDirectory}/`}
               badge="conditional"
               note="Meaningful visual units when Navigation grows"
             />
             <TreeLine
               depth={3}
-              name="UserMenu.ui.tsx"
+              name={`UserMenu${uiSuffix}`}
               badge="required"
               note="Required after the UserMenu part is created"
             />
             <TreeLine
               depth={3}
-              name="UserMenu.connector.tsx"
+              name={`UserMenu${connectorSuffix}`}
               badge="required"
               note="The only runtime entry allowed to render UserMenuUI"
             />
@@ -320,25 +356,25 @@ function BlueprintSection() {
             />
             <TreeLine
               depth={3}
-              name="userMenu.store.ts"
+              name={`userMenu${storeSuffix}`}
               badge="conditional"
               note="State private to UserMenu only"
             />
             <TreeLine
               depth={3}
-              name="userMenu.logic.ts"
+              name={`userMenu${logicSuffix}`}
               badge="conditional"
               note="Business behavior private to UserMenu"
             />
             <TreeLine
               depth={3}
-              name="userMenu.api.ts"
+              name={`userMenu${apiSuffix}`}
               badge="conditional"
               note="Server communication private to UserMenu"
             />
             <TreeLine
               depth={3}
-              name="userMenu.types.ts"
+              name={`userMenu${typesSuffix}`}
               badge="conditional"
               note="Contracts private to UserMenu"
             />
@@ -381,12 +417,148 @@ function BlueprintSection() {
             <div>
               <h4>Promotion, never leakage</h4>
               <p>
-                If Header also needs Navigation state, move that state to <code>home.store.ts</code>
-                instead of importing sideways.
+                If Header also needs Navigation state, move that state to{' '}
+                <code>home{storeSuffix}</code> instead of importing sideways.
               </p>
             </div>
           </article>
         </aside>
+      </div>
+    </div>
+  );
+}
+
+function SharedSection({
+  featuresRoot,
+  sharedRoot,
+  uiSuffix,
+  connectorSuffix,
+  typesSuffix,
+}: CodeProjectArchitectureConfig) {
+  return (
+    <div
+      className="code-first-structure-section"
+      id="srijika-guide-shared"
+      role="tabpanel"
+      aria-labelledby="srijika-guide-tab-shared"
+    >
+      <header className="code-first-guide-section-heading">
+        <div>
+          <span className="code-first-dialog-eyebrow">STRICT CROSS-FEATURE OWNERSHIP</span>
+          <h3>Shared has three shapes—no freehand fourth shape.</h3>
+          <p>
+            Promote a module to <code>{sharedRoot}</code> only when at least two Features need it.
+            Shared may serve Features, but it never imports from <code>{featuresRoot}</code>.
+          </p>
+        </div>
+      </header>
+
+      <div className="code-first-checklist-grid">
+        <section>
+          <header>
+            <span>01</span>
+            <div>
+              <h4>Shared UI Primitive</h4>
+              <p>Pure reusable presentation</p>
+            </div>
+          </header>
+          <ul>
+            <ChecklistItem required>
+              <code>
+                {sharedRoot}/ui/button/Button{uiSuffix}
+              </code>
+              <small>Receives values and events only through typed props</small>
+            </ChecklistItem>
+            <ChecklistItem>
+              <code>
+                {sharedRoot}/ui/button/button{typesSuffix}
+              </code>
+              <small>Passive public contracts; no runtime dependency</small>
+            </ChecklistItem>
+            <li>
+              <X size={15} />
+              <span>No Connector, Hook, Store, Logic, API, or Feature import.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <header>
+            <span>02</span>
+            <div>
+              <h4>Shared Widget</h4>
+              <p>Reusable visual behavior</p>
+            </div>
+          </header>
+          <ul>
+            <ChecklistItem required>
+              <code>
+                {sharedRoot}/widgets/profile-card/ProfileCard{uiSuffix}
+              </code>
+              <small>Pure visual contract</small>
+            </ChecklistItem>
+            <ChecklistItem required>
+              <code>ProfileCard{connectorSuffix}</code>
+              <small>Only runtime entry allowed to render ProfileCardUI</small>
+            </ChecklistItem>
+            <ChecklistItem>
+              <code>useProfileCard.ts → store → logic → API</code>
+              <small>Same highest-available and no-jump runtime rule</small>
+            </ChecklistItem>
+          </ul>
+        </section>
+
+        <section>
+          <header>
+            <span>03</span>
+            <div>
+              <h4>Shared Headless Capability</h4>
+              <p>Reusable behavior without visuals</p>
+            </div>
+          </header>
+          <ul>
+            <ChecklistItem required>
+              <code>Hook / Store / Logic / API</code>
+              <small>At least one runtime layer must exist</small>
+            </ChecklistItem>
+            <ChecklistItem>
+              <code>capability{typesSuffix}</code>
+              <small>Optional contracts; Types alone are not a capability</small>
+            </ChecklistItem>
+            <li>
+              <X size={15} />
+              <span>No UI, Connector, or Feature import.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <header>
+            <span>04</span>
+            <div>
+              <h4>Promotion ladder</h4>
+              <p>Smallest common owner wins</p>
+            </div>
+          </header>
+          <ul className="is-rule-list">
+            <li>
+              <CheckCircle2 size={15} />
+              <span>One Part → keep it in that Part.</span>
+            </li>
+            <li>
+              <ArrowUpRight size={15} />
+              <span>Two Parts → promote it to their Slot.</span>
+            </li>
+            <li>
+              <ArrowUpRight size={15} />
+              <span>Two Slots → promote it to their Feature.</span>
+            </li>
+            <li>
+              <ArrowUpRight size={15} />
+              <span>Two Features → promote it to Shared.</span>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
   );
@@ -477,43 +649,45 @@ function RuntimeSection() {
   );
 }
 
-const ACCESS_ROWS = [
-  {
-    module: 'home.store.ts',
-    scope: 'Home subtree',
-    access: [true, true, true, true, true, false],
-  },
-  {
-    module: 'home/hooks/*',
-    scope: 'Home subtree',
-    access: [true, true, true, true, true, false],
-  },
-  {
-    module: 'navigation.store.ts',
-    scope: 'Navigation subtree',
-    access: [false, true, true, true, false, false],
-  },
-  {
-    module: 'navigation/hooks/*',
-    scope: 'Navigation subtree',
-    access: [false, true, true, true, false, false],
-  },
-  {
-    module: 'UserMenu.ui.tsx',
-    scope: 'Public part UI entry',
-    access: [false, true, true, false, false, false],
-  },
-  {
-    module: 'userMenu.store.ts',
-    scope: 'UserMenu only',
-    access: [false, false, true, false, false, false],
-  },
-  {
-    module: 'user-menu/hooks/*',
-    scope: 'UserMenu only',
-    access: [false, false, true, false, false, false],
-  },
-] as const;
+function accessRows({ hooksDirectory, storeSuffix, uiSuffix }: CodeProjectArchitectureConfig) {
+  return [
+    {
+      module: `home${storeSuffix}`,
+      scope: 'Home subtree',
+      access: [true, true, true, true, true, false],
+    },
+    {
+      module: `home/${hooksDirectory}/*`,
+      scope: 'Home subtree',
+      access: [true, true, true, true, true, false],
+    },
+    {
+      module: `navigation${storeSuffix}`,
+      scope: 'Navigation subtree',
+      access: [false, true, true, true, false, false],
+    },
+    {
+      module: `navigation/${hooksDirectory}/*`,
+      scope: 'Navigation subtree',
+      access: [false, true, true, true, false, false],
+    },
+    {
+      module: `UserMenu${uiSuffix}`,
+      scope: 'Public part UI entry',
+      access: [false, true, true, false, false, false],
+    },
+    {
+      module: `userMenu${storeSuffix}`,
+      scope: 'UserMenu only',
+      access: [false, false, true, false, false, false],
+    },
+    {
+      module: `user-menu/${hooksDirectory}/*`,
+      scope: 'UserMenu only',
+      access: [false, false, true, false, false, false],
+    },
+  ] as const;
+}
 
 const ACCESS_COLUMNS = [
   'Home',
@@ -524,7 +698,9 @@ const ACCESS_COLUMNS = [
   'Other feature',
 ] as const;
 
-function BoundariesSection() {
+function BoundariesSection(architecture: CodeProjectArchitectureConfig) {
+  const { slotsDirectory, storeSuffix, uiSuffix } = architecture;
+  const rows = accessRows(architecture);
   return (
     <div
       className="code-first-structure-section"
@@ -566,7 +742,7 @@ function BoundariesSection() {
             </tr>
           </thead>
           <tbody>
-            {ACCESS_ROWS.map((row) => (
+            {rows.map((row) => (
               <tr key={row.module}>
                 <th scope="row">
                   <code>{row.module}</code>
@@ -602,7 +778,7 @@ function BoundariesSection() {
               <span>Typed UI props</span>
             </div>
             <p>
-              A <code>.ui.tsx</code> file never imports Hook, Store, Logic, or API directly.
+              A <code>{uiSuffix}</code> file never imports Hook, Store, Logic, or API directly.
             </p>
           </div>
         </article>
@@ -611,9 +787,9 @@ function BoundariesSection() {
           <div>
             <h4>Promotion rule</h4>
             <div className="code-first-promotion-example">
-              <code>slots/navigation/navigation.store.ts</code>
+              <code>{`${slotsDirectory}/navigation/navigation${storeSuffix}`}</code>
               <ArrowUpRight size={14} aria-hidden="true" />
-              <code>home.store.ts</code>
+              <code>{`home${storeSuffix}`}</code>
             </div>
             <p>When siblings need the same state, move ownership to their nearest common parent.</p>
           </div>
@@ -625,7 +801,8 @@ function BoundariesSection() {
         <div>
           <strong>Header cannot import Navigation&apos;s private store.</strong>
           <p>
-            Promote shared state to <code>home.store.ts</code>, then import it from both slots.
+            Promote shared state to <code>{`home${storeSuffix}`}</code>, then import it from both{' '}
+            {slotsDirectory}.
           </p>
         </div>
       </section>
@@ -644,7 +821,16 @@ function ChecklistItem({ required, children }: { required?: boolean; children: R
   );
 }
 
-function ChecklistSection() {
+function ChecklistSection({
+  slotsDirectory,
+  partsDirectory,
+  uiSuffix,
+  connectorSuffix,
+  storeSuffix,
+  logicSuffix,
+  apiSuffix,
+  typesSuffix,
+}: CodeProjectArchitectureConfig) {
   return (
     <div
       className="code-first-structure-section"
@@ -674,11 +860,11 @@ function ChecklistSection() {
           </header>
           <ul>
             <ChecklistItem required>
-              <code>Home.ui.tsx</code>
+              <code>{`Home${uiSuffix}`}</code>
               <small>Pure visual contract and layout</small>
             </ChecklistItem>
             <ChecklistItem required>
-              <code>Home.connector.tsx</code>
+              <code>{`Home${connectorSuffix}`}</code>
               <small>Only runtime entry that renders HomeUI</small>
             </ChecklistItem>
             <ChecklistItem>
@@ -686,23 +872,23 @@ function ChecklistSection() {
               <small>React lifecycle, server cache, and orchestration</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>home.store.ts</code>
+              <code>{`home${storeSuffix}`}</code>
               <small>State shared across Home descendants</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>home.logic.ts</code>
+              <code>{`home${logicSuffix}`}</code>
               <small>Business rules, validation, and transformation</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>home.api.ts</code>
+              <code>{`home${apiSuffix}`}</code>
               <small>HTTP communication only</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>home.types.ts</code>
+              <code>{`home${typesSuffix}`}</code>
               <small>Owner-safe contracts</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>slots/</code>
+              <code>{`${slotsDirectory}/`}</code>
               <small>Named visual regions</small>
             </ChecklistItem>
           </ul>
@@ -718,11 +904,11 @@ function ChecklistSection() {
           </header>
           <ul>
             <ChecklistItem required>
-              <code>Navigation.ui.tsx</code>
+              <code>{`Navigation${uiSuffix}`}</code>
               <small>Pure slot UI after the slot exists</small>
             </ChecklistItem>
             <ChecklistItem required>
-              <code>Navigation.connector.tsx</code>
+              <code>{`Navigation${connectorSuffix}`}</code>
               <small>Only runtime entry that renders NavigationUI</small>
             </ChecklistItem>
             <ChecklistItem>
@@ -730,15 +916,15 @@ function ChecklistSection() {
               <small>Slot React lifecycle and server cache</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>navigation.store.ts</code>
+              <code>{`navigation${storeSuffix}`}</code>
               <small>State shared within Navigation</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>navigation.logic.ts / .api.ts / .types.ts</code>
+              <code>{`navigation${logicSuffix} / navigation${apiSuffix} / navigation${typesSuffix}`}</code>
               <small>Progressive private behavior capabilities</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>parts/</code>
+              <code>{`${partsDirectory}/`}</code>
               <small>Meaningful units when the slot grows</small>
             </ChecklistItem>
           </ul>
@@ -754,11 +940,11 @@ function ChecklistSection() {
           </header>
           <ul>
             <ChecklistItem required>
-              <code>UserMenu.ui.tsx</code>
+              <code>{`UserMenu${uiSuffix}`}</code>
               <small>Pure part UI after the part exists</small>
             </ChecklistItem>
             <ChecklistItem required>
-              <code>UserMenu.connector.tsx</code>
+              <code>{`UserMenu${connectorSuffix}`}</code>
               <small>Only runtime entry that renders UserMenuUI</small>
             </ChecklistItem>
             <ChecklistItem>
@@ -766,11 +952,11 @@ function ChecklistSection() {
               <small>Part-local React lifecycle and server cache</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>userMenu.store.ts</code>
+              <code>{`userMenu${storeSuffix}`}</code>
               <small>State private to this exact part</small>
             </ChecklistItem>
             <ChecklistItem>
-              <code>userMenu.logic.ts / .api.ts / .types.ts</code>
+              <code>{`userMenu${logicSuffix} / userMenu${apiSuffix} / userMenu${typesSuffix}`}</code>
               <small>Progressive behavior private to this exact part</small>
             </ChecklistItem>
           </ul>
@@ -808,7 +994,12 @@ function ChecklistSection() {
   );
 }
 
-export function StructureGuideDialog({ onClose, onCreateStructure }: StructureGuideDialogProps) {
+export function StructureGuideDialog({
+  onClose,
+  onCreateStructure,
+  architectureRoots: architectureInput = DEFAULT_SRIJIKA_ARCHITECTURE,
+}: StructureGuideDialogProps) {
+  const architectureRoots = resolveSrijikaArchitectureConfig(architectureInput);
   const dialogRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -868,8 +1059,9 @@ export function StructureGuideDialog({ onClose, onCreateStructure }: StructureGu
             <span className="code-first-dialog-eyebrow">SRIJIKA ARCHITECTURE GUIDE</span>
             <h2 id="srijika-structure-title">Feature ownership structure</h2>
             <p id="srijika-structure-description">
-              Required UI and Connector ownership with an optional Hook → Store → Logic → API
-              runtime path at every feature, slot, and part.
+              Required UI and Connector ownership for Feature, Slot, Part, and Shared Widget; strict
+              pure Shared UI and headless Shared Capability variants; and an optional Hook → Store →
+              Logic → API runtime path.
             </p>
           </div>
           <button
@@ -942,11 +1134,12 @@ export function StructureGuideDialog({ onClose, onCreateStructure }: StructureGu
           </nav>
 
           <main className="code-first-structure-content">
-            {section === 'overview' ? <OverviewSection /> : null}
-            {section === 'blueprint' ? <BlueprintSection /> : null}
+            {section === 'overview' ? <OverviewSection {...architectureRoots} /> : null}
+            {section === 'blueprint' ? <BlueprintSection {...architectureRoots} /> : null}
+            {section === 'shared' ? <SharedSection {...architectureRoots} /> : null}
             {section === 'runtime' ? <RuntimeSection /> : null}
-            {section === 'boundaries' ? <BoundariesSection /> : null}
-            {section === 'checklist' ? <ChecklistSection /> : null}
+            {section === 'boundaries' ? <BoundariesSection {...architectureRoots} /> : null}
+            {section === 'checklist' ? <ChecklistSection {...architectureRoots} /> : null}
           </main>
         </div>
 

@@ -2,7 +2,7 @@
 
 ## Invariants
 
-1. Restricted, typed `.ui.tsx` is the only persisted UI source of truth.
+1. Restricted, typed source ending in the resolved UI suffix (canonical default `.ui.tsx`) is the only persisted UI source of truth.
 2. `UiDocument`, the hierarchy, Inspector, and rendered DOM are derived read models.
 3. Studio never reconstructs or overwrites a whole TSX file from derived IR.
 4. A Studio visual edit is allowed only when it can produce bounded source edits, recompile, and pass validation.
@@ -10,6 +10,14 @@
 6. Static TypeScript rules, Srijika source rules, runtime JSON Schema checks, graph invariants, and registry semantic checks are separate layers.
 7. UI components stay pure; hooks, stores, resources, and business logic live in connectors.
 8. Editor session state is not application data.
+
+Code-first ownership is equally canonical. Feature → Slot → Part stays private
+until two Features need the same boundary, then it promotes to one strict
+Shared UI Primitive, Shared Widget, or Shared Headless Capability. UI is
+behavior-free, Types is passive, Logic is framework/transport-free, and every
+surface consumes the same resolved `srijika.config.json` planner. See
+`FEATURE_SLOT_PART_ARCHITECTURE.md` for the complete naming, import, config,
+scan-budget, diagnostic, and creation contract.
 
 ## Repository and dependency direction
 
@@ -40,7 +48,7 @@ tests
 ## Canonical compile and edit path
 
 ```text
-.ui.tsx source ── parse restricted TSX ── Srijika diagnostics/source map
+resolved UI source ── parse restricted TSX ── Srijika diagnostics/source map
        │                         │
        │                         ├── invalid: keep last-good IR, mark stale
        │                         │
@@ -62,17 +70,19 @@ The existing command/history engine remains useful for derived-document tests an
 The source file contains JSX structure, the named props interface, conditions, attributes, and developer formatting/comments. The compiler emits a `UiDocument`, diagnostics, and stable node/prop spans. Selection, active diagnostic, preview-stale state, dirty state, and disk hash are Studio session state. The derived document is never independently saved.
 
 The desktop project session additionally owns one validated project root, a bounded
-flat file index, the active `.ui.tsx` path, hashes for every indexed UI source, and
+flat file index, the active resolved-UI-suffix path, hashes for every indexed UI source, and
 managed runtime status. Project Explorer shows real files; UI Nodes shows the
 compiled JSX hierarchy for the active UI file. They deliberately remain separate,
 matching the asset-versus-scene distinction in established visual studios.
 
-Project-scoped creation uses a narrow `page | component` request rather than
-caller-supplied source text. The native boundary validates the PascalCase component
-name and contained relative path, preflights both sibling targets, and atomically
-creates a canonical pure `.ui.tsx`/Connector pair. Browser mode uses the same
-canonical TypeScript scaffold in its in-memory file map. After creation, the normal
-scan/load pipeline activates the new source; there is no second hierarchy authority.
+Project-scoped creation accepts only the canonical planner actions for Feature,
+Slot, Part, strict Shared owners, optional owner capabilities, and named
+Hook/Store expansion. The native boundary resolves the configured roots,
+directories, and suffixes; derives the PascalCase/kebab-case owner identity;
+preflights the complete plan; and applies its creates, moves, and rewires as one
+non-overwriting transaction. Browser mode uses the same canonical TypeScript
+planner in its in-memory file map. After creation, the normal scan/load pipeline
+activates the new source; there is no second hierarchy authority.
 
 Manual text editing belongs to VS Code. The Studio source surface is read-only but
 retains exact diagnostic and node-range selection. Double-clicking a project, file,
@@ -107,7 +117,7 @@ native dialog
   → explicit project creation, deterministic indexing, or atomic source replacement
 ```
 
-Project creation refuses roots, symlink targets, existing destinations, path traversal, oversized files, and excessive aggregate size. Tree scans are bounded, ignore generated/vendor directories, never follow symlinks, and hash indexed UI files. TSX reads are limited and accept only `.ui.tsx`. Saves use an expected content hash to reject concurrent VS Code changes and atomically replace the file. Editor targets must resolve inside the same validated project. Browser mode uses an in-memory file map and never receives native path or process authority.
+Project creation refuses roots, symlink targets, existing destinations, path traversal, oversized files, and excessive aggregate size. Tree scans are bounded, ignore generated/vendor directories, never follow symlinks, and hash indexed UI files. TSX reads are limited and accept only the resolved UI suffix. Saves use an expected content hash to reject concurrent VS Code changes and atomically replace the file. Editor targets must resolve inside the same validated project. Browser mode uses an in-memory file map and never receives native path or process authority.
 
 ## Design preview and managed application runtime
 
@@ -143,7 +153,7 @@ current development baseline resolves pnpm and VS Code from the host environment
 the boundary is structured so signed platform builds can substitute verified bundled
 sidecars without changing project metadata or frontend behavior.
 
-The scaffold's serve-only Vite transform annotates rendered `.ui.tsx` elements with
+The scaffold's serve-only Vite transform annotates rendered resolved-UI-suffix elements with
 relative source locations. A versioned parent/iframe message bridge validates the
 tracked loopback origin and converts those locations through the compiler source map
 to stable node IDs. This keeps live-app clicks, UI Nodes, source selection, and the
@@ -158,4 +168,4 @@ The current repository does **not** check platform Node/pnpm binaries into sourc
 
 ## AI boundary
 
-AI receives the same Srijika TSX rules and diagnostics as a developer. It should edit `.ui.tsx` and connector files, never mutate or persist derived `UiDocument`. Compiler quick fixes are machine-readable source edits, which gives future AI tools a bounded, reviewable correction path.
+AI receives the same Srijika TSX rules and diagnostics as a developer. It should edit files ending in the resolved UI suffix and matching Connector files, never mutate or persist derived `UiDocument`. Compiler quick fixes are machine-readable source edits, which gives future AI tools a bounded, reviewable correction path.

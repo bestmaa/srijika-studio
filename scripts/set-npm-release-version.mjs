@@ -33,6 +33,9 @@ const replacements = [
     'packages/project-scaffold/src/templates.ts',
     'packages/project-scaffold/test/project-scaffold.test.ts',
     'docs/codex-plugin-architecture.md',
+    'plugins/srijika-studio/skills/srijika-studio/references/cli-and-runtime.md',
+    'apps/portal/src/content/docs/docs/vscode.mdx',
+    'apps/portal/src/content/docs/docs/cli-runtime.mdx',
   ].map((path) => ({
     path,
     pattern: /@srijika\/mcp-server@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
