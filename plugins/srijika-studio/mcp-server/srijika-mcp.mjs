@@ -243729,7 +243729,7 @@ dist
       mcpServers: {
         "srijika-project": {
           command: "npx",
-          args: ["-y", "@srijika/mcp-server@0.3.1", "--project", "."],
+          args: ["-y", "@srijika/mcp-server@0.3.2", "--project", "."],
           cwd: "."
         }
       }
@@ -243739,7 +243739,7 @@ dist
         "srijika-project": {
           type: "stdio",
           command: "npx",
-          args: ["-y", "@srijika/mcp-server@0.3.1", "--project", "${workspaceFolder}"]
+          args: ["-y", "@srijika/mcp-server@0.3.2", "--project", "${workspaceFolder}"]
         }
       }
     }),
@@ -243958,7 +243958,7 @@ Studio later requires no migration: open this same project folder.
       scripts: {
         dev: "vite",
         "validate:srijika": "node scripts/srijika-validate.mjs",
-        "mcp:srijika": "npx -y @srijika/mcp-server@0.3.1 --project .",
+        "mcp:srijika": "npx -y @srijika/mcp-server@0.3.2 --project .",
         build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
         preview: "vite preview",
         typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"
@@ -249099,11 +249099,11 @@ async function readSafeBytes(fileSystem, relativePath, maximumBytes = MAX_FILE_B
 var sourceExtension = /\.(?:[cm]?[jt]s|[jt]sx)$/iu;
 var styleExtension = /\.(?:css|scss|sass|less|styl)$/iu;
 var assetExtension = /\.(?:avif|bmp|eot|gif|ico|jpe?g|mp3|mp4|ogg|otf|png|svg|ttf|wav|webm|webp|woff2?)$/iu;
+var runtimeDataAssetExtension = /\.(?:csv|geojson|json|txt|wasm|webmanifest)$/iu;
+var configurationFilePattern = /(^|\/)(?:package\.json|index\.html|tsconfig[^/]*\.json|vite\.config\.[^/]+|craco\.config\.[^/]+)$/u;
 function acceptedMigrationFile(fileName) {
   const normalized = fileName.toLowerCase();
-  return sourceExtension.test(normalized) || styleExtension.test(normalized) || assetExtension.test(normalized) || /(^|\/)(?:package\.json|index\.html|tsconfig[^/]*\.json|vite\.config\.[^/]+|craco\.config\.[^/]+)$/u.test(
-    normalized
-  ) || /(^|\/)\.env(?:\.[^/]+)?$/u.test(normalized);
+  return sourceExtension.test(normalized) || styleExtension.test(normalized) || assetExtension.test(normalized) || runtimeDataAssetExtension.test(normalized) || configurationFilePattern.test(normalized) || /(^|\/)\.env(?:\.[^/]+)?$/u.test(normalized);
 }
 function categoryFor(relativePath) {
   const normalized = relativePath.toLowerCase();
@@ -249113,7 +249113,8 @@ function categoryFor(relativePath) {
     return "test";
   }
   if (styleExtension.test(normalized)) return "style";
-  if (assetExtension.test(normalized)) return "asset";
+  if (configurationFilePattern.test(normalized)) return "configuration";
+  if (assetExtension.test(normalized) || runtimeDataAssetExtension.test(normalized)) return "asset";
   if (/route|router|(^|\/)pages?(\/|$)/u.test(normalized)) return "route";
   if (/(^|\/)use[A-Z]|(^|\/)hooks?(\/|$)/u.test(relativePath)) return "hook";
   if (/store|state|context|redux|zustand/u.test(normalized)) return "state";
@@ -249488,15 +249489,25 @@ async function applyReactMigrationSlice(request) {
       throw new Error(`Ignored source ${ignored.sourcePath} requires a reason.`);
   }
   const seenWrites = /* @__PURE__ */ new Set();
+  const trackedTargetHashes = /* @__PURE__ */ new Map();
   const prepared = [];
   const writePaths = new Set(request.slice.writes.map((write) => write.relativePath));
+  const mappedTargetPaths = new Set(
+    request.slice.mappings.flatMap((mapping) => mapping.targetPaths)
+  );
+  if (mappedTargetPaths.size > MAX_FILES) {
+    throw new Error(`Migration slice exceeds the ${MAX_FILES}-target traceability limit.`);
+  }
   for (const mapping of request.slice.mappings) {
     for (const targetPath of mapping.targetPaths) {
-      if (!writePaths.has(targetPath) && await existingHash(session.targetRoot, targetPath) === null) {
+      if (writePaths.has(targetPath)) continue;
+      const hash = await existingHash(session.targetRoot, targetPath);
+      if (hash === null) {
         throw new Error(
           `Mapped target does not exist and is not written by this slice: ${targetPath}`
         );
       }
+      trackedTargetHashes.set(targetPath, hash);
     }
   }
   await assertSrijikaUiWritesValid(session.targetRoot, request.slice.writes);
@@ -249534,6 +249545,7 @@ async function applyReactMigrationSlice(request) {
       await writeFile2(item.temporary, item.write.content, { encoding: "utf8", flag: "wx" });
       await rename2(item.temporary, item.target);
       committed.push(item);
+      trackedTargetHashes.set(item.write.relativePath, sha256(item.write.content));
     }
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const { verification: previousVerification, ...sessionWithoutVerification } = session;
@@ -249554,9 +249566,9 @@ async function applyReactMigrationSlice(request) {
           title: request.slice.title,
           appliedAt: now,
           writes: Object.freeze(
-            request.slice.writes.map((write) => ({
-              relativePath: write.relativePath,
-              sha256: sha256(write.content)
+            [...trackedTargetHashes].sort(([left], [right]) => left.localeCompare(right)).map(([relativePath, targetSha256]) => ({
+              relativePath,
+              sha256: targetSha256
             }))
           ),
           verified: false
@@ -249659,6 +249671,16 @@ async function verifyReactMigration(request) {
   const session = await readSession(request.target);
   const rescanned = await scanReactMigrationSource(session.sourceRoot);
   const sourceUnchanged = rescanned.snapshotSha256 === session.inventory.snapshotSha256;
+  const changedTargetPaths = [];
+  const checkedTargetPaths = /* @__PURE__ */ new Set();
+  for (const slice2 of session.appliedSlices) {
+    for (const write of slice2.writes) {
+      if (checkedTargetPaths.has(write.relativePath)) continue;
+      checkedTargetPaths.add(write.relativePath);
+      const actual = await existingHash(session.targetRoot, write.relativePath);
+      if (actual !== write.sha256) changedTargetPaths.push(write.relativePath);
+    }
+  }
   const uiDiagnostics = await checkSrijikaUiDiagnostics(session.targetRoot);
   const architecture = await checkSrijikaArchitecture(session.targetRoot);
   const architectureErrors = architecture.diagnostics.filter(
@@ -249695,6 +249717,11 @@ async function verifyReactMigration(request) {
   }
   const errors = [
     ...sourceUnchanged ? [] : ["React source changed after migration started."],
+    ...changedTargetPaths.length === 0 ? [] : [
+      `${changedTargetPaths.length} tracked target files changed after slice application: ${changedTargetPaths.slice(0, 8).join(
+        ", "
+      )}${changedTargetPaths.length > 8 ? `, ${changedTargetPaths.length - 8} more` : ""}.`
+    ],
     ...uiDiagnostics.diagnostics.map(formatSrijikaUiDiagnostic),
     ...architectureErrors.map((diagnostic2) => diagnostic2.message),
     ...unmappedSourcePaths.length === 0 ? [] : [`${unmappedSourcePaths.length} source files are not mapped or explicitly ignored.`],

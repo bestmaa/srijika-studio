@@ -25,6 +25,7 @@ async function reactFixture(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'srijika-react-source-'));
   roots.push(root);
   await mkdir(join(root, 'src'), { recursive: true });
+  await mkdir(join(root, 'public'), { recursive: true });
   await writeFile(
     join(root, 'package.json'),
     JSON.stringify({
@@ -39,6 +40,7 @@ async function reactFixture(): Promise<string> {
     "export function Widget({ label }) { return <button className='widget'>{label}</button>; }\n",
   );
   await writeFile(join(root, 'src/widget.css'), '.widget { color: rebeccapurple; }\n');
+  await writeFile(join(root, 'public/runtime-data.json'), '{"floor":1}\n');
   await writeFile(
     join(root, '.env.example'),
     'VITE_API_URL=https://example.invalid\nSECRET_VALUE=\n',
@@ -59,9 +61,15 @@ describe('React migration engine', () => {
     expect(inventory.files.map((file) => file.relativePath)).toEqual([
       '.env.example',
       'package.json',
+      'public/runtime-data.json',
       'src/Widget.jsx',
       'src/widget.css',
     ]);
+    expect(
+      inventory.files.find((file) => file.relativePath === 'public/runtime-data.json'),
+    ).toMatchObject({
+      category: 'asset',
+    });
     expect(inventory.environmentKeys['.env.example']).toEqual(['SECRET_VALUE', 'VITE_API_URL']);
     expect(JSON.stringify(inventory)).not.toContain('https://example.invalid');
     expect(inventory.snapshotSha256).toMatch(/^[a-f0-9]{64}$/u);
@@ -117,8 +125,15 @@ describe('React migration engine', () => {
       slice: {
         id: 'presentation',
         title: 'Styles and static assets',
-        writes: [],
-        mappings: [{ sourcePath: 'src/widget.css', targetPaths: [targetUi], kind: 'style' }],
+        writes: [{ relativePath: 'public/runtime-data.json', content: '{"floor":1}\n' }],
+        mappings: [
+          { sourcePath: 'src/widget.css', targetPaths: [targetUi], kind: 'style' },
+          {
+            sourcePath: 'public/runtime-data.json',
+            targetPaths: ['public/runtime-data.json'],
+            kind: 'asset',
+          },
+        ],
       },
     });
     await verifyReactMigrationSlice(target, 'presentation', sliceEvidence);
@@ -305,6 +320,64 @@ describe('React migration engine', () => {
     await expect(startReactMigration({ source, target })).rejects.toThrow(
       /not an empty generated starter/u,
     );
+  });
+
+  it('tracks existing mapped targets and rejects changes after mapping-only slices', async () => {
+    const source = await reactFixture();
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-react-tracked-mapping-parent-'));
+    roots.push(parent);
+    const target = join(parent, 'converted');
+    await startReactMigration({ source, target });
+    const targetUi = 'src/features/home/Home.ui.tsx';
+
+    const applied = await applyReactMigrationSlice({
+      target,
+      slice: {
+        id: 'ui',
+        title: 'React components and widgets',
+        writes: [],
+        mappings: [
+          {
+            sourcePath: 'src/Widget.jsx',
+            targetPaths: [targetUi],
+            kind: 'compatibility',
+          },
+        ],
+      },
+    });
+    expect(applied.appliedSlices[0]?.writes).toHaveLength(1);
+    expect(applied.appliedSlices[0]?.writes[0]?.relativePath).toBe(targetUi);
+    expect(applied.appliedSlices[0]?.writes[0]?.sha256).toMatch(/^[a-f0-9]{64}$/u);
+    await verifyReactMigrationSlice(target, 'ui', sliceEvidence);
+
+    await writeFile(
+      join(target, targetUi),
+      'export function HomeUI() { return <main>changed after review</main>; }\n',
+    );
+    await expect(verifyReactMigrationSlice(target, 'ui', sliceEvidence)).rejects.toThrow(
+      /changed after slice application/u,
+    );
+    const globalVerification = await verifyReactMigration({
+      target,
+      commands: [
+        ...sliceEvidence,
+        { name: 'test', status: 'passed' },
+        { name: 'visual', status: 'passed', details: 'mobile and desktop reviewed' },
+      ],
+    });
+    expect(globalVerification.verification?.errors.join(' ')).toMatch(
+      /tracked target files changed after slice application/u,
+    );
+    await expect(
+      finalizeReactMigration({
+        target,
+        commands: [
+          ...sliceEvidence,
+          { name: 'test', status: 'passed' },
+          { name: 'visual', status: 'passed', details: 'mobile and desktop reviewed' },
+        ],
+      }),
+    ).rejects.toThrow(/tracked target files changed after slice application/u);
   });
 
   it('requires route parity evidence when the source has route files', async () => {

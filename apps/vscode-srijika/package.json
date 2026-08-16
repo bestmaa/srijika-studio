@@ -2,7 +2,7 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "publisher": "srijika",
   "license": "UNLICENSED",

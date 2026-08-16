@@ -1,6 +1,6 @@
 {
   "name": "@srijika/mcp-server",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "CLI-first Srijika project MCP tools with optional Studio bridge support.",
   "license": "Apache-2.0",
   "type": "module",
