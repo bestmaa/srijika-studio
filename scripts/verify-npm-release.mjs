@@ -3,18 +3,28 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
-const repository = 'https://github.com/bestmaa/srijika-studio.git';
+const repository = 'git+https://github.com/bestmaa/srijika-studio.git';
 const requiredNodeEngine = '>=22.13.0';
 const releasePackages = [
-  { directory: 'packages/cli', name: '@srijika/cli', files: ['dist/cli.mjs'] },
+  {
+    directory: 'packages/cli',
+    name: '@srijika/cli',
+    binName: 'srijika',
+    binPath: 'dist/cli.mjs',
+    files: ['dist/cli.mjs'],
+  },
   {
     directory: 'packages/mcp-server',
     name: '@srijika/mcp-server',
+    binName: 'srijika-mcp',
+    binPath: 'dist/cli.mjs',
     files: ['dist/cli.mjs', 'dist/index.mjs'],
   },
   {
     directory: 'packages/create-srijika',
     name: 'create-srijika',
+    binName: 'create-srijika',
+    binPath: 'bin/create-srijika.mjs',
     files: ['bin/create-srijika.mjs'],
   },
 ];
@@ -35,6 +45,11 @@ for (const releasePackage of releasePackages) {
   }
   if (manifest.engines?.node !== requiredNodeEngine) {
     throw new Error(`${manifest.name} must require Node.js ${requiredNodeEngine}.`);
+  }
+  if (manifest.bin?.[releasePackage.binName] !== releasePackage.binPath) {
+    throw new Error(
+      `${manifest.name} must expose ${releasePackage.binName} as ${releasePackage.binPath} without a leading ./ so npm 11 preserves it.`,
+    );
   }
   const packed = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
     cwd: directory,

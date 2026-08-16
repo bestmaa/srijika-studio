@@ -8,7 +8,7 @@
     ".": "./dist/index.mjs"
   },
   "bin": {
-    "srijika-mcp": "./dist/cli.mjs"
+    "srijika-mcp": "dist/cli.mjs"
   },
   "files": [
     "dist",
@@ -19,7 +19,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/bestmaa/srijika-studio.git",
+    "url": "git+https://github.com/bestmaa/srijika-studio.git",
     "directory": "packages/mcp-server"
   },
   "homepage": "https://github.com/bestmaa/srijika-studio#readme",
