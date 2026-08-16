@@ -22,12 +22,8 @@ pnpm release:build
 pnpm release:verify
 ```
 
-For the first release only, either publish the three package directories manually
-in the order above or add a short-lived granular npm automation token as the
-repository secret `NPM_TOKEN`. Remove that secret after the bootstrap succeeds.
-
-Public GitHub repositories may configure **Trusted Publisher → GitHub Actions**
-and publish with npm provenance:
+Configure **Trusted Publisher → GitHub Actions** on each of the three npm package
+settings pages:
 
 - GitHub organization/user: `bestmaa`
 - Repository: `srijika-studio`
@@ -36,11 +32,10 @@ and publish with npm provenance:
 - Allowed action: `npm publish`
 
 Trusted Publishing uses GitHub OIDC and does not need a long-lived npm token.
-
-This repository is private, and npm rejects provenance bundles whose source
-repository is private. Its `npm-release` GitHub environment therefore holds a
-short-lived granular `NPM_TOKEN`; the publish job disables provenance, grants only
-`contents: read`, and never exposes the token outside that environment-scoped job.
+The publish job grants `id-token: write`, runs on a GitHub-hosted Node 24 runner,
+and publishes with short-lived OIDC credentials. npm does not generate provenance
+for a private source repository, so the publish command must not force the
+`--provenance` flag. No write-capable `NPM_TOKEN` is required.
 
 ## Release a version
 
@@ -56,7 +51,9 @@ pnpm release:verify
 Merge that change, create tag `v0.2.0`, and publish a GitHub Release from the tag.
 The workflow verifies the tag against all three package versions, runs the complete
 quality gate, builds exact tarballs, skips versions already present after a partial
-retry, and publishes with npm provenance.
+retry, and publishes with npm Trusted Publishing. Public packages built from this
+private repository are published without provenance because npm does not support
+private-repository provenance.
 
 The workflow can also be run manually with **Publish** disabled. That is a safe
 release dry run and never writes to npm.
