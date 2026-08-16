@@ -8,6 +8,7 @@ if (process.env['GITHUB_ACTIONS'] !== 'true') {
 
 const root = resolve(import.meta.dirname, '..');
 const directories = ['packages/cli', 'packages/mcp-server', 'packages/create-srijika'];
+const publishWithProvenance = process.env['NPM_CONFIG_PROVENANCE'] === 'true';
 
 for (const relativeDirectory of directories) {
   const directory = resolve(root, relativeDirectory);
@@ -23,8 +24,12 @@ for (const relativeDirectory of directories) {
   if (!`${existing.stderr}\n${existing.stdout}`.includes('E404')) {
     throw new Error(existing.stderr || `Unable to query ${specifier}.`);
   }
-  console.log(`Publishing ${specifier} with npm provenance.`);
-  const published = spawnSync('npm', ['publish', '--access', 'public', '--provenance'], {
+  console.log(
+    `Publishing ${specifier}${publishWithProvenance ? ' with npm provenance' : ' from the reviewed GitHub Actions workflow'}.`,
+  );
+  const publishArguments = ['publish', '--access', 'public'];
+  if (publishWithProvenance) publishArguments.push('--provenance');
+  const published = spawnSync('npm', publishArguments, {
     cwd: directory,
     stdio: 'inherit',
   });

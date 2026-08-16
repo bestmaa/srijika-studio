@@ -93,10 +93,11 @@ jobs:
     environment: npm-release
     permissions:
       contents: read
-      id-token: write
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
-      NPM_CONFIG_PROVENANCE: 'true'
+      # npm provenance rejects private GitHub source repositories. This workflow
+      # therefore authenticates with the environment-scoped granular token.
+      NPM_CONFIG_PROVENANCE: 'false'
       NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout source
@@ -105,7 +106,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      - name: Install Node.js for npm Trusted Publishing
+      - name: Install Node.js for npm publishing
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: '24'

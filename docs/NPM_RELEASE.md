@@ -26,7 +26,8 @@ For the first release only, either publish the three package directories manuall
 in the order above or add a short-lived granular npm automation token as the
 repository secret `NPM_TOKEN`. Remove that secret after the bootstrap succeeds.
 
-For each package on npmjs.com, configure **Trusted Publisher → GitHub Actions**:
+Public GitHub repositories may configure **Trusted Publisher → GitHub Actions**
+and publish with npm provenance:
 
 - GitHub organization/user: `bestmaa`
 - Repository: `srijika-studio`
@@ -34,8 +35,12 @@ For each package on npmjs.com, configure **Trusted Publisher → GitHub Actions*
 - Environment: `npm-release`
 - Allowed action: `npm publish`
 
-Trusted Publishing uses GitHub OIDC and does not need a long-lived npm token. The
-workflow grants only `contents: read` and `id-token: write` to the publish job.
+Trusted Publishing uses GitHub OIDC and does not need a long-lived npm token.
+
+This repository is private, and npm rejects provenance bundles whose source
+repository is private. Its `npm-release` GitHub environment therefore holds a
+short-lived granular `NPM_TOKEN`; the publish job disables provenance, grants only
+`contents: read`, and never exposes the token outside that environment-scoped job.
 
 ## Release a version
 
