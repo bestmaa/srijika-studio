@@ -1,0 +1,62 @@
+import { resolve } from 'node:path';
+
+import {
+  buildReactMigrationCliArguments,
+  getReactMigrationStatus,
+  startReactMigration,
+  verifyReactMigration,
+  type ReactMigrationCliOperation,
+  type ReactMigrationCliRequest,
+  type ReactMigrationSession,
+} from '@srijika/developer-engine';
+
+export type ReactMigrationOperation = ReactMigrationCliOperation;
+export type ReactMigrationRequest = ReactMigrationCliRequest;
+
+export interface ReactMigrationResult {
+  operation: ReactMigrationOperation;
+  session: ReactMigrationSession;
+}
+
+export interface ReactMigrationRunOptions {
+  signal?: AbortSignal;
+  onStatus?: (session: ReactMigrationSession) => void;
+}
+
+export function validateReactMigrationRequest(
+  request: ReactMigrationRequest,
+): ReactMigrationRequest {
+  buildReactMigrationCliArguments(request);
+  return {
+    operation: request.operation,
+    target: resolve(request.target),
+    ...(request.source === undefined ? {} : { source: resolve(request.source) }),
+  };
+}
+
+export function buildReactMigrationArguments(request: ReactMigrationRequest): readonly string[] {
+  return buildReactMigrationCliArguments(request);
+}
+
+export function describeReactMigrationResult(
+  _operation: ReactMigrationOperation,
+  session: ReactMigrationSession,
+): string {
+  return `phase ${session.phase}, ${session.mappings.length} mapping(s)`;
+}
+
+export async function runReactMigration(
+  request: ReactMigrationRequest,
+  options: ReactMigrationRunOptions = {},
+): Promise<ReactMigrationResult> {
+  if (options.signal?.aborted) throw new Error('Srijika React migration was cancelled.');
+  const validated = validateReactMigrationRequest(request);
+  const session =
+    validated.operation === 'start'
+      ? await startReactMigration({ source: validated.source!, target: validated.target })
+      : validated.operation === 'status'
+        ? await getReactMigrationStatus(validated.target)
+        : await verifyReactMigration({ target: validated.target });
+  options.onStatus?.(session);
+  return { operation: validated.operation, session };
+}

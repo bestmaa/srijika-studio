@@ -2,6 +2,14 @@
 
 This package connects Codex to Srijika projects with or without the desktop app. The bundled MCP server can inspect a code-first project, run the shared architecture validator, plan canonical Feature → Slot → Part files, and apply a reviewed one-time plan directly on disk. When Studio is running, the same server also reads and edits the canonical visual document through its authenticated loopback bridge.
 
+It can also coordinate a resumable migration from an existing React project to
+a distinct new Srijika target. The source remains read-only. The engine captures
+a source baseline, inventories the application, persists a reviewed plan and
+source-to-target traceability, applies atomic target-only slices, and fails
+closed when behavior is unsupported or verification evidence is incomplete.
+Codex performs semantic slice analysis; the plugin does not claim an arbitrary
+automatic rewrite or guaranteed zero-loss conversion.
+
 The plugin MCP entry point requires Node.js `>=22.13.0` and is a self-contained
 bundle, including its TypeScript analysis runtime. It must start from an
 isolated plugin copy without a repository-level `node_modules` and must not
@@ -69,7 +77,10 @@ removing the flat gateway; it never commits a partial migration.
 
 2. Start a new Codex task or reload plugins, then ask Codex to use `$srijika-studio`.
 3. Open a generated Srijika folder. Codex can immediately call `srijika_get_code_project`, `srijika_check_code_project`, and the reviewed plan/apply tools; Studio is not required.
-4. Start Srijika Studio only for visual-document editing, hierarchy/layout inspection, or preview capture. Its status bar reports `Codex connected` after the first bridge tool call.
+4. To convert an existing React app, ask Codex to create a migration from an
+   absolute source path to a separate new target path. Review the scan and plan,
+   then migrate and verify one slice at a time.
+5. Start Srijika Studio only for visual-document editing, hierarchy/layout inspection, or preview capture. Its status bar reports `Codex connected` after the first bridge tool call.
 
 The Windows launcher supports a native Windows Studio process and a Studio process started inside WSL. WSL defaults are distribution `Ubuntu` and the Windows username. Override unusual installations with `SRIJIKA_STUDIO_WSL_DISTRO`, `SRIJIKA_STUDIO_WSL_USER`, or `SRIJIKA_STUDIO_WSL_DATA_HOME`.
 

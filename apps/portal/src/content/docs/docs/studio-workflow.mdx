@@ -64,6 +64,14 @@ graph. Project config is capped at 64 KiB,
 
 Browser demos and detached sources use the dependency-free derived renderer. An attached desktop project initially shows **Start App** instead of a derived rendering. Once started, the center uses the tracked real Vite process. Studio opens the configured entry, discovers the configured UI suffix, and dynamically renders the sibling with the configured Connector suffix inside that runtime, including Providers, Hook, Store, Logic, API, CSS, and HMR, without restarting the app. Runtime loading and failures are reported back to Studio.
 
+## Existing React migration
+
+Studio's migration surface is optional. It delegates source scan, plan, slice
+apply, status, and verification to the same engine/session used by CLI, MCP, and
+VS Code. Use it for reviewed visual comparison; never treat Studio state as a
+second migration plan or allow it to modify the source project. See
+[React migration](/docs/react-migration/).
+
 ## Failure behavior
 
 When source becomes invalid:

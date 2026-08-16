@@ -1,0 +1,105 @@
+---
+title: Migrate an existing React app
+description: Convert an existing React project into a separate Srijika target with immutable source, reviewed slices, traceability, and fail-closed verification.
+---
+
+Srijika migrates an existing React application into a **different new project**.
+It does not restructure the source in place. Source and target are resolved to
+canonical paths; equal, nested, overlapping, and symlink-aliased roots are
+rejected before a target write.
+
+:::caution[Evidence, not a zero-loss promise]
+Srijika does not claim that arbitrary React code can be rewritten automatically
+or that context loss is impossible. Unsupported or ambiguous behavior blocks a
+slice. Completion requires the source baseline, traceability, architecture,
+build, typecheck, and tests to pass with no hidden unmapped source item.
+:::
+
+## Start from the CLI
+
+```bash
+srijika migrate react \
+  --source /absolute/path/old-react-app \
+  --target /absolute/path/new-srijika-app
+```
+
+You can also use the creation alias:
+
+```bash
+srijika create ../new-srijika-app --from ../old-react-app
+```
+
+Preview without creating the target by adding `--dry-run`. Add `--json` for
+automation. Resume and verify the persisted session with:
+
+```bash
+srijika migrate status --target ../new-srijika-app
+srijika migrate verify --target ../new-srijika-app
+```
+
+The session lives at
+`<target>/.srijika/migrations/react/session.json`. CLI, MCP, VS Code, and Studio
+all read the same session and call the same migration engine.
+
+## Use Codex with MCP
+
+Ask Codex to convert the absolute source path into the absolute target path and
+explicitly say the source must not change. Codex follows this tool sequence:
+
+1. `srijika_create_react_migration`
+2. `srijika_scan_react_migration_source`
+3. `srijika_get_react_migration_plan`
+4. `srijika_apply_react_migration_slice`
+5. `srijika_verify_react_migration_slice`
+6. `srijika_get_react_migration_status` when resuming
+7. `srijika_verify_react_migration`
+8. `srijika_finalize_react_migration`
+
+Create is a target-only preflight/scaffold operation. Scan, plan, and status are
+read-only. Apply accepts only one reviewed slice and writes atomically inside the
+target. Finalize fails closed until every required current gate passes.
+
+Codex inventories routes and layouts, components and typed contracts, hooks,
+context/state/query behavior, API and authentication boundaries, CSS and assets,
+forms, environment use, loading/error/responsive states, and tests. It maps one
+coherent route or dependency slice at a time into canonical Feature, Slot, Part,
+Shared UI, Shared Widget, or Shared Headless Capability owners.
+
+## VS Code workflow
+
+The VS Code migration surface is optional. It selects source/target folders,
+shows the shared inventory, plan, blockers, slice progress, traceability, and
+verification status, resumes the same session, and opens the converted target.
+Nothing important is stored only in the webview. Without the extension, run the
+CLI in the integrated terminal or use the generated MCP connection.
+
+## Desktop Studio workflow
+
+Desktop Studio is also optional. It consumes the same session and migration
+engine; it is useful for reviewed visual comparisons, not as a second migration
+source of truth. Code and session evidence remain authoritative.
+
+## What verification proves
+
+Before completion Srijika checks:
+
+- the source baseline is unchanged;
+- every source item is mapped, blocked, or explicitly reviewed;
+- strict Feature → Slot → Part → Shared architecture passes;
+- build, typecheck, and tests pass; and
+- route and representative visual/responsive evidence exists when applicable.
+
+Evidence names are `install`, `typecheck`, `build`, `test`, `routes`, and
+`visual`. Typecheck, build, and test are always required and must pass. A source
+with route files or `semanticRoutesPresent` requires `routes: passed`; Codex
+reviews and submits route parity for semantic routes implemented inside entry or
+other files. A source with entry, component, style,
+or asset files requires `visual: passed`. These conditional parity gates cannot
+be skipped, and slice verification also rechecks that the source baseline has
+not changed. Route and visual entries require nonempty details naming the
+checked routes and representative viewports. Visual details must name at least
+two of mobile, tablet, desktop, and wide, or provide at least two `WxH`
+measurements. Duplicate or oversized evidence is rejected.
+
+If any evidence is missing or stale, the session remains incomplete and reports
+the exact blocker.

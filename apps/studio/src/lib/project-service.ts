@@ -347,6 +347,16 @@ export interface ProjectRuntimeStatus {
   message: string;
 }
 
+export type ReactMigrationOperation = 'start' | 'status' | 'verify';
+
+export interface ReactMigrationCommandResponse {
+  operation: ReactMigrationOperation;
+  targetPath: string;
+  stdout: string;
+  stderr: string;
+  result: Readonly<Record<string, unknown>> | null;
+}
+
 export function isTauriDesktop(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
@@ -1046,6 +1056,40 @@ function projectRuntimeStatus(value: unknown): ProjectRuntimeStatus {
   };
 }
 
+function reactMigrationOperation(value: unknown): ReactMigrationOperation {
+  if (value !== 'start' && value !== 'status' && value !== 'verify') {
+    throw new Error('Desktop returned an invalid React migration operation');
+  }
+  return value;
+}
+
+function reactMigrationCommandResponse(value: unknown): ReactMigrationCommandResponse {
+  if (!isRecord(value)) throw new Error('Desktop returned an invalid React migration response');
+  const result = value['result'];
+  if (result !== null && !isRecord(result)) {
+    throw new Error('Desktop returned an invalid React migration result');
+  }
+  return {
+    operation: reactMigrationOperation(value['operation']),
+    targetPath: stringField(value, 'targetPath'),
+    stdout: stringField(value, 'stdout'),
+    stderr: stringField(value, 'stderr'),
+    result,
+  };
+}
+
+export function describeReactMigrationCommand(response: ReactMigrationCommandResponse): string {
+  const phase =
+    typeof response.result?.['phase'] === 'string'
+      ? response.result['phase']
+      : typeof response.result?.['status'] === 'string'
+        ? response.result['status']
+        : null;
+  return phase
+    ? `${response.operation === 'start' ? 'Migration' : response.operation === 'status' ? 'Status' : 'Verification'} phase: ${phase}.`
+    : `${response.operation === 'start' ? 'Migration' : response.operation === 'status' ? 'Status' : 'Verification'} completed for ${response.targetPath}.`;
+}
+
 export async function chooseAndCreateCodeProject(
   files: readonly CodeProjectFile[],
   entrySource: string,
@@ -1118,6 +1162,54 @@ export async function chooseAndOpenCodeProject(): Promise<OpenedCodeProjectRespo
   if (typeof path !== 'string') return null;
   return openedCodeProjectResponse(
     await invoke<unknown>('open_code_project', { request: { path } }),
+  );
+}
+
+export async function chooseAndRunReactMigration(
+  operation: ReactMigrationOperation,
+): Promise<ReactMigrationCommandResponse | null> {
+  if (!isTauriDesktop()) return null;
+  const [{ open, save }, { invoke }] = await Promise.all([
+    import('@tauri-apps/plugin-dialog'),
+    import('@tauri-apps/api/core'),
+  ]);
+
+  let sourcePath: string | undefined;
+  let targetPath: string | null;
+  if (operation === 'start') {
+    const selectedSource = await open({
+      title: 'Select existing React source (read-only)',
+      multiple: false,
+      directory: true,
+    });
+    if (typeof selectedSource !== 'string') return null;
+    sourcePath = selectedSource;
+    const sourceName = selectedSource.replaceAll('\\', '/').replace(/\/+$/u, '').split('/').pop();
+    targetPath = await save({
+      title: 'Choose a separate Srijika migration target',
+      defaultPath: `${sourceName || 'react-app'}-srijika`,
+    });
+  } else {
+    const selectedTarget = await open({
+      title:
+        operation === 'status'
+          ? 'Select Srijika migration target to inspect'
+          : 'Select Srijika migration target to verify',
+      multiple: false,
+      directory: true,
+    });
+    targetPath = typeof selectedTarget === 'string' ? selectedTarget : null;
+  }
+  if (!targetPath) return null;
+
+  return reactMigrationCommandResponse(
+    await invoke<unknown>('run_react_migration', {
+      request: {
+        operation,
+        targetPath,
+        ...(sourcePath === undefined ? {} : { sourcePath }),
+      },
+    }),
   );
 }
 

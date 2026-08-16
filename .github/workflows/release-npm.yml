@@ -67,6 +67,9 @@ jobs:
       - name: Run regression suite
         run: pnpm test
 
+      - name: Run React migration engine and CLI contracts
+        run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test
+
       - name: Run generated-project install and build smoke
         if: matrix.node == '24'
         env:
@@ -114,7 +117,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and re-verify release artifacts
-        run: pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify
+        run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test && pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify
 
       - name: Publish CLI, MCP server, and create launcher
         run: pnpm release:publish

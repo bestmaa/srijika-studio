@@ -34,6 +34,15 @@ code my-app
 Always open the **complete project folder**, not a loose `.ui.tsx` file. React,
 TypeScript, tasks, MCP, and ownership detection depend on workspace context.
 
+## Migrate an existing React project
+
+Use the optional migration view to choose distinct source and target folders,
+review the shared inventory/plan/blockers, resume slices, run verification, and
+open the converted target. It reads the same persisted session as CLI and MCP;
+the webview is not a second source of truth. Without the extension, run the
+complete workflow from the integrated terminal. See
+[React migration](/docs/react-migration/).
+
 ## What the generated workspace includes
 
 ```text
@@ -256,7 +265,7 @@ Changing runtime never changes the project's package manager or lockfile.
 ## Connect Codex or another MCP client
 
 Generated `.vscode/mcp.json` starts the pinned
-`@srijika/mcp-server@0.2.0` process with `${workspaceFolder}` as the project.
+`@srijika/mcp-server@0.3.0` process with `${workspaceFolder}` as the project.
 The MCP server can inspect, validate, preview scaffold plans, and atomically
 apply approved Feature/Slot/Part and shared-owner structure without Desktop
 Studio.

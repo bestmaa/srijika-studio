@@ -45,6 +45,7 @@ export default defineConfig({
             { label: 'Using Srijika Studio', slug: 'docs/using-studio' },
             { label: 'CLI-first workflow', slug: 'docs/cli-runtime' },
             { label: 'VS Code workflow', slug: 'docs/vscode' },
+            { label: 'React migration', slug: 'docs/react-migration' },
           ],
         },
         {

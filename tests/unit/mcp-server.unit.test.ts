@@ -8,9 +8,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SRIJIKA_RPC_METHODS, SRIJIKA_TOOL_NAMES } from '@srijika/automation-protocol';
 import { writeSrijikaProject } from '@srijika/project-scaffold';
 import {
+  SRIJIKA_REACT_MIGRATION_TOOL_NAMES,
   SrijikaBridgeError,
   createSrijikaMcpServer,
   type SrijikaBridgeCaller,
+  type SrijikaReactMigrationCaller,
 } from '../../packages/mcp-server/src';
 import { toolInputs } from '../../packages/mcp-server/src/tool-schemas';
 
@@ -23,8 +25,9 @@ afterEach(async () => {
 async function connectedClient(
   bridgeClient: SrijikaBridgeCaller,
   projectRoot?: string,
+  reactMigrationService?: SrijikaReactMigrationCaller,
 ): Promise<Client> {
-  const server = createSrijikaMcpServer({ bridgeClient, projectRoot });
+  const server = createSrijikaMcpServer({ bridgeClient, projectRoot, reactMigrationService });
   const client = new Client({ name: 'srijika-mcp-test', version: '1.0.0' });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -48,7 +51,7 @@ describe('Srijika MCP server', () => {
       call: <T>() => Promise.resolve({} as T),
     });
     const listed = await client.listTools();
-    expect(Buffer.byteLength(JSON.stringify(listed.tools), 'utf8')).toBeLessThan(70_000);
+    expect(Buffer.byteLength(JSON.stringify(listed.tools), 'utf8')).toBeLessThan(80_000);
     const names = listed.tools.map(({ name }) => name);
 
     expect(names).toEqual(expect.arrayContaining(Object.values(SRIJIKA_TOOL_NAMES)));
@@ -58,9 +61,10 @@ describe('Srijika MCP server', () => {
         'srijika_check_code_project',
         'srijika_plan_code_structure',
         'srijika_apply_code_structure',
+        ...Object.values(SRIJIKA_REACT_MIGRATION_TOOL_NAMES),
       ]),
     );
-    expect(listed.tools).toHaveLength(21);
+    expect(listed.tools).toHaveLength(29);
     expect(
       listed.tools.find(({ name }) => name === SRIJIKA_TOOL_NAMES.getProjectSummary)?.annotations,
     ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
@@ -74,6 +78,7 @@ describe('Srijika MCP server', () => {
       'srijika://docs/document-model',
       'srijika://docs/design-plan',
       'srijika://docs/code-first-architecture',
+      'srijika://docs/react-migration',
       'srijika://docs/cli-runtime',
     ]);
     const protocol = await client.readResource({ uri: 'srijika://docs/protocol' });
@@ -472,6 +477,58 @@ describe('Srijika MCP server', () => {
         },
       },
     });
+    const reactMigration = await client.readResource({ uri: 'srijika://docs/react-migration' });
+    expect(reactMigration.contents).toHaveLength(1);
+    if (!('text' in reactMigration.contents[0]!)) throw new Error('Expected text resource');
+    const reactMigrationContract: unknown = JSON.parse(reactMigration.contents[0].text);
+    expect(reactMigrationContract).toMatchObject({
+      contractId: 'srijika.react-migration-v1',
+      sourceContract: {
+        immutable: true,
+        finalBaselineMatchRequired: true,
+        sourceAndTargetMustBeDistinct: true,
+        nestedOrOverlappingRootsAllowed: false,
+      },
+      targetContract: {
+        atomicSliceWrites: true,
+        writesOutsideTargetAllowed: false,
+      },
+      verificationEvidence: {
+        alwaysRequired: ['typecheck', 'build', 'test'],
+        routeFilesPresent: {
+          name: 'routes',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+        },
+        semanticRoutesPresent: {
+          name: 'routes',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+        },
+        visualSourcesPresent: {
+          categories: ['entry', 'component', 'style', 'asset'],
+          name: 'visual',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+          minimumReviewedViewports: 2,
+          acceptedDetailForms: ['mobile|tablet|desktop|wide', 'WxH-measurements'],
+        },
+        duplicateOrOversizedEvidenceRejected: true,
+        sliceVerificationAlsoChecksSourceBaseline: true,
+      },
+    });
+    const completionEvidence = (reactMigrationContract as { completionEvidence?: unknown })
+      .completionEvidence;
+    expect(completionEvidence).toEqual(
+      expect.arrayContaining([
+        'source-unchanged',
+        'complete-source-to-target-traceability',
+        'strict-srijika-architecture',
+        'build',
+        'typecheck',
+        'tests',
+      ]),
+    );
     expect(architectureContract.diagnostics.errors).toContain('SRIJIKA-ARCH-LAYER-JUMP');
     expect(architectureContract.diagnostics.errors).toEqual(
       expect.arrayContaining([
@@ -503,6 +560,219 @@ describe('Srijika MCP server', () => {
     expect(architectureContract.creation.compositeOwners['slot']).toMatchObject({
       required: ['ui', 'connector'],
       selectable: ['hook', 'store', 'logic', 'api', 'types'],
+    });
+  });
+
+  it('dispatches immutable-source React migration tools to the canonical service', async () => {
+    const scanMigration = vi.fn((request: Parameters<SrijikaReactMigrationCaller['scan']>[0]) =>
+      Promise.resolve({ phase: 'inventory', request }),
+    );
+    const planMigration = vi.fn((request: Parameters<SrijikaReactMigrationCaller['plan']>[0]) =>
+      Promise.resolve({ phase: 'plan', request }),
+    );
+    const startMigration = vi.fn((request: Parameters<SrijikaReactMigrationCaller['start']>[0]) =>
+      Promise.resolve({ phase: 'scaffold', request }),
+    );
+    const migrationStatus = vi.fn((target: string) =>
+      Promise.resolve({ phase: 'slice-migration', target }),
+    );
+    const applyMigrationSlice = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['applySlice']>[0]) =>
+        Promise.resolve({ phase: 'slice-verification', request }),
+    );
+    const verifyMigrationSlice = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['verifySlice']>[0]) =>
+        Promise.resolve({ ok: true, request }),
+    );
+    const verifyMigration = vi.fn((request: Parameters<SrijikaReactMigrationCaller['verify']>[0]) =>
+      Promise.resolve({ ok: true, request }),
+    );
+    const finalizeMigration = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['finalize']>[0]) =>
+        Promise.resolve({ phase: 'finalized', request }),
+    );
+    const migration: SrijikaReactMigrationCaller = {
+      scan: scanMigration,
+      plan: planMigration,
+      start: startMigration,
+      status: migrationStatus,
+      applySlice: applyMigrationSlice,
+      verifySlice: verifyMigrationSlice,
+      verify: verifyMigration,
+      finalize: finalizeMigration,
+    };
+    const client = await connectedClient(
+      { call: () => Promise.reject(new Error('no Studio')) },
+      undefined,
+      migration,
+    );
+
+    const source = '/projects/legacy-react';
+    const target = '/projects/new-srijika';
+    const created = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
+      arguments: { source, target, projectName: 'new-srijika', displayName: 'New Srijika' },
+    });
+    expect(created.isError).toBeUndefined();
+    expect(startMigration).toHaveBeenCalledWith({
+      source,
+      target,
+      projectName: 'new-srijika',
+      displayName: 'New Srijika',
+    });
+
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.scanSource,
+      arguments: { source, target },
+    });
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: { source, target },
+    });
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getStatus,
+      arguments: { target },
+    });
+    expect(scanMigration).toHaveBeenCalledWith({ source, target });
+    expect(planMigration).toHaveBeenCalledWith({ source, target });
+    expect(migrationStatus).toHaveBeenCalledWith(target);
+
+    const slice = {
+      id: 'home-route',
+      title: 'Migrate home route',
+      writes: [{ relativePath: 'src/features/home/Home.ui.tsx', content: 'export {};' }],
+      mappings: [
+        {
+          sourcePath: 'src/pages/Home.tsx',
+          targetPaths: ['src/features/home/Home.ui.tsx'],
+          kind: 'migrated' as const,
+        },
+      ],
+    };
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+      arguments: { target, slice },
+    });
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
+      arguments: { target, sliceId: slice.id },
+    });
+    const commands = [
+      { name: 'typecheck' as const, status: 'passed' as const },
+      { name: 'build' as const, status: 'passed' as const },
+      { name: 'test' as const, status: 'passed' as const },
+      { name: 'routes' as const, status: 'passed' as const, details: 'Route matrix passed.' },
+      {
+        name: 'visual' as const,
+        status: 'passed' as const,
+        details: 'Mobile, tablet, desktop, and wide comparisons passed.',
+      },
+    ];
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: { target, commands },
+    });
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.finalize,
+      arguments: { target, commands },
+    });
+    expect(applyMigrationSlice).toHaveBeenCalledWith({ target, slice });
+    expect(verifyMigrationSlice).toHaveBeenCalledWith({ target, sliceId: slice.id });
+    expect(verifyMigration).toHaveBeenCalledWith({ target, commands });
+    expect(finalizeMigration).toHaveBeenCalledWith({ target, commands });
+
+    const skippedRequired = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        commands: [{ name: 'typecheck', status: 'skipped' }],
+      },
+    });
+    expect(skippedRequired.isError).toBe(true);
+    const unreviewedVisual = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.finalize,
+      arguments: {
+        target,
+        commands: [{ name: 'visual', status: 'passed', details: 'Looked good.' }],
+      },
+    });
+    expect(unreviewedVisual.isError).toBe(true);
+    const duplicateEvidence = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        commands: [
+          { name: 'build', status: 'passed' },
+          { name: 'build', status: 'passed' },
+        ],
+      },
+    });
+    expect(duplicateEvidence.isError).toBe(true);
+  });
+
+  it('creates and reads a real migration session without modifying the React source', async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-mcp-react-migration-'));
+    cleanups.push(() => rm(parent, { recursive: true, force: true }));
+    const source = join(parent, 'legacy-react');
+    const target = join(parent, 'new-srijika');
+    await mkdir(join(source, 'src'), { recursive: true });
+    await writeFile(
+      join(source, 'package.json'),
+      `${JSON.stringify({
+        name: 'legacy-react',
+        scripts: { build: 'vite build' },
+        dependencies: { react: '^19.0.0', vite: '^7.0.0' },
+      })}\n`,
+      'utf8',
+    );
+    const entry =
+      "import React from 'react';\nexport const LegacyApp = () => <main>Legacy</main>;\n";
+    await writeFile(join(source, 'src/main.tsx'), entry, 'utf8');
+
+    const client = await connectedClient({
+      call: () => Promise.reject(new Error('no Studio')),
+    });
+    const created = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
+      arguments: { source, target },
+    });
+    expect(created.isError).toBeUndefined();
+    expect(created.structuredContent).toMatchObject({
+      ok: true,
+      result: {
+        sourceRoot: source,
+        targetRoot: target,
+        phase: 'scaffolded',
+      },
+    });
+    await expect(readFile(join(source, 'src/main.tsx'), 'utf8')).resolves.toBe(entry);
+    await expect(
+      readFile(join(target, '.srijika/migrations/react/session.json'), 'utf8'),
+    ).resolves.toContain('"sourceRoot"');
+
+    const scanned = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.scanSource,
+      arguments: { source, target },
+    });
+    expect(scanned.structuredContent).toMatchObject({
+      ok: true,
+      result: { sourceRoot: source, framework: 'vite' },
+    });
+    const planned = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: { source, target },
+    });
+    expect(planned.structuredContent).toMatchObject({
+      ok: true,
+      result: { sourceRoot: source, targetRoot: target },
+    });
+    const status = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getStatus,
+      arguments: { target },
+    });
+    expect(status.structuredContent).toMatchObject({
+      ok: true,
+      result: { sourceRoot: source, targetRoot: target, phase: 'scaffolded' },
     });
   });
 

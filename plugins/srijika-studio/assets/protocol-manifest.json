@@ -44,7 +44,14 @@
     "runtimeArchitectureConfigParity": true,
     "canonicalStructurePreviews": true,
     "sharedRuntimeCycleValidation": true,
-    "promotionAndSplitRecommendations": true
+    "promotionAndSplitRecommendations": true,
+    "immutableSourceReactMigration": true,
+    "resumableMigrationSessions": true,
+    "sourceToTargetTraceability": true,
+    "failClosedMigrationVerification": true,
+    "conditionalRouteAndVisualEvidence": true,
+    "semanticRouteDiscovery": true,
+    "responsiveVisualEvidenceDetails": true
   },
   "limits": {
     "customViewport": {
@@ -80,6 +87,16 @@
     "srijika_check_code_project",
     "srijika_plan_code_structure",
     "srijika_apply_code_structure"
+  ],
+  "reactMigrationTools": [
+    "srijika_create_react_migration",
+    "srijika_scan_react_migration_source",
+    "srijika_get_react_migration_plan",
+    "srijika_get_react_migration_status",
+    "srijika_apply_react_migration_slice",
+    "srijika_verify_react_migration_slice",
+    "srijika_verify_react_migration",
+    "srijika_finalize_react_migration"
   ],
   "canonicalTools": [
     "srijika_get_capabilities",

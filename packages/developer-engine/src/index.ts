@@ -18,6 +18,38 @@ export {
   selectSrijikaRuntime,
 } from './runtime.js';
 export { scaffoldSrijikaStructure } from './structure.js';
+export {
+  applyReactMigrationSlice,
+  buildReactMigrationCliArguments,
+  finalizeReactMigration,
+  getReactMigrationStatus,
+  planReactMigration,
+  scanReactMigrationSource,
+  startReactMigration,
+  verifyReactMigration,
+  verifyReactMigrationSlice,
+} from './react-migration.js';
+export type {
+  ApplyReactMigrationSliceRequest,
+  ReactMigrationAppliedSlice,
+  ReactMigrationCliOperation,
+  ReactMigrationCliRequest,
+  ReactMigrationCommandStatus,
+  ReactMigrationFileCategory,
+  ReactMigrationIgnoredSource,
+  ReactMigrationInventory,
+  ReactMigrationInventoryFile,
+  ReactMigrationPhase,
+  ReactMigrationPlan,
+  ReactMigrationPlanSlice,
+  ReactMigrationSession,
+  ReactMigrationSlice,
+  ReactMigrationSourceMapping,
+  ReactMigrationVerification,
+  ReactMigrationWrite,
+  StartReactMigrationRequest,
+  VerifyReactMigrationRequest,
+} from './react-migration.js';
 export type {
   ScaffoldSrijikaStructureRequest,
   ScaffoldSrijikaStructureResult,

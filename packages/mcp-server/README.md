@@ -1,7 +1,10 @@
 # Srijika MCP Server
 
 This stdio MCP server lets Codex and other MCP clients understand, validate, plan,
-and safely scaffold a CLI-first Srijika TSX project without Desktop Studio.
+and safely scaffold a CLI-first Srijika TSX project without Desktop Studio. It
+also coordinates immutable-source React migration into a distinct new Srijika
+target through the same canonical developer engine used by CLI and editor
+adapters.
 
 Node.js `>=22.13.0` is required. The npm package uses its declared runtime dependencies. The Codex plugin build is
 separate and self-contained, including the TypeScript parser, so an installed
@@ -10,6 +13,17 @@ plugin does not depend on an ancestor repository `node_modules` directory.
 ```bash
 npx -y @srijika/mcp-server --project /absolute/path/to/project
 ```
+
+For migration, use the `srijika_create_react_migration` → scan → plan → reviewed
+slice apply/verify → global verify → finalize flow. The source is never written;
+equal, nested, overlapping, or symlink-aliased roots fail closed. Every applied
+slice includes source-to-target traceability and writes atomically inside the
+target. Unsupported or ambiguous behavior remains blocking, and finalization
+requires current source-baseline, traceability, architecture, build, typecheck,
+and test evidence. The read-only `srijika://docs/react-migration` resource is the
+machine-readable contract. The server does not claim arbitrary automatic
+rewriting or guaranteed zero context loss; Codex performs reviewed semantic
+slice analysis.
 
 The code-project tools are bounded to `--project`, use the shared Srijika developer
 engine, refuse overwrite, and enforce the canonical Feature → Slot → Part contract.

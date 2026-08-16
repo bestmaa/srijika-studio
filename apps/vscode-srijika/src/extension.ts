@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto';
+import { basename, dirname, join } from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -44,6 +45,13 @@ import {
 import { upgradedSrijikaPortableValidator } from './portable-validator-sync';
 import { SrijikaStructureTreeItem, SrijikaStructureTreeProvider } from './structure-view';
 import { SrijikaRuntimeController } from './runtime-controller';
+import {
+  describeReactMigrationResult,
+  runReactMigration,
+  validateReactMigrationRequest,
+  type ReactMigrationOperation,
+  type ReactMigrationRequest,
+} from './react-migration-adapter';
 import {
   discoverSafeSrijikaMigrationSources,
   discoverSafeSrijikaSources,
@@ -570,6 +578,126 @@ export function activate(context: vscode.ExtensionContext): void {
     const readme = vscode.Uri.joinPath(context.extensionUri, 'README.md');
     await vscode.commands.executeCommand('markdown.showPreview', readme);
   });
+
+  const importExistingReactProject = vscode.commands.registerCommand(
+    'srijika.importReactProject',
+    async () => {
+      const selectedOperation = await vscode.window.showQuickPick(
+        [
+          {
+            label: 'Start or resume React import',
+            description: 'Create or continue a safe migration in a separate Srijika target',
+            operation: 'start' as const,
+          },
+          {
+            label: 'Show migration status',
+            description: 'Read the target migration session without changing the source',
+            operation: 'status' as const,
+          },
+          {
+            label: 'Verify converted project',
+            description: 'Run the canonical migration verification for an existing target',
+            operation: 'verify' as const,
+          },
+        ],
+        {
+          title: 'Srijika: Import Existing React Project',
+          placeHolder: 'Choose a migration action',
+        },
+      );
+      if (!selectedOperation) return;
+
+      let source: string | undefined;
+      let target: string | undefined;
+      if (selectedOperation.operation === 'start') {
+        const selectedSource = await vscode.window.showOpenDialog({
+          title: 'Select the existing React source folder (read-only)',
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: 'Use as read-only source',
+        });
+        source = selectedSource?.[0]?.fsPath;
+        if (!source) return;
+        target = await vscode.window.showInputBox({
+          title: 'Choose a separate Srijika target folder',
+          prompt:
+            'Enter an absolute path. Srijika creates or resumes the target and never writes to the React source.',
+          value: join(dirname(source), `${basename(source)}-srijika`),
+          ignoreFocusOut: true,
+          validateInput(value) {
+            try {
+              validateReactMigrationRequest({ operation: 'start', source: source!, target: value });
+              return undefined;
+            } catch (error) {
+              return error instanceof Error ? error.message : String(error);
+            }
+          },
+        });
+      } else {
+        const selectedTarget = await vscode.window.showOpenDialog({
+          title:
+            selectedOperation.operation === 'status'
+              ? 'Select the Srijika migration target'
+              : 'Select the Srijika target to verify',
+          canSelectFiles: false,
+          canSelectFolders: true,
+          canSelectMany: false,
+          openLabel: selectedOperation.operation === 'status' ? 'Show status' : 'Verify target',
+        });
+        target = selectedTarget?.[0]?.fsPath;
+      }
+      if (!target) return;
+
+      const operation: ReactMigrationOperation = selectedOperation.operation;
+      const request: ReactMigrationRequest = {
+        operation,
+        target,
+        ...(source === undefined ? {} : { source }),
+      };
+      output.appendLine('');
+      output.appendLine(
+        `[React migration] ${operation}: ${source ? `${source} -> ` : ''}${target}`,
+      );
+      try {
+        const result = await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title:
+              operation === 'start'
+                ? 'Srijika is importing the React project…'
+                : operation === 'status'
+                  ? 'Srijika is reading migration status…'
+                  : 'Srijika is verifying the converted project…',
+            cancellable: false,
+          },
+          async (progress) => {
+            return runReactMigration(request, {
+              onStatus: (session) => {
+                progress.report({ message: `Phase: ${session.phase}` });
+                output.appendLine(JSON.stringify(session, null, 2));
+              },
+            });
+          },
+        );
+        const summary = describeReactMigrationResult(operation, result.session);
+        const action = await vscode.window.showInformationMessage(
+          `Srijika React migration ${summary}.`,
+          operation === 'start' ? 'Open Converted Project' : 'Show Output',
+        );
+        if (action === 'Open Converted Project') {
+          await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(target), true);
+        } else if (action === 'Show Output') {
+          output.show(true);
+        }
+      } catch (error) {
+        output.show(true);
+        void vscode.window.showErrorMessage(
+          `Srijika React migration failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
 
   const architectureForCreation = async (workspaceFolder: vscode.WorkspaceFolder) => {
     uiSuffixByWorkspace.delete(workspaceFolder.uri.toString());
@@ -1407,6 +1535,7 @@ export function activate(context: vscode.ExtensionContext): void {
     checkCurrentFile,
     checkArchitecture,
     showSetup,
+    importExistingReactProject,
     addOwnershipCapability,
     refreshStructure,
     runApp,

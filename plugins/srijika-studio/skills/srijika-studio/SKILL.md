@@ -1,6 +1,6 @@
 ---
 name: srijika-studio
-description: Build, inspect, scaffold, validate, debug, and preview Srijika React projects through CLI-first project MCP tools and an optional authenticated Studio bridge. Use for Feature/Slot/Part/strict Shared project structure even without Desktop Studio, or for visual document, hierarchy, renderer, and preview work when Studio is running.
+description: Build, inspect, scaffold, migrate, validate, debug, and preview Srijika React projects through CLI-first project MCP tools and an optional authenticated Studio bridge. Use for converting an existing React project into a distinct new Srijika target without changing the source, for Feature/Slot/Part/strict Shared project structure even without Desktop Studio, or for visual document, hierarchy, renderer, and preview work when Studio is running.
 ---
 
 # Srijika Studio
@@ -15,6 +15,10 @@ guessing DOM coordinates.
 - Feature, Slot, Part, Connector, Hook, Store, Logic, API, Types, project setup,
   validation, or runtime: call `srijika_get_code_project`, then use the code-project
   check/plan/apply tools. These must work when Studio is closed or uninstalled.
+- Existing React application to a new Srijika project: read
+  [react-project-migration.md](references/react-project-migration.md), then use the
+  migration session tools. Keep the source immutable, require a distinct new or
+  empty target, and apply only reviewed slices.
 - Canvas nodes, visual document props/events/styles, layout snapshots, history, or
   clean preview capture: use the Studio bridge workflow below.
 - If the Studio bridge is unavailable during a code-project task, continue with
@@ -115,6 +119,27 @@ For structural writes, call `srijika_plan_code_structure` first and review every
 created/updated path. Then pass its one-time `planId` to
 `srijika_apply_code_structure` and finish with `srijika_check_code_project`. Never substitute Studio bridge
 operations for a canonical TSX ownership change.
+
+## Migrate an existing React project
+
+Treat migration as a reviewable, resumable program rather than a bulk copy. Call
+`srijika_create_react_migration`, scan and inspect the plan, then let Codex
+analyze one source slice and submit only that reviewed slice to
+`srijika_apply_react_migration_slice`. Verify the slice before continuing.
+
+Never edit the source root. Never use a target that is the source, contains the
+source, is contained by the source, or is a nonempty unrelated project. The
+engine inventories and guards the filesystem; Codex remains responsible for the
+semantic mapping of routes, layouts, components, state, requests, auth, styles,
+assets, forms, environment use, and tests. Unsupported or ambiguous behavior is
+a blocker, not permission to guess.
+
+Before finalization, call `srijika_verify_react_migration` and require source
+immutability, complete source-to-target traceability, Srijika architecture,
+build, typecheck, and test evidence. Add route and visual evidence when the
+source exposes those surfaces. Do not describe migration as guaranteed
+zero-loss; report every blocker and unmapped source item. Finalize only after
+the session reports all required gates passing.
 
 When a task asks to initialize, inspect, validate, run, build, or open a code-first project from the terminal or VS Code, read [cli-and-runtime.md](references/cli-and-runtime.md). Prefer the shared `srijika` CLI over recreating package-manager or scaffold decisions. Keep Node as the compatibility default, select Bun only when explicitly requested for a detected Vite project, and never change the lockfile or package manager merely because the runtime changed. The same machine-readable contract is available from `srijika://docs/cli-runtime`.
 

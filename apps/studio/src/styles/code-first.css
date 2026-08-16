@@ -2581,6 +2581,16 @@ span.code-first-ui-node-disclosure {
   gap: 13px;
 }
 
+.code-first-welcome-action.is-migration {
+  grid-column: 1 / -1;
+}
+
+.code-first-welcome-action > button.is-secondary {
+  margin-top: 8px;
+  border-color: var(--code-first-border);
+  background: transparent;
+}
+
 .code-first-welcome-action {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr);

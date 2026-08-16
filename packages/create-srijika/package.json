@@ -1,6 +1,6 @@
 {
   "name": "create-srijika",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Create a production-ready Srijika React project from the command line.",
   "license": "Apache-2.0",
   "type": "module",
@@ -28,6 +28,6 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "@srijika/cli": "0.2.0"
+    "@srijika/cli": "0.3.0"
   }
 }

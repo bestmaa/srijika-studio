@@ -32,6 +32,21 @@ async function project(): Promise<string> {
   return root;
 }
 
+async function reactSource(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'srijika-cli-react-source-'));
+  roots.push(root);
+  await mkdir(join(root, 'src'), { recursive: true });
+  await writeFile(
+    join(root, 'package.json'),
+    JSON.stringify({ name: 'old-react-app', dependencies: { react: '^19.0.0', vite: '^8.0.0' } }),
+  );
+  await writeFile(
+    join(root, 'src/App.jsx'),
+    'export function App() { return <main>Old app</main>; }\n',
+  );
+  return root;
+}
+
 describe('argument parsing', () => {
   it('parses positional targets, valued options, and capability flags', () => {
     const parsed = parseSrijikaArguments([
@@ -207,6 +222,62 @@ describe('create command', () => {
     };
     expect(minimalPackage.dependencies).not.toHaveProperty('@tanstack/react-query');
     expect(queryPackage.dependencies).toHaveProperty('@tanstack/react-query');
+  });
+});
+
+describe('React migration command', () => {
+  it('creates a separate resumable target and reports status without changing source', async () => {
+    const source = await reactSource();
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-cli-react-target-'));
+    roots.push(parent);
+    const target = join(parent, 'new-srijika-app');
+    const before = await readFile(join(source, 'src/App.jsx'), 'utf8');
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(
+        runSrijikaCli([
+          'migrate',
+          'react',
+          '--source',
+          source,
+          '--target',
+          target,
+          '--no-install',
+          '--json',
+        ]),
+      ).resolves.toBe(0);
+      const started = JSON.parse(logs.join('\n')) as { phase: string; sourceRoot: string };
+      expect(started).toMatchObject({ phase: 'scaffolded', sourceRoot: source });
+      logs.length = 0;
+      await expect(
+        runSrijikaCli(['migrate', 'status', '--target', target, '--json']),
+      ).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({ phase: 'scaffolded' });
+    } finally {
+      console.log = originalLog;
+    }
+    expect(await readFile(join(source, 'src/App.jsx'), 'utf8')).toBe(before);
+  });
+
+  it('supports npm-create style --from while keeping the source separate', async () => {
+    const source = await reactSource();
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-cli-create-from-'));
+    roots.push(parent);
+    const target = join(parent, 'converted');
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(
+        runSrijikaCli(['create', target, '--from', source, '--no-install', '--no-open', '--json']),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    const payload = JSON.parse(logs.join('\n')) as { migration: { phase: string } };
+    expect(payload.migration.phase).toBe('scaffolded');
   });
 });
 

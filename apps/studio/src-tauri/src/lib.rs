@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 #[cfg(any(windows, target_os = "linux"))]
 use std::{env, fs, path::PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 #[cfg(not(windows))]
 use studio_core::VSCODE_EXECUTABLE;
 use studio_core::{
@@ -106,6 +106,183 @@ impl CommandFailure {
             message: format!("could not open the running application preview: {error}"),
         }
     }
+
+    fn migration(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum ReactMigrationOperation {
+    Start,
+    Status,
+    Verify,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReactMigrationRequest {
+    operation: ReactMigrationOperation,
+    source_path: Option<String>,
+    target_path: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReactMigrationResponse {
+    operation: ReactMigrationOperation,
+    target_path: String,
+    stdout: String,
+    stderr: String,
+    result: Option<serde_json::Value>,
+}
+
+const MAX_MIGRATION_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
+
+fn react_migration_cli_arguments(
+    operation: ReactMigrationOperation,
+    source_path: Option<&str>,
+    target_path: &str,
+) -> Result<Vec<String>, CommandFailure> {
+    let target = std::path::Path::new(target_path);
+    if target_path.trim().is_empty() || !target.is_absolute() {
+        return Err(CommandFailure::migration(
+            "invalid_migration_request",
+            "migration target must be an absolute folder path",
+        ));
+    }
+    match operation {
+        ReactMigrationOperation::Start => {
+            let source_path = source_path.ok_or_else(|| {
+                CommandFailure::migration(
+                    "invalid_migration_request",
+                    "React source is required for a new or resumed migration",
+                )
+            })?;
+            let source = std::path::Path::new(source_path);
+            if source_path.trim().is_empty() || !source.is_absolute() {
+                return Err(CommandFailure::migration(
+                    "invalid_migration_request",
+                    "React source must be an absolute folder path",
+                ));
+            }
+            if source == target || source.starts_with(target) || target.starts_with(source) {
+                return Err(CommandFailure::migration(
+                    "invalid_migration_request",
+                    "React source and Srijika target must be separate, non-overlapping folders; the source is never modified",
+                ));
+            }
+            Ok(vec![
+                "migrate".to_owned(),
+                "react".to_owned(),
+                "--source".to_owned(),
+                source_path.to_owned(),
+                "--target".to_owned(),
+                target_path.to_owned(),
+                "--json".to_owned(),
+            ])
+        }
+        ReactMigrationOperation::Status | ReactMigrationOperation::Verify => Ok(vec![
+            "migrate".to_owned(),
+            if operation == ReactMigrationOperation::Status {
+                "status".to_owned()
+            } else {
+                "verify".to_owned()
+            },
+            "--target".to_owned(),
+            target_path.to_owned(),
+            "--json".to_owned(),
+        ]),
+    }
+}
+
+fn parse_migration_json(stdout: &str) -> Option<serde_json::Value> {
+    serde_json::from_str(stdout.trim()).ok().or_else(|| {
+        stdout
+            .lines()
+            .rev()
+            .find_map(|line| serde_json::from_str(line.trim()).ok())
+    })
+}
+
+/// Runs only the canonical Srijika migration CLI. Studio selects paths and
+/// renders status; all scanning, planning, writes, resume state, and
+/// verification remain owned by the shared migration engine behind the CLI.
+#[tauri::command]
+async fn run_react_migration(
+    request: ReactMigrationRequest,
+) -> Result<ReactMigrationResponse, CommandFailure> {
+    let operation = request.operation;
+    let arguments = react_migration_cli_arguments(
+        operation,
+        request.source_path.as_deref(),
+        &request.target_path,
+    )?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = Command::new("srijika")
+            .args(arguments)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|error| {
+                CommandFailure::migration(
+                    if error.kind() == std::io::ErrorKind::NotFound {
+                        "srijika_cli_unavailable"
+                    } else {
+                        "migration_launch_failed"
+                    },
+                    if error.kind() == std::io::ErrorKind::NotFound {
+                        "the `srijika` CLI is unavailable on PATH; install @srijika/cli first"
+                            .to_owned()
+                    } else {
+                        format!("could not start the Srijika migration CLI: {error}")
+                    },
+                )
+            })?;
+        if output.stdout.len() > MAX_MIGRATION_OUTPUT_BYTES
+            || output.stderr.len() > MAX_MIGRATION_OUTPUT_BYTES
+        {
+            return Err(CommandFailure::migration(
+                "migration_output_too_large",
+                "Srijika migration output exceeded the safe Studio display limit",
+            ));
+        }
+        let stdout = String::from_utf8(output.stdout).map_err(|_| {
+            CommandFailure::migration(
+                "invalid_migration_output",
+                "Srijika migration output was not valid UTF-8",
+            )
+        })?;
+        let stderr = String::from_utf8(output.stderr).map_err(|_| {
+            CommandFailure::migration(
+                "invalid_migration_output",
+                "Srijika migration error output was not valid UTF-8",
+            )
+        })?;
+        if !output.status.success() {
+            let reason = stderr.trim();
+            return Err(CommandFailure::migration(
+                "migration_failed",
+                if reason.is_empty() {
+                    format!("Srijika migration exited with {}", output.status)
+                } else {
+                    format!("Srijika migration failed: {reason}")
+                },
+            ));
+        }
+        Ok(ReactMigrationResponse {
+            operation,
+            target_path: request.target_path,
+            result: parse_migration_json(&stdout),
+            stdout,
+            stderr,
+        })
+    })
+    .await
+    .map_err(CommandFailure::background_task)?
 }
 
 /// Reads one versioned Srijika UI document from an explicit absolute JSON path.
@@ -595,6 +772,7 @@ pub fn run() {
             create_code_project,
             create_code_project_ui_source,
             scaffold_code_project_structure,
+            run_react_migration,
             open_code_project,
             load_tsx_source,
             save_tsx_source,
@@ -636,7 +814,10 @@ mod tests {
 
     #[cfg(target_os = "linux")]
     use super::wsl_windows_vscode_candidates;
-    use super::{CommandFailure, launch_project_from_arguments, vscode_arguments};
+    use super::{
+        CommandFailure, ReactMigrationOperation, launch_project_from_arguments,
+        parse_migration_json, react_migration_cli_arguments, vscode_arguments,
+    };
 
     #[test]
     fn reads_an_explicit_launch_project_without_accepting_empty_values() {
@@ -663,6 +844,79 @@ mod tests {
             failure.message,
             "invalid document path: path must be absolute"
         );
+    }
+
+    #[test]
+    fn react_migration_arguments_match_the_canonical_cli_contract() {
+        assert_eq!(
+            react_migration_cli_arguments(
+                ReactMigrationOperation::Start,
+                Some("/workspace/legacy react"),
+                "/workspace/new srijika",
+            )
+            .expect("start arguments"),
+            [
+                "migrate",
+                "react",
+                "--source",
+                "/workspace/legacy react",
+                "--target",
+                "/workspace/new srijika",
+                "--json",
+            ]
+        );
+        assert_eq!(
+            react_migration_cli_arguments(
+                ReactMigrationOperation::Status,
+                None,
+                "/workspace/new srijika",
+            )
+            .expect("status arguments"),
+            [
+                "migrate",
+                "status",
+                "--target",
+                "/workspace/new srijika",
+                "--json",
+            ]
+        );
+        assert_eq!(
+            react_migration_cli_arguments(
+                ReactMigrationOperation::Verify,
+                None,
+                "/workspace/new srijika",
+            )
+            .expect("verify arguments"),
+            [
+                "migrate",
+                "verify",
+                "--target",
+                "/workspace/new srijika",
+                "--json",
+            ]
+        );
+    }
+
+    #[test]
+    fn react_migration_rejects_overlap_and_parses_pretty_status_json() {
+        let error = react_migration_cli_arguments(
+            ReactMigrationOperation::Start,
+            Some("/workspace/react"),
+            "/workspace/react/converted",
+        )
+        .expect_err("nested target must fail closed");
+        assert_eq!(error.code, "invalid_migration_request");
+        assert!(error.message.contains("source is never modified"));
+
+        let parsed = parse_migration_json(
+            r#"{
+              "phase": "verified",
+              "futureField": { "kept": true }
+            }"#,
+        )
+        .expect("pretty JSON");
+        assert_eq!(parsed["phase"], "verified");
+        assert_eq!(parsed["futureField"]["kept"], true);
     }
 
     #[test]

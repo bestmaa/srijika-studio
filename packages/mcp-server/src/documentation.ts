@@ -12,6 +12,10 @@ import {
   SRIJIKA_TOOL_NAMES,
   TOOL_VERSION,
 } from '@srijika/automation-protocol';
+import {
+  SRIJIKA_REACT_MIGRATION_TOOL_LIST,
+  SRIJIKA_REACT_MIGRATION_TOOL_NAMES,
+} from './react-migration-contract';
 
 interface DocumentationResource {
   uri: string;
@@ -679,6 +683,118 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
     },
   },
   {
+    uri: 'srijika://docs/react-migration',
+    title: 'Srijika React migration',
+    description:
+      'Machine-readable immutable-source, distinct-target, reviewed-slice migration contract.',
+    value: {
+      schemaVersion: 1,
+      contractId: 'srijika.react-migration-v1',
+      sessionFile: '.srijika/migrations/react/session.json',
+      adapters: ['cli', 'codex-mcp', 'vscode', 'desktop'],
+      sourceContract: {
+        immutable: true,
+        baselineRequired: true,
+        finalBaselineMatchRequired: true,
+        sourceAndTargetMustBeDistinct: true,
+        nestedOrOverlappingRootsAllowed: false,
+        symlinkAliasesAllowed: false,
+      },
+      targetContract: {
+        newOrRecognizableCleanStarterTarget: true,
+        atomicSliceWrites: true,
+        writesOutsideTargetAllowed: false,
+        unrelatedOverwriteAllowed: false,
+      },
+      responsibility: {
+        engine: [
+          'canonical-path-safety',
+          'source-baseline',
+          'bounded-inventory',
+          'persisted-plan-and-session',
+          'atomic-target-writes',
+          'source-to-target-traceability',
+          'fail-closed-verification',
+        ],
+        codex: [
+          'semantic-source-analysis',
+          'semantic-route-discovery-beyond-filename-classification',
+          'reviewed-owner-mapping',
+          'reviewed-slice-implementation',
+          'blocker-and-assumption-reporting',
+        ],
+      },
+      sessionPhases: ['planned', 'scaffolded', 'migrating', 'verifying', 'blocked', 'complete'],
+      workflowStages: [
+        'preflight',
+        'baseline',
+        'inventory',
+        'plan',
+        'scaffold',
+        'slice-migration',
+        'slice-verification',
+        'global-verification',
+        'finalized',
+      ],
+      inventory: [
+        'toolchain-and-entry',
+        'routes-and-layouts',
+        'components-props-and-events',
+        'hooks-context-state-and-query',
+        'api-auth-and-browser-boundaries',
+        'styles-assets-and-responsive-behavior',
+        'forms-environment-loading-and-errors',
+        'unit-integration-end-to-end-and-visual-tests',
+      ],
+      tools: SRIJIKA_REACT_MIGRATION_TOOL_LIST,
+      toolFlow: {
+        create: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
+        scan: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.scanSource,
+        plan: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+        applyReviewedSlice: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+        verifySlice: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
+        resume: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getStatus,
+        verifySession: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+        finalize: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.finalize,
+      },
+      completionEvidence: [
+        'source-unchanged',
+        'complete-source-to-target-traceability',
+        'strict-srijika-architecture',
+        'build',
+        'typecheck',
+        'tests',
+        'route-equivalence-when-applicable',
+        'responsive-visual-evidence-when-applicable',
+      ],
+      verificationEvidence: {
+        alwaysRequired: ['typecheck', 'build', 'test'],
+        routeFilesPresent: {
+          name: 'routes',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+        },
+        semanticRoutesPresent: {
+          name: 'routes',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+        },
+        visualSourcesPresent: {
+          categories: ['entry', 'component', 'style', 'asset'],
+          name: 'visual',
+          requiredStatus: 'passed',
+          detailsRequired: true,
+          minimumReviewedViewports: 2,
+          acceptedDetailForms: ['mobile|tablet|desktop|wide', 'WxH-measurements'],
+        },
+        duplicateOrOversizedEvidenceRejected: true,
+        sliceVerificationAlsoChecksSourceBaseline: true,
+      },
+      claimBoundary:
+        'No arbitrary automatic rewrite or guaranteed zero-loss claim. Unsupported or ambiguous behavior blocks completion until reviewed.',
+    },
+  },
+  {
     uri: 'srijika://docs/cli-runtime',
     title: 'Srijika CLI and fast runtime',
     description:
@@ -743,6 +859,7 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           'srijika_check_code_project',
           'srijika_plan_code_structure',
           'srijika_apply_code_structure',
+          ...SRIJIKA_REACT_MIGRATION_TOOL_LIST,
         ],
         studioBridgeOptional: true,
         isolatedPluginBundle: {

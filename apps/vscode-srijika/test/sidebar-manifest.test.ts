@@ -19,11 +19,16 @@ describe('VS Code Srijika Structure contribution', () => {
     expect(manifest.files).toContain('media');
     expect(manifest.activationEvents).toContain('workspaceContains:srijika.config.json');
     expect(manifest.activationEvents).toContain('onView:srijika.structure');
+    expect(manifest.activationEvents).toContain('onCommand:srijika.importReactProject');
     expect(manifest.contributes.commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ command: 'srijika.runApp' }),
         expect.objectContaining({ command: 'srijika.stopApp' }),
         expect.objectContaining({ command: 'srijika.doctor' }),
+        expect.objectContaining({
+          command: 'srijika.importReactProject',
+          title: 'Srijika: Import Existing React Project',
+        }),
       ]),
     );
     expect(manifest.contributes.commands).toContainEqual(

@@ -9,7 +9,7 @@ const executable = fileURLToPath(new URL('../bin/create-srijika.mjs', import.met
 test('forwards version and help to the published Srijika CLI', () => {
   const version = spawnSync(process.execPath, [executable, '--version'], { encoding: 'utf8' });
   assert.equal(version.status, 0, version.stderr);
-  assert.equal(version.stdout.trim(), '0.2.0');
+  assert.equal(version.stdout.trim(), '0.3.0');
 
   const help = spawnSync(process.execPath, [executable, '--help'], { encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);

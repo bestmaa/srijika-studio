@@ -4,6 +4,7 @@
 
 - Connection contract
 - Software-independent code-project tools
+- React migration tools
 - Read tools
 - Write tools
 - Responsive and Repeat examples
@@ -69,6 +70,40 @@ architecture. It publishes the bounded roots/directories/suffixes contract,
 strict UI external-runtime policy, passive Types rule, and `SRIJIKA4118`
 framework-free Logic boundary. Reject traversal, overlap, duplicate canonical
 names, and symlink escapes instead of reconstructing a different plan.
+
+## React migration tools
+
+Read `srijika://docs/react-migration` and
+[react-project-migration.md](react-project-migration.md) before converting an
+existing React project. The migration source is immutable and the target must
+be distinct, non-overlapping, and new or a recognizable clean generated starter.
+
+| Tool                                   | Use                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------- |
+| `srijika_create_react_migration`       | Preflight roots, baseline source, scaffold target, persist session. |
+| `srijika_scan_react_migration_source`  | Read the bounded source inventory without writing.                  |
+| `srijika_get_react_migration_plan`     | Read reviewed slices, mappings, blockers, and gates.                |
+| `srijika_get_react_migration_status`   | Resume the persisted target session.                                |
+| `srijika_apply_react_migration_slice`  | Apply one reviewed atomic target-only slice.                        |
+| `srijika_verify_react_migration_slice` | Verify one slice before continuing.                                 |
+| `srijika_verify_react_migration`       | Run source, traceability, architecture, and command gates.          |
+| `srijika_finalize_react_migration`     | Complete only when all current required evidence passes.            |
+
+The engine inventories and guards the migration. Codex performs semantic slice
+analysis and supplies reviewed target writes and source mappings. Unsupported
+or ambiguous behavior is a blocker. Never describe these tools as an arbitrary
+automatic rewrite or guaranteed zero-loss conversion.
+
+Verification evidence names are `install`, `typecheck`, `build`, `test`,
+`routes`, and `visual`. Typecheck, build, and test are always required and must
+pass. Route files or `semanticRoutesPresent` require `routes` with status
+`passed`; any entry, component, style, or
+asset source requires `visual` with status `passed`. Slice verification also
+rescans the immutable source baseline before marking the slice verified. Route
+and visual entries require nonempty details naming the checked routes and
+representative viewports. Visual details must name at least two of mobile,
+tablet, desktop, and wide, or provide at least two `WxH` measurements. Duplicate
+or oversized evidence is rejected.
 
 ## Read tools
 

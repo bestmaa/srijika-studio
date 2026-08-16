@@ -2,7 +2,7 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "publisher": "srijika",
   "license": "UNLICENSED",
@@ -33,6 +33,7 @@
     "onCommand:srijika.checkCurrentFile",
     "onCommand:srijika.checkArchitecture",
     "onCommand:srijika.showSetup",
+    "onCommand:srijika.importReactProject",
     "onCommand:srijika.addOwnershipCapability",
     "onCommand:srijika.refreshStructure",
     "onCommand:srijika.runApp",
@@ -57,6 +58,12 @@
         "command": "srijika.showSetup",
         "title": "Srijika: Open Setup and Language Support Guide",
         "category": "Srijika"
+      },
+      {
+        "command": "srijika.importReactProject",
+        "title": "Srijika: Import Existing React Project",
+        "category": "Srijika",
+        "icon": "$(repo-clone)"
       },
       {
         "command": "srijika.addOwnershipCapability",
@@ -120,6 +127,11 @@
     ],
     "menus": {
       "explorer/context": [
+        {
+          "command": "srijika.importReactProject",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation@srijika"
+        },
         {
           "command": "srijika.addOwnershipCapability",
           "when": "explorerResourceIsFolder",

@@ -72,6 +72,19 @@ The default scaffold is deliberately minimal: it does not install
 Logic, and API files work without it. Choose `--react-query` only when the app
 needs server cache, retry, invalidation, or mutation lifecycle.
 
+## Migrate an existing React project
+
+Create a separate target while keeping the source unchanged:
+
+```bash
+srijika migrate react --source ../old-react-app --target ../new-srijika-app
+```
+
+Use `srijika migrate status --target ../new-srijika-app` to resume and
+`srijika migrate verify --target ../new-srijika-app` to run the current gates.
+Read [React migration](/docs/react-migration/) for source/target safety, Codex
+slice review, MCP tools, traceability, and completion evidence.
+
 ## Start the real application
 
 ```bash
@@ -318,7 +331,7 @@ they are not required for code-project tools.
 For a manual MCP launch from the project root:
 
 ```bash
-npx -y @srijika/mcp-server@0.2.0 --project .
+npx -y @srijika/mcp-server@0.3.0 --project .
 ```
 
 Usually you do not need to run this yourself—the generated MCP configuration
@@ -409,7 +422,7 @@ version.
 </CardGrid>
 
 The current public release is
-[`v0.1.0`](https://github.com/bestmaa/srijika-studio/releases/tag/v0.1.0).
+[`v0.3.0`](https://github.com/bestmaa/srijika-studio/releases/tag/v0.3.0).
 Packages are verified by GitHub Actions and publish through npm
 Trusted Publishing with short-lived OIDC credentials rather than a long-lived
 repository token.

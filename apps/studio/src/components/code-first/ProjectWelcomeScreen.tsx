@@ -3,6 +3,7 @@ import {
   Boxes,
   Code2,
   FileCode2,
+  FolderInput,
   FolderTree,
   FolderOpen,
   FolderPlus,
@@ -21,6 +22,9 @@ export interface ProjectWelcomeScreenProps {
   onCreateProject: () => void;
   onOpenProject: () => void;
   onOpenStandaloneUi: () => void;
+  onImportReactProject?: (() => void) | undefined;
+  onInspectReactMigration?: (() => void) | undefined;
+  onVerifyReactMigration?: (() => void) | undefined;
   onResumeProject?: (() => void) | undefined;
   onBackToProject?: (() => void) | undefined;
   onOpenSettings?: (() => void) | undefined;
@@ -35,6 +39,9 @@ export function ProjectWelcomeScreen({
   onCreateProject,
   onOpenProject,
   onOpenStandaloneUi,
+  onImportReactProject,
+  onInspectReactMigration,
+  onVerifyReactMigration,
   onResumeProject,
   onBackToProject,
   onOpenSettings,
@@ -165,6 +172,49 @@ export function ProjectWelcomeScreen({
                 : 'Project folders open in desktop Studio only'}
             </small>
           </article>
+
+          {desktop && onImportReactProject && (
+            <article className="code-first-welcome-action is-migration">
+              <span className="code-first-welcome-action-icon" aria-hidden="true">
+                <FolderInput size={22} />
+              </span>
+              <div>
+                <span className="code-first-welcome-action-kicker">SAFE REACT MIGRATION</span>
+                <h2>Import Existing React Project</h2>
+                <p>
+                  Select a read-only React source and a separate target. Studio runs the canonical
+                  migration engine; rerunning the same target resumes its saved session.
+                </p>
+              </div>
+              <button type="button" disabled={disabled} onClick={onImportReactProject}>
+                Import or Resume React Project
+                <ArrowRight size={15} aria-hidden="true" />
+              </button>
+              {onInspectReactMigration && (
+                <button
+                  type="button"
+                  className="is-secondary"
+                  disabled={disabled}
+                  onClick={onInspectReactMigration}
+                >
+                  Check Existing Migration Status
+                  <ArrowRight size={15} aria-hidden="true" />
+                </button>
+              )}
+              {onVerifyReactMigration && (
+                <button
+                  type="button"
+                  className="is-secondary"
+                  disabled={disabled}
+                  onClick={onVerifyReactMigration}
+                >
+                  Verify Converted Project
+                  <ArrowRight size={15} aria-hidden="true" />
+                </button>
+              )}
+              <small>Source and target must be separate, non-overlapping folders</small>
+            </article>
+          )}
         </div>
 
         {desktop && recentProject && onResumeProject && (

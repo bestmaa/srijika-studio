@@ -13,6 +13,18 @@ Or provide the project name directly:
 npm create srijika@latest my-app
 ```
 
+To convert an existing React Vite/CRA project into a separate, resumable Srijika
+target while leaving the source untouched:
+
+```bash
+npm create srijika@latest my-srijika-app -- --from /absolute/path/to/old-react-app
+```
+
+This creates the new target, captures a bounded source inventory and immutable
+baseline, and writes the reviewed migration session under
+`.srijika/migrations/react/`. Codex/MCP then migrates and verifies the planned
+slices; the command never rewrites the source project in place.
+
 The command scaffolds the project, installs its frozen dependency graph, validates
 the Feature → Slot → Part architecture, recommends/installs the VS Code extension,
 opens the exact folder, and optionally hands the same project to Srijika Studio.

@@ -10,6 +10,7 @@ import {
   SRIJIKA_TOOL_NAMES,
   TOOL_VERSION,
 } from '../../packages/automation-protocol/src/index';
+import { SRIJIKA_REACT_MIGRATION_TOOL_LIST } from '../../packages/mcp-server/src/react-migration-contract';
 
 interface PluginProtocolManifest {
   protocolVersion: string;
@@ -17,6 +18,7 @@ interface PluginProtocolManifest {
   documentFormatVersions: number[];
   features: Record<string, boolean>;
   canonicalTools: string[];
+  reactMigrationTools: string[];
   deprecatedTools: string[];
 }
 
@@ -35,6 +37,7 @@ describe('installed plugin protocol metadata', () => {
         (toolName) => !CAPABILITIES.deprecated.toolNames.includes(toolName as never),
       ),
     );
+    expect(manifest.reactMigrationTools).toEqual(SRIJIKA_REACT_MIGRATION_TOOL_LIST);
     expect(manifest.deprecatedTools).toEqual(CAPABILITIES.deprecated.toolNames);
   });
 });

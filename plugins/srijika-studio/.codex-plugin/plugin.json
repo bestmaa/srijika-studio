@@ -1,22 +1,31 @@
 {
   "name": "srijika-studio",
-  "version": "0.1.0+codex.20260816001641",
-  "description": "Build, scaffold, inspect, validate, and run CLI-first Srijika React projects from Codex, with optional Studio visual tools.",
+  "version": "0.3.0+codex.20260816084955",
+  "description": "Build, migrate, scaffold, inspect, validate, and run CLI-first Srijika React projects from Codex, with optional Studio visual tools.",
   "author": {
     "name": "Srijika Studio"
   },
   "license": "Apache-2.0",
-  "keywords": ["codex", "mcp", "react", "tauri", "visual-builder", "ui-automation"],
+  "keywords": [
+    "codex",
+    "mcp",
+    "react",
+    "tauri",
+    "visual-builder",
+    "ui-automation"
+  ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Srijika Studio",
-    "shortDescription": "Build Srijika projects with or without Studio",
-    "longDescription": "Use software-independent MCP tools for strict Feature, Slot, Part, and Shared UI/Widget/Headless project inspection, validation, planning, and atomic scaffolding, including behavior-free UI, passive Types, canonical ownership, and promotion/split guidance. When Srijika Studio is available, connect through its private authenticated bridge to inspect hierarchy, apply visual document operations, validate generated TSX, inspect rendered geometry, and capture clean previews.",
+    "shortDescription": "Build or migrate Srijika projects with or without Studio",
+    "longDescription": "Use software-independent MCP tools for immutable-source React migration into a distinct Srijika target and for strict Feature, Slot, Part, and Shared UI/Widget/Headless project inspection, validation, planning, and atomic scaffolding. Migration is reviewed, resumable, traceable, target-only, and fails closed on unsupported behavior or missing evidence. When Srijika Studio is available, connect through its private authenticated bridge to inspect hierarchy, apply visual document operations, validate generated TSX, inspect rendered geometry, and capture clean previews.",
     "developerName": "Srijika Studio",
     "category": "Developer Tools",
     "capabilities": [
       "Recreate screenshot designs",
+      "Migrate an existing React app into a distinct new Srijika target",
+      "Resume reviewed migrations with source-to-target traceability",
       "Build and edit React UI",
       "Scaffold and validate code-first projects",
       "Create strict cross-feature shared owners",
@@ -36,7 +45,8 @@
       "Analyze repeated siblings, convert the reviewed candidates to typed Repeat nodes, and verify generated React output.",
       "Make the active page responsive without duplicating its component tree, then check mobile, tablet, desktop, and wide layouts.",
       "Inspect the current Srijika page and fix its layout diagnostics.",
-      "Add a typed page prop and bind it to the selected component."
+      "Add a typed page prop and bind it to the selected component.",
+      "Convert an existing React project into a separate Srijika project without modifying the source, then verify every reviewed slice."
     ],
     "brandColor": "#6756E8"
   }

@@ -20,6 +20,8 @@ const BOOLEAN_OPTIONS = new Set([
   'api',
   'types',
   'react-query',
+  'routes-verified',
+  'visual-verified',
   'watch',
   'no-install',
   'no-open',

@@ -23,8 +23,10 @@ import {
   chooseAndCreateCodeProject,
   chooseAndLoadTsxSource,
   chooseAndOpenCodeProject,
+  chooseAndRunReactMigration,
   createCodeProjectUiSource,
   getLaunchProject,
+  describeReactMigrationCommand,
   type CodeProjectPreviewAsset,
   type CodeProjectEntry,
   getProjectRuntimeStatus,
@@ -1220,6 +1222,65 @@ export function CodeFirstStudio() {
     }
   };
 
+  const handleReactMigration = async (operation: 'start' | 'status' | 'verify'): Promise<void> => {
+    if (!isTauriDesktop()) {
+      setMessage('React project migration is available in desktop Studio.');
+      return;
+    }
+    if (projectRuntimeBlocksTransition) return;
+    if (operation === 'start' && !confirmDiscardVisualEdits('import a React project')) return;
+    if (operation === 'start' && !(await stopRunningProjectForTransition())) return;
+    setBusy(true);
+    setMessage(
+      operation === 'start'
+        ? 'Select the read-only React source, then choose a separate Srijika target.'
+        : operation === 'status'
+          ? 'Select an existing Srijika migration target.'
+          : 'Select the converted Srijika project to verify.',
+    );
+    try {
+      const response = await chooseAndRunReactMigration(operation);
+      if (!response) {
+        setMessage('React migration selection was cancelled; no files were changed.');
+        return;
+      }
+      const summary = describeReactMigrationCommand(response);
+      if (operation !== 'start') {
+        setMessage(summary);
+        return;
+      }
+
+      const opened = await openCodeProject(response.targetPath);
+      if (!opened) {
+        setMessage(`${summary} Reopen the target when its project entry is ready.`);
+        return;
+      }
+      browserProjectFilesRef.current = null;
+      setPreviewStylesheets([]);
+      setPreviewAssets([]);
+      setPreviewDesignProps({});
+      setPreviewStylesError(null);
+      invalidateAsyncProjectSession();
+      attachProject({
+        rootPath: opened.path,
+        displayName: projectDisplayName(opened.path),
+        activeUiSourcePath: opened.entrySourcePath,
+      });
+      openLoadedSource({
+        path: opened.entrySourcePath,
+        source: opened.source,
+        hash: opened.hash,
+      });
+      setProjectChooserOpen(false);
+      await refreshProjectIndex();
+      setMessage(`${summary} Opened converted project at ${opened.path}`);
+    } catch (error) {
+      setMessage(`React migration failed: ${errorMessage(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (!isTauriDesktop() || launchProjectHandledRef.current) return;
     launchProjectHandledRef.current = true;
@@ -2134,6 +2195,9 @@ export function CodeFirstStudio() {
           onCreateProject={() => void handleNewProject()}
           onOpenProject={() => void handleOpenProject()}
           onOpenStandaloneUi={() => void handleOpen()}
+          onImportReactProject={() => void handleReactMigration('start')}
+          onInspectReactMigration={() => void handleReactMigration('status')}
+          onVerifyReactMigration={() => void handleReactMigration('verify')}
           onResumeProject={() => void handleResumeProject()}
           onBackToProject={hasLoadedSource ? () => setProjectChooserOpen(false) : undefined}
           onOpenStructure={() => setStructureGuideOpen(true)}

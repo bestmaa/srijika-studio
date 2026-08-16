@@ -1,8 +1,8 @@
 interface:
   display_name: 'Srijika Studio'
-  short_description: 'Build strict Srijika React projects and UI'
+  short_description: 'Build or migrate strict Srijika React projects'
   brand_color: '#6756E8'
-  default_prompt: 'Use $srijika-studio to build or improve the active Srijika project, preserve strict Feature/Slot/Part/Shared ownership, behavior-free UI, passive Types, framework-free Logic, fail-closed live architecture configuration, and verify the result.'
+  default_prompt: 'Use $srijika-studio to build, migrate, or improve a Srijika React project. For migration, keep the source immutable, use a distinct target, apply reviewed traceable slices, and finalize only with current evidence; otherwise preserve strict Feature/Slot/Part/Shared ownership and verify the result.'
 
 policy:
   allow_implicit_invocation: true

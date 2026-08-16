@@ -1,4 +1,5 @@
 import { watch } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { basename, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -7,12 +8,18 @@ import { pathToFileURL } from 'node:url';
 import {
   checkSrijikaArchitecture,
   createSrijikaDoctorReport,
+  finalizeReactMigration,
   findSrijikaProjectRoot,
   formatSrijikaCommand,
   inspectSrijikaProject,
   planSrijikaProjectCommand,
   runSrijikaCommand,
+  startReactMigration,
+  getReactMigrationStatus,
+  verifyReactMigration,
   SrijikaArchitectureIndex,
+  type ReactMigrationCommandStatus,
+  type ReactMigrationSession,
   type SrijikaProjectCommandKind,
   type SrijikaRuntimePreference,
 } from '@srijika/developer-engine';
@@ -38,7 +45,7 @@ import {
   SRIJIKA_VSCODE_EXTENSION_ID,
 } from './vscode.js';
 
-export const SRIJIKA_CLI_VERSION = '0.2.0';
+export const SRIJIKA_CLI_VERSION = '0.3.0';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 
@@ -56,6 +63,9 @@ Usage:
   srijika add behavior-hook <Behavior> --in <owner-folder>
   srijika add store-slice <Concern> --in <owner-folder>
   srijika check [project] [--watch] [--json]
+  srijika migrate react --source <existing-react> --target <new-srijika> [--dry-run] [--json]
+  srijika migrate status --target <new-srijika> [--json]
+  srijika migrate verify --target <new-srijika> [--routes-verified] [--visual-verified] [--json]
   srijika dev [project] [--runtime node|bun] [--port 5173]
   srijika install|build|preview|validate [project]
   srijika doctor [project] [--runtime node|bun] [--json]
@@ -70,6 +80,7 @@ interface CreatedProject {
   projectName: string;
   displayName: string;
   files: readonly string[];
+  migration?: ReactMigrationSession;
 }
 
 type ProjectDirectoryPrompt = () => Promise<string>;
@@ -114,6 +125,27 @@ async function createProjectFiles(parsed: ParsedArguments): Promise<CreatedProje
   const target = resolve(directory);
   const projectName = stringOption(parsed, 'name') ?? kebabName(basename(target));
   const displayName = stringOption(parsed, 'display-name') ?? basename(target);
+  const migrationSource = stringOption(parsed, 'from');
+  if (migrationSource) {
+    if (booleanOption(parsed, 'react-query')) {
+      throw new Error(
+        '--react-query is not supported with --from; migrate providers as a reviewed slice.',
+      );
+    }
+    const migration = await startReactMigration({
+      source: resolve(migrationSource),
+      target,
+      projectName,
+      displayName,
+    });
+    return {
+      target,
+      projectName,
+      displayName,
+      files: [`.srijika/migrations/react/session.json`],
+      migration,
+    };
+  }
   const result = await writeSrijikaProject(target, {
     projectName,
     displayName,
@@ -184,11 +216,14 @@ async function runCreate(parsed: ParsedArguments): Promise<number> {
     'no-extension',
     'extension',
     'react-query',
+    'from',
   ]);
   const result = await createProjectFiles(parsed);
   const json = booleanOption(parsed, 'json');
   const statuses: Record<string, string> = {
-    scaffold: `${result.files.length} pinned files`,
+    scaffold: result.migration
+      ? `migration ${result.migration.id}, ${result.migration.inventory.files.length} inventoried source files`
+      : `${result.files.length} pinned files`,
   };
   if (!json) {
     console.log(
@@ -475,6 +510,153 @@ async function runProjectCommand(
   return runSrijikaCommand(plan);
 }
 
+function printMigrationSession(session: ReactMigrationSession, json: boolean): void {
+  if (json) {
+    console.log(JSON.stringify(session, null, 2));
+    return;
+  }
+  console.log(`✓ React migration ${session.id}: ${session.phase}`);
+  console.log(`  Source (read-only): ${session.sourceRoot}`);
+  console.log(`  Target: ${session.targetRoot}`);
+  console.log(
+    `  Traceability: ${session.mappings.length + session.ignoredSources.length}/${session.inventory.files.length} source files accounted for`,
+  );
+  if (session.verification && !session.verification.passed) {
+    for (const error of session.verification.errors) console.log(`! ${error}`);
+  }
+}
+
+function packageManagerExecutable(manager: string): string {
+  return process.platform === 'win32' ? `${manager}.cmd` : manager;
+}
+
+async function runMigrationScript(
+  project: Awaited<ReturnType<typeof inspectSrijikaProject>>,
+  name: 'typecheck' | 'build' | 'test',
+  json: boolean,
+): Promise<ReactMigrationCommandStatus> {
+  const scriptName =
+    name === 'test' && !project.scripts['test'] && project.scripts['validate:srijika']
+      ? 'validate:srijika'
+      : name;
+  if (!project.scripts[scriptName]) {
+    return {
+      name,
+      status: 'failed',
+      details: `package.json does not define a ${name} verification script.`,
+    };
+  }
+  const executable = packageManagerExecutable(project.packageManager);
+  const code = await new Promise<number>((resolveCode, reject) => {
+    const child = spawn(executable, ['run', scriptName], {
+      cwd: project.root,
+      env: process.env,
+      stdio: json ? 'ignore' : 'inherit',
+      shell: false,
+      windowsHide: true,
+    });
+    child.once('error', reject);
+    child.once('exit', (exitCode) => resolveCode(exitCode ?? 1));
+  });
+  return {
+    name,
+    status: code === 0 ? 'passed' : 'failed',
+    details:
+      code === 0
+        ? scriptName === name
+          ? `${name} passed.`
+          : `${name} passed through the ${scriptName} migration fallback.`
+        : `${scriptName} exited with code ${code}.`,
+  };
+}
+
+async function runMigrate(parsed: ParsedArguments): Promise<number> {
+  const [operation, ...extra] = parsed.positionals;
+  if (!operation || extra.length > 0) {
+    throw new Error('Use `srijika migrate react|status|verify` with named source/target options.');
+  }
+  if (operation === 'react') {
+    assertKnownOptions(parsed, [
+      'source',
+      'target',
+      'name',
+      'display-name',
+      'dry-run',
+      'json',
+      'no-install',
+    ]);
+    const source = stringOption(parsed, 'source');
+    const target = stringOption(parsed, 'target');
+    if (!source || !target) {
+      throw new Error('migrate react requires --source and --target.');
+    }
+    const json = booleanOption(parsed, 'json');
+    const dryRun = booleanOption(parsed, 'dry-run');
+    const projectName = stringOption(parsed, 'name');
+    const displayName = stringOption(parsed, 'display-name');
+    const session = await startReactMigration({
+      source: resolve(source),
+      target: resolve(target),
+      ...(projectName ? { projectName } : {}),
+      ...(displayName ? { displayName } : {}),
+      dryRun,
+    });
+    if (!dryRun && !booleanOption(parsed, 'no-install')) {
+      const project = await inspectSrijikaProject(session.targetRoot);
+      const install = planSrijikaProjectCommand(project, 'install');
+      if (!json) console.log(`→ ${formatSrijikaCommand(install)}`);
+      const code = await runSrijikaCommand(install, json ? { stdio: 'ignore' } : {});
+      if (code !== 0) return code;
+    }
+    printMigrationSession(session, json);
+    return 0;
+  }
+  if (operation === 'status') {
+    assertKnownOptions(parsed, ['target', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate status requires --target.');
+    printMigrationSession(
+      await getReactMigrationStatus(resolve(target)),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'verify') {
+    assertKnownOptions(parsed, ['target', 'json', 'routes-verified', 'visual-verified']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate verify requires --target.');
+    const json = booleanOption(parsed, 'json');
+    const project = await inspectSrijikaProject(resolve(target));
+    const commands: ReactMigrationCommandStatus[] = [];
+    commands.push(await runMigrationScript(project, 'typecheck', json));
+    commands.push(await runMigrationScript(project, 'build', json));
+    commands.push(await runMigrationScript(project, 'test', json));
+    if (booleanOption(parsed, 'routes-verified')) {
+      commands.push({
+        name: 'routes',
+        status: 'passed',
+        details: 'User confirmed the reviewed source and target route matrix matches.',
+      });
+    }
+    if (booleanOption(parsed, 'visual-verified')) {
+      commands.push({
+        name: 'visual',
+        status: 'passed',
+        details: 'User confirmed representative mobile, tablet, and desktop viewport parity.',
+      });
+    }
+    const verified = await verifyReactMigration({ target: project.root, commands });
+    if (!verified.verification?.passed) {
+      printMigrationSession(verified, json);
+      return 1;
+    }
+    const completed = await finalizeReactMigration({ target: project.root, commands });
+    printMigrationSession(completed, json);
+    return 0;
+  }
+  throw new Error(`Unknown migrate operation: ${operation}. Use react, status, or verify.`);
+}
+
 async function runStudio(parsed: ParsedArguments): Promise<number> {
   assertKnownOptions(parsed, ['project']);
   const start = parsed.positionals[0] ?? stringOption(parsed, 'project') ?? process.cwd();
@@ -511,6 +693,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
       return runCheck(parsed);
     case 'doctor':
       return runDoctor(parsed);
+    case 'migrate':
+      return runMigrate(parsed);
     case 'dev':
     case 'install':
     case 'build':

@@ -20,6 +20,11 @@ npx @srijika/cli add shared-capability Auth --hook --logic --api --types
 npx @srijika/cli check
 npx @srijika/cli dev
 npx @srijika/cli dev --runtime bun
+
+# Start or resume an immutable-source React migration:
+npx @srijika/cli migrate react --source /old/react-app --target /new/srijika-app
+npx @srijika/cli migrate status --target /new/srijika-app
+npx @srijika/cli migrate verify --target /new/srijika-app
 ```
 
 `npm create srijika@latest` resolves the public `create-srijika` launcher, which
@@ -34,6 +39,15 @@ project, while a missing copy is silently skipped. Use `--no-install`,
 
 Every generated project includes portable validation plus VS Code Run App, Check
 Architecture, and Build App tasks, so Studio is never required.
+
+`migrate react` supports React Vite/CRA JavaScript and TypeScript projects in
+phase 1. It never writes to the source: it captures a bounded hash inventory,
+creates or resumes a distinct target, and persists the reviewed slice plan and
+source-to-target mappings under `.srijika/migrations/react/`. Apply semantic
+slices through Codex/MCP, then use `migrate verify`; completion requires an
+unchanged source, full mapped-or-ignored traceability, verified slices, clean
+Srijika architecture, and typecheck/build/test evidence. Next.js, Remix, React
+Native, and Expo fail closed until dedicated adapters are available.
 
 `behavior-hook` and `store-slice` accept only a PascalCase suffix. The shared
 writer derives the owner-prefixed filename, moves a flat gateway into its
