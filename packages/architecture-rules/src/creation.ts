@@ -25,37 +25,83 @@ export type SrijikaStructureOwnerContext =
       featureName: string;
       slotName: string;
       partName: string;
+    }
+  | {
+      level: 'sharedRoot';
+      folder: string;
+    }
+  | {
+      level: 'sharedUi';
+      folder: string;
+      sharedName: string;
+    }
+  | {
+      level: 'sharedWidget';
+      folder: string;
+      sharedName: string;
+    }
+  | {
+      level: 'sharedCapability';
+      folder: string;
+      sharedName: string;
     };
 
 export type SrijikaStructureCreationAction =
   | 'feature'
   | 'featureConnector'
   | 'featureHook'
+  | 'featureBehaviorHook'
   | 'featureStore'
+  | 'featureStoreSlice'
   | 'featureLogic'
   | 'featureApi'
   | 'featureTypes'
   | 'slot'
   | 'slotConnector'
   | 'slotHook'
+  | 'slotBehaviorHook'
   | 'slotStore'
+  | 'slotStoreSlice'
   | 'slotLogic'
   | 'slotApi'
   | 'slotTypes'
   | 'part'
   | 'partConnector'
   | 'partHook'
+  | 'partBehaviorHook'
   | 'partStore'
+  | 'partStoreSlice'
   | 'partLogic'
   | 'partApi'
-  | 'partTypes';
+  | 'partTypes'
+  | 'sharedUi'
+  | 'sharedUiTypes'
+  | 'sharedWidget'
+  | 'sharedWidgetConnector'
+  | 'sharedWidgetHook'
+  | 'sharedWidgetBehaviorHook'
+  | 'sharedWidgetStore'
+  | 'sharedWidgetStoreSlice'
+  | 'sharedWidgetLogic'
+  | 'sharedWidgetApi'
+  | 'sharedWidgetTypes'
+  | 'sharedCapability'
+  | 'sharedCapabilityHook'
+  | 'sharedCapabilityBehaviorHook'
+  | 'sharedCapabilityStore'
+  | 'sharedCapabilityStoreSlice'
+  | 'sharedCapabilityLogic'
+  | 'sharedCapabilityApi'
+  | 'sharedCapabilityTypes';
 
 export const SRIJIKA_STRUCTURE_CREATION_MATRIX = Object.freeze({
   featuresRoot: Object.freeze(['feature'] as const),
   feature: Object.freeze([
     'featureConnector',
     'featureHook',
+    'featureBehaviorHook',
     'featureStore',
+    'featureStoreSlice',
     'featureLogic',
     'featureApi',
     'featureTypes',
@@ -64,7 +110,9 @@ export const SRIJIKA_STRUCTURE_CREATION_MATRIX = Object.freeze({
   slot: Object.freeze([
     'slotConnector',
     'slotHook',
+    'slotBehaviorHook',
     'slotStore',
+    'slotStoreSlice',
     'slotLogic',
     'slotApi',
     'slotTypes',
@@ -73,16 +121,55 @@ export const SRIJIKA_STRUCTURE_CREATION_MATRIX = Object.freeze({
   part: Object.freeze([
     'partConnector',
     'partHook',
+    'partBehaviorHook',
     'partStore',
+    'partStoreSlice',
     'partLogic',
     'partApi',
     'partTypes',
+  ] as const),
+  sharedRoot: Object.freeze(['sharedUi', 'sharedWidget', 'sharedCapability'] as const),
+  sharedUi: Object.freeze(['sharedUiTypes'] as const),
+  sharedWidget: Object.freeze([
+    'sharedWidgetConnector',
+    'sharedWidgetHook',
+    'sharedWidgetBehaviorHook',
+    'sharedWidgetStore',
+    'sharedWidgetStoreSlice',
+    'sharedWidgetLogic',
+    'sharedWidgetApi',
+    'sharedWidgetTypes',
+  ] as const),
+  sharedCapability: Object.freeze([
+    'sharedCapabilityHook',
+    'sharedCapabilityBehaviorHook',
+    'sharedCapabilityStore',
+    'sharedCapabilityStoreSlice',
+    'sharedCapabilityLogic',
+    'sharedCapabilityApi',
+    'sharedCapabilityTypes',
   ] as const),
 });
 
 export const SRIJIKA_OWNER_FILE_CONTRACT = Object.freeze({
   required: Object.freeze(['ui', 'connector'] as const),
   optional: Object.freeze(['hook', 'store', 'logic', 'api', 'types'] as const),
+});
+
+export const SRIJIKA_SHARED_FILE_CONTRACT = Object.freeze({
+  ui: Object.freeze({
+    required: Object.freeze(['ui'] as const),
+    optional: Object.freeze(['types'] as const),
+  }),
+  widget: Object.freeze({
+    required: Object.freeze(['ui', 'connector'] as const),
+    optional: Object.freeze(['hook', 'store', 'logic', 'api', 'types'] as const),
+  }),
+  capability: Object.freeze({
+    required: Object.freeze([] as const),
+    optional: Object.freeze(['hook', 'store', 'logic', 'api', 'types'] as const),
+    minimumRuntimeCapabilities: 1,
+  }),
 });
 
 export function normalizeSrijikaRelativePath(value: string): string {
@@ -127,21 +214,41 @@ export function canonicalSrijikaOwnerName(value: string): string {
   return srijikaPascalName(srijikaFolderName(value));
 }
 
+function isCanonicalSrijikaOwnerFolder(value: string): boolean {
+  return value === srijikaFolderName(srijikaPascalName(value));
+}
+
 export function resolveSrijikaStructureOwner(
   folder: string,
   architecture: Partial<SrijikaArchitectureConfig> = {},
 ): SrijikaStructureOwnerContext | null {
   const config = resolveSrijikaArchitectureConfig(architecture);
   const normalized = normalizeSrijikaRelativePath(folder);
+  const sharedSegments = config.sharedRoot.split('/');
   const rootSegments = config.featuresRoot.split('/');
   const segments = normalized.split('/');
+  if (segments.slice(0, sharedSegments.length).join('/') === config.sharedRoot) {
+    const remainder = segments.slice(sharedSegments.length);
+    if (remainder.length === 0) return { level: 'sharedRoot', folder: config.sharedRoot };
+    const [category, ownerFolder, ...extra] = remainder;
+    if (extra.length > 0 || !ownerFolder || !isCanonicalSrijikaOwnerFolder(ownerFolder)) {
+      return null;
+    }
+    const sharedName = srijikaPascalName(ownerFolder);
+    if (category === 'ui') return { level: 'sharedUi', folder: normalized, sharedName };
+    if (category === 'widgets') return { level: 'sharedWidget', folder: normalized, sharedName };
+    if (category === 'capabilities') {
+      return { level: 'sharedCapability', folder: normalized, sharedName };
+    }
+    return null;
+  }
   if (segments.slice(0, rootSegments.length).join('/') !== config.featuresRoot) return null;
 
   const remainder = segments.slice(rootSegments.length);
   if (remainder.length === 0) {
     return { level: 'featuresRoot', folder: config.featuresRoot };
   }
-  if (remainder.length === 1 && remainder[0]) {
+  if (remainder.length === 1 && remainder[0] && isCanonicalSrijikaOwnerFolder(remainder[0])) {
     return {
       level: 'feature',
       folder: normalized,
@@ -151,8 +258,10 @@ export function resolveSrijikaStructureOwner(
   if (
     remainder.length === 3 &&
     remainder[0] &&
+    isCanonicalSrijikaOwnerFolder(remainder[0]) &&
     remainder[1] === config.slotsDirectory &&
-    remainder[2]
+    remainder[2] &&
+    isCanonicalSrijikaOwnerFolder(remainder[2])
   ) {
     return {
       level: 'slot',
@@ -164,10 +273,13 @@ export function resolveSrijikaStructureOwner(
   if (
     remainder.length === 5 &&
     remainder[0] &&
+    isCanonicalSrijikaOwnerFolder(remainder[0]) &&
     remainder[1] === config.slotsDirectory &&
     remainder[2] &&
+    isCanonicalSrijikaOwnerFolder(remainder[2]) &&
     remainder[3] === config.partsDirectory &&
-    remainder[4]
+    remainder[4] &&
+    isCanonicalSrijikaOwnerFolder(remainder[4])
   ) {
     return {
       level: 'part',

@@ -70,7 +70,8 @@ workflow.
 ## Use the Structure view
 
 Open the **Srijika** icon in the Activity Bar and expand **Structure**. It reads
-the canonical hierarchy directly from `src/features`:
+the canonical hierarchy from `src/features` and the strict owners under
+`src/shared`:
 
 ```text
 Features
@@ -80,32 +81,60 @@ Features
     │       └── parts
     │           └── NavigationItem
     └── owner capabilities
+Shared
+├── UI
+├── Widgets
+└── Capabilities
 ```
 
 Every Feature, Slot, and Part has an inline `+` action. The same validated form
 is available by right-clicking an exact ownership folder in Explorer and choosing
 **Srijika: Add Feature / Slot / Part Capability…**.
 
-| Selected folder | Allowed creation                         |
-| --------------- | ---------------------------------------- |
-| `src/features`  | New Feature                              |
-| Feature root    | Missing Feature capabilities or New Slot |
-| Slot root       | Missing Slot capabilities or New Part    |
-| Part root       | Missing Part capabilities                |
+| Selected folder | Allowed creation                                        |
+| --------------- | ------------------------------------------------------- |
+| `src/features`  | New Feature                                             |
+| Feature root    | Missing Feature capabilities or New Slot                |
+| Slot root       | Missing Slot capabilities or New Part                   |
+| Part root       | Missing Part capabilities                               |
+| `src/shared`    | Shared UI, Shared Widget, or Shared Headless Capability |
 
-For a new owner, enter one PascalCase name and choose optional Hook, Store,
-Logic, API, and Types capabilities. UI + Connector are always required. The form
-shows every exact path before writing and refuses arbitrary locations,
-duplicates, and overwrites.
+For a new owner, enter one PascalCase name and choose only capabilities valid
+for that owner. UI + Connector are required for Feature, Slot, Part, and Shared
+Widget; Shared UI has no runtime layer, while Shared Headless Capability has no
+UI or Connector and requires at least one runtime layer. The form shows every
+exact path before writing and refuses arbitrary locations, duplicates, and
+overwrites.
 
 For an existing owner, created files are shown as disabled **Created** entries.
 Choose one missing capability or **Select all missing files** to create and
 safely rewire them as one batch.
 
+When the canonical Hook or Store already exists, the form also offers **Add
+private Hook / Store behavior**. Enter only a PascalCase suffix such as
+`Keyboard` or `Filters`. VS Code derives `useOwnerKeyboard.ts` or
+`ownerFilters.store.ts`; if the gateway is still flat, the same atomic edit
+moves it into `hooks/` or `stores/`, updates project imports, and deletes the
+root copy. Mixed layouts, custom names, `index.ts`, and deeper capability
+folders are architecture errors.
+
+For shared creation, the same form offers only three composite choices:
+
+- **Shared UI Primitive** — required pure UI, optional Types, no runtime files;
+- **Shared Widget** — required UI + Connector, optional Hook/Store/Logic/API/Types;
+- **Shared Headless Capability** — no UI/Connector and at least one runtime layer.
+
+Examples include Button in `shared/ui`, UserMenu in `shared/widgets`, and Auth
+or a common HTTP boundary in `shared/capabilities`. The extension derives every
+path and refuses freehand `utils`, `common`, barrels, Feature imports from
+shared, and private shared imports from consumers. Expanded Hook/Store behavior
+uses the same safe move and project-wide import rewrite as Feature owners.
+
 ## Edit UI with shared language intelligence
 
-Srijika Language Support validates every `*.ui.tsx` file on open, change, and
-save using the same restricted compiler as Studio. It adds:
+Srijika Language Support validates every file ending in the resolved UI suffix
+(canonical default `.ui.tsx`) on open, change, and save using the same
+restricted compiler as Studio. It adds:
 
 - editor diagnostics and exact source ranges;
 - compiler-owned Quick Fixes;
@@ -113,12 +142,68 @@ save using the same restricted compiler as Studio. It adds:
 - supported props and event bindings inside JSX opening tags; and
 - project-wide Feature → Slot → Part architecture diagnostics.
 
+The project check also enforces the same hard source boundaries as CLI, Studio,
+and MCP:
+
+- `SRIJIKA4116` / `SRIJIKA-ARCH-DIRECT-CHILD-UI`: only the matching Connector
+  renders an owner UI; parent/sibling composition uses the child Connector, with
+  pure Shared UI Primitive composition as the only cross-owner UI exception;
+- `SRIJIKA4117` / `SRIJIKA-ARCH-PASSIVE-TYPES`: `*.types.ts` contains passive
+  interfaces/type aliases only and every consumer uses `import type` or
+  `export type`; and
+- every UI rejects identifier/property Hooks (`useOwner()`, `React.useState()`)
+  and browser/runtime APIs (`fetch`, `XMLHttpRequest`, `WebSocket`,
+  `localStorage`, `sessionStorage`) with `SRIJIKA4101` /
+  `SRIJIKA-ARCH-UI-RUNTIME-IMPORT`; external state/router/request/query
+  lifecycle and callable utility behavior is also blocked, while types,
+  styles/assets, safe React JSX support, and JSX-only presentational bindings
+  remain valid; and
+- `SRIJIKA4118` / `SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN`: Logic keeps pure
+  validation, authorization, transforms, aggregation, and API orchestration,
+  but React/query/router/client-state lifecycle moves to Hook, Connector, or
+  Store and request transport stays in API.
+- `SRIJIKA4119` / `SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT`: computed
+  `import()`/`require()` targets are forbidden inside governed roots.
+- `SRIJIKA4120` / `SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS`: declared/reserved
+  project aliases must resolve to scanned governed source.
+- `SRIJIKA4121` / `SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT`: governed relative
+  and `src/...` source imports must resolve inside the configured ownership
+  roots; CSS/static assets are exempt.
+
+It also rejects freehand Shared paths, noncanonical owner spellings, and Shared
+runtime dependency cycles. Type-only Shared edges remain valid.
+
 VS Code's built-in TypeScript service remains responsible for ordinary React,
 JSX, imports, navigation, and IntelliSense. Srijika adds only its stricter source
 and ownership contract.
 
 Run **Srijika: Check Current UI File** for the active source or **Srijika: Check
 Feature Architecture** for the whole workspace.
+
+The extension resolves any custom architecture roots, Slot/Part/Hook/Store
+directory names, and canonical suffixes from `srijika.config.json` through the
+same validator as CLI. Roots must remain bounded, project-relative, and
+non-overlapping; directory names and suffixes must remain case-insensitively
+distinct and basename-safe; suffixes cannot end with one another. Traversal,
+absolute paths, backslashes, duplicate names, and
+symlink escapes fail before discovery or creation.
+
+If `architecture` is absent, VS Code uses canonical defaults. If it is present,
+the exact `feature-slot-part-v1` profile is required; missing or unsupported
+profiles fail closed instead of showing a default-root Structure tree. The
+**Exact files and safe rewiring** list is returned by the canonical planner with
+the resolved config—including custom roots, directory names, suffixes, moves,
+and rewires. The webview never reconstructs paths while the user types.
+
+The project contract also requires `sourceOfTruth: "tsx"` and a bounded entry
+ending in the configured UI suffix. That entry is strict and counted even
+outside ownership roots. All twelve architecture override fields are shared
+with CLI, Studio, and MCP. Root `tsconfig.json` is parsed as JSONC: `extends` is
+rejected, `references` must be absent or empty, `compilerOptions.baseUrl` must
+be omitted, and only exact/slash-delimited terminal `/*` paths count. Vite-only
+aliases are unsupported until mirrored there. Reads and full-project migration rewires fail closed at 4,096
+sources, 32,768 entries, 4,096 directories, depth 32, 4 MiB per source, and
+24 MiB total (with 64 KiB project config and 1 MiB `tsconfig.json` caps).
 
 ## Create behavior without layer jumps
 
@@ -133,6 +218,12 @@ The Connector calls the highest available layer. If Hook exists, it cannot jump
 to Store, Logic, or API. Child-private modules stay below their owner; shared
 sibling behavior is promoted to the nearest common Part, Slot, Feature, or
 `src/shared` owner.
+
+Promotion and split guidance is emitted as structured evidence:
+`SRIJIKA-ARCH-RECOMMEND-PROMOTE-OWNER` accompanies the blocking ownership error
+when a private runtime capability crosses an owner boundary, while
+`SRIJIKA-ARCH-RECOMMEND-SPLIT-OWNER` appears as non-blocking `SRIJIKA4202` only
+at 201 UI-function lines, 301 UI-file lines, or 17 contract members.
 
 Read [Project anatomy](/docs/project-anatomy/) for the complete ownership rules.
 
@@ -165,9 +256,10 @@ Changing runtime never changes the project's package manager or lockfile.
 ## Connect Codex or another MCP client
 
 Generated `.vscode/mcp.json` starts the pinned
-`@srijika/mcp-server@0.1.0` process with `${workspaceFolder}` as the project.
+`@srijika/mcp-server@0.2.0` process with `${workspaceFolder}` as the project.
 The MCP server can inspect, validate, preview scaffold plans, and atomically
-apply approved Feature/Slot/Part structure without Desktop Studio.
+apply approved Feature/Slot/Part and shared-owner structure without Desktop
+Studio.
 
 Studio-only visual bridge tools appear only when Studio is running and
 authenticated. Code-project tools do not depend on that bridge.

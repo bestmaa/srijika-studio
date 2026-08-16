@@ -23,10 +23,66 @@ apps/vscode-srijika
 └── shared compiler diagnostics and quick fixes
 ```
 
+The application source contract is equally strict: private behavior rises from
+Part → Slot → Feature and reaches `src/shared` only when two Features need it.
+Shared code is one of pure UI, UI+Connector Widget, or UI-less Headless
+Capability; it never imports a Feature or creates freehand utility folders.
+CLI, VS Code, Studio, and MCP all consume the same creation and validation
+contract.
+
+That shared contract also enforces behavior-free UI, passive Types, canonical
+kebab-case owner names, and acyclic Shared runtime dependencies. Only a matching
+Connector renders an owner UI; parent/sibling composition uses the child
+Connector, except for pure UI composition of a canonical Shared UI Primitive.
+`SRIJIKA4116` identifies a direct-child-UI violation and `SRIJIKA4117`
+identifies runtime content or runtime consumption of a passive Types contract.
+`SRIJIKA4118` keeps Logic framework-free: pure validation and transforms remain,
+while React, query-cache, router, and client-state lifecycle move to their Hook,
+Connector, or Store owners. Every UI also rejects external runtime behavior,
+not only private Srijika layers.
+
+The import graph also fails closed. `SRIJIKA4119` rejects computed
+`import()`/`require()` targets inside governed roots, `SRIJIKA4120` rejects
+declared or reserved project aliases that do not resolve to scanned governed
+source, and `SRIJIKA4121` rejects missing or outside-root relative/`src/...`
+source imports from governed files. CSS/static assets are exempt; external
+dependencies use bare package specifiers.
+
+Custom architecture roots, structural directories, and suffixes are resolved
+from `srijika.config.json` through one safety boundary. Roots remain bounded,
+project-relative, and non-overlapping; directory names and suffixes remain
+case-insensitively distinct and basename-safe; no configured suffix may end
+with another; traversal, absolute paths, backslashes, and
+symlink escapes are rejected before any adapter reads or writes source.
+With no `architecture` block, canonical defaults apply. With an explicit block,
+profile `feature-slot-part-v1` is mandatory and any missing/unsupported profile
+fails closed everywhere. Generated validation reloads the current config.
+`check --watch` uses a filtered project-root watcher for config, root
+`tsconfig.json`, entry, resolved roots, and future-root ancestors and recovers
+after temporarily invalid edits. VS Code/Studio path previews are canonical
+planner output rather than hardcoded UI strings.
+
+The complete project contract requires `sourceOfTruth: "tsx"` and a normalized
+project-relative `entry` ending in the resolved UI suffix. The entry remains a
+strict, counted UI even outside both ownership roots. The architecture
+block has twelve optional override fields: two roots, four structural
+directories, and six suffixes. Root `tsconfig.json` is parsed as JSONC:
+`extends` is rejected, `references` must be absent or empty, and
+`compilerOptions.baseUrl` must be omitted. Only exact and slash-delimited
+terminal `/*` `compilerOptions.paths` mappings are portable, and a Vite-only
+alias is unsupported until mirrored there.
+
+Readers reject symlinked roots, configs, sources, and ancestors. Config reads
+are capped at 64 KiB, `tsconfig.json` at 1 MiB, and a complete validation or
+migration scan at 4,096 TS/JS sources, 32,768 entries, 4,096 directories, depth
+32, 4 MiB per source, and 24 MiB total. Hook/Store expansion rewires that full
+safe project corpus before moving the flat gateway. Studio live preview uses
+the configured entry, UI suffix, and matching Connector suffix.
+
 ## Compile and edit path
 
 ```text
-.ui.tsx
+resolved UI source
   → parse restricted TSX without executing the module
   → emit diagnostics and stable source locations
   → derive and validate UiDocument

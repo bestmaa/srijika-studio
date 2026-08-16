@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -10,9 +11,60 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const workspace = fileURLToPath(new URL('../../', import.meta.url));
-const bundle = join(workspace, 'plugins/srijika-studio/mcp-server/srijika-mcp.mjs');
+const repositoryPluginRoot = join(workspace, 'plugins/srijika-studio');
+const repositoryBundle =
+  process.env['SRIJIKA_MCP_TEST_BUNDLE'] ??
+  join(repositoryPluginRoot, 'mcp-server/srijika-mcp.mjs');
 const useWindowsLauncher = process.argv.includes('--windows');
+const useIsolatedBundle = process.argv.includes('--isolated');
+assert(
+  !(useWindowsLauncher && useIsolatedBundle),
+  '--windows and --isolated exercise different launch paths',
+);
 const temporary = await mkdtemp(join(tmpdir(), 'srijika-mcp-stdio-'));
+const isolatedPluginRoot = join(temporary, 'standalone-plugin');
+const isolatedBundle = join(isolatedPluginRoot, 'mcp-server', 'srijika-mcp.mjs');
+const isolatedManifest = join(isolatedPluginRoot, '.mcp.json');
+if (useIsolatedBundle) {
+  const isolatedFiles = [
+    [join(repositoryPluginRoot, '.mcp.json'), isolatedManifest],
+    [
+      join(repositoryPluginRoot, 'scripts/run-mcp.mjs'),
+      join(isolatedPluginRoot, 'scripts/run-mcp.mjs'),
+    ],
+    [repositoryBundle, isolatedBundle],
+  ];
+  for (const [source, target] of isolatedFiles) {
+    await mkdir(dirname(target), { recursive: true });
+    await copyFile(source, target);
+  }
+  for (let ancestor = dirname(isolatedBundle); ; ancestor = dirname(ancestor)) {
+    assert.equal(
+      existsSync(join(ancestor, 'node_modules')),
+      false,
+      `isolated bundle unexpectedly has an ancestor node_modules at ${ancestor}`,
+    );
+    if (dirname(ancestor) === ancestor) break;
+  }
+}
+const bundle = useIsolatedBundle ? isolatedBundle : repositoryBundle;
+
+async function launchFromManifest(manifestPath) {
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const server = manifest?.mcpServers?.['srijika-studio'];
+  assert(server && typeof server === 'object', 'missing srijika-studio MCP manifest entry');
+  assert.equal(typeof server.command, 'string');
+  assert(Array.isArray(server.args) && server.args.every((value) => typeof value === 'string'));
+  assert(server.cwd === undefined || typeof server.cwd === 'string');
+  const pluginRoot = dirname(manifestPath);
+  return {
+    command: server.command,
+    args: server.args,
+    cwd: resolve(pluginRoot, server.cwd ?? '.'),
+  };
+}
+
+const isolatedLaunch = useIsolatedBundle ? await launchFromManifest(isolatedManifest) : undefined;
 const descriptorPath = join(temporary, 'codex-bridge-v1.json');
 const token = 'b'.repeat(64);
 const instanceId = 'stdio-smoke-instance';
@@ -88,9 +140,11 @@ const windowsLauncher = useWindowsLauncher
     : windowsLauncherSource
   : '';
 const transport = new StdioClientTransport({
-  command: useWindowsLauncher ? 'cmd.exe' : process.execPath,
-  args: useWindowsLauncher ? ['/d', '/s', '/c', windowsLauncher] : [bundle],
-  cwd: useWindowsLauncher ? '/mnt/c/Users/beste' : workspace,
+  command: useWindowsLauncher ? 'cmd.exe' : (isolatedLaunch?.command ?? process.execPath),
+  args: useWindowsLauncher
+    ? ['/d', '/s', '/c', windowsLauncher]
+    : (isolatedLaunch?.args ?? [bundle]),
+  cwd: useWindowsLauncher ? '/mnt/c/Users/beste' : (isolatedLaunch?.cwd ?? workspace),
   env: {
     ...process.env,
     ...(useWindowsLauncher
@@ -137,7 +191,13 @@ try {
     { protocolVersion: '1.0', method: 'srijika.getCapabilities', params: {} },
   ]);
   process.stdout.write(
-    `Srijika MCP ${useWindowsLauncher ? 'Windows launcher' : 'stdio bundle'} smoke passed\n`,
+    `Srijika MCP ${
+      useWindowsLauncher
+        ? 'Windows launcher'
+        : useIsolatedBundle
+          ? 'isolated self-contained bundle'
+          : 'stdio bundle'
+    } smoke passed\n`,
   );
 } catch (error) {
   if (transportStderr) {

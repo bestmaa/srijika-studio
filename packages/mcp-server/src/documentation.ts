@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import {
   SRIJIKA_OWNER_FILE_CONTRACT,
+  SRIJIKA_SHARED_FILE_CONTRACT,
   SRIJIKA_STRUCTURE_CREATION_MATRIX,
 } from '@srijika/architecture-rules/creation';
 import {
@@ -117,33 +118,261 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
     uri: 'srijika://docs/code-first-architecture',
     title: 'Srijika code-first architecture',
     description:
-      'Machine-readable Feature, Slot, and Part ownership and progressive behavior-chain contract.',
+      'Machine-readable Feature, Slot, Part, and strict Shared ownership and progressive behavior-chain contract.',
     value: {
       schemaVersion: 1,
       contractId: 'srijika.progressive-behavior-chain',
-      ownerKinds: ['feature', 'slot', 'part'],
+      ownerKinds: ['feature', 'slot', 'part', 'shared-ui', 'shared-widget', 'shared-capability'],
       ownerContract: {
         required: SRIJIKA_OWNER_FILE_CONTRACT.required,
         optional: SRIJIKA_OWNER_FILE_CONTRACT.optional,
         canonicalFiles: {
-          ui: '{Owner}.ui.tsx',
-          connector: '{Owner}.connector.tsx',
-          hook: 'use{Owner}.ts',
-          store: '{owner}.store.ts',
-          logic: '{owner}.logic.ts',
-          api: '{owner}.api.ts',
-          types: '{owner}.types.ts',
+          ui: '{Owner}{uiSuffix}',
+          connector: '{Owner}{connectorSuffix}',
+          hook: 'use{Owner}.ts OR {hooksDirectory}/use{Owner}.ts (mutually exclusive)',
+          store:
+            '{owner}{storeSuffix} OR {storesDirectory}/{owner}{storeSuffix} (mutually exclusive)',
+          logic: '{owner}{logicSuffix}',
+          api: '{owner}{apiSuffix}',
+          types: '{owner}{typesSuffix}',
+        },
+        progressiveLayouts: {
+          hook: 'Start flat. Adding {hooksDirectory}/use{Owner}{Behavior}.ts atomically moves the gateway to {hooksDirectory}/use{Owner}.ts, rewires imports, and removes the root gateway.',
+          store:
+            'Start flat. Adding {storesDirectory}/{owner}{Concern}{storeSuffix} atomically moves the gateway to {storesDirectory}/{owner}{storeSuffix}, rewires imports, and removes the root gateway.',
+          exclusivity:
+            'Flat and expanded gateways cannot coexist. {hooksDirectory}/ and {storesDirectory}/ are one level deep and do not use index.ts.',
+          migrationScope:
+            'Rewire the complete bounded project TS/JS source tree, not only ownership roots; exclude declarations and ignored generated/vendor directories and stop at nested Srijika project boundaries.',
+          migrationAtomicity:
+            'Unsafe entries, symlinks, incomplete scans, stale sources, and count/byte-limit failures abort before mkdir, move, create, or update.',
         },
         privateHelperHooks:
-          'hooks/ may contain owner-private helper hooks; use{Owner}.ts is the public gateway.',
+          'Only {hooksDirectory}/use{Owner}{Behavior}.ts is valid; consumers enter through {hooksDirectory}/use{Owner}.ts.',
+        privateStoreSlices:
+          'Only {storesDirectory}/{owner}{Concern}{storeSuffix} is valid; consumers enter through {storesDirectory}/{owner}{storeSuffix}.',
+        uiBoundary: {
+          renderedOnlyByMatchingConnector: true,
+          externalRuntimeBehaviorAllowed: false,
+          allowedExternalImports: [
+            'type-only imports',
+            'styles and assets',
+            'safe React JSX support',
+            'presentational bindings used exclusively as JSX tags',
+          ],
+          presentationalAssetExtensions: [
+            'css',
+            'scss',
+            'sass',
+            'less',
+            'styl',
+            'svg',
+            'png',
+            'jpg',
+            'jpeg',
+            'gif',
+            'webp',
+            'avif',
+            'ico',
+            'woff',
+            'woff2',
+            'ttf',
+            'otf',
+            'eot',
+            'mp3',
+            'wav',
+            'ogg',
+            'mp4',
+            'webm',
+          ],
+          directChildUiDiagnostic: {
+            code: 'SRIJIKA4116',
+            ruleId: 'SRIJIKA-ARCH-DIRECT-CHILD-UI',
+          },
+          behaviorDiagnostic: {
+            code: 'SRIJIKA4101',
+            ruleId: 'SRIJIKA-ARCH-UI-RUNTIME-IMPORT',
+          },
+          crossOwnerException:
+            'A pure UI may compose only the canonical public UI boundary of a Shared UI Primitive.',
+          dataAndBehaviorEntry: 'typed props, event callbacks, and ReactNode composition props',
+          forbiddenBehavior: {
+            hookCalls:
+              'identifier and property-access Hooks, including useOwner() and React.useState()',
+            browserRuntimeApis: [
+              'fetch',
+              'XMLHttpRequest',
+              'WebSocket',
+              'EventSource',
+              'Worker',
+              'SharedWorker',
+              'BroadcastChannel',
+              'localStorage',
+              'sessionStorage',
+              'indexedDB',
+              'caches',
+              'document',
+              'navigator',
+              'location',
+              'history',
+              'Notification',
+              'timers',
+              'animation/idle callbacks',
+              'DOM observers',
+              'Image',
+              'Audio',
+              'FileReader',
+              'DOMParser',
+              'performance',
+              'screen',
+              'window',
+              'globalThis',
+              'self',
+              'process',
+              'Deno',
+              'Bun',
+            ],
+            runtimeLayers: ['connector', 'hook', 'store', 'logic', 'api'],
+            externalRuntimeBehavior:
+              'hooks, state, routing, requests, query lifecycle, browser APIs, and callable utilities',
+          },
+        },
+        logicBoundary: {
+          frameworkFree: true,
+          deterministic: true,
+          allowed: [
+            'business rules',
+            'pure validation and authorization decisions',
+            'deterministic transforms and aggregation',
+            'multi-step orchestration through the matching API boundary',
+            'passive Types and pure utility modules',
+          ],
+          forbiddenRuntimeConcerns: [
+            'React and React Hooks',
+            'React Query and query-cache lifecycle',
+            'router lifecycle and navigation state',
+            'client-state libraries and state lifecycle',
+            'browser globals and request transport',
+          ],
+          forbiddenTransportApis: [
+            'fetch',
+            'fetch.call',
+            'XMLHttpRequest',
+            'WebSocket',
+            'EventSource',
+            'Request',
+          ],
+          forbiddenTransportModules: [
+            'node:http',
+            'node:https',
+            'http',
+            'https',
+            'undici',
+            'cross-fetch',
+            'node-fetch',
+            'ofetch',
+          ],
+          lifecycleOwners: {
+            reactAndQuery: 'hook',
+            sharedClientState: 'store',
+            routing: 'connector',
+            requestTransport: 'api',
+          },
+          diagnostic: {
+            code: 'SRIJIKA4118',
+            ruleId: 'SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN',
+          },
+        },
+        passiveTypes: {
+          runtimeStep: false,
+          allowedDeclarations: [
+            'interface',
+            'type-alias',
+            'import-type',
+            'export-type',
+            'export {}',
+          ],
+          runtimeDeclarationsAllowed: false,
+          runtimeValueReferencesAllowed: false,
+          consumption: 'import type/export type only',
+          diagnostic: {
+            code: 'SRIJIKA4117',
+            ruleId: 'SRIJIKA-ARCH-PASSIVE-TYPES',
+          },
+        },
+      },
+      sharedOwnerContract: {
+        root: '{sharedRoot}',
+        arbitraryFoldersAllowed: false,
+        importsFeatures: false,
+        consumersUsePublicBoundaryOnly: true,
+        kinds: {
+          'shared-ui': {
+            directory: '{sharedRoot}/ui/{owner-folder}',
+            label: 'Shared UI Primitive',
+            required: SRIJIKA_SHARED_FILE_CONTRACT.ui.required,
+            optional: SRIJIKA_SHARED_FILE_CONTRACT.ui.optional,
+            forbidden: ['connector', 'hook', 'store', 'logic', 'api'],
+            publicBoundary: 'ui',
+            rule: 'All data, events, and composition enter through typed props.',
+          },
+          'shared-widget': {
+            directory: '{sharedRoot}/widgets/{owner-folder}',
+            label: 'Shared Widget',
+            required: SRIJIKA_SHARED_FILE_CONTRACT.widget.required,
+            optional: SRIJIKA_SHARED_FILE_CONTRACT.widget.optional,
+            forbidden: [],
+            publicBoundary: 'connector',
+            expandedGateways: [
+              '{hooksDirectory}/use{Owner}.ts',
+              '{storesDirectory}/{owner}{storeSuffix}',
+            ],
+          },
+          'shared-capability': {
+            directory: '{sharedRoot}/capabilities/{owner-folder}',
+            label: 'Shared Headless Capability',
+            required: ['at-least-one-runtime-layer'],
+            optional: SRIJIKA_SHARED_FILE_CONTRACT.capability.optional,
+            forbidden: ['ui', 'connector'],
+            runtimeMinimum: SRIJIKA_SHARED_FILE_CONTRACT.capability.minimumRuntimeCapabilities,
+            typesAloneAllowed: false,
+            publicBoundary: 'hook-otherwise-store-otherwise-logic-otherwise-api',
+            expandedGateways: [
+              '{hooksDirectory}/use{Owner}.ts',
+              '{storesDirectory}/{owner}{storeSuffix}',
+            ],
+          },
+        },
+        examples: {
+          button: 'shared-ui',
+          userMenu: 'shared-widget',
+          authSession: 'shared-capability',
+          commonHttpBoundary: 'shared-capability',
+        },
       },
       creation: {
         contractVersion: 1,
-        triggers: ['studio-folder-plus', 'studio-folder-context-menu', 'vscode-explorer-context'],
+        triggers: [
+          'studio-folder-plus',
+          'studio-folder-context-menu',
+          'vscode-explorer-context',
+          'cli-add',
+          'mcp-plan-apply',
+        ],
+        expansionCommands: {
+          hook: 'srijika add behavior-hook <Behavior> --in <owner>',
+          store: 'srijika add store-slice <Concern> --in <owner>',
+        },
+        sharedCommands: {
+          ui: 'srijika add shared-ui <Name> [--types]',
+          widget: 'srijika add shared-widget <Name> [--hook --store --logic --api --types]',
+          capability:
+            'srijika add shared-capability <Name> <--hook|--store|--logic|--api> [capability flags]',
+        },
         ownerActions: SRIJIKA_STRUCTURE_CREATION_MATRIX,
         compositeOwners: {
           feature: {
-            parent: 'src/features',
+            parent: '{featuresRoot}',
             required: SRIJIKA_OWNER_FILE_CONTRACT.required,
             selectable: SRIJIKA_OWNER_FILE_CONTRACT.optional,
           },
@@ -157,6 +386,21 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
             required: SRIJIKA_OWNER_FILE_CONTRACT.required,
             selectable: SRIJIKA_OWNER_FILE_CONTRACT.optional,
           },
+          sharedUi: {
+            parent: '{sharedRoot}/ui',
+            required: SRIJIKA_SHARED_FILE_CONTRACT.ui.required,
+            selectable: SRIJIKA_SHARED_FILE_CONTRACT.ui.optional,
+          },
+          sharedWidget: {
+            parent: '{sharedRoot}/widgets',
+            required: SRIJIKA_SHARED_FILE_CONTRACT.widget.required,
+            selectable: SRIJIKA_SHARED_FILE_CONTRACT.widget.optional,
+          },
+          sharedCapability: {
+            parent: '{sharedRoot}/capabilities',
+            required: ['at-least-one-runtime-layer'],
+            selectable: SRIJIKA_SHARED_FILE_CONTRACT.capability.optional,
+          },
         },
         naming: {
           owner: 'normalized PascalCase',
@@ -168,6 +412,142 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           overwrite: false,
           coherentBatch: true,
           arbitraryFolders: false,
+        },
+      },
+      architectureConfiguration: {
+        file: 'srijika.config.json',
+        projectContract: {
+          sourceOfTruth: {
+            required: true,
+            exactValue: 'tsx',
+          },
+          entry: {
+            required: true,
+            projectRelative: true,
+            maximumSegments: 32,
+            mustEndWithResolvedUiSuffix: true,
+          },
+          architecture: {
+            required: false,
+            overrideFieldCount: 12,
+            omittedOverrideBehavior: 'canonical default',
+          },
+        },
+        profilePolicy: {
+          supported: 'feature-slot-part-v1',
+          architectureBlockAbsent: 'use canonical defaults',
+          architectureBlockPresent: 'profile is required and must exactly match supported',
+          missingProfile: 'fail closed',
+          unsupportedProfile: 'fail closed',
+          surfaces: ['generated validator', 'CLI', 'VS Code', 'Studio', 'MCP'],
+        },
+        supportedOverrides: {
+          roots: ['featuresRoot', 'sharedRoot'],
+          directories: ['slotsDirectory', 'partsDirectory', 'hooksDirectory', 'storesDirectory'],
+          suffixes: [
+            'uiSuffix',
+            'connectorSuffix',
+            'storeSuffix',
+            'logicSuffix',
+            'apiSuffix',
+            'typesSuffix',
+          ],
+        },
+        safety: {
+          rootMaximumSegments: 10,
+          rootsProjectRelative: true,
+          rootsNonOverlapping: true,
+          directoryNamesSingleSegment: true,
+          directoryNamesDistinct: true,
+          suffixesBasenameOnly: true,
+          suffixesDistinct: true,
+          suffixComparison: 'case-insensitive',
+          suffixesMayEndWithAnotherConfiguredSuffix: false,
+          uiAndConnectorSuffixExtension: '.tsx',
+          runtimeSuffixExtension: '.ts',
+          declarationSuffixesAllowed: false,
+          traversalAllowed: false,
+          absolutePathsAllowed: false,
+          backslashesAllowed: false,
+          symlinkEscapesAllowed: false,
+          filesystemBoundary:
+            'Project readers and structure writers reject symlinked roots, configs, source files, and scope ancestors before reading or writing.',
+        },
+        readBudgets: {
+          projectConfigBytes: 64 * 1024,
+          typescriptConfigBytes: 1024 * 1024,
+          architectureAndMigrationCorpus: {
+            maximumSourceFiles: 4096,
+            maximumEntries: 32768,
+            maximumDirectories: 4096,
+            maximumDepth: 32,
+            maximumBytesPerSource: 4 * 1024 * 1024,
+            maximumTotalSourceBytes: 24 * 1024 * 1024,
+            incompleteCorpusBehavior: 'fail closed; never return a partial validation or rewire',
+            authoritativeEntry:
+              'Always included in validation and the source-file count even outside Feature/Shared roots; remains a strict UI and receives SRIJIKA4119-SRIJIKA4121 checks.',
+          },
+        },
+        typescriptAliases: {
+          file: 'tsconfig.json',
+          syntax: 'JSONC',
+          extends: 'rejected',
+          references: 'absent or empty array only; nonempty project references are rejected',
+          baseUrl: 'must be omitted',
+          source: 'compilerOptions.paths',
+          acceptedPatterns: ['exact', 'slash-delimited terminal /* wildcard'],
+          targetPolicy: 'first target is authoritative and must remain inside the project',
+          generatedAliases: ['@/', '@features/', '@shared/'],
+          reservedLocalNamespaces: ['~/', '#...', '@app', '@src'],
+          viteOnlyAliasesSupported: false,
+          viteAliasRequirement:
+            'Declare the same mapping in tsconfig.json; Vite configuration is not a second architecture source.',
+          externalPackages: 'ordinary npm package specifiers remain external',
+        },
+        runtimeParity: {
+          generatedValidator: {
+            file: 'scripts/srijika-validate.mjs',
+            readsCurrentProjectConfigAtRuntime: true,
+            retainsGeneratedArchitectureSnapshot: false,
+            effect:
+              'Valid root, directory, and suffix changes take effect without regenerating the script.',
+          },
+          cliWatch: {
+            command: 'srijika check --watch',
+            implementation: 'one recursive project-root watcher with filtered events',
+            watches: [
+              'srijika.config.json',
+              'root tsconfig.json',
+              'configured entry',
+              'resolved featuresRoot and sharedRoot',
+              'ancestors where a future configured root may appear',
+            ],
+            filters:
+              'Generated/vendor directories are ignored during normal and recovery operation.',
+            reloadsProjectConfigBeforeEachCheck: true,
+            invalidConfigurationRecovery:
+              'Stay alive, watch all non-ignored project paths until configuration is valid, then resume resolved-path filtering.',
+            hardcodedSrcWatch: false,
+          },
+          exactFilePreviews: {
+            surfaces: ['VS Code', 'Studio'],
+            source: 'canonical ownership planner with resolved project architecture',
+            hardcodedPaths: false,
+            covers: [
+              'created files',
+              'safe moves',
+              'safe rewires',
+              'custom directories',
+              'custom suffixes',
+            ],
+          },
+          studioLivePreview: {
+            initialSource: 'configured entry',
+            sourceDiscovery: 'configured uiSuffix under configured Feature and Shared roots',
+            connectorResolution: 'configured connectorSuffix',
+            legacyBridgePolicy:
+              'upgrade only a recognizable generated bridge; preserve application-owned custom bridges',
+          },
         },
       },
       capabilityOrder: ['connector', 'hook', 'store', 'logic', 'api'],
@@ -183,21 +563,56 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           'Call the first capability present in the ordered resolution list for the same owner and behavior.',
         noJump: 'Never skip an available intermediate capability for the same owner and behavior.',
         returnPath: 'Return results through the same chain and map them to typed UI props.',
-        uiIsolation: 'Only the matching Connector renders a UI; UI does not import runtime layers.',
+        uiIsolation:
+          'Only the matching Connector renders an owner UI. Every UI renderer, including a configured entry outside ownership roots, is behavior-free: no Hook invocation (identifier or property access), browser/runtime API access, runtime-layer import, request, state, effect, or business logic; data and events enter through typed props.',
         composition:
-          'Feature Connectors compose Slot Connectors; Slot Connectors compose Part Connectors. Parents do not render child UI files directly.',
+          'Feature Connectors compose Slot Connectors; Slot Connectors compose Part Connectors. Parent and sibling owners never import child UI directly. The only cross-owner UI exception is pure UI composition of a canonical Shared UI Primitive.',
+        passiveTypes:
+          'Types files contain passive interfaces and type aliases only. They use import type/export type, expose no runtime declaration, and reference no runtime value such as typeof or a computed value expression.',
+        sharedDirection:
+          'Shared never imports Features. Consumers use only the public boundary of a Shared UI Primitive, Shared Widget, or Shared Headless Capability. Runtime dependencies between Shared owners must remain acyclic; type-only edges do not create runtime cycles.',
+        noFreehandShared:
+          'Only {sharedRoot}/ui, {sharedRoot}/widgets, and {sharedRoot}/capabilities contain normalized shared owners; utilities, common folders, barrels, alternate names, and deeper folders are invalid.',
+        canonicalNaming:
+          'Feature, Slot, Part, and Shared owner folders use exact derived kebab-case; owner files use the matching derived PascalCase/camelCase names. Alternate spellings are hard errors.',
+        logicIsolation:
+          'Logic remains framework-free and deterministic: pure validation, authorization, transforms, aggregation, and API orchestration are allowed; React, query lifecycle, router lifecycle, and client-state lifecycle move to Hook, Connector, or Store.',
       },
       promotion: [
-        { from: 'one-part', when: 'two sibling Parts need it', to: 'slot-root' },
-        { from: 'one-slot', when: 'two sibling Slots need it', to: 'feature-root' },
-        { from: 'one-feature', when: 'two Features need it', to: 'src/shared' },
+        { when: 'one Part needs it', to: 'part-root' },
+        { when: 'two sibling Parts need it', to: 'slot-root' },
+        { when: 'two sibling Slots need it', to: 'feature-root' },
+        { when: 'two Features need it', to: '{sharedRoot}' },
       ],
       cacheAndState: {
-        hook: ['TanStack Query', 'server cache', 'retry', 'refetch', 'mutations', 'effects'],
+        hook: [
+          'React lifecycle',
+          'optional TanStack Query',
+          'server cache',
+          'retry',
+          'refetch',
+          'mutations',
+          'effects',
+        ],
         store: ['shared client state', 'selectors', 'synchronous transitions', 'owner actions'],
         invariant: 'Do not mirror one server entity in both Query cache and Zustand.',
+        reactQuery: {
+          default: false,
+          createFlag: '--react-query',
+          generates: ['@tanstack/react-query dependency', 'QueryClient', 'AppProviders wrapper'],
+        },
       },
       diagnostics: {
+        numericCodes: {
+          uiRuntimeImport: 'SRIJIKA4101',
+          directChildUi: 'SRIJIKA4116',
+          passiveTypes: 'SRIJIKA4117',
+          logicRuntimeConcern: 'SRIJIKA4118',
+          unprovableDynamicImport: 'SRIJIKA4119',
+          unresolvedProjectAlias: 'SRIJIKA4120',
+          unresolvedProjectImport: 'SRIJIKA4121',
+          recommendation: 'SRIJIKA4202',
+        },
         errors: [
           'SRIJIKA-ARCH-MISSING-UI',
           'SRIJIKA-ARCH-MISSING-CONNECTOR',
@@ -206,10 +621,23 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           'SRIJIKA-ARCH-PRIVATE-IMPORT',
           'SRIJIKA-ARCH-DIRECT-CHILD-UI',
           'SRIJIKA-ARCH-REVERSE-DEPENDENCY',
+          'SRIJIKA-ARCH-STRICT-OWNER-SHAPE',
+          'SRIJIKA-ARCH-MIXED-CAPABILITY-LAYOUT',
+          'SRIJIKA-ARCH-MISSING-CAPABILITY-GATEWAY',
+          'SRIJIKA-ARCH-SHARED-REVERSE-DEPENDENCY',
+          'SRIJIKA-ARCH-SHARED-PRIVATE-IMPORT',
+          'SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY',
+          'SRIJIKA-ARCH-PASSIVE-TYPES',
+          'SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN',
+          'SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT',
+          'SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS',
+          'SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT',
         ],
         recommendations: {
           deterministicVersion: 1,
           blocking: false,
+          sizeScope:
+            'UI thresholds are per owner and do not limit total Features, Slots, Parts, Shared owners, or application size.',
           entries: [
             {
               code: 'SRIJIKA-ARCH-RECOMMEND-LOGIC',
@@ -233,12 +661,17 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
             },
             {
               code: 'SRIJIKA-ARCH-RECOMMEND-PROMOTE-OWNER',
-              trigger: 'the same private capability is imported or duplicated by sibling owners',
+              trigger:
+                'a private Hook, Store, Logic, or API is consumed across an owner boundary, proving two owner consumers and requiring the nearest common owner',
+              emission:
+                'returned in recommendations and attached to the blocking private-ownership diagnostic with evidence owner-consumers=2',
             },
             {
               code: 'SRIJIKA-ARCH-RECOMMEND-SPLIT-OWNER',
               trigger:
                 'UI function exceeds 200 meaningful lines, UI file exceeds 300, or public contract exceeds 16 top-level members',
+              emission:
+                'returned in recommendations and emitted as non-blocking SRIJIKA4202 only when a threshold is strictly exceeded',
             },
           ],
         },
@@ -259,12 +692,14 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         'lockfile-detection',
         'runtime-selection',
         'ownership-scaffold-planning',
+        'strict-shared-owner-planning',
         'incremental-architecture-validation',
         'vite-command-planning',
         'software-independent-mcp-project-context',
       ],
       runtime: {
         default: 'node',
+        minimumNodeVersion: '22.13.0',
         optional: ['bun'],
         bunActivation: 'explicit-and-vite-only',
         incompatibleFallback: 'node-with-reason',
@@ -283,9 +718,18 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
         build: 'run the project build script',
         studio: 'launch Desktop with --project for bounded native opening',
       },
+      optionalIntegrations: {
+        reactQuery: {
+          default: false,
+          createFlag: '--react-query',
+          purpose: 'server cache, retry, invalidation, and mutation lifecycle',
+          independentOfRuntime: true,
+        },
+      },
       safety: {
         overwrite: false,
         arbitraryOwnerFolders: false,
+        arbitrarySharedFolders: false,
         runtimeChangesLockfile: false,
         bunRequired: false,
         desktopRequiredForCliOrVscode: false,
@@ -301,6 +745,12 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           'srijika_apply_code_structure',
         ],
         studioBridgeOptional: true,
+        isolatedPluginBundle: {
+          selfContained: true,
+          includesTypeScriptRuntime: true,
+          repositoryNodeModulesRequired: false,
+          bareTypeScriptImportAllowed: false,
+        },
       },
     },
   },

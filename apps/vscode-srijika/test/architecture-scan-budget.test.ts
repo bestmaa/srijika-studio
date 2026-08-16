@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { selectArchitectureScanBudget } from '../src/architecture-scan-budget';
+import {
+  assertCompleteArchitectureScanBudget,
+  selectArchitectureScanBudget,
+} from '../src/architecture-scan-budget';
 
 describe('architecture scan trust budget', () => {
   it('caps file count, individual files, and total bytes deterministically', () => {
@@ -22,5 +25,18 @@ describe('architecture scan trust budget', () => {
       skippedOversized: 1,
       skippedByTotalLimit: 1,
     });
+    expect(() => assertCompleteArchitectureScanBudget(result)).toThrow(/failed closed/);
+  });
+
+  it('allows a pass claim only when the complete corpus fits the budget', () => {
+    const result = selectArchitectureScanBudget(
+      [
+        { value: 'a', byteLength: 4 },
+        { value: 'b', byteLength: 6 },
+      ],
+      { maxFiles: 2, maxBytesPerFile: 10, maxTotalBytes: 10 },
+    );
+
+    expect(() => assertCompleteArchitectureScanBudget(result)).not.toThrow();
   });
 });

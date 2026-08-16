@@ -14,13 +14,16 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 
 import {
   canonicalSrijikaOwnerName,
+  resolveSrijikaArchitectureConfig,
   resolveSrijikaStructureOwner,
   srijikaFolderName,
   srijikaStructureCreationActionsForOwner,
   SRIJIKA_OWNER_NAME_PATTERN,
+  type SrijikaArchitectureConfig,
   type SrijikaStructureCreationAction,
   type SrijikaStructureOwnerContext,
 } from '@srijika/architecture-rules';
+import { availableSrijikaOwnershipCreationActions } from '@srijika/project-scaffold/ownership';
 
 import type { CodeProjectScaffoldCapability } from '../../lib/project-service';
 
@@ -34,6 +37,7 @@ export interface CreateStructureItemInput {
 
 export interface CreateStructureItemDialogProps {
   owner: StructureOwnerContext;
+  architectureRoots?: Partial<SrijikaArchitectureConfig> | undefined;
   initialAction?: StructureCreationAction | undefined;
   existingRelativePaths: readonly string[];
   onClose: () => void;
@@ -49,6 +53,120 @@ interface CreationChoice {
 }
 
 const CREATION_CHOICES: readonly CreationChoice[] = [
+  {
+    action: 'sharedUi',
+    label: 'Shared UI Primitive',
+    description: 'Create a pure props-and-events UI with no runtime dependency.',
+    icon: Boxes,
+  },
+  {
+    action: 'sharedUiTypes',
+    label: 'Shared UI Types',
+    description: 'Add type-only contracts to this pure UI primitive.',
+    icon: FileType2,
+  },
+  {
+    action: 'sharedWidget',
+    label: 'Shared Widget',
+    description: 'Create reusable UI + Connector with the progressive behavior chain.',
+    icon: PackagePlus,
+  },
+  {
+    action: 'sharedWidgetConnector',
+    label: 'Shared Widget Connector',
+    description: 'Create the required public runtime gateway for this Widget UI.',
+    icon: Cable,
+  },
+  {
+    action: 'sharedWidgetHook',
+    label: 'Shared Widget Hook gateway',
+    description: 'Create the public React lifecycle and cache gateway.',
+    icon: Workflow,
+  },
+  {
+    action: 'sharedWidgetBehaviorHook',
+    label: 'Private Shared Widget Hook',
+    description: 'Add owner-prefixed behavior and organize the Hook gateway into hooks/.',
+    icon: Workflow,
+  },
+  {
+    action: 'sharedWidgetStore',
+    label: 'Shared Widget Store',
+    description: 'Create state private to this reusable Widget owner.',
+    icon: Store,
+  },
+  {
+    action: 'sharedWidgetStoreSlice',
+    label: 'Private Shared Widget Store',
+    description: 'Add a cohesive concern and organize the Store gateway into stores/.',
+    icon: Store,
+  },
+  {
+    action: 'sharedWidgetLogic',
+    label: 'Shared Widget Logic',
+    description: 'Add stable rules and transformations owned by this Widget.',
+    icon: Braces,
+  },
+  {
+    action: 'sharedWidgetApi',
+    label: 'Shared Widget API',
+    description: 'Add the Widget HTTP request and response boundary.',
+    icon: Cloud,
+  },
+  {
+    action: 'sharedWidgetTypes',
+    label: 'Shared Widget Types',
+    description: 'Add contracts owned by this Shared Widget.',
+    icon: FileType2,
+  },
+  {
+    action: 'sharedCapability',
+    label: 'Shared Headless Capability',
+    description: 'Create reusable behavior without UI or Connector.',
+    icon: Workflow,
+  },
+  {
+    action: 'sharedCapabilityHook',
+    label: 'Shared Capability Hook gateway',
+    description: 'Create the public React lifecycle and cache gateway.',
+    icon: Workflow,
+  },
+  {
+    action: 'sharedCapabilityBehaviorHook',
+    label: 'Private Shared Capability Hook',
+    description: 'Add owner-prefixed behavior and organize Hooks automatically.',
+    icon: Workflow,
+  },
+  {
+    action: 'sharedCapabilityStore',
+    label: 'Shared Capability Store',
+    description: 'Create cross-feature client state for this exact capability.',
+    icon: Store,
+  },
+  {
+    action: 'sharedCapabilityStoreSlice',
+    label: 'Private Shared Capability Store',
+    description: 'Add a cohesive Store concern and organize Stores automatically.',
+    icon: Store,
+  },
+  {
+    action: 'sharedCapabilityLogic',
+    label: 'Shared Capability Logic',
+    description: 'Add stable cross-feature business rules and transformations.',
+    icon: Braces,
+  },
+  {
+    action: 'sharedCapabilityApi',
+    label: 'Shared Capability API',
+    description: 'Add a cross-feature HTTP transport boundary.',
+    icon: Cloud,
+  },
+  {
+    action: 'sharedCapabilityTypes',
+    label: 'Shared Capability Types',
+    description: 'Add type-only contracts for this capability.',
+    icon: FileType2,
+  },
   {
     action: 'feature',
     label: 'New Feature',
@@ -72,6 +190,18 @@ const CREATION_CHOICES: readonly CreationChoice[] = [
     label: 'Feature Hook gateway',
     description: 'Create the senior useFeature React lifecycle, query, and cache gateway.',
     icon: Workflow,
+  },
+  {
+    action: 'featureBehaviorHook',
+    label: 'Private Feature Hook',
+    description: 'Add owner-prefixed behavior and organize the Hook gateway into hooks/.',
+    icon: Workflow,
+  },
+  {
+    action: 'featureStoreSlice',
+    label: 'Private Feature Store',
+    description: 'Add one cohesive state concern and organize the Store gateway into stores/.',
+    icon: Store,
   },
   {
     action: 'featureLogic',
@@ -116,6 +246,18 @@ const CREATION_CHOICES: readonly CreationChoice[] = [
     icon: Workflow,
   },
   {
+    action: 'slotBehaviorHook',
+    label: 'Private Slot Hook',
+    description: 'Add slot-prefixed behavior and organize the Hook gateway into hooks/.',
+    icon: Workflow,
+  },
+  {
+    action: 'slotStoreSlice',
+    label: 'Private Slot Store',
+    description: 'Add one slot state concern and organize the Store gateway into stores/.',
+    icon: Store,
+  },
+  {
     action: 'slotLogic',
     label: 'Slot Logic',
     description: 'Add business rules and transformations private to this slot subtree.',
@@ -158,6 +300,18 @@ const CREATION_CHOICES: readonly CreationChoice[] = [
     icon: Workflow,
   },
   {
+    action: 'partBehaviorHook',
+    label: 'Private Part Hook',
+    description: 'Add part-prefixed behavior and organize the Hook gateway into hooks/.',
+    icon: Workflow,
+  },
+  {
+    action: 'partStoreSlice',
+    label: 'Private Part Store',
+    description: 'Add one part state concern and organize the Store gateway into stores/.',
+    icon: Store,
+  },
+  {
     action: 'partLogic',
     label: 'Part Logic',
     description: 'Add business rules private to this exact part.',
@@ -192,21 +346,53 @@ function normalizedNameGuidance(value: string): string | null {
 }
 
 function needsNameForAction(action: StructureCreationAction): boolean {
-  return action === 'feature' || action === 'slot' || action === 'part';
+  return (
+    action === 'feature' ||
+    action === 'slot' ||
+    action === 'part' ||
+    action === 'sharedUi' ||
+    action === 'sharedWidget' ||
+    action === 'sharedCapability' ||
+    action.endsWith('BehaviorHook') ||
+    action.endsWith('StoreSlice')
+  );
+}
+
+function creationNameExample(action: StructureCreationAction): string {
+  if (action.endsWith('BehaviorHook')) return 'Keyboard';
+  if (action.endsWith('StoreSlice')) return 'Filters';
+  if (action === 'feature') return 'Dashboard';
+  if (action === 'slot') return 'Navigation';
+  if (action === 'sharedUi') return 'Button';
+  if (action === 'sharedWidget') return 'ProfileCard';
+  if (action === 'sharedCapability') return 'AuthSession';
+  return 'UserMenu';
 }
 
 function ownerName(owner: StructureOwnerContext): string {
-  return owner.level === 'featuresRoot'
-    ? 'Features'
-    : owner.level === 'feature'
-      ? owner.featureName
-      : owner.level === 'slot'
-        ? owner.slotName
-        : owner.partName;
+  switch (owner.level) {
+    case 'featuresRoot':
+      return 'Features';
+    case 'sharedRoot':
+      return 'Shared';
+    case 'feature':
+      return owner.featureName;
+    case 'slot':
+      return owner.slotName;
+    case 'part':
+      return owner.partName;
+    case 'sharedUi':
+    case 'sharedWidget':
+    case 'sharedCapability':
+      return owner.sharedName;
+  }
 }
 
-export function structureOwnerFromFolder(folder: string): StructureOwnerContext | null {
-  return resolveSrijikaStructureOwner(folder);
+export function structureOwnerFromFolder(
+  folder: string,
+  architectureRoots: Partial<SrijikaArchitectureConfig> = {},
+): StructureOwnerContext | null {
+  return resolveSrijikaStructureOwner(folder, architectureRoots);
 }
 
 export function structureCreationActionsForOwner(
@@ -218,141 +404,233 @@ export function structureCreationActionsForOwner(
 export function structureCreationPaths(
   featureName: string,
   capability: CodeProjectScaffoldCapability,
+  architectureRoots: Partial<SrijikaArchitectureConfig> = {},
 ): readonly string[] {
-  const featureFolder = `src/features/${srijikaFolderName(featureName)}`;
+  const architecture = resolveSrijikaArchitectureConfig(architectureRoots);
+  const featureFolder = `${architecture.featuresRoot}/${srijikaFolderName(featureName)}`;
+  const sharedFolder = (category: 'ui' | 'widgets' | 'capabilities'): string =>
+    `${architecture.sharedRoot}/${category}/${srijikaFolderName(featureName)}`;
+  const ownerFiles = (
+    folder: string,
+    ownerName: string,
+    options: {
+      ui: boolean;
+      connector: boolean;
+      hook?: boolean;
+      store?: boolean;
+      logic?: boolean;
+      api?: boolean;
+      types?: boolean;
+    },
+  ): string[] => {
+    const stem = lowerFirst(ownerName);
+    return [
+      ...(options.ui ? [`${folder}/${ownerName}${architecture.uiSuffix}`] : []),
+      ...(options.connector ? [`${folder}/${ownerName}${architecture.connectorSuffix}`] : []),
+      ...(options.hook ? [`${folder}/use${ownerName}.ts`] : []),
+      ...(options.store ? [`${folder}/${stem}${architecture.storeSuffix}`] : []),
+      ...(options.logic ? [`${folder}/${stem}${architecture.logicSuffix}`] : []),
+      ...(options.api ? [`${folder}/${stem}${architecture.apiSuffix}`] : []),
+      ...(options.types ? [`${folder}/${stem}${architecture.typesSuffix}`] : []),
+    ];
+  };
+  const featureOwnerFiles = (
+    ownerName: string,
+    options: Parameters<typeof ownerFiles>[2],
+  ): string[] => ownerFiles(featureFolder, ownerName, options);
+  const slotFolder = (slotName: string): string =>
+    `${featureFolder}/${architecture.slotsDirectory}/${srijikaFolderName(slotName)}`;
+  const partFolder = (slotName: string, partName: string): string =>
+    `${slotFolder(slotName)}/${architecture.partsDirectory}/${srijikaFolderName(partName)}`;
+  const privateHook = (folder: string, hookName: string): string =>
+    `${folder}/${architecture.hooksDirectory}/${hookName}.ts`;
+  const privateStore = (folder: string, storeName: string): string =>
+    `${folder}/${architecture.storesDirectory}/${storeName}${architecture.storeSuffix}`;
   switch (capability.kind) {
-    case 'feature': {
-      const paths = [`${featureFolder}/${featureName}.ui.tsx`];
-      if (capability.createConnector) {
-        paths.push(`${featureFolder}/${featureName}.connector.tsx`);
-      }
-      if (capability.createHook) paths.push(`${featureFolder}/use${featureName}.ts`);
-      if (capability.createStore)
-        paths.push(`${featureFolder}/${lowerFirst(featureName)}.store.ts`);
-      if (capability.createLogic)
-        paths.push(`${featureFolder}/${lowerFirst(featureName)}.logic.ts`);
-      if (capability.createApi) paths.push(`${featureFolder}/${lowerFirst(featureName)}.api.ts`);
-      if (capability.createTypes)
-        paths.push(`${featureFolder}/${lowerFirst(featureName)}.types.ts`);
-      return paths;
+    case 'sharedUi': {
+      const folder = sharedFolder('ui');
+      return [
+        `${folder}/${featureName}${architecture.uiSuffix}`,
+        ...(capability.createTypes
+          ? [`${folder}/${lowerFirst(featureName)}${architecture.typesSuffix}`]
+          : []),
+      ];
     }
+    case 'sharedUiTypes':
+      return [`${sharedFolder('ui')}/${lowerFirst(featureName)}${architecture.typesSuffix}`];
+    case 'sharedWidget':
+      return ownerFiles(sharedFolder('widgets'), featureName, {
+        ui: true,
+        connector: capability.createConnector ?? false,
+        hook: capability.createHook ?? false,
+        store: capability.createStore ?? false,
+        logic: capability.createLogic ?? false,
+        api: capability.createApi ?? false,
+        types: capability.createTypes ?? false,
+      });
+    case 'sharedWidgetConnector':
+      return [`${sharedFolder('widgets')}/${featureName}${architecture.connectorSuffix}`];
+    case 'sharedWidgetHook':
+      return [`${sharedFolder('widgets')}/use${featureName}.ts`];
+    case 'sharedWidgetBehaviorHook':
+      return [privateHook(sharedFolder('widgets'), capability.hookName)];
+    case 'sharedWidgetStore':
+      return [`${sharedFolder('widgets')}/${lowerFirst(featureName)}${architecture.storeSuffix}`];
+    case 'sharedWidgetStoreSlice':
+      return [privateStore(sharedFolder('widgets'), capability.storeName)];
+    case 'sharedWidgetLogic':
+      return [`${sharedFolder('widgets')}/${lowerFirst(featureName)}${architecture.logicSuffix}`];
+    case 'sharedWidgetApi':
+      return [`${sharedFolder('widgets')}/${lowerFirst(featureName)}${architecture.apiSuffix}`];
+    case 'sharedWidgetTypes':
+      return [`${sharedFolder('widgets')}/${lowerFirst(featureName)}${architecture.typesSuffix}`];
+    case 'sharedCapability':
+      return ownerFiles(sharedFolder('capabilities'), featureName, {
+        ui: false,
+        connector: false,
+        hook: capability.createHook ?? false,
+        store: capability.createStore ?? false,
+        logic: capability.createLogic ?? false,
+        api: capability.createApi ?? false,
+        types: capability.createTypes ?? false,
+      });
+    case 'sharedCapabilityHook':
+      return [`${sharedFolder('capabilities')}/use${featureName}.ts`];
+    case 'sharedCapabilityBehaviorHook':
+      return [privateHook(sharedFolder('capabilities'), capability.hookName)];
+    case 'sharedCapabilityStore':
+      return [
+        `${sharedFolder('capabilities')}/${lowerFirst(featureName)}${architecture.storeSuffix}`,
+      ];
+    case 'sharedCapabilityStoreSlice':
+      return [privateStore(sharedFolder('capabilities'), capability.storeName)];
+    case 'sharedCapabilityLogic':
+      return [
+        `${sharedFolder('capabilities')}/${lowerFirst(featureName)}${architecture.logicSuffix}`,
+      ];
+    case 'sharedCapabilityApi':
+      return [
+        `${sharedFolder('capabilities')}/${lowerFirst(featureName)}${architecture.apiSuffix}`,
+      ];
+    case 'sharedCapabilityTypes':
+      return [
+        `${sharedFolder('capabilities')}/${lowerFirst(featureName)}${architecture.typesSuffix}`,
+      ];
+    case 'feature':
+      return featureOwnerFiles(featureName, {
+        ui: true,
+        connector: capability.createConnector ?? false,
+        hook: capability.createHook ?? false,
+        store: capability.createStore ?? false,
+        logic: capability.createLogic ?? false,
+        api: capability.createApi ?? false,
+        types: capability.createTypes ?? false,
+      });
     case 'featureConnector':
-      return [`${featureFolder}/${featureName}.connector.tsx`];
+      return [`${featureFolder}/${featureName}${architecture.connectorSuffix}`];
     case 'featureStore':
-      return [`${featureFolder}/${lowerFirst(featureName)}.store.ts`];
+      return [`${featureFolder}/${lowerFirst(featureName)}${architecture.storeSuffix}`];
     case 'featureHook':
       return [`${featureFolder}/use${featureName}.ts`];
     case 'featureBehaviorHook':
-      return [`${featureFolder}/hooks/${capability.hookName}.ts`];
+      return [privateHook(featureFolder, capability.hookName)];
+    case 'featureStoreSlice':
+      return [privateStore(featureFolder, capability.storeName)];
     case 'featureLogic':
-      return [`${featureFolder}/${lowerFirst(featureName)}.logic.ts`];
+      return [`${featureFolder}/${lowerFirst(featureName)}${architecture.logicSuffix}`];
     case 'featureApi':
-      return [`${featureFolder}/${lowerFirst(featureName)}.api.ts`];
+      return [`${featureFolder}/${lowerFirst(featureName)}${architecture.apiSuffix}`];
     case 'featureTypes':
-      return [`${featureFolder}/${lowerFirst(featureName)}.types.ts`];
+      return [`${featureFolder}/${lowerFirst(featureName)}${architecture.typesSuffix}`];
     case 'slot': {
-      const slotFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}`;
-      const paths = [`${slotFolder}/${capability.slotName}.ui.tsx`];
-      if (capability.createConnector) {
-        paths.push(`${slotFolder}/${capability.slotName}.connector.tsx`);
-      }
-      if (capability.createHook) paths.push(`${slotFolder}/use${capability.slotName}.ts`);
-      if (capability.createStore) {
-        paths.push(`${slotFolder}/${lowerFirst(capability.slotName)}.store.ts`);
-      }
-      if (capability.createLogic)
-        paths.push(`${slotFolder}/${lowerFirst(capability.slotName)}.logic.ts`);
-      if (capability.createApi)
-        paths.push(`${slotFolder}/${lowerFirst(capability.slotName)}.api.ts`);
-      if (capability.createTypes)
-        paths.push(`${slotFolder}/${lowerFirst(capability.slotName)}.types.ts`);
+      const folder = slotFolder(capability.slotName);
+      const paths = ownerFiles(folder, capability.slotName, {
+        ui: true,
+        connector: capability.createConnector ?? false,
+        hook: capability.createHook ?? false,
+        store: capability.createStore ?? false,
+        logic: capability.createLogic ?? false,
+        api: capability.createApi ?? false,
+        types: capability.createTypes ?? false,
+      });
       if (capability.partName) {
-        const partFolder = `${slotFolder}/parts/${srijikaFolderName(capability.partName)}`;
-        paths.push(`${partFolder}/${capability.partName}.ui.tsx`);
-        if (capability.createPartConnector) {
-          paths.push(`${partFolder}/${capability.partName}.connector.tsx`);
-        }
+        paths.push(
+          ...ownerFiles(partFolder(capability.slotName, capability.partName), capability.partName, {
+            ui: true,
+            connector: capability.createPartConnector ?? false,
+          }),
+        );
       }
       return paths;
     }
     case 'slotHook':
-      return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/use${capability.slotName}.ts`,
-      ];
+      return [`${slotFolder(capability.slotName)}/use${capability.slotName}.ts`];
     case 'slotBehaviorHook':
-      return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/hooks/${capability.hookName}.ts`,
-      ];
+      return [privateHook(slotFolder(capability.slotName), capability.hookName)];
+    case 'slotStoreSlice':
+      return [privateStore(slotFolder(capability.slotName), capability.storeName)];
     case 'slotConnector':
       return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/${capability.slotName}.connector.tsx`,
+        `${slotFolder(capability.slotName)}/${capability.slotName}${architecture.connectorSuffix}`,
       ];
     case 'slotStore':
       return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/${lowerFirst(capability.slotName)}.store.ts`,
+        `${slotFolder(capability.slotName)}/${lowerFirst(capability.slotName)}${architecture.storeSuffix}`,
       ];
     case 'slotLogic':
       return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/${lowerFirst(capability.slotName)}.logic.ts`,
+        `${slotFolder(capability.slotName)}/${lowerFirst(capability.slotName)}${architecture.logicSuffix}`,
       ];
     case 'slotApi':
       return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/${lowerFirst(capability.slotName)}.api.ts`,
+        `${slotFolder(capability.slotName)}/${lowerFirst(capability.slotName)}${architecture.apiSuffix}`,
       ];
     case 'slotTypes':
       return [
-        `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/${lowerFirst(capability.slotName)}.types.ts`,
+        `${slotFolder(capability.slotName)}/${lowerFirst(capability.slotName)}${architecture.typesSuffix}`,
       ];
-    case 'part': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
+    case 'part':
+      return ownerFiles(partFolder(capability.slotName, capability.partName), capability.partName, {
+        ui: true,
+        connector: capability.createConnector ?? false,
+        hook: capability.createHook ?? false,
+        store: capability.createStore ?? false,
+        logic: capability.createLogic ?? false,
+        api: capability.createApi ?? false,
+        types: capability.createTypes ?? false,
+      });
+    case 'partConnector':
       return [
-        `${partFolder}/${capability.partName}.ui.tsx`,
-        ...(capability.createConnector
-          ? [`${partFolder}/${capability.partName}.connector.tsx`]
-          : []),
-        ...(capability.createHook ? [`${partFolder}/use${capability.partName}.ts`] : []),
-        ...(capability.createStore
-          ? [`${partFolder}/${lowerFirst(capability.partName)}.store.ts`]
-          : []),
-        ...(capability.createLogic
-          ? [`${partFolder}/${lowerFirst(capability.partName)}.logic.ts`]
-          : []),
-        ...(capability.createApi
-          ? [`${partFolder}/${lowerFirst(capability.partName)}.api.ts`]
-          : []),
-        ...(capability.createTypes
-          ? [`${partFolder}/${lowerFirst(capability.partName)}.types.ts`]
-          : []),
+        `${partFolder(capability.slotName, capability.partName)}/${capability.partName}${architecture.connectorSuffix}`,
       ];
-    }
-    case 'partConnector': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/${capability.partName}.connector.tsx`];
-    }
-    case 'partStore': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/${lowerFirst(capability.partName)}.store.ts`];
-    }
-    case 'partHook': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/use${capability.partName}.ts`];
-    }
-    case 'partBehaviorHook': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/hooks/${capability.hookName}.ts`];
-    }
-    case 'partLogic': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/${lowerFirst(capability.partName)}.logic.ts`];
-    }
-    case 'partApi': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/${lowerFirst(capability.partName)}.api.ts`];
-    }
-    case 'partTypes': {
-      const partFolder = `${featureFolder}/slots/${srijikaFolderName(capability.slotName)}/parts/${srijikaFolderName(capability.partName)}`;
-      return [`${partFolder}/${lowerFirst(capability.partName)}.types.ts`];
-    }
+    case 'partStore':
+      return [
+        `${partFolder(capability.slotName, capability.partName)}/${lowerFirst(capability.partName)}${architecture.storeSuffix}`,
+      ];
+    case 'partHook':
+      return [
+        `${partFolder(capability.slotName, capability.partName)}/use${capability.partName}.ts`,
+      ];
+    case 'partBehaviorHook':
+      return [
+        privateHook(partFolder(capability.slotName, capability.partName), capability.hookName),
+      ];
+    case 'partStoreSlice':
+      return [
+        privateStore(partFolder(capability.slotName, capability.partName), capability.storeName),
+      ];
+    case 'partLogic':
+      return [
+        `${partFolder(capability.slotName, capability.partName)}/${lowerFirst(capability.partName)}${architecture.logicSuffix}`,
+      ];
+    case 'partApi':
+      return [
+        `${partFolder(capability.slotName, capability.partName)}/${lowerFirst(capability.partName)}${architecture.apiSuffix}`,
+      ];
+    case 'partTypes':
+      return [
+        `${partFolder(capability.slotName, capability.partName)}/${lowerFirst(capability.partName)}${architecture.typesSuffix}`,
+      ];
   }
 }
 
@@ -366,6 +644,7 @@ function focusableElements(container: HTMLElement): HTMLElement[] {
 
 export function CreateStructureItemDialog({
   owner,
+  architectureRoots,
   initialAction,
   existingRelativePaths,
   onClose,
@@ -375,7 +654,20 @@ export function CreateStructureItemDialog({
   const closeRef = useRef<HTMLButtonElement>(null);
   const creatingRef = useRef(false);
   const onCloseRef = useRef(onClose);
-  const allowedActions = useMemo(() => structureCreationActionsForOwner(owner), [owner]);
+  const architecture = useMemo(
+    () => resolveSrijikaArchitectureConfig(architectureRoots ?? {}),
+    [architectureRoots],
+  );
+  const allowedActions = useMemo(
+    () =>
+      availableSrijikaOwnershipCreationActions(
+        owner,
+        existingRelativePaths,
+        {},
+        architectureRoots ?? {},
+      ),
+    [architectureRoots, existingRelativePaths, owner],
+  );
   const selectedInitialAction =
     initialAction && allowedActions.includes(initialAction)
       ? initialAction
@@ -395,7 +687,14 @@ export function CreateStructureItemDialog({
   const normalizedName = name.trim().replace(/^use(?=[A-Z])/, '');
   const normalizedPartName = partName.trim();
   const requestedFeatureName =
-    owner.level === 'featuresRoot' ? normalizedName || 'Name' : owner.featureName;
+    owner.level === 'featuresRoot' || owner.level === 'sharedRoot'
+      ? normalizedName || 'Name'
+      : owner.level === 'sharedUi' ||
+          owner.level === 'sharedWidget' ||
+          owner.level === 'sharedCapability'
+        ? owner.sharedName
+        : owner.featureName;
+  const selectedOwnerName = ownerName(owner);
   const primaryNameGuidance = needsNameForAction(action)
     ? normalizedNameGuidance(normalizedName)
     : null;
@@ -403,6 +702,71 @@ export function CreateStructureItemDialog({
 
   const capability = useMemo<CodeProjectScaffoldCapability>(() => {
     switch (action) {
+      case 'sharedUi':
+        return { kind: 'sharedUi', createTypes };
+      case 'sharedUiTypes':
+        return { kind: 'sharedUiTypes' };
+      case 'sharedWidget':
+        return {
+          kind: 'sharedWidget',
+          createConnector: true,
+          createHook,
+          createStore,
+          createLogic,
+          createApi,
+          createTypes,
+        };
+      case 'sharedWidgetConnector':
+        return { kind: 'sharedWidgetConnector' };
+      case 'sharedWidgetHook':
+        return { kind: 'sharedWidgetHook' };
+      case 'sharedWidgetBehaviorHook':
+        return {
+          kind: 'sharedWidgetBehaviorHook',
+          hookName: `use${selectedOwnerName}${normalizedName || 'Behavior'}`,
+        };
+      case 'sharedWidgetStore':
+        return { kind: 'sharedWidgetStore' };
+      case 'sharedWidgetStoreSlice':
+        return {
+          kind: 'sharedWidgetStoreSlice',
+          storeName: `${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}`,
+        };
+      case 'sharedWidgetLogic':
+        return { kind: 'sharedWidgetLogic' };
+      case 'sharedWidgetApi':
+        return { kind: 'sharedWidgetApi' };
+      case 'sharedWidgetTypes':
+        return { kind: 'sharedWidgetTypes' };
+      case 'sharedCapability':
+        return {
+          kind: 'sharedCapability',
+          createHook,
+          createStore,
+          createLogic,
+          createApi,
+          createTypes,
+        };
+      case 'sharedCapabilityHook':
+        return { kind: 'sharedCapabilityHook' };
+      case 'sharedCapabilityBehaviorHook':
+        return {
+          kind: 'sharedCapabilityBehaviorHook',
+          hookName: `use${selectedOwnerName}${normalizedName || 'Behavior'}`,
+        };
+      case 'sharedCapabilityStore':
+        return { kind: 'sharedCapabilityStore' };
+      case 'sharedCapabilityStoreSlice':
+        return {
+          kind: 'sharedCapabilityStoreSlice',
+          storeName: `${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}`,
+        };
+      case 'sharedCapabilityLogic':
+        return { kind: 'sharedCapabilityLogic' };
+      case 'sharedCapabilityApi':
+        return { kind: 'sharedCapabilityApi' };
+      case 'sharedCapabilityTypes':
+        return { kind: 'sharedCapabilityTypes' };
       case 'feature':
         return {
           kind: 'feature',
@@ -420,6 +784,16 @@ export function CreateStructureItemDialog({
         return { kind: 'featureStore' };
       case 'featureHook':
         return { kind: 'featureHook' };
+      case 'featureBehaviorHook':
+        return {
+          kind: 'featureBehaviorHook',
+          hookName: `use${selectedOwnerName}${normalizedName || 'Behavior'}`,
+        };
+      case 'featureStoreSlice':
+        return {
+          kind: 'featureStoreSlice',
+          storeName: `${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}`,
+        };
       case 'featureLogic':
         return { kind: 'featureLogic' };
       case 'featureApi':
@@ -443,34 +817,41 @@ export function CreateStructureItemDialog({
       case 'slotHook':
         return {
           kind: 'slotHook',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
+        };
+      case 'slotBehaviorHook':
+        return {
+          kind: 'slotBehaviorHook',
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
+          hookName: `use${selectedOwnerName}${normalizedName || 'Behavior'}`,
+        };
+      case 'slotStoreSlice':
+        return {
+          kind: 'slotStoreSlice',
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
+          storeName: `${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}`,
         };
       case 'slotLogic':
       case 'slotApi':
       case 'slotTypes':
         return {
           kind: action,
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
         };
       case 'slotConnector':
         return {
           kind: 'slotConnector',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
         };
       case 'slotStore':
         return {
           kind: 'slotStore',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
         };
       case 'part':
         return {
           kind: 'part',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
           partName: normalizedName || 'Name',
           createConnector,
           createHook,
@@ -483,31 +864,41 @@ export function CreateStructureItemDialog({
       case 'partConnector':
         return {
           kind: 'partConnector',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
           partName: owner.level === 'part' ? owner.partName : 'Part',
         };
       case 'partStore':
         return {
           kind: 'partStore',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
           partName: owner.level === 'part' ? owner.partName : 'Part',
         };
       case 'partHook':
         return {
           kind: 'partHook',
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
           partName: owner.level === 'part' ? owner.partName : 'Part',
+        };
+      case 'partBehaviorHook':
+        return {
+          kind: 'partBehaviorHook',
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
+          partName: owner.level === 'part' ? owner.partName : 'Part',
+          hookName: `use${selectedOwnerName}${normalizedName || 'Behavior'}`,
+        };
+      case 'partStoreSlice':
+        return {
+          kind: 'partStoreSlice',
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
+          partName: owner.level === 'part' ? owner.partName : 'Part',
+          storeName: `${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}`,
         };
       case 'partLogic':
       case 'partApi':
       case 'partTypes':
         return {
           kind: action,
-          slotName:
-            owner.level === 'featuresRoot' || owner.level === 'feature' ? 'Slot' : owner.slotName,
+          slotName: owner.level === 'slot' || owner.level === 'part' ? owner.slotName : 'Slot',
           partName: owner.level === 'part' ? owner.partName : 'Part',
         };
     }
@@ -523,9 +914,14 @@ export function CreateStructureItemDialog({
     normalizedName,
     normalizedPartName,
     owner,
+    selectedOwnerName,
   ]);
 
-  const relativePaths = structureCreationPaths(requestedFeatureName, capability);
+  const relativePaths = structureCreationPaths(
+    requestedFeatureName,
+    capability,
+    architectureRoots ?? {},
+  );
   const existingPaths = useMemo(
     () =>
       new Set(
@@ -533,6 +929,19 @@ export function CreateStructureItemDialog({
       ),
     [existingRelativePaths],
   );
+  const gatewayPreview = useMemo(() => {
+    if (!action.endsWith('BehaviorHook') && !action.endsWith('StoreSlice')) return null;
+    const isHook = action.endsWith('BehaviorHook');
+    const gatewayFile = isHook
+      ? `use${selectedOwnerName}.ts`
+      : `${lowerFirst(selectedOwnerName)}${architecture.storeSuffix}`;
+    const folder = isHook ? architecture.hooksDirectory : architecture.storesDirectory;
+    const flat = `${owner.folder}/${gatewayFile}`;
+    const expanded = `${owner.folder}/${folder}/${gatewayFile}`;
+    return existingPaths.has(flat.toLocaleLowerCase('en-US'))
+      ? `[safe move] ${flat} → ${expanded}`
+      : `[safe update] ${expanded}`;
+  }, [action, architecture, existingPaths, owner.folder, selectedOwnerName]);
   const needsName = needsNameForAction(action);
   const canPreviewPaths =
     (!needsName || (SRIJIKA_OWNER_NAME_PATTERN.test(normalizedName) && !primaryNameGuidance)) &&
@@ -595,9 +1004,7 @@ export function CreateStructureItemDialog({
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (needsName && !SRIJIKA_OWNER_NAME_PATTERN.test(normalizedName)) {
-      setError(
-        `Use a PascalCase ${action} name, for example ${action === 'feature' ? 'Dashboard' : action === 'slot' ? 'Navigation' : 'UserMenu'}.`,
-      );
+      setError(`Use a PascalCase ${action} name, for example ${creationNameExample(action)}.`);
       return;
     }
     if (primaryNameGuidance) {
@@ -610,6 +1017,18 @@ export function CreateStructureItemDialog({
     }
     if (action === 'slot' && optionalPartGuidance) {
       setError(`Use normalized PascalCase for the optional part. ${optionalPartGuidance}`);
+      return;
+    }
+    if (
+      action === 'sharedCapability' &&
+      !createHook &&
+      !createStore &&
+      !createLogic &&
+      !createApi
+    ) {
+      setError(
+        'A Shared Headless Capability requires at least one runtime layer: Hook, Store, Logic, or API.',
+      );
       return;
     }
     const duplicate = relativePaths.find((path) =>
@@ -657,7 +1076,9 @@ export function CreateStructureItemDialog({
             <p id="create-structure-description">
               {owner.level === 'featuresRoot'
                 ? 'This canonical feature collection lives at '
-                : `This ${owner.level} owns `}
+                : owner.level === 'sharedRoot'
+                  ? 'This canonical cross-feature collection lives at '
+                  : `This ${owner.level} owns `}
               <code>{owner.folder}</code>. Only capabilities supported by this exact boundary are
               available.
             </p>
@@ -711,15 +1132,7 @@ export function CreateStructureItemDialog({
                 id="create-structure-name"
                 aria-label={`${selectedChoice?.label ?? action} name`}
                 value={name}
-                placeholder={
-                  action === 'featureHook' || action === 'slotHook' || action === 'partHook'
-                    ? 'NavigationKeyboard'
-                    : action === 'feature'
-                      ? 'Dashboard'
-                      : action === 'slot'
-                        ? 'Navigation'
-                        : 'UserMenu'
-                }
+                placeholder={creationNameExample(action)}
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={67}
@@ -730,23 +1143,117 @@ export function CreateStructureItemDialog({
                 }}
               />
               <small>
-                {action === 'feature'
-                  ? 'Srijika creates the feature owner folder and its required pure UI entry.'
-                  : 'Srijika creates the private owner folder and its required pure UI file.'}
+                {action.endsWith('BehaviorHook')
+                  ? `Srijika derives use${selectedOwnerName}${normalizedName || 'Behavior'} and safely moves the public Hook gateway into ${architecture.hooksDirectory}/ when needed.`
+                  : action.endsWith('StoreSlice')
+                    ? `Srijika derives ${lowerFirst(selectedOwnerName)}${normalizedName || 'Concern'}${architecture.storeSuffix} and safely moves the public Store gateway into ${architecture.storesDirectory}/ when needed.`
+                    : action === 'feature'
+                      ? 'Srijika creates the feature owner folder and its required pure UI entry.'
+                      : action === 'sharedUi'
+                        ? 'Srijika creates a pure cross-feature UI owner with no runtime dependency.'
+                        : action === 'sharedWidget'
+                          ? 'Srijika creates a cross-feature Widget with required UI and Connector.'
+                          : action === 'sharedCapability'
+                            ? 'Srijika creates a headless cross-feature owner with at least one runtime layer.'
+                            : 'Srijika creates the private owner folder and its required pure UI file.'}
               </small>
             </label>
           ) : null}
 
-          {action === 'feature' ? (
+          {action === 'sharedUi' ? (
             <fieldset className="code-first-structure-options">
               <legend>
-                Include with this feature <small>Optional</small>
+                Include with this UI primitive <small>Optional</small>
+              </legend>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createTypes}
+                  onChange={(event) => setCreateTypes(event.target.checked)}
+                />
+                <span>
+                  <strong>Types</strong>
+                  <small>
+                    Type-only props and events contracts; runtime imports remain forbidden
+                  </small>
+                </span>
+              </label>
+            </fieldset>
+          ) : action === 'sharedCapability' ? (
+            <fieldset className="code-first-structure-options">
+              <legend>
+                Public capability chain <small>Select at least one runtime layer</small>
+              </legend>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createHook}
+                  onChange={(event) => setCreateHook(event.target.checked)}
+                />
+                <span>
+                  <strong>Hook gateway</strong>
+                  <small>React lifecycle, cache, retries, polling, and mutations</small>
+                </span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createStore}
+                  onChange={(event) => setCreateStore(event.target.checked)}
+                />
+                <span>
+                  <strong>Zustand store</strong>
+                  <small>Cross-feature client state owned by this capability</small>
+                </span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createLogic}
+                  onChange={(event) => setCreateLogic(event.target.checked)}
+                />
+                <span>
+                  <strong>Business Logic</strong>
+                  <small>Stable rules, validation, transformation, and orchestration</small>
+                </span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createApi}
+                  onChange={(event) => setCreateApi(event.target.checked)}
+                />
+                <span>
+                  <strong>API</strong>
+                  <small>Cross-feature HTTP request and response boundary</small>
+                </span>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={createTypes}
+                  onChange={(event) => setCreateTypes(event.target.checked)}
+                />
+                <span>
+                  <strong>Types</strong>
+                  <small>Type-only contracts for this capability</small>
+                </span>
+              </label>
+            </fieldset>
+          ) : action === 'feature' || action === 'sharedWidget' ? (
+            <fieldset className="code-first-structure-options">
+              <legend>
+                Include with this {action === 'feature' ? 'feature' : 'shared widget'}{' '}
+                <small>Optional</small>
               </legend>
               <label>
                 <input type="checkbox" checked={createConnector} disabled readOnly />
                 <span>
                   <strong>Connector · Required</strong>
-                  <small>The only runtime entry allowed to render this Feature UI</small>
+                  <small>
+                    The only runtime entry allowed to render this{' '}
+                    {action === 'feature' ? 'Feature' : 'Shared Widget'} UI
+                  </small>
                 </span>
               </label>
               <label>
@@ -982,12 +1489,16 @@ export function CreateStructureItemDialog({
               <strong>
                 {owner.level === 'featuresRoot'
                   ? `${requestedFeatureName} becomes a feature owner`
-                  : `${displayOwnerName} remains the owner`}
+                  : owner.level === 'sharedRoot'
+                    ? `${requestedFeatureName} becomes a strict shared owner`
+                    : `${displayOwnerName} remains the owner`}
               </strong>
               <span>
                 {owner.level === 'featuresRoot'
                   ? 'Its capabilities flow only through the new feature and its descendants.'
-                  : `Available to this ${owner.level} and descendants. Parent, sibling, and other feature imports remain blocked.`}
+                  : owner.level === 'sharedRoot'
+                    ? 'Shared never imports Features; consumers use only this owner’s public boundary.'
+                    : `Available to this ${owner.level} and descendants. Parent, sibling, and other feature imports remain blocked.`}
               </span>
             </div>
           </section>
@@ -998,6 +1509,7 @@ export function CreateStructureItemDialog({
               {relativePaths.map((path) => (
                 <code key={path}>{path}</code>
               ))}
+              {gatewayPreview ? <code>{gatewayPreview}</code> : null}
             </section>
           ) : (
             <section className="code-first-generated-files is-blocked" aria-live="polite">

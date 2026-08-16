@@ -1,4 +1,3 @@
-import { readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 
 import {
@@ -15,10 +14,35 @@ import {
 } from '@srijika/project-scaffold';
 
 import { findSrijikaProjectRoot, inspectSrijikaProject } from './project.js';
+import {
+  SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+  SrijikaProjectFileSystem,
+} from './project-filesystem.js';
 
 const OPTIONAL_CAPABILITIES = Object.freeze(['hook', 'store', 'logic', 'api', 'types'] as const);
+const MAX_INVENTORY_FILES = 4_096;
+const MAX_INVENTORY_ENTRIES = 32_768;
+const MAX_INVENTORY_DIRECTORIES = 4_096;
+const MAX_INVENTORY_DEPTH = 32;
+const MAX_SOURCE_BYTES = 4 * 1024 * 1024;
+const MAX_SOURCE_TOTAL_BYTES = 24 * 1024 * 1024;
+function isMigrationSourceFile(fileName: string): boolean {
+  const normalized = fileName.toLowerCase();
+  return (
+    /\.(?:[cm]?[jt]s|[jt]sx)$/.test(normalized) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(normalized)
+  );
+}
 export type SrijikaStructureKind =
-  'feature' | 'slot' | 'part' | 'connector' | SrijikaOptionalOwnerCapability;
+  | 'feature'
+  | 'slot'
+  | 'part'
+  | 'shared-ui'
+  | 'shared-widget'
+  | 'shared-capability'
+  | 'connector'
+  | 'behavior-hook'
+  | 'store-slice'
+  | SrijikaOptionalOwnerCapability;
 
 export interface ScaffoldSrijikaStructureRequest {
   project?: string;
@@ -37,30 +61,29 @@ export interface ScaffoldSrijikaStructureResult {
 
 async function collectSourceFiles(
   root: string,
-  relativeFolder: string,
 ): Promise<{ paths: string[]; sources: Record<string, string> }> {
-  const paths: string[] = [];
+  const fileSystem = await SrijikaProjectFileSystem.open(root);
   const sources: Record<string, string> = {};
-  const visit = async (relativeDirectory: string): Promise<void> => {
-    const absoluteDirectory = resolve(root, ...relativeDirectory.split('/'));
-    const entries = await readdir(absoluteDirectory, { withFileTypes: true }).catch(
-      (error: unknown) => {
-        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return [];
-        throw error;
-      },
-    );
-    for (const entry of entries) {
-      const child = `${relativeDirectory}/${entry.name}`;
-      if (entry.isDirectory()) await visit(child);
-      else if (entry.isFile()) {
-        paths.push(child);
-        if (/\.(?:ts|tsx|mts|cts)$/.test(entry.name))
-          sources[child] = await readFile(resolve(root, ...child.split('/')), 'utf8');
-      }
+  const files = await fileSystem.walkFiles([''], {
+    maximumFiles: MAX_INVENTORY_FILES,
+    maximumEntries: MAX_INVENTORY_ENTRIES,
+    maximumDirectories: MAX_INVENTORY_DIRECTORIES,
+    maximumDepth: MAX_INVENTORY_DEPTH,
+    ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+    allowIgnoredDirectorySymlinks: true,
+    stopAtNestedProjectRoots: true,
+    acceptFile: isMigrationSourceFile,
+  });
+  let totalSourceBytes = 0;
+  for (const file of files) {
+    const read = await fileSystem.readText(file.absolutePath, MAX_SOURCE_BYTES);
+    totalSourceBytes += read.size;
+    if (totalSourceBytes > MAX_SOURCE_TOTAL_BYTES) {
+      throw new Error('Ownership inventory exceeds the 24 MiB aggregate source safety limit.');
     }
-  };
-  await visit(relativeFolder);
-  return { paths, sources };
+    sources[file.relativePath] = read.source;
+  }
+  return { paths: files.map(({ relativePath }) => relativePath), sources };
 }
 
 function normalizedOwnerFolder(root: string, value: string): string {
@@ -77,8 +100,28 @@ function actionFor(
   kind: SrijikaStructureKind,
 ): SrijikaStructureCreationAction {
   if (kind === 'feature' || kind === 'slot' || kind === 'part') return kind;
+  if (kind === 'shared-ui') return 'sharedUi';
+  if (kind === 'shared-widget') return 'sharedWidget';
+  if (kind === 'shared-capability') return 'sharedCapability';
   if (owner.level === 'featuresRoot') {
-    throw new Error('Only a Feature can be created directly inside src/features.');
+    throw new Error('Only a Feature can be created directly inside the configured Features root.');
+  }
+  if (owner.level === 'sharedRoot') {
+    throw new Error(
+      'Choose shared-ui, shared-widget, or shared-capability inside the configured Shared root.',
+    );
+  }
+  if (kind === 'behavior-hook') {
+    if (owner.level === 'sharedUi') {
+      throw new Error('Shared UI primitives cannot own Hooks. Use a Shared Widget instead.');
+    }
+    return `${owner.level}BehaviorHook`;
+  }
+  if (kind === 'store-slice') {
+    if (owner.level === 'sharedUi') {
+      throw new Error('Shared UI primitives cannot own Stores. Use a Shared Widget instead.');
+    }
+    return `${owner.level}StoreSlice`;
   }
   const suffix = `${kind.slice(0, 1).toUpperCase()}${kind.slice(1)}`;
   return `${owner.level}${suffix}` as SrijikaStructureCreationAction;
@@ -94,22 +137,34 @@ export async function scaffoldSrijikaStructure(
     ? normalizedOwnerFolder(root, request.ownerFolder)
     : request.kind === 'feature'
       ? architecture.featuresRoot
-      : normalizedOwnerFolder(root, process.cwd());
+      : request.kind === 'shared-ui' ||
+          request.kind === 'shared-widget' ||
+          request.kind === 'shared-capability'
+        ? architecture.sharedRoot
+        : normalizedOwnerFolder(root, process.cwd());
   const owner = resolveSrijikaStructureOwner(ownerFolder, project.architecture);
-  if (!owner) throw new Error(`${ownerFolder} is not a canonical Feature, Slot, or Part boundary.`);
+  if (!owner)
+    throw new Error(`${ownerFolder} is not a canonical Feature, Slot, Part, or Shared boundary.`);
   const action = actionFor(owner, request.kind);
-  const composite = action === 'feature' || action === 'slot' || action === 'part';
-  if (composite && !request.name) {
+  const composite =
+    action === 'feature' ||
+    action === 'slot' ||
+    action === 'part' ||
+    action === 'sharedUi' ||
+    action === 'sharedWidget' ||
+    action === 'sharedCapability';
+  const namedCapability = request.kind === 'behavior-hook' || request.kind === 'store-slice';
+  if ((composite || namedCapability) && !request.name) {
     throw new Error(`srijika add ${action} requires a normalized PascalCase name.`);
   }
-  if (!composite && request.name) {
+  if (!composite && !namedCapability && request.name) {
     throw new Error(`${request.kind} is added to the selected owner and does not accept a name.`);
   }
   const optionalCapabilities = request.optionalCapabilities ?? [];
   if (optionalCapabilities.some((capability) => !OPTIONAL_CAPABILITIES.includes(capability))) {
     throw new Error('Only hook, store, logic, api, and types are optional owner capabilities.');
   }
-  const existing = await collectSourceFiles(root, architecture.featuresRoot);
+  const existing = await collectSourceFiles(root);
   const plan = buildSrijikaOwnershipCreationPlan({
     owner,
     action,
@@ -117,15 +172,20 @@ export async function scaffoldSrijikaStructure(
     ...(composite ? { optionalCapabilities } : {}),
     existingRelativePaths: existing.paths,
     existingSources: existing.sources,
+    ...(project.aliases ? { aliases: project.aliases } : {}),
     allowCustomConnectorHookInsertion: true,
+    architecture,
   });
   const dryRun = request.dryRun ?? false;
   if (!dryRun) {
     await applySrijikaOwnershipCreationPlan(root, plan, {
       expectedUpdateSources: Object.fromEntries(
-        plan.updates.flatMap((update) => {
-          const source = existing.sources[update.relativePath];
-          return source === undefined ? [] : [[update.relativePath, source]];
+        [
+          ...plan.updates.map((update) => update.relativePath),
+          ...(plan.moves ?? []).map((move) => move.fromRelativePath),
+        ].flatMap((relativePath) => {
+          const source = existing.sources[relativePath];
+          return source === undefined ? [] : [[relativePath, source]];
         }),
       ),
     });

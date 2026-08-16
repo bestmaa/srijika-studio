@@ -4,9 +4,12 @@ export interface SrijikaArchitectureConfig {
   profile: typeof SRIJIKA_ARCHITECTURE_PROFILE;
   /** Project-root-relative directory containing feature folders. */
   featuresRoot?: string;
+  /** Project-root-relative directory containing canonical cross-feature owners. */
+  sharedRoot?: string;
   slotsDirectory?: string;
   partsDirectory?: string;
   hooksDirectory?: string;
+  storesDirectory?: string;
   uiSuffix?: string;
   connectorSuffix?: string;
   storeSuffix?: string;
@@ -18,15 +21,23 @@ export interface SrijikaArchitectureConfig {
 export interface ResolvedSrijikaArchitectureConfig {
   profile: typeof SRIJIKA_ARCHITECTURE_PROFILE;
   featuresRoot: string;
+  sharedRoot: string;
   slotsDirectory: string;
   partsDirectory: string;
   hooksDirectory: string;
+  storesDirectory: string;
   uiSuffix: string;
   connectorSuffix: string;
   storeSuffix: string;
   logicSuffix: string;
   apiSuffix: string;
   typesSuffix: string;
+}
+
+export interface SrijikaProjectConfig {
+  sourceOfTruth: 'tsx';
+  entry: string;
+  architecture: ResolvedSrijikaArchitectureConfig;
 }
 
 export interface SrijikaArchitectureSourceFile {
@@ -51,6 +62,18 @@ export type SrijikaArchitectureDiagnosticCode =
   | 'SRIJIKA4107'
   | 'SRIJIKA4108'
   | 'SRIJIKA4109'
+  | 'SRIJIKA4110'
+  | 'SRIJIKA4111'
+  | 'SRIJIKA4112'
+  | 'SRIJIKA4113'
+  | 'SRIJIKA4114'
+  | 'SRIJIKA4115'
+  | 'SRIJIKA4116'
+  | 'SRIJIKA4117'
+  | 'SRIJIKA4118'
+  | 'SRIJIKA4119'
+  | 'SRIJIKA4120'
+  | 'SRIJIKA4121'
   | 'SRIJIKA4201'
   | 'SRIJIKA4202'
   | 'SRIJIKA4203';
@@ -58,6 +81,17 @@ export type SrijikaArchitectureDiagnosticCode =
 export type SrijikaArchitectureRuleId =
   | 'SRIJIKA-ARCH-MISSING-UI'
   | 'SRIJIKA-ARCH-MISSING-CONNECTOR'
+  | 'SRIJIKA-ARCH-STRICT-OWNER-SHAPE'
+  | 'SRIJIKA-ARCH-MIXED-CAPABILITY-LAYOUT'
+  | 'SRIJIKA-ARCH-MISSING-CAPABILITY-GATEWAY'
+  | 'SRIJIKA-ARCH-SHARED-REVERSE-DEPENDENCY'
+  | 'SRIJIKA-ARCH-SHARED-PRIVATE-IMPORT'
+  | 'SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY'
+  | 'SRIJIKA-ARCH-PASSIVE-TYPES'
+  | 'SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN'
+  | 'SRIJIKA-ARCH-UNPROVABLE-DYNAMIC-IMPORT'
+  | 'SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS'
+  | 'SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT'
   | 'SRIJIKA-ARCH-LAYER-JUMP'
   | 'SRIJIKA-ARCH-UI-RUNTIME-IMPORT'
   | 'SRIJIKA-ARCH-PRIVATE-IMPORT'
@@ -66,7 +100,7 @@ export type SrijikaArchitectureRuleId =
   | 'SRIJIKA-ARCH-MAINTAINABILITY';
 
 export type SrijikaArchitectureCapability =
-  'connector' | 'hook' | 'store' | 'logic' | 'api' | 'types';
+  'ui' | 'connector' | 'hook' | 'store' | 'logic' | 'api' | 'types';
 
 export interface SrijikaArchitectureRecommendation {
   id:
@@ -93,7 +127,11 @@ export interface SrijikaArchitectureRecommendation {
       | 'react-hooks'
       | 'local-state-fields'
       | 'store-members'
-      | 'store-async-cache';
+      | 'store-async-cache'
+      | 'owner-consumers'
+      | 'ui-function-lines'
+      | 'ui-file-lines'
+      | 'ui-contract-members';
     value: number;
     threshold: number;
   };
@@ -118,7 +156,8 @@ export interface SrijikaArchitectureValidationResult {
   recommendations: readonly SrijikaArchitectureRecommendation[];
 }
 
-export type SrijikaArchitectureScopeKind = 'outside' | 'feature' | 'slot' | 'part';
+export type SrijikaArchitectureScopeKind =
+  'outside' | 'feature' | 'slot' | 'part' | 'shared-ui' | 'shared-widget' | 'shared-capability';
 
 export interface SrijikaArchitectureOwnership {
   kind: SrijikaArchitectureScopeKind;
@@ -126,9 +165,11 @@ export interface SrijikaArchitectureOwnership {
   feature?: string;
   slot?: string;
   part?: string;
+  shared?: string;
   relativeToFeature?: string;
   relativeToSlot?: string;
   relativeToPart?: string;
+  relativeToShared?: string;
 }
 
 export interface ValidateSrijikaArchitectureOptions {

@@ -2,10 +2,10 @@
 
 ## One authority
 
-Every visual component is authored in a file ending in `.ui.tsx`. That source file is canonical. Srijika Studio, the VS Code extension, the hierarchy, the Inspector, and the preview all consume it; none of those projections can silently become a second source of truth.
+Every visual component is authored in a file ending in the resolved UI suffix (canonical default `.ui.tsx`). That source file is canonical. Srijika Studio, the VS Code extension, the hierarchy, the Inspector, and the preview all consume it; none of those projections can silently become a second source of truth.
 
 ```text
-.ui.tsx → restricted parser → diagnostics + source map + UiDocument → renderer
+{uiSuffix} → restricted parser → diagnostics + source map + UiDocument → renderer
     ↑              │
     └── source edits from safe quick fixes and supported Studio controls
 ```
@@ -25,11 +25,23 @@ srijika-app/
 ├── .vscode/extensions.json        # recommends Srijika language support
 └── src/
     ├── App.tsx
-    └── components/
+    ├── main.tsx
+    ├── shared/                     # strict UI/Widget/Headless owners only
+    └── features/
         └── home/
             ├── Home.ui.tsx
-            └── Home.connector.tsx
+            ├── Home.connector.tsx
+            ├── useHome.ts
+            ├── home.store.ts
+            └── slots/navigation/
+                ├── Navigation.ui.tsx
+                └── Navigation.connector.tsx
 ```
+
+The default starter has no TanStack Query dependency or `src/app` Provider
+folder. `--react-query` opts into `src/app/AppProviders.tsx` and
+`src/app/query-client.ts`; ordinary Hooks, Stores, Logic, and API boundaries do
+not require that integration.
 
 Pure UI files accept typed props and render them. Connector files may use hooks, stores, resources, routing, and actions. The starter demonstrates connector-owned state, normalized typed events, and a typed ReactNode navigation slot while remaining one page. A parent connector can supply child connectors as typed slots, so the parent UI does not drill unrelated child data:
 
@@ -43,7 +55,7 @@ This is called the **Connector + UI Slot** pattern. React Compiler is the separa
 
 ## Restricted UI rules (v1)
 
-A `.ui.tsx` file must:
+A file ending in the resolved UI suffix must:
 
 - export exactly one named function component;
 - accept zero props or one named `props` parameter;
@@ -56,10 +68,11 @@ A `.ui.tsx` file must:
 
 ### Complexity policy
 
-Srijika applies one compiler-owned complexity policy to every `.ui.tsx` file:
+Srijika applies one compiler-owned complexity policy to every file ending in
+the resolved UI suffix (canonical default `.ui.tsx`):
 
 - the exported UI function may contain at most **200 meaningful lines**;
-- the complete `.ui.tsx` file may contain at most **300 meaningful lines**;
+- the complete UI source file may contain at most **300 meaningful lines**;
 - the local props interface may declare at most **16 top-level members**.
 
 Meaningful-line counting ignores blank lines and comments. The 200-line function
@@ -113,7 +126,8 @@ Comments, imports, formatting, helper types, and unrelated developer code must s
 Desktop Studio treats the selected directory as one independent React workspace.
 It scans a bounded tree without following symlinks or entering `.git`,
 `node_modules`, `dist`, or `build`. Project Explorer shows those real files, while
-UI Nodes shows the derived hierarchy for the selected `.ui.tsx` file.
+UI Nodes shows the derived hierarchy for the selected file ending in the
+project's configured UI suffix (`.ui.tsx` by default).
 
 The source pane is read-only. Selecting a diagnostic reveals its exact range;
 double-clicking a file or node validates the destination stays under the active
@@ -136,13 +150,15 @@ running, its matching Connector becomes the center live view without restarting
 Vite. When the app is stopped, the center shows only the explicit **Start App**
 action.
 
-The UI Sources list is a quick switcher over every indexed `.ui.tsx`; the full
+The UI Sources list is a quick switcher over every indexed configured-UI file;
+the full
 Project Explorer keeps the surrounding React workspace visible. A single click on a
 UI source switches the derived Studio views. Double-clicking a file or node opens its
 validated source location in VS Code. General code files are intentionally created in
 VS Code rather than the read-only Studio source viewer.
 
-Opening a standalone `.ui.tsx` is a preview-only detached workflow: there is no
+Opening a standalone file ending in the resolved UI suffix is a preview-only detached workflow:
+there is no
 project tree, sibling creation, runtime, or VS Code project link until its containing
 Srijika project is opened. Browser mode mirrors creation in memory and labels that
 limitation explicitly; desktop mode writes to the selected independent project folder.
@@ -183,15 +199,15 @@ exact tracked URL. Therefore the browser preview executes the real project CSS,
 dependencies, assets, Connector logic, and Vite HMR. The derived `/preview` route is
 retained only for browser-mode and detached standalone UI previews. Project creation
 never waits for a network install. Once ready, that same validated loopback URL is
-embedded in Studio's center preview panel. Selecting a `.ui.tsx` source sends its
+embedded in Studio's center preview panel. Selecting a configured-UI source sends its
 validated relative path to the running app, which resolves and renders the required
-sibling `.connector.tsx` module. The Connector therefore executes inside the real
+sibling using the configured Connector suffix. The Connector therefore executes inside the real
 project with its Providers, CSS, dependencies, Hook, Store, Logic, API, and HMR
 graph. Source switching does not restart Vite. Run App, the embedded panel, Browser
 Preview, and Open App never create competing renderers or project processes.
 
 During `vite serve` only, the generated `srijika-preview-source-locations` transform
-adds a relative `.ui.tsx` source location to each rendered JSX element. The embedded
+adds a relative configured-UI source location to each rendered JSX element. The embedded
 app's tiny preview bridge exchanges versioned `postMessage` events only with its
 parent frame. The bridge uses a development-only `import.meta.glob` registry of
 Connector modules and reports `loading`, `ready`, or `error` for the selected UI.
@@ -209,8 +225,18 @@ The Studio problems console and right Inspector share compiler diagnostics. Sele
 
 ## Filesystem guarantees
 
-Desktop project creation accepts an explicit new target and never overwrites an existing path. Source operations are size-bounded, `.ui.tsx`-only, and atomic. Saves include the last-read hash; a mismatch returns a source conflict instead of discarding external edits.
+Desktop project creation accepts an explicit new target and never overwrites an existing path. Source operations are size-bounded, restricted to the resolved UI suffix, and atomic. Saves include the last-read hash; a mismatch returns a source conflict instead of discarding external edits.
 
-Opening a project selects its directory, reads a bounded regular `srijika.config.json`, requires `sourceOfTruth: "tsx"`, validates the relative `.ui.tsx` entry stays inside the project, and opens that source. Configuration and entry symlinks are rejected at the native boundary.
+Opening a project selects its directory, reads a regular `srijika.config.json`
+capped at 64 KiB, requires `sourceOfTruth: "tsx"`, resolves the optional exact
+`feature-slot-part-v1` architecture profile, validates the normalized relative
+entry ends in the configured UI suffix, and opens that source. Root
+`tsconfig.json` is read as bounded JSONC (1 MiB) for deterministic project alias
+analysis. `extends`, nonempty `references`, and any explicit
+`compilerOptions.baseUrl` are rejected; empty references are valid, and only
+exact or slash-delimited terminal `/*` `paths` aliases are accepted. The
+configured entry remains an authoritative strict UI and is counted even when it
+sits outside the Feature/Shared roots. Configuration, entry, source, and
+ancestor symlinks are rejected at the native boundary.
 
-The browser build offers an in-memory source workspace plus `.ui.tsx` upload/download. Native project directory and hash semantics are tested at the Rust boundary.
+The browser build offers an in-memory source workspace plus resolved-UI-suffix upload/download. Native project directory and hash semantics are tested at the Rust boundary.

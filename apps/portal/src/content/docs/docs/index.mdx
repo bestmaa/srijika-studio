@@ -16,8 +16,14 @@ cd my-app
 npx @srijika/cli dev
 ```
 
-Desktop Studio is not required. Restricted, typed `.ui.tsx` remains the only
-persisted UI source of truth whenever the visual workbench is used.
+Desktop Studio is not required. Restricted, typed source ending in the resolved
+UI suffix (canonical default `.ui.tsx`) remains the only persisted UI source of
+truth whenever the visual workbench is used.
+
+Cross-feature code is equally governed: `src/shared` accepts only pure UI
+Primitives, UI+Connector Widgets, and UI-less Headless Capabilities. The
+default starter remains minimal, with TanStack Query available only through the
+explicit `--react-query` create option.
 
 :::caution[Public alpha]
 The current milestone is a working code-first UI foundation. Rust-backed generated APIs and business logic are planned for Phase 2; they are not part of the current product.

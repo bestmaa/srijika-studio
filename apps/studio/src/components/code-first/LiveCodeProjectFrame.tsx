@@ -5,8 +5,7 @@ const SELECTED_MESSAGE = 'srijika:preview-selected-source';
 const RUNTIME_STATE_MESSAGE = 'srijika:preview-runtime-state';
 const HIT_TEST_MESSAGE = 'srijika:preview-hit-test';
 const DROP_TARGET_MESSAGE = 'srijika:preview-drop-target';
-const SOURCE_PATTERN = /^(src\/[A-Za-z0-9_./ -]+\.ui\.tsx):(\d+):(\d+)$/;
-const UI_SOURCE_PATTERN = /^src\/[A-Za-z0-9_./ -]+\.ui\.tsx$/;
+const SOURCE_MARKER_PATTERN = /^(.+):(\d+):(\d+)$/;
 
 export type LivePreviewRuntimeStateKind =
   'connecting' | 'loading' | 'ready' | 'error' | 'unsupported';
@@ -27,19 +26,72 @@ export interface LivePreviewSourceLocation {
 export interface LiveCodeProjectFrameProps {
   url: string;
   selectedSource: string | null;
+  uiSuffix: string;
+  allowedUiSources: readonly string[];
   onSelectSource: (location: LivePreviewSourceLocation) => void;
   onRuntimeState: (state: LivePreviewRuntimeState) => void;
   dragActive?: boolean;
   onDropComponent?: (componentId: string, targetSource: string | null) => void;
 }
 
-function selectedUiSource(source: string | null): string | null {
-  if (source === null) return null;
-  if (UI_SOURCE_PATTERN.test(source)) return source;
-  return SOURCE_PATTERN.exec(source)?.[1] ?? null;
+interface LivePreviewSourcePolicy {
+  uiSuffix: string;
+  allowedUiSources: ReadonlySet<string>;
 }
 
-function runtimeState(value: unknown): LivePreviewRuntimeState | null {
+function isNormalizedUiSource(value: string, policy: LivePreviewSourcePolicy): boolean {
+  if (
+    !value ||
+    !policy.uiSuffix.startsWith('.') ||
+    !policy.uiSuffix.endsWith('.tsx') ||
+    policy.uiSuffix.endsWith('.d.tsx') ||
+    value.includes('\0') ||
+    value.includes('\\') ||
+    value.includes(':') ||
+    value.startsWith('/') ||
+    value.endsWith('/') ||
+    !value.endsWith(policy.uiSuffix)
+  ) {
+    return false;
+  }
+  const segments = value.split('/');
+  return (
+    segments.length <= 32 &&
+    segments.every(
+      (segment) =>
+        Boolean(segment) &&
+        segment !== '.' &&
+        segment !== '..' &&
+        /^[A-Za-z0-9_. -]+$/.test(segment),
+    ) &&
+    policy.allowedUiSources.has(value)
+  );
+}
+
+function parsedSourceLocation(
+  source: string,
+  policy: LivePreviewSourcePolicy,
+): LivePreviewSourceLocation | null {
+  const match = SOURCE_MARKER_PATTERN.exec(source);
+  if (!match || !isNormalizedUiSource(match[1]!, policy)) return null;
+  const line = Number(match[2]);
+  const column = Number(match[3]);
+  if (!Number.isSafeInteger(line) || line < 1 || !Number.isSafeInteger(column) || column < 1) {
+    return null;
+  }
+  return { relativePath: match[1]!, line, column, marker: source };
+}
+
+function selectedUiSource(source: string | null, policy: LivePreviewSourcePolicy): string | null {
+  if (source === null) return null;
+  if (isNormalizedUiSource(source, policy)) return source;
+  return parsedSourceLocation(source, policy)?.relativePath ?? null;
+}
+
+function runtimeState(
+  value: unknown,
+  policy: LivePreviewSourcePolicy,
+): LivePreviewRuntimeState | null {
   if (typeof value !== 'object' || value === null) return null;
   const message = value as {
     type?: unknown;
@@ -53,7 +105,7 @@ function runtimeState(value: unknown): LivePreviewRuntimeState | null {
     message.version !== 1 ||
     (message.state !== 'loading' && message.state !== 'ready' && message.state !== 'error') ||
     typeof message.uiSource !== 'string' ||
-    !UI_SOURCE_PATTERN.test(message.uiSource) ||
+    !isNormalizedUiSource(message.uiSource, policy) ||
     (message.error !== undefined && typeof message.error !== 'string')
   ) {
     return null;
@@ -65,7 +117,10 @@ function runtimeState(value: unknown): LivePreviewRuntimeState | null {
   };
 }
 
-function sourceLocation(value: unknown): LivePreviewSourceLocation | null {
+function sourceLocation(
+  value: unknown,
+  policy: LivePreviewSourcePolicy,
+): LivePreviewSourceLocation | null {
   if (typeof value !== 'object' || value === null) return null;
   const message = value as { type?: unknown; version?: unknown; source?: unknown };
   if (
@@ -75,19 +130,14 @@ function sourceLocation(value: unknown): LivePreviewSourceLocation | null {
   ) {
     return null;
   }
-  const match = SOURCE_PATTERN.exec(message.source);
-  if (!match) return null;
-  const line = Number(match[2]);
-  const column = Number(match[3]);
-  if (!Number.isSafeInteger(line) || line < 1 || !Number.isSafeInteger(column) || column < 1) {
-    return null;
-  }
-  return { relativePath: match[1]!, line, column, marker: message.source };
+  return parsedSourceLocation(message.source, policy);
 }
 
 export function LiveCodeProjectFrame({
   url,
   selectedSource,
+  uiSuffix,
+  allowedUiSources,
   onSelectSource,
   onRuntimeState,
   dragActive = false,
@@ -96,7 +146,11 @@ export function LiveCodeProjectFrame({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const runtimeTimeoutRef = useRef<number | null>(null);
   const origin = useMemo(() => new URL(url).origin, [url]);
-  const selectedUiSourcePath = selectedUiSource(selectedSource);
+  const sourcePolicy = useMemo<LivePreviewSourcePolicy>(
+    () => ({ uiSuffix, allowedUiSources: new Set(allowedUiSources) }),
+    [allowedUiSources, uiSuffix],
+  );
+  const selectedUiSourcePath = selectedUiSource(selectedSource, sourcePolicy);
   const [dropTargetSource, setDropTargetSource] = useState<string | null>(null);
 
   const publishSelection = useCallback((): void => {
@@ -114,9 +168,9 @@ export function LiveCodeProjectFrame({
   useLayoutEffect(() => {
     const receiveSelection = (event: MessageEvent): void => {
       if (event.source !== iframeRef.current?.contentWindow || event.origin !== origin) return;
-      const location = sourceLocation(event.data);
+      const location = sourceLocation(event.data, sourcePolicy);
       if (location) onSelectSource(location);
-      const nextRuntimeState = runtimeState(event.data);
+      const nextRuntimeState = runtimeState(event.data, sourcePolicy);
       if (nextRuntimeState && nextRuntimeState.uiSource === selectedUiSourcePath) {
         if (runtimeTimeoutRef.current !== null) {
           window.clearTimeout(runtimeTimeoutRef.current);
@@ -130,12 +184,14 @@ export function LiveCodeProjectFrame({
         message.version === 1 &&
         (typeof message.source === 'string' || message.source === null)
       ) {
-        setDropTargetSource(message.source);
+        if (message.source === null || parsedSourceLocation(message.source, sourcePolicy)) {
+          setDropTargetSource(message.source);
+        }
       }
     };
     window.addEventListener('message', receiveSelection);
     return () => window.removeEventListener('message', receiveSelection);
-  }, [onRuntimeState, onSelectSource, origin, selectedUiSourcePath]);
+  }, [onRuntimeState, onSelectSource, origin, selectedUiSourcePath, sourcePolicy]);
 
   useEffect(() => {
     if (runtimeTimeoutRef.current !== null) {

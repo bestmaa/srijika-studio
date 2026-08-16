@@ -2,7 +2,7 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "publisher": "srijika",
   "license": "UNLICENSED",
@@ -27,6 +27,7 @@
     "README.md"
   ],
   "activationEvents": [
+    "workspaceContains:srijika.config.json",
     "workspaceContains:**/*.ui.tsx",
     "onLanguage:typescriptreact",
     "onCommand:srijika.checkCurrentFile",
@@ -49,7 +50,7 @@
       },
       {
         "command": "srijika.checkArchitecture",
-        "title": "Srijika: Check Feature Architecture",
+        "title": "Srijika: Check Strict Project Architecture",
         "category": "Srijika"
       },
       {
@@ -59,7 +60,8 @@
       },
       {
         "command": "srijika.addOwnershipCapability",
-        "title": "Srijika: Add Feature / Slot / Part Capability…",
+        "title": "Srijika: Add Strict Feature / Shared Owner…",
+        "shortTitle": "Add Strict Owner…",
         "category": "Srijika",
         "icon": "$(add)"
       },
@@ -113,14 +115,14 @@
     "viewsWelcome": [
       {
         "view": "srijika.structure",
-        "contents": "Open a project containing src/features to use strict owner-aware creation.\n[Open Folder](command:vscode.openFolder)"
+        "contents": "Open a Srijika project to create strict Feature / Slot / Part and Shared UI / Widget / Headless owners. Freehand shared shapes are rejected.\n[Open Folder](command:vscode.openFolder)"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "command": "srijika.addOwnershipCapability",
-          "when": "explorerResourceIsFolder && resourcePath =~ /\\/src\\/features(\\/[^\\/]+(\\/slots\\/[^\\/]+(\\/parts\\/[^\\/]+)?)?)?$/",
+          "when": "explorerResourceIsFolder",
           "group": "navigation@srijika"
         }
       ],

@@ -16,7 +16,7 @@ surface over the same project contract.
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | Public npm setup    | `npm create srijika@latest my-app` creates and validates a pinned application without requiring Desktop Studio.               |
 | Project scaffolding | Creates a complete pinned React 19 workspace without overwriting an existing destination.                                     |
-| Canonical UI source | Restricted, typed `.ui.tsx` is the only persisted UI authority.                                                               |
+| Canonical UI source | Restricted, typed source ending in the resolved UI suffix (default `.ui.tsx`) is the only persisted UI authority.             |
 | Compiler            | Parses without executing arbitrary project code and emits diagnostics, source spans, quick fixes, and a derived `UiDocument`. |
 | Project Explorer    | Indexes real project files while excluding generated and vendor directories.                                                  |
 | Workbench           | Keeps source selection, UI Nodes, Inspector, diagnostics, and preview aligned.                                                |

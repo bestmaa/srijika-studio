@@ -1,3 +1,4 @@
+import { parseSrijikaProjectConfig } from '@srijika/architecture-rules';
 import type { UiDocument } from '@srijika/contracts';
 
 interface LoadedDocumentResponse {
@@ -46,6 +47,40 @@ export interface CreatedCodeProjectUiSourceResponse {
 }
 
 export type CodeProjectScaffoldCapability =
+  | { kind: 'sharedUi'; createTypes?: boolean }
+  | { kind: 'sharedUiTypes' }
+  | {
+      kind: 'sharedWidget';
+      createConnector?: boolean;
+      createHook?: boolean;
+      createStore?: boolean;
+      createLogic?: boolean;
+      createApi?: boolean;
+      createTypes?: boolean;
+    }
+  | { kind: 'sharedWidgetConnector' }
+  | { kind: 'sharedWidgetStore' }
+  | { kind: 'sharedWidgetHook' }
+  | { kind: 'sharedWidgetBehaviorHook'; hookName: string }
+  | { kind: 'sharedWidgetStoreSlice'; storeName: string }
+  | { kind: 'sharedWidgetLogic' }
+  | { kind: 'sharedWidgetApi' }
+  | { kind: 'sharedWidgetTypes' }
+  | {
+      kind: 'sharedCapability';
+      createHook?: boolean;
+      createStore?: boolean;
+      createLogic?: boolean;
+      createApi?: boolean;
+      createTypes?: boolean;
+    }
+  | { kind: 'sharedCapabilityStore' }
+  | { kind: 'sharedCapabilityHook' }
+  | { kind: 'sharedCapabilityBehaviorHook'; hookName: string }
+  | { kind: 'sharedCapabilityStoreSlice'; storeName: string }
+  | { kind: 'sharedCapabilityLogic' }
+  | { kind: 'sharedCapabilityApi' }
+  | { kind: 'sharedCapabilityTypes' }
   | {
       kind: 'feature';
       createConnector?: boolean;
@@ -60,6 +95,7 @@ export type CodeProjectScaffoldCapability =
   | { kind: 'featureStore' }
   | { kind: 'featureHook' }
   | { kind: 'featureBehaviorHook'; hookName: string }
+  | { kind: 'featureStoreSlice'; storeName: string }
   | { kind: 'featureLogic' }
   | { kind: 'featureApi' }
   | { kind: 'featureTypes' }
@@ -80,6 +116,7 @@ export type CodeProjectScaffoldCapability =
   | { kind: 'slotStore'; slotName: string }
   | { kind: 'slotHook'; slotName: string }
   | { kind: 'slotBehaviorHook'; slotName: string; hookName: string }
+  | { kind: 'slotStoreSlice'; slotName: string; storeName: string }
   | { kind: 'slotLogic'; slotName: string }
   | { kind: 'slotApi'; slotName: string }
   | { kind: 'slotTypes'; slotName: string }
@@ -99,6 +136,7 @@ export type CodeProjectScaffoldCapability =
   | { kind: 'partStore'; slotName: string; partName: string }
   | { kind: 'partHook'; slotName: string; partName: string }
   | { kind: 'partBehaviorHook'; slotName: string; partName: string; hookName: string }
+  | { kind: 'partStoreSlice'; slotName: string; partName: string; storeName: string }
   | { kind: 'partLogic'; slotName: string; partName: string }
   | { kind: 'partApi'; slotName: string; partName: string }
   | { kind: 'partTypes'; slotName: string; partName: string };
@@ -110,6 +148,20 @@ export interface ScaffoldCodeProjectStructureRequest {
 }
 
 export type CodeProjectScaffoldFileRole =
+  | 'sharedUi'
+  | 'sharedUiTypes'
+  | 'sharedWidgetUi'
+  | 'sharedWidgetConnector'
+  | 'sharedWidgetStore'
+  | 'sharedWidgetHook'
+  | 'sharedWidgetLogic'
+  | 'sharedWidgetApi'
+  | 'sharedWidgetTypes'
+  | 'sharedCapabilityStore'
+  | 'sharedCapabilityHook'
+  | 'sharedCapabilityLogic'
+  | 'sharedCapabilityApi'
+  | 'sharedCapabilityTypes'
   | 'featureUi'
   | 'featureConnector'
   | 'featureStore'
@@ -200,6 +252,7 @@ export interface CodeProjectArchitectureSource {
 export interface LoadedCodeProjectArchitectureSourcesResponse {
   path: string;
   configSource: string;
+  tsconfigSource?: string;
   sources: readonly CodeProjectArchitectureSource[];
   truncated: boolean;
 }
@@ -455,6 +508,20 @@ function createdCodeProjectUiSourceResponse(value: unknown): CreatedCodeProjectU
 }
 
 const codeProjectScaffoldFileRoles = new Set<CodeProjectScaffoldFileRole>([
+  'sharedUi',
+  'sharedUiTypes',
+  'sharedWidgetUi',
+  'sharedWidgetConnector',
+  'sharedWidgetStore',
+  'sharedWidgetHook',
+  'sharedWidgetLogic',
+  'sharedWidgetApi',
+  'sharedWidgetTypes',
+  'sharedCapabilityStore',
+  'sharedCapabilityHook',
+  'sharedCapabilityLogic',
+  'sharedCapabilityApi',
+  'sharedCapabilityTypes',
   'featureUi',
   'featureConnector',
   'featureStore',
@@ -490,6 +557,46 @@ function codeProjectScaffoldCapability(value: unknown): CodeProjectScaffoldCapab
     throw new Error('Desktop returned an invalid scaffold capability');
   }
   switch (value['kind']) {
+    case 'sharedUi':
+      return { kind: value['kind'], createTypes: booleanField(value, 'createTypes') };
+    case 'sharedUiTypes':
+    case 'sharedWidgetConnector':
+    case 'sharedWidgetStore':
+    case 'sharedWidgetHook':
+    case 'sharedWidgetLogic':
+    case 'sharedWidgetApi':
+    case 'sharedWidgetTypes':
+    case 'sharedCapabilityStore':
+    case 'sharedCapabilityHook':
+    case 'sharedCapabilityLogic':
+    case 'sharedCapabilityApi':
+    case 'sharedCapabilityTypes':
+      return { kind: value['kind'] };
+    case 'sharedWidget':
+      return {
+        kind: value['kind'],
+        createConnector: booleanField(value, 'createConnector'),
+        createHook: booleanField(value, 'createHook'),
+        createStore: booleanField(value, 'createStore'),
+        createLogic: booleanField(value, 'createLogic'),
+        createApi: booleanField(value, 'createApi'),
+        createTypes: booleanField(value, 'createTypes'),
+      };
+    case 'sharedCapability':
+      return {
+        kind: value['kind'],
+        createHook: booleanField(value, 'createHook'),
+        createStore: booleanField(value, 'createStore'),
+        createLogic: booleanField(value, 'createLogic'),
+        createApi: booleanField(value, 'createApi'),
+        createTypes: booleanField(value, 'createTypes'),
+      };
+    case 'sharedWidgetBehaviorHook':
+    case 'sharedCapabilityBehaviorHook':
+      return { kind: value['kind'], hookName: stringField(value, 'hookName') };
+    case 'sharedWidgetStoreSlice':
+    case 'sharedCapabilityStoreSlice':
+      return { kind: value['kind'], storeName: stringField(value, 'storeName') };
     case 'feature':
       return {
         kind: value['kind'],
@@ -510,6 +617,8 @@ function codeProjectScaffoldCapability(value: unknown): CodeProjectScaffoldCapab
       return { kind: value['kind'] };
     case 'featureBehaviorHook':
       return { kind: value['kind'], hookName: stringField(value, 'hookName') };
+    case 'featureStoreSlice':
+      return { kind: value['kind'], storeName: stringField(value, 'storeName') };
     case 'slot':
       return {
         kind: value['kind'],
@@ -539,6 +648,12 @@ function codeProjectScaffoldCapability(value: unknown): CodeProjectScaffoldCapab
         kind: value['kind'],
         slotName: stringField(value, 'slotName'),
         hookName: stringField(value, 'hookName'),
+      };
+    case 'slotStoreSlice':
+      return {
+        kind: value['kind'],
+        slotName: stringField(value, 'slotName'),
+        storeName: stringField(value, 'storeName'),
       };
     case 'part':
       return {
@@ -570,6 +685,13 @@ function codeProjectScaffoldCapability(value: unknown): CodeProjectScaffoldCapab
         slotName: stringField(value, 'slotName'),
         partName: stringField(value, 'partName'),
         hookName: stringField(value, 'hookName'),
+      };
+    case 'partStoreSlice':
+      return {
+        kind: value['kind'],
+        slotName: stringField(value, 'slotName'),
+        partName: stringField(value, 'partName'),
+        storeName: stringField(value, 'storeName'),
       };
     default:
       throw new Error('Desktop returned an invalid scaffold capability');
@@ -683,6 +805,7 @@ const MAX_ARCHITECTURE_SOURCE_FILES = 4_096;
 const MAX_ARCHITECTURE_SOURCE_BYTES = 4 * 1024 * 1024;
 const MAX_ARCHITECTURE_SOURCES_BYTES = 24 * 1024 * 1024;
 const MAX_ARCHITECTURE_CONFIG_BYTES = 64 * 1024;
+const MAX_TYPESCRIPT_CONFIG_BYTES = 1024 * 1024;
 
 function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
@@ -692,7 +815,10 @@ function isSafeArchitectureRelativePath(value: string): boolean {
   if (!value || value.includes('\\') || value.startsWith('/')) return false;
   const segments = value.split('/');
   if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return false;
-  return /\.(?:ts|tsx|mts|cts)$/.test(value);
+  const lower = value.toLowerCase();
+  return (
+    /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(lower) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(lower)
+  );
 }
 
 function codeProjectArchitectureSource(value: unknown): CodeProjectArchitectureSource {
@@ -733,17 +859,21 @@ function loadedCodeProjectArchitectureSourcesResponse(
   if (utf8ByteLength(configSource) > MAX_ARCHITECTURE_CONFIG_BYTES) {
     throw new Error('Desktop returned invalid architecture sources');
   }
-  let config: unknown;
+  let config;
   try {
-    config = JSON.parse(configSource);
-  } catch {
+    config = parseSrijikaProjectConfig(configSource);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Desktop returned invalid architecture sources: ${reason}`, { cause: error });
+  }
+  if (config.sourceOfTruth !== 'tsx' || value['truncated'] !== false) {
     throw new Error('Desktop returned invalid architecture sources');
   }
+  const rawTsconfigSource = value['tsconfigSource'];
   if (
-    !isRecord(config) ||
-    config['sourceOfTruth'] !== 'tsx' ||
-    typeof config['entry'] !== 'string' ||
-    !config['entry'].endsWith('.ui.tsx')
+    rawTsconfigSource !== undefined &&
+    (typeof rawTsconfigSource !== 'string' ||
+      utf8ByteLength(rawTsconfigSource) > MAX_TYPESCRIPT_CONFIG_BYTES)
   ) {
     throw new Error('Desktop returned invalid architecture sources');
   }
@@ -768,6 +898,7 @@ function loadedCodeProjectArchitectureSourcesResponse(
   return {
     path,
     configSource,
+    ...(rawTsconfigSource === undefined ? {} : { tsconfigSource: rawTsconfigSource }),
     sources,
     truncated: value['truncated'],
   };
@@ -950,7 +1081,6 @@ export async function chooseAndLoadTsxSource(): Promise<LoadedTsxSourceResponse 
     filters: [{ name: 'Srijika UI source', extensions: ['tsx'] }],
   });
   if (typeof path !== 'string') return null;
-  if (!path.endsWith('.ui.tsx')) throw new Error('Choose a file ending in .ui.tsx');
   return loadedTsxSourceResponse(await invoke<unknown>('load_tsx_source', { request: { path } }));
 }
 

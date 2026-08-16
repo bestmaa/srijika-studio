@@ -1,4 +1,3 @@
-import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import {
@@ -6,11 +5,15 @@ import {
   findSrijikaProjectRoot,
   inspectSrijikaProject,
   scaffoldSrijikaStructure,
+  SrijikaProjectFileSystem,
   type SrijikaStructureKind,
 } from '@srijika/developer-engine';
 import type { SrijikaOptionalOwnerCapability } from '@srijika/project-scaffold';
 
 const MAX_PROJECT_FILES = 2_000;
+const MAX_PROJECT_ENTRIES = 16_000;
+const MAX_PROJECT_DIRECTORIES = 2_000;
+const MAX_PROJECT_DEPTH = 32;
 
 export interface SrijikaCodeProjectServiceOptions {
   projectRoot?: string;
@@ -39,23 +42,16 @@ export class SrijikaCodeProjectService {
     const root = await this.root(requested);
     const project = await inspectSrijikaProject(root);
     const featuresRoot = project.architecture?.featuresRoot ?? 'src/features';
-    const files: string[] = [];
-    const visit = async (relativeDirectory: string): Promise<void> => {
-      if (files.length >= MAX_PROJECT_FILES) return;
-      const entries = await readdir(resolve(root, relativeDirectory), {
-        withFileTypes: true,
-      }).catch((error: unknown) => {
-        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return [];
-        throw error;
-      });
-      for (const entry of entries) {
-        if (files.length >= MAX_PROJECT_FILES) break;
-        const child = `${relativeDirectory}/${entry.name}`.replaceAll('\\', '/');
-        if (entry.isDirectory()) await visit(child);
-        else if (entry.isFile()) files.push(child);
-      }
-    };
-    await visit(featuresRoot);
+    const sharedRoot = project.architecture?.sharedRoot ?? 'src/shared';
+    const ownershipRoots = [...new Set([featuresRoot, sharedRoot])];
+    const fileSystem = await SrijikaProjectFileSystem.open(root);
+    const discovered = await fileSystem.walkFiles(ownershipRoots, {
+      maximumFiles: MAX_PROJECT_FILES,
+      maximumEntries: MAX_PROJECT_ENTRIES,
+      maximumDirectories: MAX_PROJECT_DIRECTORIES,
+      maximumDepth: MAX_PROJECT_DEPTH,
+    });
+    const files = discovered.map(({ relativePath }) => relativePath);
     return {
       contractId: 'srijika.cli-first-code-project',
       root,
@@ -64,6 +60,7 @@ export class SrijikaCodeProjectService {
       lockfile: project.lockfile,
       viteProject: project.viteProject,
       architecture: project.architecture,
+      ownershipRoots,
       scripts: project.scripts,
       files,
       truncated: files.length >= MAX_PROJECT_FILES,
@@ -110,6 +107,10 @@ export class SrijikaCodeProjectService {
       ownerFolder: result.plan.ownerFolder,
       created: result.plan.files.map((file) => file.relativePath),
       updated: result.plan.updates.map((file) => file.relativePath),
+      moved: (result.plan.moves ?? []).map((move) => ({
+        from: move.fromRelativePath,
+        to: move.toRelativePath,
+      })),
     };
   }
 }

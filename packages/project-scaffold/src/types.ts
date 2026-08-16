@@ -7,6 +7,8 @@ export interface SrijikaProjectScaffoldOptions {
   displayName?: string;
   /** Marketplace identifier recommended when the project opens in VS Code. */
   vscodeExtensionId?: string;
+  /** Add TanStack React Query and its application provider. Defaults to false. */
+  reactQuery?: boolean;
 }
 
 export interface WriteSrijikaProjectResult {

@@ -2,8 +2,8 @@
 
 use std::{
     cmp::Ordering,
-    collections::{BinaryHeap, HashMap, HashSet},
-    fs::{self, File},
+    collections::{HashMap, HashSet},
+    fs::{self, File, OpenOptions},
     io::{ErrorKind, Read, Write},
     net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream},
     path::{Component, Path, PathBuf},
@@ -13,6 +13,8 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(unix)]
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
 
@@ -26,6 +28,8 @@ pub const UI_DOCUMENT_FORMAT_VERSION: u64 = 1;
 const JSON_EXTENSION: &str = "json";
 const MAX_TSX_SOURCE_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_PROJECT_CONFIG_BYTES: u64 = 64 * 1024;
+const MAX_TYPESCRIPT_CONFIG_BYTES: u64 = 1024 * 1024;
+const MAX_PROJECT_ENTRY_SEGMENTS: usize = 32;
 const MAX_PROJECT_FILE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_PROJECT_BYTES: usize = 24 * 1024 * 1024;
 const MAX_PROJECT_FILES: usize = 256;
@@ -34,6 +38,9 @@ const MAX_PROJECT_TREE_DEPTH: usize = 24;
 const MAX_PROJECT_TREE_METADATA_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PROJECT_TREE_HASH_BYTES: u64 = 24 * 1024 * 1024;
 const MAX_ARCHITECTURE_SOURCE_FILES: usize = 4_096;
+const MAX_ARCHITECTURE_SCAN_ENTRIES: usize = 32_768;
+const MAX_ARCHITECTURE_SCAN_DIRECTORIES: usize = 4_096;
+const MAX_ARCHITECTURE_SCAN_DEPTH: usize = 32;
 const MAX_ARCHITECTURE_SOURCE_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_ARCHITECTURE_SOURCES_BYTES: u64 = 24 * 1024 * 1024;
 const MAX_PREVIEW_STYLESHEETS: usize = 16;
@@ -54,7 +61,18 @@ const DEV_SERVER_START_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const DEV_SERVER_START_TIMEOUT: Duration = Duration::from_secs(45);
 const LIVE_PREVIEW_BRIDGE_RELATIVE_PATH: &str = "src/srijika/preview-bridge.ts";
 const LIVE_PREVIEW_BRIDGE_SOURCE: &str = include_str!("../assets/live-preview-bridge.ts");
-const IGNORED_PROJECT_DIRECTORIES: [&str; 4] = [".git", "node_modules", "dist", "build"];
+const IGNORED_PROJECT_DIRECTORIES: [&str; 10] = [
+    ".git",
+    ".next",
+    ".srijika",
+    ".turbo",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+    "out",
+    "target",
+];
 const MAX_SAFE_JSON_INTEGER: u64 = 9_007_199_254_740_991;
 const DOCUMENT_FIELDS: [&str; 9] = [
     "formatVersion",
@@ -134,23 +152,16 @@ impl StudioCore {
         &self,
         request: LoadTsxSourceRequest,
     ) -> Result<LoadedTsxSource, StudioCoreError> {
-        let path = checked_tsx_path(&request.path)?;
-        let metadata =
-            fs::metadata(&path).map_err(|source| source_io("inspect TSX source", &path, source))?;
-        if !metadata.is_file() {
-            return Err(StudioCoreError::InvalidPath(
-                "TSX source path must identify a file",
-            ));
-        }
-        if metadata.len() > MAX_TSX_SOURCE_BYTES {
-            return Err(StudioCoreError::SourceTooLarge {
-                max: MAX_TSX_SOURCE_BYTES,
-                actual: metadata.len(),
-            });
-        }
+        let checked = checked_tsx_path(&request.path)?;
+        let path = checked.path;
+        let (mut file, metadata) = open_regular_file_for_read(
+            &path,
+            MAX_TSX_SOURCE_BYTES,
+            "TSX source",
+            checked.project_root.as_deref(),
+        )?;
         let mut source = String::with_capacity(metadata.len().min(usize::MAX as u64) as usize);
-        File::open(&path)
-            .map_err(|error| source_io("open TSX source", &path, error))?
+        (&mut file)
             .take(MAX_TSX_SOURCE_BYTES.saturating_add(1))
             .read_to_string(&mut source)
             .map_err(|error| source_io("read UTF-8 TSX source", &path, error))?;
@@ -160,6 +171,7 @@ impl StudioCore {
                 actual: source.len() as u64,
             });
         }
+        ensure_open_file_still_matches_path(&path, &file, checked.project_root.as_deref())?;
         Ok(LoadedTsxSource {
             path: request.path,
             bytes: source.len() as u64,
@@ -174,7 +186,8 @@ impl StudioCore {
         &self,
         request: SaveTsxSourceRequest,
     ) -> Result<SavedTsxSource, StudioCoreError> {
-        let path = checked_tsx_path(&request.path)?;
+        let checked = checked_tsx_path(&request.path)?;
+        let path = checked.path;
         if request.source.len() as u64 > MAX_TSX_SOURCE_BYTES {
             return Err(StudioCoreError::SourceTooLarge {
                 max: MAX_TSX_SOURCE_BYTES,
@@ -282,22 +295,28 @@ impl StudioCore {
                 "every page requires its matching Connector",
             ));
         }
-        let relative_path =
-            validate_new_ui_relative_path(&request.relative_path, &request.component_name)?;
+        let relative_path = validate_new_ui_relative_path(
+            &request.relative_path,
+            &request.component_name,
+            &project.architecture,
+        )?;
         let response_relative_path = path_to_forward_slashes(&relative_path)?;
         if !response_relative_path.starts_with("src/pages/") {
             return Err(StudioCoreError::InvalidProject(
                 "route-level UI pages must be created under src/pages",
             ));
         }
-        let connector_file_name = format!("{}.connector.tsx", request.component_name);
+        let connector_file_name = project
+            .architecture
+            .connector_file_name(&request.component_name);
         let connector_relative_path = relative_path
             .parent()
             .unwrap_or_else(|| Path::new(""))
             .join(connector_file_name);
         let ui_path = project.canonical_root.join(&relative_path);
         let connector_path = project.canonical_root.join(&connector_relative_path);
-        let (source, connector_source) = new_ui_source_pair(request.kind, &request.component_name);
+        let (source, connector_source) =
+            new_ui_source_pair(request.kind, &request.component_name, &project.architecture);
 
         let created_directories = ensure_safe_project_directory(
             &project.canonical_root,
@@ -350,11 +369,20 @@ impl StudioCore {
     ) -> Result<ScaffoldedCodeProjectStructure, StudioCoreError> {
         let project = validate_code_project_root(&request.project_path)?;
         validate_component_name(&request.feature_name)?;
+        let architecture = &project.architecture;
+
+        if is_shared_scaffold_capability(&request.capability) {
+            return scaffold_shared_code_project_structure(
+                &project.canonical_root,
+                architecture,
+                request,
+            );
+        }
 
         let feature_slug = pascal_case_path_segment(&request.feature_name)?;
-        let feature_store_stem = lower_camel_owner_name(&request.feature_name)?;
-        let feature_relative = PathBuf::from("src").join("features").join(&feature_slug);
-        let feature_ui_relative = feature_relative.join(format!("{}.ui.tsx", request.feature_name));
+        let feature_relative = architecture.features.join(&feature_slug);
+        let feature_ui_relative =
+            feature_relative.join(architecture.ui_file_name(&request.feature_name));
         if !matches!(
             &request.capability,
             CodeProjectScaffoldCapability::Feature { .. }
@@ -364,6 +392,27 @@ impl StudioCore {
 
         let mut plans = Vec::new();
         match &request.capability {
+            CodeProjectScaffoldCapability::SharedUi { .. }
+            | CodeProjectScaffoldCapability::SharedUiTypes
+            | CodeProjectScaffoldCapability::SharedWidget { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetConnector
+            | CodeProjectScaffoldCapability::SharedWidgetStore
+            | CodeProjectScaffoldCapability::SharedWidgetHook
+            | CodeProjectScaffoldCapability::SharedWidgetBehaviorHook { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetStoreSlice { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetLogic
+            | CodeProjectScaffoldCapability::SharedWidgetApi
+            | CodeProjectScaffoldCapability::SharedWidgetTypes
+            | CodeProjectScaffoldCapability::SharedCapability { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityStore
+            | CodeProjectScaffoldCapability::SharedCapabilityHook
+            | CodeProjectScaffoldCapability::SharedCapabilityBehaviorHook { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityStoreSlice { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityLogic
+            | CodeProjectScaffoldCapability::SharedCapabilityApi
+            | CodeProjectScaffoldCapability::SharedCapabilityTypes => {
+                unreachable!("shared scaffolds are handled before Feature resolution")
+            }
             CodeProjectScaffoldCapability::Feature {
                 create_connector,
                 create_hook,
@@ -404,6 +453,7 @@ impl StudioCore {
                     },
                     *create_connector,
                     hook_name.as_deref(),
+                    architecture,
                 )?;
             }
             CodeProjectScaffoldCapability::FeatureConnector => {
@@ -411,11 +461,19 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     &request.feature_name,
+                    architecture,
                 );
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("{}.connector.tsx", request.feature_name)),
+                    feature_relative.join(architecture.connector_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureConnector,
-                    progressive_connector_source(&request.feature_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &feature_relative,
+                        &request.feature_name,
+                        OwnerRuntimeLayer::Connector,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::FeatureStore => {
@@ -423,11 +481,19 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     &request.feature_name,
+                    architecture,
                 );
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("{feature_store_stem}.store.ts")),
+                    feature_relative.join(architecture.store_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureStore,
-                    progressive_store_source(&request.feature_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &feature_relative,
+                        &request.feature_name,
+                        OwnerRuntimeLayer::Store,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::FeatureHook => {
@@ -435,45 +501,106 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     &request.feature_name,
+                    architecture,
                 );
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("use{}.ts", request.feature_name)),
+                    feature_relative.join(architecture.hook_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureHook,
-                    progressive_hook_source(&request.feature_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &feature_relative,
+                        &request.feature_name,
+                        OwnerRuntimeLayer::Hook,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::FeatureBehaviorHook { hook_name } => {
                 validate_scoped_hook_name(hook_name, &request.feature_name)?;
-                plans.push(scaffold_file_plan(
-                    feature_relative
-                        .join("hooks")
-                        .join(format!("{hook_name}.ts")),
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &feature_relative,
+                    &request.feature_name,
+                    ExpandedOwnerCapability::Hook,
+                    hook_name,
                     CodeProjectScaffoldFileRole::FeatureHook,
-                    hook_source(hook_name, &request.feature_name),
-                ));
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
+            }
+            CodeProjectScaffoldCapability::FeatureStoreSlice { store_name } => {
+                validate_scoped_store_name(store_name, &request.feature_name)?;
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &feature_relative,
+                    &request.feature_name,
+                    ExpandedOwnerCapability::Store,
+                    store_name,
+                    CodeProjectScaffoldFileRole::FeatureStore,
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
             }
             CodeProjectScaffoldCapability::FeatureLogic => {
                 let layers = existing_owner_layers(
                     &project.canonical_root,
                     &feature_relative,
                     &request.feature_name,
+                    architecture,
                 );
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("{feature_store_stem}.logic.ts")),
+                    feature_relative.join(architecture.logic_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureLogic,
-                    progressive_logic_source(&request.feature_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &feature_relative,
+                        &request.feature_name,
+                        OwnerRuntimeLayer::Logic,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::FeatureApi => {
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &feature_relative,
+                    &request.feature_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("{feature_store_stem}.api.ts")),
+                    feature_relative.join(architecture.api_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureApi,
-                    progressive_api_source(&request.feature_name),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &feature_relative,
+                        &request.feature_name,
+                        OwnerRuntimeLayer::Api,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::FeatureTypes => {
                 plans.push(scaffold_file_plan(
-                    feature_relative.join(format!("{feature_store_stem}.types.ts")),
+                    feature_relative.join(architecture.types_file_name(&request.feature_name)),
                     CodeProjectScaffoldFileRole::FeatureTypes,
                     owner_types_source(&request.feature_name),
                 ));
@@ -497,9 +624,11 @@ impl StudioCore {
                 }
                 validate_component_name(slot_name)?;
                 let slot_slug = pascal_case_path_segment(slot_name)?;
-                let slot_relative = feature_relative.join("slots").join(&slot_slug);
+                let slot_relative = feature_relative
+                    .join(&architecture.slots_directory)
+                    .join(&slot_slug);
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{slot_name}.ui.tsx")),
+                    slot_relative.join(architecture.ui_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotUi,
                     slot_ui_source(slot_name),
                 ));
@@ -524,6 +653,7 @@ impl StudioCore {
                     },
                     *create_connector,
                     hook_name.as_deref(),
+                    architecture,
                 )?;
                 if let Some(part_name) = part_name {
                     if !create_part_connector {
@@ -533,17 +663,19 @@ impl StudioCore {
                     }
                     validate_component_name(part_name)?;
                     let part_slug = pascal_case_path_segment(part_name)?;
-                    let part_relative = slot_relative.join("parts").join(part_slug);
+                    let part_relative = slot_relative
+                        .join(&architecture.parts_directory)
+                        .join(part_slug);
                     plans.push(scaffold_file_plan(
-                        part_relative.join(format!("{part_name}.ui.tsx")),
+                        part_relative.join(architecture.ui_file_name(part_name)),
                         CodeProjectScaffoldFileRole::PartUi,
                         part_ui_source(part_name),
                     ));
                     if *create_part_connector {
                         plans.push(scaffold_file_plan(
-                            part_relative.join(format!("{part_name}.connector.tsx")),
+                            part_relative.join(architecture.connector_file_name(part_name)),
                             CodeProjectScaffoldFileRole::PartConnector,
-                            connector_source(part_name),
+                            connector_source(part_name, architecture),
                         ));
                     }
                 } else if *create_part_connector {
@@ -557,13 +689,25 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &slot_relative, slot_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &slot_relative,
+                    slot_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("use{slot_name}.ts")),
+                    slot_relative.join(architecture.hook_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotHook,
-                    progressive_hook_source(slot_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &slot_relative,
+                        slot_name,
+                        OwnerRuntimeLayer::Hook,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::SlotBehaviorHook {
@@ -574,26 +718,82 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
                 validate_scoped_hook_name(hook_name, slot_name)?;
-                plans.push(scaffold_file_plan(
-                    slot_relative.join("hooks").join(format!("{hook_name}.ts")),
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &slot_relative,
+                    slot_name,
+                    ExpandedOwnerCapability::Hook,
+                    hook_name,
                     CodeProjectScaffoldFileRole::SlotHook,
-                    hook_source(hook_name, slot_name),
-                ));
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
+            }
+            CodeProjectScaffoldCapability::SlotStoreSlice {
+                slot_name,
+                store_name,
+            } => {
+                let slot_relative = validated_existing_slot_relative(
+                    &project.canonical_root,
+                    &feature_relative,
+                    slot_name,
+                    architecture,
+                )?;
+                validate_scoped_store_name(store_name, slot_name)?;
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &slot_relative,
+                    slot_name,
+                    ExpandedOwnerCapability::Store,
+                    store_name,
+                    CodeProjectScaffoldFileRole::SlotStore,
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
             }
             CodeProjectScaffoldCapability::SlotConnector { slot_name } => {
                 let slot_relative = validated_existing_slot_relative(
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &slot_relative, slot_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &slot_relative,
+                    slot_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{slot_name}.connector.tsx")),
+                    slot_relative.join(architecture.connector_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotConnector,
-                    progressive_connector_source(slot_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &slot_relative,
+                        slot_name,
+                        OwnerRuntimeLayer::Connector,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::SlotStore { slot_name } => {
@@ -601,14 +801,25 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let slot_store_stem = lower_camel_owner_name(slot_name)?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &slot_relative, slot_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &slot_relative,
+                    slot_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{slot_store_stem}.store.ts")),
+                    slot_relative.join(architecture.store_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotStore,
-                    progressive_store_source(slot_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &slot_relative,
+                        slot_name,
+                        OwnerRuntimeLayer::Store,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::SlotLogic { slot_name } => {
@@ -616,14 +827,25 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(slot_name)?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &slot_relative, slot_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &slot_relative,
+                    slot_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{stem}.logic.ts")),
+                    slot_relative.join(architecture.logic_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotLogic,
-                    progressive_logic_source(slot_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &slot_relative,
+                        slot_name,
+                        OwnerRuntimeLayer::Logic,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::SlotApi { slot_name } => {
@@ -631,12 +853,25 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(slot_name)?;
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &slot_relative,
+                    slot_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{stem}.api.ts")),
+                    slot_relative.join(architecture.api_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotApi,
-                    progressive_api_source(slot_name),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &slot_relative,
+                        slot_name,
+                        OwnerRuntimeLayer::Api,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::SlotTypes { slot_name } => {
@@ -644,10 +879,10 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(slot_name)?;
                 plans.push(scaffold_file_plan(
-                    slot_relative.join(format!("{stem}.types.ts")),
+                    slot_relative.join(architecture.types_file_name(slot_name)),
                     CodeProjectScaffoldFileRole::SlotTypes,
                     owner_types_source(slot_name),
                 ));
@@ -672,12 +907,15 @@ impl StudioCore {
                     &project.canonical_root,
                     &feature_relative,
                     slot_name,
+                    architecture,
                 )?;
                 validate_component_name(part_name)?;
                 let part_slug = pascal_case_path_segment(part_name)?;
-                let part_relative = slot_relative.join("parts").join(&part_slug);
+                let part_relative = slot_relative
+                    .join(&architecture.parts_directory)
+                    .join(&part_slug);
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{part_name}.ui.tsx")),
+                    part_relative.join(architecture.ui_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartUi,
                     part_ui_source(part_name),
                 ));
@@ -702,6 +940,7 @@ impl StudioCore {
                     },
                     *create_connector,
                     hook_name.as_deref(),
+                    architecture,
                 )?;
             }
             CodeProjectScaffoldCapability::PartConnector {
@@ -713,13 +952,25 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &part_relative, part_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &part_relative,
+                    part_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{part_name}.connector.tsx")),
+                    part_relative.join(architecture.connector_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartConnector,
-                    progressive_connector_source(part_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &part_relative,
+                        part_name,
+                        OwnerRuntimeLayer::Connector,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::PartStore {
@@ -731,14 +982,25 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let part_store_stem = lower_camel_owner_name(part_name)?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &part_relative, part_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &part_relative,
+                    part_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{part_store_stem}.store.ts")),
+                    part_relative.join(architecture.store_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartStore,
-                    progressive_store_source(part_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &part_relative,
+                        part_name,
+                        OwnerRuntimeLayer::Store,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::PartHook {
@@ -750,13 +1012,25 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &part_relative, part_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &part_relative,
+                    part_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("use{part_name}.ts")),
+                    part_relative.join(architecture.hook_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartHook,
-                    progressive_hook_source(part_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &part_relative,
+                        part_name,
+                        OwnerRuntimeLayer::Hook,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::PartBehaviorHook {
@@ -769,13 +1043,59 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
                 validate_scoped_hook_name(hook_name, part_name)?;
-                plans.push(scaffold_file_plan(
-                    part_relative.join("hooks").join(format!("{hook_name}.ts")),
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &part_relative,
+                    part_name,
+                    ExpandedOwnerCapability::Hook,
+                    hook_name,
                     CodeProjectScaffoldFileRole::PartHook,
-                    hook_source(hook_name, part_name),
-                ));
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
+            }
+            CodeProjectScaffoldCapability::PartStoreSlice {
+                slot_name,
+                part_name,
+                store_name,
+            } => {
+                let part_relative = validated_existing_part_relative(
+                    &project.canonical_root,
+                    &feature_relative,
+                    slot_name,
+                    part_name,
+                    architecture,
+                )?;
+                validate_scoped_store_name(store_name, part_name)?;
+                let files = expand_owner_capability(
+                    &project.canonical_root,
+                    architecture,
+                    &part_relative,
+                    part_name,
+                    ExpandedOwnerCapability::Store,
+                    store_name,
+                    CodeProjectScaffoldFileRole::PartStore,
+                )?;
+                let bytes = files.iter().map(|file| file.bytes).sum();
+                return Ok(ScaffoldedCodeProjectStructure {
+                    project_path: project.canonical_root.to_string_lossy().into_owned(),
+                    feature_name: request.feature_name,
+                    feature_path: path_to_forward_slashes(&feature_relative)?,
+                    capability: request.capability,
+                    files,
+                    bytes,
+                });
             }
             CodeProjectScaffoldCapability::PartLogic {
                 slot_name,
@@ -786,14 +1106,25 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(part_name)?;
-                let layers =
-                    existing_owner_layers(&project.canonical_root, &part_relative, part_name);
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &part_relative,
+                    part_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{stem}.logic.ts")),
+                    part_relative.join(architecture.logic_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartLogic,
-                    progressive_logic_source(part_name, layers),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &part_relative,
+                        part_name,
+                        OwnerRuntimeLayer::Logic,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::PartApi {
@@ -805,12 +1136,25 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(part_name)?;
+                let layers = existing_owner_layers(
+                    &project.canonical_root,
+                    &part_relative,
+                    part_name,
+                    architecture,
+                );
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{stem}.api.ts")),
+                    part_relative.join(architecture.api_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartApi,
-                    progressive_api_source(part_name),
+                    canonical_progressive_runtime_source_for_new_file(
+                        &project.canonical_root,
+                        &part_relative,
+                        part_name,
+                        OwnerRuntimeLayer::Api,
+                        layers,
+                        architecture,
+                    ),
                 ));
             }
             CodeProjectScaffoldCapability::PartTypes {
@@ -822,17 +1166,39 @@ impl StudioCore {
                     &feature_relative,
                     slot_name,
                     part_name,
+                    architecture,
                 )?;
-                let stem = lower_camel_owner_name(part_name)?;
                 plans.push(scaffold_file_plan(
-                    part_relative.join(format!("{stem}.types.ts")),
+                    part_relative.join(architecture.types_file_name(part_name)),
                     CodeProjectScaffoldFileRole::PartTypes,
                     owner_types_source(part_name),
                 ));
             }
         }
 
+        let senior_update =
+            if let Some(new_layer) = standalone_progressive_runtime_layer(&request.capability) {
+                let (owner_relative, owner_name) = standalone_progressive_owner(
+                    &feature_relative,
+                    &request.feature_name,
+                    &request.capability,
+                    architecture,
+                )?
+                .ok_or(StudioCoreError::InvalidProject(
+                    "standalone runtime capability is missing its canonical owner",
+                ))?;
+                standalone_progressive_senior_update(
+                    &project.canonical_root,
+                    &owner_relative,
+                    owner_name,
+                    new_layer,
+                    architecture,
+                )?
+            } else {
+                None
+            };
         let files = create_scaffold_files(&project.canonical_root, plans)?;
+        apply_scaffold_source_update(&files, senior_update, "owner runtime gateway")?;
         let bytes = files.iter().map(|file| file.bytes).sum();
         Ok(ScaffoldedCodeProjectStructure {
             project_path: project.canonical_root.to_string_lossy().into_owned(),
@@ -873,8 +1239,15 @@ impl StudioCore {
         request: ScanCodeProjectRequest,
     ) -> Result<ScannedCodeProject, StudioCoreError> {
         let project = validate_code_project_root(&request.path)?;
-        let mut scan = ProjectTreeScan::new(&project.canonical_root);
+        let mut scan = ProjectTreeScan::new(&project.canonical_root, &project.architecture);
         scan_directory(&project.canonical_root, Path::new(""), 0, &mut scan)?;
+        if scan.entry_budget_exceeded {
+            // Filesystem iteration order is not portable. Returning an arbitrary
+            // prefix after the physical work budget is exceeded would make the
+            // Explorer nondeterministic, so discard the partial read model and
+            // report only the bounded truncation state.
+            scan.entries.clear();
+        }
 
         Ok(ScannedCodeProject {
             path: project.canonical_root.to_string_lossy().into_owned(),
@@ -892,8 +1265,54 @@ impl StudioCore {
         request: LoadCodeProjectArchitectureSourcesRequest,
     ) -> Result<LoadedCodeProjectArchitectureSources, StudioCoreError> {
         let project = validate_code_project_root(&request.path)?;
-        let mut scan = ProjectTreeScan::new(&project.canonical_root);
-        scan_directory(&project.canonical_root, Path::new(""), 0, &mut scan)?;
+        let mut scan =
+            ProjectTreeScan::architecture(&project.canonical_root, &project.architecture);
+        for architecture_root in [&project.architecture.features, &project.architecture.shared] {
+            ensure_project_path_components_are_real(
+                &project.canonical_root,
+                architecture_root,
+                true,
+            )?;
+            let root_path = project.canonical_root.join(architecture_root);
+            let metadata = match fs::symlink_metadata(&root_path) {
+                Ok(metadata) => metadata,
+                Err(source) if source.kind() == ErrorKind::NotFound => {
+                    // Node/portable count each configured-root visit, including
+                    // an absent optional root, against the directory budget.
+                    scan.record_directory_visit();
+                    continue;
+                }
+                Err(source) => {
+                    return Err(source_io(
+                        "inspect architecture source root",
+                        &root_path,
+                        source,
+                    ));
+                }
+            };
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err(StudioCoreError::InvalidProject(
+                    "configured architecture roots must be real directories",
+                ));
+            }
+            let canonical = fs::canonicalize(&root_path).map_err(|source| {
+                source_io("resolve architecture source root", &root_path, source)
+            })?;
+            ensure_project_containment(&project.canonical_root, &canonical)?;
+            // Match the portable/Node contract: each configured source root is
+            // directory depth 1, so its deepest accepted descendant is 32.
+            scan_directory(&canonical, architecture_root, 1, &mut scan)?;
+        }
+        if scan.unsafe_entry.is_some() {
+            return Err(StudioCoreError::InvalidProject(
+                "architecture source scan cannot skip symbolic links or non-regular project entries",
+            ));
+        }
+        if scan.truncated {
+            return Err(StudioCoreError::InvalidProject(
+                "architecture source scan exceeded the complete-project directory, entry, metadata, depth, or hash limits",
+            ));
+        }
 
         let mut candidates = scan
             .entries
@@ -903,40 +1322,94 @@ impl StudioCore {
                     && is_architecture_source_path(&entry.relative_path)
             })
             .collect::<Vec<_>>();
+        let entry_relative_path = project
+            .entry_path
+            .strip_prefix(&project.canonical_root)
+            .map_err(|_| StudioCoreError::InvalidProject("project entry must remain inside root"))?
+            .to_path_buf();
+        let entry_relative = path_to_forward_slashes(&entry_relative_path)?;
+        if !candidates
+            .iter()
+            .any(|candidate| candidate.relative_path == entry_relative)
+        {
+            ensure_project_path_components_are_real(
+                &project.canonical_root,
+                &entry_relative_path,
+                false,
+            )?;
+            let metadata = fs::symlink_metadata(&project.entry_path).map_err(|source| {
+                source_io("inspect project entry source", &project.entry_path, source)
+            })?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(StudioCoreError::InvalidProject(
+                    "project entry must be a regular file",
+                ));
+            }
+            candidates.push(ProjectTreeEntry {
+                path: project.entry_path.to_string_lossy().into_owned(),
+                relative_path: entry_relative,
+                kind: ProjectTreeEntryKind::File,
+                bytes: Some(metadata.len()),
+                hash: None,
+                is_ui_source: true,
+            });
+        }
         candidates.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+        if candidates.len() > MAX_ARCHITECTURE_SOURCE_FILES {
+            return Err(StudioCoreError::InvalidProject(
+                "architecture source scan exceeds the source file count limit",
+            ));
+        }
 
-        let mut sources = Vec::with_capacity(candidates.len().min(MAX_ARCHITECTURE_SOURCE_FILES));
+        let mut sources = Vec::with_capacity(candidates.len());
         let mut total_bytes = 0_u64;
-        let mut truncated = scan.truncated;
         for entry in candidates {
             if sources.len() >= MAX_ARCHITECTURE_SOURCE_FILES {
-                truncated = true;
-                break;
+                return Err(StudioCoreError::InvalidProject(
+                    "architecture source scan exceeds the source file count limit",
+                ));
             }
             let expected_bytes = entry.bytes.ok_or(StudioCoreError::InvalidProject(
                 "architecture source must be a regular file",
             ))?;
-            if expected_bytes > MAX_ARCHITECTURE_SOURCE_BYTES
-                || total_bytes.saturating_add(expected_bytes) > MAX_ARCHITECTURE_SOURCES_BYTES
-            {
-                truncated = true;
-                continue;
+            if expected_bytes > MAX_ARCHITECTURE_SOURCE_BYTES {
+                return Err(StudioCoreError::InvalidProject(
+                    "architecture source exceeds the per-file size limit",
+                ));
+            }
+            let next_total =
+                total_bytes
+                    .checked_add(expected_bytes)
+                    .ok_or(StudioCoreError::InvalidProject(
+                        "architecture sources exceed the combined size limit",
+                    ))?;
+            if next_total > MAX_ARCHITECTURE_SOURCES_BYTES {
+                return Err(StudioCoreError::InvalidProject(
+                    "architecture sources exceed the combined size limit",
+                ));
             }
 
-            let source_path = PathBuf::from(&entry.path);
+            let relative_path = PathBuf::from(&entry.relative_path);
+            ensure_project_path_components_are_real(
+                &project.canonical_root,
+                &relative_path,
+                false,
+            )?;
+            let source_path = project.canonical_root.join(&relative_path);
+            let source = read_regular_utf8_file_in_project(
+                &source_path,
+                MAX_ARCHITECTURE_SOURCE_BYTES,
+                "architecture source",
+                &project.canonical_root,
+            )?;
             let canonical_path = fs::canonicalize(&source_path)
                 .map_err(|source| source_io("resolve architecture source", &source_path, source))?;
             ensure_project_containment(&project.canonical_root, &canonical_path)?;
-            let source = read_regular_utf8_file(
-                &canonical_path,
-                MAX_ARCHITECTURE_SOURCE_BYTES,
-                "architecture source",
-            )?;
             let bytes = source.len() as u64;
             if bytes != expected_bytes {
                 return Err(StudioCoreError::ProjectChangedDuringRead);
             }
-            total_bytes = total_bytes.saturating_add(bytes);
+            total_bytes = next_total;
             sources.push(LoadedCodeProjectArchitectureSource {
                 path: canonical_path.to_string_lossy().into_owned(),
                 relative_path: entry.relative_path,
@@ -946,11 +1419,30 @@ impl StudioCore {
             });
         }
 
+        let tsconfig_path = project.canonical_root.join("tsconfig.json");
+        let tsconfig_source = match fs::symlink_metadata(&tsconfig_path) {
+            Ok(_) => Some(read_regular_utf8_file_in_project(
+                &tsconfig_path,
+                MAX_TYPESCRIPT_CONFIG_BYTES,
+                "TypeScript project config",
+                &project.canonical_root,
+            )?),
+            Err(source) if source.kind() == ErrorKind::NotFound => None,
+            Err(source) => {
+                return Err(source_io(
+                    "inspect TypeScript project config",
+                    &tsconfig_path,
+                    source,
+                ));
+            }
+        };
+
         Ok(LoadedCodeProjectArchitectureSources {
             path: project.canonical_root.to_string_lossy().into_owned(),
             config_source: project.config_source,
+            tsconfig_source,
             sources,
-            truncated,
+            truncated: false,
         })
     }
 
@@ -967,10 +1459,11 @@ impl StudioCore {
 
         for relative_path in project.preview_style_paths {
             let stylesheet_path = project.canonical_root.join(&relative_path);
-            let source = read_regular_utf8_file(
+            let source = read_regular_utf8_file_in_project(
                 &stylesheet_path,
                 MAX_PREVIEW_STYLESHEET_BYTES,
                 "preview stylesheet",
+                &project.canonical_root,
             )?;
             total_bytes = total_bytes.saturating_add(source.len() as u64);
             if total_bytes > MAX_PREVIEW_STYLES_BYTES {
@@ -995,8 +1488,12 @@ impl StudioCore {
         let mut total_asset_bytes = 0_u64;
         for relative_path in project.preview_asset_paths {
             let asset_path = project.canonical_root.join(&relative_path);
-            let source =
-                read_regular_utf8_file(&asset_path, MAX_PREVIEW_ASSET_BYTES, "preview asset")?;
+            let source = read_regular_utf8_file_in_project(
+                &asset_path,
+                MAX_PREVIEW_ASSET_BYTES,
+                "preview asset",
+                &project.canonical_root,
+            )?;
             total_asset_bytes = total_asset_bytes.saturating_add(source.len() as u64);
             if total_asset_bytes > MAX_PREVIEW_ASSETS_BYTES {
                 return Err(StudioCoreError::InvalidProject(
@@ -1605,6 +2102,60 @@ pub struct CreatedCodeProjectUiSource {
     deny_unknown_fields
 )]
 pub enum CodeProjectScaffoldCapability {
+    SharedUi {
+        #[serde(default)]
+        create_types: bool,
+    },
+    SharedUiTypes,
+    SharedWidget {
+        #[serde(default)]
+        create_connector: bool,
+        #[serde(default)]
+        create_hook: bool,
+        #[serde(default)]
+        create_store: bool,
+        #[serde(default)]
+        create_logic: bool,
+        #[serde(default)]
+        create_api: bool,
+        #[serde(default)]
+        create_types: bool,
+    },
+    SharedWidgetConnector,
+    SharedWidgetStore,
+    SharedWidgetHook,
+    SharedWidgetBehaviorHook {
+        hook_name: String,
+    },
+    SharedWidgetStoreSlice {
+        store_name: String,
+    },
+    SharedWidgetLogic,
+    SharedWidgetApi,
+    SharedWidgetTypes,
+    SharedCapability {
+        #[serde(default)]
+        create_hook: bool,
+        #[serde(default)]
+        create_store: bool,
+        #[serde(default)]
+        create_logic: bool,
+        #[serde(default)]
+        create_api: bool,
+        #[serde(default)]
+        create_types: bool,
+    },
+    SharedCapabilityStore,
+    SharedCapabilityHook,
+    SharedCapabilityBehaviorHook {
+        hook_name: String,
+    },
+    SharedCapabilityStoreSlice {
+        store_name: String,
+    },
+    SharedCapabilityLogic,
+    SharedCapabilityApi,
+    SharedCapabilityTypes,
     Feature {
         #[serde(default)]
         create_connector: bool,
@@ -1626,6 +2177,9 @@ pub enum CodeProjectScaffoldCapability {
     FeatureHook,
     FeatureBehaviorHook {
         hook_name: String,
+    },
+    FeatureStoreSlice {
+        store_name: String,
     },
     FeatureLogic,
     FeatureApi,
@@ -1657,6 +2211,10 @@ pub enum CodeProjectScaffoldCapability {
     SlotBehaviorHook {
         slot_name: String,
         hook_name: String,
+    },
+    SlotStoreSlice {
+        slot_name: String,
+        store_name: String,
     },
     SlotConnector {
         slot_name: String,
@@ -1708,6 +2266,11 @@ pub enum CodeProjectScaffoldCapability {
         part_name: String,
         hook_name: String,
     },
+    PartStoreSlice {
+        slot_name: String,
+        part_name: String,
+        store_name: String,
+    },
     PartLogic {
         slot_name: String,
         part_name: String,
@@ -1733,6 +2296,20 @@ pub struct ScaffoldCodeProjectStructureRequest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CodeProjectScaffoldFileRole {
+    SharedUi,
+    SharedUiTypes,
+    SharedWidgetUi,
+    SharedWidgetConnector,
+    SharedWidgetStore,
+    SharedWidgetHook,
+    SharedWidgetLogic,
+    SharedWidgetApi,
+    SharedWidgetTypes,
+    SharedCapabilityStore,
+    SharedCapabilityHook,
+    SharedCapabilityLogic,
+    SharedCapabilityApi,
+    SharedCapabilityTypes,
     FeatureUi,
     FeatureConnector,
     FeatureStore,
@@ -1829,6 +2406,8 @@ pub struct LoadedCodeProjectArchitectureSource {
 pub struct LoadedCodeProjectArchitectureSources {
     pub path: String,
     pub config_source: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tsconfig_source: Option<String>,
     pub sources: Vec<LoadedCodeProjectArchitectureSource>,
     pub truncated: bool,
 }
@@ -2228,9 +2807,301 @@ struct ValidatedCodeProject {
     canonical_root: PathBuf,
     entry_path: PathBuf,
     config_source: String,
+    architecture: CodeProjectArchitectureConfig,
     preview_style_paths: Vec<PathBuf>,
     preview_asset_paths: Vec<PathBuf>,
     preview_design_props: Map<String, Value>,
+}
+
+#[derive(Debug, Clone)]
+struct CodeProjectArchitectureConfig {
+    features: PathBuf,
+    shared: PathBuf,
+    slots_directory: String,
+    parts_directory: String,
+    hooks_directory: String,
+    stores_directory: String,
+    ui_suffix: String,
+    connector_suffix: String,
+    store_suffix: String,
+    logic_suffix: String,
+    api_suffix: String,
+    types_suffix: String,
+}
+
+impl CodeProjectArchitectureConfig {
+    fn ui_file_name(&self, owner_name: &str) -> String {
+        format!("{owner_name}{}", self.ui_suffix)
+    }
+
+    fn connector_file_name(&self, owner_name: &str) -> String {
+        format!("{owner_name}{}", self.connector_suffix)
+    }
+
+    fn hook_file_name(&self, owner_name: &str) -> String {
+        format!("use{owner_name}.ts")
+    }
+
+    fn store_file_name(&self, owner_name: &str) -> String {
+        let stem = lower_camel_owner_name(owner_name).expect("validated owner name");
+        format!("{stem}{}", self.store_suffix)
+    }
+
+    fn logic_file_name(&self, owner_name: &str) -> String {
+        let stem = lower_camel_owner_name(owner_name).expect("validated owner name");
+        format!("{stem}{}", self.logic_suffix)
+    }
+
+    fn api_file_name(&self, owner_name: &str) -> String {
+        let stem = lower_camel_owner_name(owner_name).expect("validated owner name");
+        format!("{stem}{}", self.api_suffix)
+    }
+
+    fn types_file_name(&self, owner_name: &str) -> String {
+        let stem = lower_camel_owner_name(owner_name).expect("validated owner name");
+        format!("{stem}{}", self.types_suffix)
+    }
+
+    fn local_module_for_file_name(&self, file_name: String) -> String {
+        let without_extension = file_name
+            .strip_suffix(".tsx")
+            .or_else(|| file_name.strip_suffix(".ts"))
+            .expect("validated TypeScript architecture suffix");
+        format!("./{without_extension}")
+    }
+
+    fn ui_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.ui_file_name(owner_name))
+    }
+
+    fn hook_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.hook_file_name(owner_name))
+    }
+
+    fn store_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.store_file_name(owner_name))
+    }
+
+    fn logic_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.logic_file_name(owner_name))
+    }
+
+    fn api_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.api_file_name(owner_name))
+    }
+
+    fn types_module(&self, owner_name: &str) -> String {
+        self.local_module_for_file_name(self.types_file_name(owner_name))
+    }
+}
+
+fn configured_architecture_root(
+    architecture: Option<&Map<String, Value>>,
+    field: &'static str,
+    fallback: &'static str,
+) -> Result<PathBuf, StudioCoreError> {
+    let raw = match architecture.and_then(|value| value.get(field)) {
+        None => fallback,
+        Some(value) => value.as_str().ok_or(StudioCoreError::InvalidProject(
+            "project architecture roots must be strings",
+        ))?,
+    };
+    if raw.contains('\\')
+        || raw.starts_with('/')
+        || raw.ends_with('/')
+        || raw.split('/').any(str::is_empty)
+        || is_windows_drive_path(raw)
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "project architecture roots must be normalized project-relative paths",
+        ));
+    }
+    let path = checked_relative_project_path(raw)?;
+    // Reserve the deepest canonical suffix:
+    // <feature>/slots/<slot>/parts/<part>/<file>.
+    if path.components().count() > MAX_NEW_UI_DEPTH.saturating_sub(6) {
+        return Err(StudioCoreError::InvalidProject(
+            "project architecture root exceeds the supported directory depth",
+        ));
+    }
+    Ok(path)
+}
+
+fn configured_architecture_directory(
+    architecture: Option<&Map<String, Value>>,
+    field: &'static str,
+    fallback: &'static str,
+) -> Result<String, StudioCoreError> {
+    let raw = match architecture.and_then(|value| value.get(field)) {
+        None => fallback,
+        Some(value) => value.as_str().ok_or(StudioCoreError::InvalidProject(
+            "project architecture directories must be strings",
+        ))?,
+    };
+    let path = checked_relative_project_path(raw)?;
+    if raw.contains('\\')
+        || raw.starts_with('/')
+        || raw.ends_with('/')
+        || is_windows_drive_path(raw)
+        || path.components().count() != 1
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "project architecture directories must be normalized single path segments",
+        ));
+    }
+    Ok(raw.to_owned())
+}
+
+fn configured_architecture_suffix(
+    architecture: Option<&Map<String, Value>>,
+    field: &'static str,
+    fallback: &'static str,
+    expected_extension: &'static str,
+) -> Result<String, StudioCoreError> {
+    let raw = match architecture.and_then(|value| value.get(field)) {
+        None => fallback,
+        Some(value) => value.as_str().ok_or(StudioCoreError::InvalidProject(
+            "project architecture suffixes must be strings",
+        ))?,
+    };
+    if raw.is_empty()
+        || !raw.starts_with('.')
+        || !raw.ends_with(expected_extension)
+        || raw.ends_with(".d.ts")
+        || raw.ends_with(".d.tsx")
+        || raw.contains(['/', '\\', '\0'])
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "project architecture suffixes must be bounded filename suffixes with the expected TypeScript extension",
+        ));
+    }
+    Ok(raw.to_owned())
+}
+
+fn is_windows_drive_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':'
+}
+
+fn checked_project_entry_path(raw: &str) -> Result<PathBuf, StudioCoreError> {
+    let segments = raw.split('/').collect::<Vec<_>>();
+    if raw.is_empty()
+        || raw.contains(['\0', '\\'])
+        || raw.starts_with('/')
+        || raw.ends_with('/')
+        || is_windows_drive_path(raw)
+        || segments.len() > MAX_PROJECT_ENTRY_SEGMENTS
+        || segments
+            .iter()
+            .any(|segment| segment.is_empty() || *segment == "." || *segment == "..")
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "project entry must be a normalized bounded project-relative path",
+        ));
+    }
+    checked_relative_project_path(raw)
+}
+
+fn configured_architecture(
+    config: &Map<String, Value>,
+) -> Result<CodeProjectArchitectureConfig, StudioCoreError> {
+    let architecture = match config.get("architecture") {
+        None => None,
+        Some(value) => Some(value.as_object().ok_or(StudioCoreError::InvalidProject(
+            "project architecture must be an object",
+        ))?),
+    };
+    if let Some(architecture) = architecture {
+        match architecture.get("profile") {
+            None => {
+                return Err(StudioCoreError::InvalidProject(
+                    "project architecture.profile is required and must be feature-slot-part-v1",
+                ));
+            }
+            Some(profile) if profile.as_str() == Some("feature-slot-part-v1") => {}
+            Some(_) => {
+                return Err(StudioCoreError::InvalidProject(
+                    "project architecture profile is unsupported; expected feature-slot-part-v1",
+                ));
+            }
+        }
+    }
+    let features = configured_architecture_root(architecture, "featuresRoot", "src/features")?;
+    let shared = configured_architecture_root(architecture, "sharedRoot", "src/shared")?;
+    let features_key = path_to_forward_slashes(&features)?.to_lowercase();
+    let shared_key = path_to_forward_slashes(&shared)?.to_lowercase();
+    if features_key == shared_key
+        || features_key.starts_with(&format!("{shared_key}/"))
+        || shared_key.starts_with(&format!("{features_key}/"))
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "project feature and shared roots must be separate non-overlapping directories",
+        ));
+    }
+    let slots_directory =
+        configured_architecture_directory(architecture, "slotsDirectory", "slots")?;
+    let parts_directory =
+        configured_architecture_directory(architecture, "partsDirectory", "parts")?;
+    let hooks_directory =
+        configured_architecture_directory(architecture, "hooksDirectory", "hooks")?;
+    let stores_directory =
+        configured_architecture_directory(architecture, "storesDirectory", "stores")?;
+    let unique_directories = [
+        slots_directory.to_lowercase(),
+        parts_directory.to_lowercase(),
+        hooks_directory.to_lowercase(),
+        stores_directory.to_lowercase(),
+    ]
+    .into_iter()
+    .collect::<HashSet<String>>();
+    if unique_directories.len() != 4 {
+        return Err(StudioCoreError::InvalidProject(
+            "project architecture directories must be distinct",
+        ));
+    }
+    let ui_suffix = configured_architecture_suffix(architecture, "uiSuffix", ".ui.tsx", ".tsx")?;
+    let connector_suffix =
+        configured_architecture_suffix(architecture, "connectorSuffix", ".connector.tsx", ".tsx")?;
+    let store_suffix =
+        configured_architecture_suffix(architecture, "storeSuffix", ".store.ts", ".ts")?;
+    let logic_suffix =
+        configured_architecture_suffix(architecture, "logicSuffix", ".logic.ts", ".ts")?;
+    let api_suffix = configured_architecture_suffix(architecture, "apiSuffix", ".api.ts", ".ts")?;
+    let types_suffix =
+        configured_architecture_suffix(architecture, "typesSuffix", ".types.ts", ".ts")?;
+    let suffixes = [
+        ui_suffix.to_lowercase(),
+        connector_suffix.to_lowercase(),
+        store_suffix.to_lowercase(),
+        logic_suffix.to_lowercase(),
+        api_suffix.to_lowercase(),
+        types_suffix.to_lowercase(),
+    ];
+    for (index, suffix) in suffixes.iter().enumerate() {
+        if suffixes
+            .iter()
+            .enumerate()
+            .any(|(other_index, other)| index != other_index && suffix.ends_with(other))
+        {
+            return Err(StudioCoreError::InvalidProject(
+                "project architecture suffixes must be distinct and non-overlapping",
+            ));
+        }
+    }
+    Ok(CodeProjectArchitectureConfig {
+        features,
+        shared,
+        slots_directory,
+        parts_directory,
+        hooks_directory,
+        stores_directory,
+        ui_suffix,
+        connector_suffix,
+        store_suffix,
+        logic_suffix,
+        api_suffix,
+        types_suffix,
+    })
 }
 
 fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, StudioCoreError> {
@@ -2244,12 +3115,19 @@ fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, St
     }
     let canonical_root = fs::canonicalize(&target)
         .map_err(|source| source_io("resolve project directory", &target, source))?;
+    let lexical_root = normalize_absolute_path_without_links(&target)?;
+    if !paths_equal_for_platform(&lexical_root, &canonical_root) {
+        return Err(StudioCoreError::InvalidProject(
+            "project path must not contain symbolic-link ancestors",
+        ));
+    }
 
     let config_path = canonical_root.join("srijika.config.json");
-    let config_source = read_regular_utf8_file(
+    let config_source = read_regular_utf8_file_in_project(
         &config_path,
         MAX_PROJECT_CONFIG_BYTES,
         "Srijika project config",
+        &canonical_root,
     )?;
     let config: Value = serde_json::from_str(&config_source)
         .map_err(|_| StudioCoreError::InvalidProject("srijika.config.json is not valid JSON"))?;
@@ -2261,6 +3139,7 @@ fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, St
             "project sourceOfTruth must be tsx",
         ));
     }
+    let architecture = configured_architecture(config)?;
     let entry_source =
         config
             .get("entry")
@@ -2268,13 +3147,14 @@ fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, St
             .ok_or(StudioCoreError::InvalidProject(
                 "project config must declare a string entry",
             ))?;
-    let relative_entry = checked_relative_project_path(entry_source)?;
-    if !entry_source.ends_with(".ui.tsx") {
+    let relative_entry = checked_project_entry_path(entry_source)?;
+    if !entry_source.ends_with(&architecture.ui_suffix) {
         return Err(StudioCoreError::InvalidProject(
-            "project entry must end in .ui.tsx",
+            "project entry must use the configured UI suffix",
         ));
     }
-    let entry_candidate = canonical_root.join(relative_entry);
+    let entry_candidate = canonical_root.join(&relative_entry);
+    ensure_project_path_components_are_real(&canonical_root, &relative_entry, false)?;
     let entry_metadata = fs::symlink_metadata(&entry_candidate)
         .map_err(|source| source_io("inspect project entry source", &entry_candidate, source))?;
     if entry_metadata.file_type().is_symlink() || !entry_metadata.is_file() {
@@ -2294,6 +3174,9 @@ fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, St
     };
     let preview_style_paths = preview_style_paths(preview, &canonical_root)?;
     let preview_asset_paths = preview_asset_paths(preview, &canonical_root)?;
+    for relative_path in preview_style_paths.iter().chain(&preview_asset_paths) {
+        ensure_project_path_components_are_real(&canonical_root, relative_path, false)?;
+    }
     let preview_design_props = match preview.and_then(|value| value.get("props")) {
         None => Map::new(),
         Some(value) => value
@@ -2306,8 +3189,12 @@ fn validate_code_project_root(raw_path: &str) -> Result<ValidatedCodeProject, St
 
     Ok(ValidatedCodeProject {
         canonical_root,
-        entry_path,
+        // Keep the checked lexical path so the later O_NOFOLLOW read can
+        // detect a swap at the configured entry instead of reopening a stale
+        // canonical target captured during validation.
+        entry_path: entry_candidate,
         config_source,
+        architecture,
         preview_style_paths,
         preview_asset_paths,
         preview_design_props,
@@ -2414,25 +3301,28 @@ fn read_regular_utf8_file(
     maximum_bytes: u64,
     label: &'static str,
 ) -> Result<String, StudioCoreError> {
-    let metadata = fs::symlink_metadata(path)
-        .map_err(|source| source_io("inspect project file", path, source))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(StudioCoreError::InvalidProject(match label {
-            "Srijika project config" => "srijika.config.json must be a regular file",
-            "package manifest" => "package.json must be a regular file",
-            _ => "project file must be a regular file",
-        }));
-    }
-    if metadata.len() > maximum_bytes {
-        return Err(StudioCoreError::InvalidProject(match label {
-            "Srijika project config" => "srijika.config.json exceeds the size limit",
-            "package manifest" => "package.json exceeds the size limit",
-            _ => "project file exceeds the size limit",
-        }));
-    }
+    read_regular_utf8_file_with_root(path, maximum_bytes, label, None)
+}
+
+fn read_regular_utf8_file_in_project(
+    path: &Path,
+    maximum_bytes: u64,
+    label: &'static str,
+    project_root: &Path,
+) -> Result<String, StudioCoreError> {
+    read_regular_utf8_file_with_root(path, maximum_bytes, label, Some(project_root))
+}
+
+fn read_regular_utf8_file_with_root(
+    path: &Path,
+    maximum_bytes: u64,
+    label: &'static str,
+    project_root: Option<&Path>,
+) -> Result<String, StudioCoreError> {
+    let (mut file, metadata) =
+        open_regular_file_for_read(path, maximum_bytes, label, project_root)?;
     let mut source = String::with_capacity(metadata.len().min(usize::MAX as u64) as usize);
-    File::open(path)
-        .map_err(|error| source_io("open project file", path, error))?
+    (&mut file)
         .take(maximum_bytes.saturating_add(1))
         .read_to_string(&mut source)
         .map_err(|error| source_io("read UTF-8 project file", path, error))?;
@@ -2441,7 +3331,132 @@ fn read_regular_utf8_file(
             "project file exceeds the size limit",
         ));
     }
+    ensure_open_file_still_matches_path(path, &file, project_root)?;
     Ok(source)
+}
+
+fn open_regular_file_for_read(
+    path: &Path,
+    maximum_bytes: u64,
+    label: &'static str,
+    project_root: Option<&Path>,
+) -> Result<(File, fs::Metadata), StudioCoreError> {
+    let before = fs::symlink_metadata(path)
+        .map_err(|source| source_io("inspect project file", path, source))?;
+    if before.file_type().is_symlink() || !before.is_file() {
+        return Err(invalid_regular_file(label));
+    }
+    if before.len() > maximum_bytes {
+        return Err(file_too_large(label, maximum_bytes, before.len()));
+    }
+
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    let file = options
+        .open(path)
+        .map_err(|source| source_io("open project file without following links", path, source))?;
+    let opened = file
+        .metadata()
+        .map_err(|source| source_io("inspect opened project file", path, source))?;
+    if !opened.is_file() || !same_file_identity(&before, &opened) {
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
+    if opened.len() > maximum_bytes {
+        return Err(file_too_large(label, maximum_bytes, opened.len()));
+    }
+    ensure_open_file_still_matches_path(path, &file, project_root)?;
+    Ok((file, opened))
+}
+
+fn ensure_open_file_still_matches_path(
+    path: &Path,
+    file: &File,
+    project_root: Option<&Path>,
+) -> Result<(), StudioCoreError> {
+    let opened = file
+        .metadata()
+        .map_err(|source| source_io("inspect opened project file", path, source))?;
+    let current = fs::symlink_metadata(path)
+        .map_err(|source| source_io("reinspect project file", path, source))?;
+    if current.file_type().is_symlink()
+        || !current.is_file()
+        || !same_file_identity(&opened, &current)
+    {
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
+    if let Some(project_root) = project_root {
+        ensure_open_file_containment(path, file, project_root)?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn same_file_identity(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    left.dev() == right.dev()
+        && left.ino() == right.ino()
+        && left.len() == right.len()
+        && left.mtime() == right.mtime()
+        && left.mtime_nsec() == right.mtime_nsec()
+        && left.ctime() == right.ctime()
+        && left.ctime_nsec() == right.ctime_nsec()
+}
+
+#[cfg(not(unix))]
+fn same_file_identity(left: &fs::Metadata, right: &fs::Metadata) -> bool {
+    left.len() == right.len()
+        && left.modified().ok() == right.modified().ok()
+        && left.created().ok() == right.created().ok()
+}
+
+#[cfg(target_os = "linux")]
+fn ensure_open_file_containment(
+    path: &Path,
+    file: &File,
+    project_root: &Path,
+) -> Result<(), StudioCoreError> {
+    use std::os::fd::AsRawFd;
+
+    let descriptor_path = PathBuf::from("/proc/self/fd").join(file.as_raw_fd().to_string());
+    let opened_path = fs::canonicalize(&descriptor_path)
+        .map_err(|source| source_io("resolve opened project file", path, source))?;
+    ensure_project_containment(project_root, &opened_path)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn ensure_open_file_containment(
+    path: &Path,
+    _file: &File,
+    project_root: &Path,
+) -> Result<(), StudioCoreError> {
+    let current_path = fs::canonicalize(path)
+        .map_err(|source| source_io("resolve opened project file", path, source))?;
+    ensure_project_containment(project_root, &current_path)
+}
+
+fn invalid_regular_file(label: &'static str) -> StudioCoreError {
+    StudioCoreError::InvalidProject(match label {
+        "Srijika project config" => "srijika.config.json must be a regular file",
+        "package manifest" => "package.json must be a regular file",
+        "TSX source" => "TSX source path must identify a regular file",
+        _ => "project file must be a regular file",
+    })
+}
+
+fn file_too_large(label: &'static str, maximum_bytes: u64, actual: u64) -> StudioCoreError {
+    if label == "TSX source" {
+        StudioCoreError::SourceTooLarge {
+            max: maximum_bytes,
+            actual,
+        }
+    } else {
+        StudioCoreError::InvalidProject(match label {
+            "Srijika project config" => "srijika.config.json exceeds the size limit",
+            "package manifest" => "package.json exceeds the size limit",
+            _ => "project file exceeds the size limit",
+        })
+    }
 }
 
 fn ensure_project_containment(root: &Path, target: &Path) -> Result<(), StudioCoreError> {
@@ -2454,23 +3469,116 @@ fn ensure_project_containment(root: &Path, target: &Path) -> Result<(), StudioCo
     }
 }
 
+fn ensure_project_path_components_are_real(
+    root: &Path,
+    relative_path: &Path,
+    allow_missing_leaf: bool,
+) -> Result<(), StudioCoreError> {
+    let components = relative_path.components().collect::<Vec<_>>();
+    let mut current = root.to_path_buf();
+    for (index, component) in components.iter().enumerate() {
+        let Component::Normal(value) = component else {
+            return Err(StudioCoreError::InvalidProject(
+                "project paths must contain only normal relative segments",
+            ));
+        };
+        current.push(value);
+        let is_leaf = index + 1 == components.len();
+        let metadata = match fs::symlink_metadata(&current) {
+            Ok(metadata) => metadata,
+            Err(source) if source.kind() == ErrorKind::NotFound && allow_missing_leaf => {
+                return Ok(());
+            }
+            Err(source) => {
+                return Err(source_io(
+                    "inspect project path component",
+                    &current,
+                    source,
+                ));
+            }
+        };
+        if metadata.file_type().is_symlink() {
+            return Err(StudioCoreError::InvalidProject(
+                "project paths must not contain symbolic-link components",
+            ));
+        }
+        if !is_leaf && !metadata.is_dir() {
+            return Err(StudioCoreError::InvalidProject(
+                "project path ancestors must be real directories",
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 struct ProjectTreeScan {
     root: PathBuf,
+    ui_suffix: String,
     entries: Vec<ProjectTreeEntry>,
     metadata_bytes: usize,
     hashed_bytes: u64,
     truncated: bool,
+    unsafe_entry: Option<PathBuf>,
+    reject_ignored_symlinks: bool,
+    stop_at_nested_projects: bool,
+    max_entries: usize,
+    scanned_entries: usize,
+    entry_budget_exceeded: bool,
+    max_directories: Option<usize>,
+    max_depth: usize,
+    scanned_directories: usize,
+    max_metadata_bytes: Option<usize>,
+    max_hash_bytes: Option<u64>,
 }
 
 impl ProjectTreeScan {
-    fn new(root: &Path) -> Self {
+    fn new(root: &Path, architecture: &CodeProjectArchitectureConfig) -> Self {
         Self {
             root: root.to_path_buf(),
+            ui_suffix: architecture.ui_suffix.clone(),
             entries: Vec::new(),
             metadata_bytes: 0,
             hashed_bytes: 0,
             truncated: false,
+            unsafe_entry: None,
+            reject_ignored_symlinks: false,
+            stop_at_nested_projects: true,
+            max_entries: MAX_PROJECT_TREE_ENTRIES,
+            scanned_entries: 0,
+            entry_budget_exceeded: false,
+            max_directories: None,
+            max_depth: MAX_PROJECT_TREE_DEPTH,
+            scanned_directories: 0,
+            max_metadata_bytes: Some(MAX_PROJECT_TREE_METADATA_BYTES),
+            max_hash_bytes: Some(MAX_PROJECT_TREE_HASH_BYTES),
+        }
+    }
+
+    fn architecture(root: &Path, architecture: &CodeProjectArchitectureConfig) -> Self {
+        Self {
+            reject_ignored_symlinks: true,
+            // The governed Feature and Shared roots are one ownership graph.
+            // A nested config inside either root must not silently hide source
+            // from validation. Full-project migration scans opt back into the
+            // nested-project boundary before they can rewrite importers.
+            stop_at_nested_projects: false,
+            max_entries: MAX_ARCHITECTURE_SCAN_ENTRIES,
+            max_directories: Some(MAX_ARCHITECTURE_SCAN_DIRECTORIES),
+            max_depth: MAX_ARCHITECTURE_SCAN_DEPTH,
+            max_metadata_bytes: None,
+            max_hash_bytes: None,
+            ..Self::new(root, architecture)
+        }
+    }
+
+    fn record_directory_visit(&mut self) {
+        self.scanned_directories = self.scanned_directories.saturating_add(1);
+        if self
+            .max_directories
+            .is_some_and(|maximum| self.scanned_directories > maximum)
+        {
+            self.truncated = true;
         }
     }
 }
@@ -2494,26 +3602,6 @@ impl ProjectTreeCandidate {
     }
 }
 
-impl PartialEq for ProjectTreeCandidate {
-    fn eq(&self, other: &Self) -> bool {
-        self.metadata.is_dir() == other.metadata.is_dir() && self.name == other.name
-    }
-}
-
-impl Eq for ProjectTreeCandidate {}
-
-impl PartialOrd for ProjectTreeCandidate {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for ProjectTreeCandidate {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.sort_order(other)
-    }
-}
-
 fn scan_directory(
     directory: &Path,
     relative_directory: &Path,
@@ -2523,20 +3611,30 @@ fn scan_directory(
     if scan.truncated {
         return Ok(());
     }
-    let candidate_limit = MAX_PROJECT_TREE_ENTRIES.saturating_sub(scan.entries.len());
-    if candidate_limit == 0 {
-        scan.truncated = true;
+    scan.record_directory_visit();
+    if scan.truncated {
         return Ok(());
     }
-    // A directory may contain far more entries than the explorer can return.
-    // Retain only the globally earliest candidates for this directory so the
-    // scan remains deterministic without allocating one object per disk entry.
-    let mut candidates = BinaryHeap::with_capacity(candidate_limit);
-    let mut omitted_candidate = false;
-    for entry in fs::read_dir(directory)
-        .map_err(|source| source_io("read project directory", directory, source))?
-    {
+    let directory_before = fs::symlink_metadata(directory)
+        .map_err(|source| source_io("inspect project directory", directory, source))?;
+    if directory_before.file_type().is_symlink() || !directory_before.is_dir() {
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
+    let candidate_limit = scan.max_entries.saturating_sub(scan.scanned_entries);
+    // Retain and sort only candidates inside the physical work budget. If one
+    // more entry exists, the caller discards the partial Explorer model rather
+    // than exposing a filesystem-order-dependent prefix.
+    let mut candidates = Vec::with_capacity(candidate_limit);
+    let entries = fs::read_dir(directory)
+        .map_err(|source| source_io("read project directory", directory, source))?;
+    for entry in entries {
         let entry = entry.map_err(|source| source_io("read project entry", directory, source))?;
+        scan.scanned_entries = scan.scanned_entries.saturating_add(1);
+        if scan.scanned_entries > scan.max_entries {
+            scan.truncated = true;
+            scan.entry_budget_exceeded = true;
+            break;
+        }
         let name = entry
             .file_name()
             .into_string()
@@ -2544,12 +3642,21 @@ fn scan_directory(
         let metadata = fs::symlink_metadata(entry.path())
             .map_err(|source| source_io("inspect project tree entry", &entry.path(), source))?;
         if metadata.file_type().is_symlink() {
+            if (scan.reject_ignored_symlinks
+                || !IGNORED_PROJECT_DIRECTORIES.contains(&name.as_str()))
+                && scan.unsafe_entry.is_none()
+            {
+                scan.unsafe_entry = Some(relative_directory.join(&name));
+            }
             continue;
         }
         if metadata.is_dir() && IGNORED_PROJECT_DIRECTORIES.contains(&name.as_str()) {
             continue;
         }
         if !metadata.is_dir() && !metadata.is_file() {
+            if scan.unsafe_entry.is_none() {
+                scan.unsafe_entry = Some(relative_directory.join(&name));
+            }
             continue;
         }
         let candidate = ProjectTreeCandidate {
@@ -2558,22 +3665,26 @@ fn scan_directory(
             name,
             metadata,
         };
-        if candidates.len() < candidate_limit {
-            candidates.push(candidate);
-        } else {
-            omitted_candidate = true;
-            if candidates
-                .peek()
-                .is_some_and(|largest| candidate < *largest)
-            {
-                candidates.pop();
-                candidates.push(candidate);
-            }
-        }
+        candidates.push(candidate);
+    }
+    let directory_after = fs::symlink_metadata(directory)
+        .map_err(|source| source_io("reinspect project directory", directory, source))?;
+    if directory_after.file_type().is_symlink()
+        || !directory_after.is_dir()
+        || !same_file_identity(&directory_before, &directory_after)
+    {
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
+    if scan.entry_budget_exceeded {
+        return Ok(());
     }
 
-    for candidate in candidates.into_sorted_vec() {
-        if scan.entries.len() >= MAX_PROJECT_TREE_ENTRIES {
+    candidates.sort_by(ProjectTreeCandidate::sort_order);
+    for candidate in candidates {
+        if scan.entry_budget_exceeded {
+            return Ok(());
+        }
+        if scan.entries.len() >= scan.max_entries {
             scan.truncated = true;
             break;
         }
@@ -2591,23 +3702,28 @@ fn scan_directory(
             .len()
             .saturating_add(absolute_path.len())
             .saturating_add(candidate.name.len());
-        if scan.metadata_bytes.saturating_add(metadata_cost) > MAX_PROJECT_TREE_METADATA_BYTES {
-            scan.truncated = true;
-            break;
+        if let Some(maximum) = scan.max_metadata_bytes {
+            if scan.metadata_bytes.saturating_add(metadata_cost) > maximum {
+                scan.truncated = true;
+                break;
+            }
+            scan.metadata_bytes = scan.metadata_bytes.saturating_add(metadata_cost);
         }
-        scan.metadata_bytes = scan.metadata_bytes.saturating_add(metadata_cost);
 
         let is_directory = candidate.metadata.is_dir();
-        let is_ui_source = !is_directory && candidate.name.ends_with(".ui.tsx");
+        let is_ui_source = !is_directory && candidate.name.ends_with(&scan.ui_suffix);
         let hash = if is_ui_source
             && candidate.metadata.len() <= MAX_TSX_SOURCE_BYTES
-            && scan.hashed_bytes.saturating_add(candidate.metadata.len())
-                <= MAX_PROJECT_TREE_HASH_BYTES
-        {
+            && scan.max_hash_bytes.is_some_and(|maximum| {
+                scan.hashed_bytes.saturating_add(candidate.metadata.len()) <= maximum
+            }) {
             scan.hashed_bytes = scan.hashed_bytes.saturating_add(candidate.metadata.len());
             Some(hash_regular_file(&canonical, candidate.metadata.len())?)
         } else {
-            if is_ui_source && candidate.metadata.len() <= MAX_TSX_SOURCE_BYTES {
+            if is_ui_source
+                && candidate.metadata.len() <= MAX_TSX_SOURCE_BYTES
+                && scan.max_hash_bytes.is_some()
+            {
                 scan.truncated = true;
             }
             None
@@ -2625,8 +3741,11 @@ fn scan_directory(
             is_ui_source,
         });
 
-        if is_directory && !is_nested_srijika_project_directory(&canonical)? {
-            if depth >= MAX_PROJECT_TREE_DEPTH {
+        let crosses_nested_project_boundary = scan.stop_at_nested_projects
+            && is_directory
+            && is_nested_srijika_project_directory(&canonical)?;
+        if is_directory && !crosses_nested_project_boundary {
+            if depth >= scan.max_depth {
                 scan.truncated = true;
                 continue;
             }
@@ -2636,10 +3755,10 @@ fn scan_directory(
                 depth.saturating_add(1),
                 scan,
             )?;
+            if scan.entry_budget_exceeded {
+                return Ok(());
+            }
         }
-    }
-    if omitted_candidate {
-        scan.truncated = true;
     }
     Ok(())
 }
@@ -2678,16 +3797,37 @@ fn path_to_forward_slashes(path: &Path) -> Result<String, StudioCoreError> {
 }
 
 fn is_architecture_source_path(relative_path: &str) -> bool {
-    matches!(
-        Path::new(relative_path)
-            .extension()
-            .and_then(|extension| extension.to_str()),
-        Some("ts" | "tsx" | "mts" | "cts")
-    )
+    let lower = relative_path.to_ascii_lowercase();
+    if [".d.ts", ".d.tsx", ".d.mts", ".d.cts"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+    {
+        return false;
+    }
+    [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+}
+
+fn is_migration_source_path(relative_path: &str) -> bool {
+    let lower = relative_path.to_ascii_lowercase();
+    if [".d.ts", ".d.tsx", ".d.mts", ".d.cts"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
+    {
+        return false;
+    }
+    [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"]
+        .iter()
+        .any(|suffix| lower.ends_with(suffix))
 }
 
 fn hash_regular_file(path: &Path, expected_bytes: u64) -> Result<String, StudioCoreError> {
-    let mut file = File::open(path).map_err(|source| source_io("open UI source", path, source))?;
+    let (mut file, metadata) =
+        open_regular_file_for_read(path, MAX_TSX_SOURCE_BYTES, "TSX source", None)?;
+    if metadata.len() != expected_bytes {
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
     let mut hash = 0xcbf2_9ce4_8422_2325u64;
     let mut read_bytes = 0u64;
     let mut buffer = [0u8; 16 * 1024];
@@ -2713,6 +3853,7 @@ fn hash_regular_file(path: &Path, expected_bytes: u64) -> Result<String, StudioC
     if read_bytes != expected_bytes {
         return Err(StudioCoreError::ProjectChangedDuringRead);
     }
+    ensure_open_file_still_matches_path(path, &file, None)?;
     Ok(format!("fnv1a64:{hash:016x}"))
 }
 
@@ -3356,8 +4497,13 @@ fn checked_json_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
     Ok(path.to_path_buf())
 }
 
-fn checked_tsx_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
-    if raw_path.is_empty() || raw_path.contains('\0') {
+struct CheckedTsxPath {
+    path: PathBuf,
+    project_root: Option<PathBuf>,
+}
+
+fn checked_tsx_path(raw_path: &str) -> Result<CheckedTsxPath, StudioCoreError> {
+    if is_windows_drive_path(raw_path) || raw_path.is_empty() || raw_path.contains('\0') {
         return Err(StudioCoreError::InvalidPath("TSX source path is invalid"));
     }
     let path = Path::new(raw_path);
@@ -3370,12 +4516,52 @@ fn checked_tsx_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
         .file_name()
         .and_then(|value| value.to_str())
         .unwrap_or_default();
-    if !file_name.ends_with(".ui.tsx") {
+    let mut project = None;
+    for ancestor in path.parent().into_iter().flat_map(Path::ancestors) {
+        let config_path = ancestor.join("srijika.config.json");
+        match fs::symlink_metadata(&config_path) {
+            Ok(_) => {
+                let ancestor = ancestor.to_str().ok_or(StudioCoreError::InvalidPath(
+                    "TSX source project path must be valid UTF-8",
+                ))?;
+                project = Some(validate_code_project_root(ancestor)?);
+                break;
+            }
+            Err(source) if source.kind() == ErrorKind::NotFound => {}
+            Err(source) => {
+                return Err(source_io(
+                    "inspect TSX source project boundary",
+                    &config_path,
+                    source,
+                ));
+            }
+        }
+    }
+    let required_suffix = project
+        .as_ref()
+        .map_or(".ui.tsx", |project| project.architecture.ui_suffix.as_str());
+    if !file_name.ends_with(required_suffix) {
         return Err(StudioCoreError::InvalidPath(
-            "Srijika UI source files must end in .ui.tsx",
+            "Srijika UI source file suffix does not match the project architecture",
         ));
     }
-    Ok(path.to_path_buf())
+    let project_root = project.map(|project| project.canonical_root);
+    if let Some(project_root) = &project_root {
+        let relative_path = path.strip_prefix(project_root).map_err(|_| {
+            StudioCoreError::InvalidProject("TSX source must stay inside its Srijika project")
+        })?;
+        ensure_project_path_components_are_real(project_root, relative_path, !path.exists())?;
+        let parent = path.parent().ok_or(StudioCoreError::InvalidPath(
+            "TSX source path must identify a file",
+        ))?;
+        let canonical_parent = fs::canonicalize(parent)
+            .map_err(|source| source_io("resolve TSX source parent", parent, source))?;
+        ensure_project_containment(project_root, &canonical_parent)?;
+    }
+    Ok(CheckedTsxPath {
+        path: path.to_path_buf(),
+        project_root,
+    })
 }
 
 fn checked_project_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
@@ -3391,8 +4577,39 @@ fn checked_project_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
     Ok(path.to_path_buf())
 }
 
+fn normalize_absolute_path_without_links(path: &Path) -> Result<PathBuf, StudioCoreError> {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(Path::new(std::path::MAIN_SEPARATOR_STR)),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() {
+                    return Err(StudioCoreError::InvalidProject(
+                        "project path must be lexically normalized",
+                    ));
+                }
+            }
+            Component::Normal(value) => normalized.push(value),
+        }
+    }
+    Ok(normalized)
+}
+
+#[cfg(windows)]
+fn paths_equal_for_platform(left: &Path, right: &Path) -> bool {
+    left.to_string_lossy()
+        .eq_ignore_ascii_case(&right.to_string_lossy())
+}
+
+#[cfg(not(windows))]
+fn paths_equal_for_platform(left: &Path, right: &Path) -> bool {
+    left == right
+}
+
 fn checked_relative_project_path(raw_path: &str) -> Result<PathBuf, StudioCoreError> {
-    if raw_path.is_empty() || raw_path.contains('\0') {
+    if is_windows_drive_path(raw_path) || raw_path.is_empty() || raw_path.contains('\0') {
         return Err(StudioCoreError::InvalidProjectFile(raw_path.to_owned()));
     }
     let path = Path::new(raw_path);
@@ -3415,12 +4632,7 @@ fn validate_project_files(
             "project file count is outside the supported range",
         ));
     }
-    let entry = checked_relative_project_path(entry_source)?;
-    if !entry_source.ends_with(".ui.tsx") {
-        return Err(StudioCoreError::InvalidProject(
-            "entry source must end in .ui.tsx",
-        ));
-    }
+    let entry = checked_project_entry_path(entry_source)?;
     let mut seen = HashSet::new();
     let mut total = 0usize;
     let mut config_source = None;
@@ -3472,6 +4684,12 @@ fn validate_project_files(
             "project config entry must match the generated entry source",
         ));
     }
+    let architecture = configured_architecture(config)?;
+    if !entry_source.ends_with(&architecture.ui_suffix) {
+        return Err(StudioCoreError::InvalidProject(
+            "entry source must use the configured UI suffix",
+        ));
+    }
     Ok(())
 }
 
@@ -3515,6 +4733,7 @@ fn validate_component_name(name: &str) -> Result<(), StudioCoreError> {
 fn validate_new_ui_relative_path(
     raw_path: &str,
     component_name: &str,
+    architecture: &CodeProjectArchitectureConfig,
 ) -> Result<PathBuf, StudioCoreError> {
     if raw_path.len() > MAX_NEW_UI_RELATIVE_PATH_BYTES || raw_path.contains('\\') {
         return Err(StudioCoreError::InvalidProject(
@@ -3545,10 +4764,10 @@ fn validate_new_ui_relative_path(
             "use ownership-aware Structure capabilities for UI files below src/features",
         ));
     }
-    let expected_file_name = format!("{component_name}.ui.tsx");
+    let expected_file_name = architecture.ui_file_name(component_name);
     if relative.file_name().and_then(|value| value.to_str()) != Some(&expected_file_name) {
         return Err(StudioCoreError::InvalidProject(
-            "new UI file name must match the component name and end in .ui.tsx",
+            "new UI file name must match the component name and configured UI suffix",
         ));
     }
     if relative.components().any(|component| {
@@ -3569,7 +4788,11 @@ fn validate_new_ui_relative_path(
     Ok(relative)
 }
 
-fn new_ui_source_pair(kind: CodeProjectUiSourceKind, name: &str) -> (String, String) {
+fn new_ui_source_pair(
+    kind: CodeProjectUiSourceKind,
+    name: &str,
+    architecture: &CodeProjectArchitectureConfig,
+) -> (String, String) {
     const PAGE_UI: &str = r#"export interface __NAME__UIProps {
   title: string;
   description: string;
@@ -3587,13 +4810,13 @@ export function __NAME__UI(props: __NAME__UIProps) {
   );
 }
 "#;
-    const PAGE_CONNECTOR: &str = r#"import { __NAME__UI } from './__NAME__.ui';
+    const PAGE_CONNECTOR: &str = r#"import { __NAME__UI } from '__UI_MODULE__';
 
 export function __NAME__Connector() {
   return (
     <__NAME__UI
       title="__NAME__"
-      description="Start building this page in __NAME__.ui.tsx."
+      description="Start building this page in __UI_FILE__."
     />
   );
 }
@@ -3612,13 +4835,13 @@ export function __NAME__UI(props: __NAME__UIProps) {
   );
 }
 "#;
-    const COMPONENT_CONNECTOR: &str = r#"import { __NAME__UI } from './__NAME__.ui';
+    const COMPONENT_CONNECTOR: &str = r#"import { __NAME__UI } from '__UI_MODULE__';
 
 export function __NAME__Connector() {
   return (
     <__NAME__UI
       label="__NAME__"
-      supportingText="Connect data and behavior in __NAME__.connector.tsx."
+      supportingText="Connect data and behavior in __CONNECTOR_FILE__."
     />
   );
 }
@@ -3630,7 +4853,14 @@ export function __NAME__Connector() {
     };
     (
         ui.replace("__NAME__", name),
-        connector.replace("__NAME__", name),
+        connector
+            .replace("__NAME__", name)
+            .replace("__UI_MODULE__", &architecture.ui_module(name))
+            .replace("__UI_FILE__", &architecture.ui_file_name(name))
+            .replace(
+                "__CONNECTOR_FILE__",
+                &architecture.connector_file_name(name),
+            ),
     )
 }
 
@@ -3695,9 +4925,10 @@ fn validate_scoped_hook_name(name: &str, owner_name: &str) -> Result<(), StudioC
     if name.len() > MAX_COMPONENT_NAME_BYTES.saturating_add(3)
         || remainder.is_none()
         || remainder.is_some_and(|value| {
-            value.chars().next().is_some_and(|character| {
-                !character.is_ascii_uppercase() && !character.is_ascii_digit()
-            })
+            value.is_empty()
+                || value.chars().next().is_some_and(|character| {
+                    !character.is_ascii_uppercase() && !character.is_ascii_digit()
+                })
         })
     {
         return Err(StudioCoreError::InvalidProject(
@@ -3706,6 +4937,29 @@ fn validate_scoped_hook_name(name: &str, owner_name: &str) -> Result<(), StudioC
     }
     let suffix = name.strip_prefix("use").unwrap_or_default();
     validate_component_name(suffix)
+}
+
+fn validate_scoped_store_name(name: &str, owner_name: &str) -> Result<(), StudioCoreError> {
+    let owner_stem = lower_camel_owner_name(owner_name)?;
+    let remainder = name.strip_prefix(&owner_stem);
+    if name.len() > MAX_COMPONENT_NAME_BYTES
+        || remainder.is_none()
+        || remainder.is_some_and(|value| {
+            value.is_empty()
+                || value.chars().next().is_some_and(|character| {
+                    !character.is_ascii_uppercase() && !character.is_ascii_digit()
+                })
+        })
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "store concern name must start with the lower-camel owner name",
+        ));
+    }
+    let mut pascal_name = name.to_owned();
+    if let Some(first) = pascal_name.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+    validate_component_name(&pascal_name)
 }
 
 fn validate_existing_scaffold_ui(root: &Path, relative: &Path) -> Result<(), StudioCoreError> {
@@ -3731,11 +4985,17 @@ fn validated_existing_slot_relative(
     root: &Path,
     feature_relative: &Path,
     slot_name: &str,
+    architecture: &CodeProjectArchitectureConfig,
 ) -> Result<PathBuf, StudioCoreError> {
     validate_component_name(slot_name)?;
     let slot_slug = pascal_case_path_segment(slot_name)?;
-    let slot_relative = feature_relative.join("slots").join(slot_slug);
-    validate_existing_scaffold_ui(root, &slot_relative.join(format!("{slot_name}.ui.tsx")))?;
+    let slot_relative = feature_relative
+        .join(&architecture.slots_directory)
+        .join(slot_slug);
+    validate_existing_scaffold_ui(
+        root,
+        &slot_relative.join(architecture.ui_file_name(slot_name)),
+    )?;
     Ok(slot_relative)
 }
 
@@ -3744,18 +5004,509 @@ fn validated_existing_part_relative(
     feature_relative: &Path,
     slot_name: &str,
     part_name: &str,
+    architecture: &CodeProjectArchitectureConfig,
 ) -> Result<PathBuf, StudioCoreError> {
-    let slot_relative = validated_existing_slot_relative(root, feature_relative, slot_name)?;
+    let slot_relative =
+        validated_existing_slot_relative(root, feature_relative, slot_name, architecture)?;
     validate_component_name(part_name)?;
     let part_slug = pascal_case_path_segment(part_name)?;
-    let part_relative = slot_relative.join("parts").join(part_slug);
-    validate_existing_scaffold_ui(root, &part_relative.join(format!("{part_name}.ui.tsx")))?;
+    let part_relative = slot_relative
+        .join(&architecture.parts_directory)
+        .join(part_slug);
+    validate_existing_scaffold_ui(
+        root,
+        &part_relative.join(architecture.ui_file_name(part_name)),
+    )?;
     Ok(part_relative)
 }
 
-fn connector_source(name: &str) -> String {
+fn is_shared_scaffold_capability(capability: &CodeProjectScaffoldCapability) -> bool {
+    matches!(
+        capability,
+        CodeProjectScaffoldCapability::SharedUi { .. }
+            | CodeProjectScaffoldCapability::SharedUiTypes
+            | CodeProjectScaffoldCapability::SharedWidget { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetConnector
+            | CodeProjectScaffoldCapability::SharedWidgetStore
+            | CodeProjectScaffoldCapability::SharedWidgetHook
+            | CodeProjectScaffoldCapability::SharedWidgetBehaviorHook { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetStoreSlice { .. }
+            | CodeProjectScaffoldCapability::SharedWidgetLogic
+            | CodeProjectScaffoldCapability::SharedWidgetApi
+            | CodeProjectScaffoldCapability::SharedWidgetTypes
+            | CodeProjectScaffoldCapability::SharedCapability { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityStore
+            | CodeProjectScaffoldCapability::SharedCapabilityHook
+            | CodeProjectScaffoldCapability::SharedCapabilityBehaviorHook { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityStoreSlice { .. }
+            | CodeProjectScaffoldCapability::SharedCapabilityLogic
+            | CodeProjectScaffoldCapability::SharedCapabilityApi
+            | CodeProjectScaffoldCapability::SharedCapabilityTypes
+    )
+}
+
+fn validate_existing_scaffold_directory(
+    root: &Path,
+    relative: &Path,
+) -> Result<(), StudioCoreError> {
+    if relative.components().count() > MAX_NEW_UI_DEPTH {
+        return Err(StudioCoreError::InvalidProject(
+            "scaffold path exceeds the supported directory depth",
+        ));
+    }
+    let path = root.join(relative);
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|source| source_io("inspect required scaffold owner", &path, source))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err(StudioCoreError::InvalidProject(
+            "required shared owner must be a real directory",
+        ));
+    }
+    let canonical = fs::canonicalize(&path)
+        .map_err(|source| source_io("resolve required scaffold owner", &path, source))?;
+    ensure_project_containment(root, &canonical)
+}
+
+fn shared_scaffold_response(
+    root: &Path,
+    owner_name: String,
+    owner_relative: &Path,
+    capability: CodeProjectScaffoldCapability,
+    files: Vec<ScaffoldedCodeProjectFile>,
+) -> Result<ScaffoldedCodeProjectStructure, StudioCoreError> {
+    let bytes = files.iter().map(|file| file.bytes).sum();
+    Ok(ScaffoldedCodeProjectStructure {
+        project_path: root.to_string_lossy().into_owned(),
+        feature_name: owner_name,
+        feature_path: path_to_forward_slashes(owner_relative)?,
+        capability,
+        files,
+        bytes,
+    })
+}
+
+fn scaffold_shared_code_project_structure(
+    root: &Path,
+    architecture: &CodeProjectArchitectureConfig,
+    request: ScaffoldCodeProjectStructureRequest,
+) -> Result<ScaffoldedCodeProjectStructure, StudioCoreError> {
+    let name = request.feature_name.clone();
+    let slug = pascal_case_path_segment(&name)?;
+    let category = match &request.capability {
+        CodeProjectScaffoldCapability::SharedUi { .. }
+        | CodeProjectScaffoldCapability::SharedUiTypes => "ui",
+        CodeProjectScaffoldCapability::SharedWidget { .. }
+        | CodeProjectScaffoldCapability::SharedWidgetConnector
+        | CodeProjectScaffoldCapability::SharedWidgetStore
+        | CodeProjectScaffoldCapability::SharedWidgetHook
+        | CodeProjectScaffoldCapability::SharedWidgetBehaviorHook { .. }
+        | CodeProjectScaffoldCapability::SharedWidgetStoreSlice { .. }
+        | CodeProjectScaffoldCapability::SharedWidgetLogic
+        | CodeProjectScaffoldCapability::SharedWidgetApi
+        | CodeProjectScaffoldCapability::SharedWidgetTypes => "widgets",
+        CodeProjectScaffoldCapability::SharedCapability { .. }
+        | CodeProjectScaffoldCapability::SharedCapabilityStore
+        | CodeProjectScaffoldCapability::SharedCapabilityHook
+        | CodeProjectScaffoldCapability::SharedCapabilityBehaviorHook { .. }
+        | CodeProjectScaffoldCapability::SharedCapabilityStoreSlice { .. }
+        | CodeProjectScaffoldCapability::SharedCapabilityLogic
+        | CodeProjectScaffoldCapability::SharedCapabilityApi
+        | CodeProjectScaffoldCapability::SharedCapabilityTypes => "capabilities",
+        _ => {
+            return Err(StudioCoreError::InvalidProject(
+                "the requested capability is not a shared owner",
+            ));
+        }
+    };
+    let owner_relative = architecture.shared.join(category).join(slug);
+    let is_composite = matches!(
+        request.capability,
+        CodeProjectScaffoldCapability::SharedUi { .. }
+            | CodeProjectScaffoldCapability::SharedWidget { .. }
+            | CodeProjectScaffoldCapability::SharedCapability { .. }
+    );
+    if !is_composite {
+        if category == "ui" || category == "widgets" {
+            validate_existing_scaffold_ui(
+                root,
+                &owner_relative.join(architecture.ui_file_name(&name)),
+            )?;
+        } else {
+            validate_existing_scaffold_directory(root, &owner_relative)?;
+        }
+        if category == "widgets"
+            && !matches!(
+                request.capability,
+                CodeProjectScaffoldCapability::SharedWidgetConnector
+            )
+        {
+            validate_existing_scaffold_ui(
+                root,
+                &owner_relative.join(architecture.connector_file_name(&name)),
+            )?;
+        }
+        if matches!(
+            request.capability,
+            CodeProjectScaffoldCapability::SharedCapabilityTypes
+        ) {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            if !layers.has_runtime() {
+                return Err(StudioCoreError::InvalidProject(
+                    "create at least one runtime Hook, Store, Logic, or API before adding Types to a Shared Headless Capability",
+                ));
+            }
+        }
+    }
+
+    let widget_roles = OwnerFileRoles {
+        connector: CodeProjectScaffoldFileRole::SharedWidgetConnector,
+        hook: CodeProjectScaffoldFileRole::SharedWidgetHook,
+        store: CodeProjectScaffoldFileRole::SharedWidgetStore,
+        logic: CodeProjectScaffoldFileRole::SharedWidgetLogic,
+        api: CodeProjectScaffoldFileRole::SharedWidgetApi,
+        types: CodeProjectScaffoldFileRole::SharedWidgetTypes,
+    };
+    let capability_roles = OwnerFileRoles {
+        connector: CodeProjectScaffoldFileRole::SharedWidgetConnector,
+        hook: CodeProjectScaffoldFileRole::SharedCapabilityHook,
+        store: CodeProjectScaffoldFileRole::SharedCapabilityStore,
+        logic: CodeProjectScaffoldFileRole::SharedCapabilityLogic,
+        api: CodeProjectScaffoldFileRole::SharedCapabilityApi,
+        types: CodeProjectScaffoldFileRole::SharedCapabilityTypes,
+    };
+    let mut plans = Vec::new();
+    match &request.capability {
+        CodeProjectScaffoldCapability::SharedUi { create_types } => {
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.ui_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedUi,
+                shared_primitive_ui_source(&name, *create_types, architecture),
+            ));
+            if *create_types {
+                plans.push(scaffold_file_plan(
+                    owner_relative.join(architecture.types_file_name(&name)),
+                    CodeProjectScaffoldFileRole::SharedUiTypes,
+                    shared_primitive_types_source(&name),
+                ));
+            }
+        }
+        CodeProjectScaffoldCapability::SharedUiTypes => plans.push(scaffold_file_plan(
+            owner_relative.join(architecture.types_file_name(&name)),
+            CodeProjectScaffoldFileRole::SharedUiTypes,
+            shared_primitive_types_source(&name),
+        )),
+        CodeProjectScaffoldCapability::SharedWidget {
+            create_connector,
+            create_hook,
+            create_store,
+            create_logic,
+            create_api,
+            create_types,
+        } => {
+            if !create_connector {
+                return Err(StudioCoreError::InvalidProject(
+                    "every Shared Widget requires its matching Connector",
+                ));
+            }
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.ui_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetUi,
+                shared_widget_ui_source(&name),
+            ));
+            append_shared_owner_capability_plans(
+                &mut plans,
+                &owner_relative,
+                &name,
+                widget_roles,
+                OwnerLayerSelection {
+                    hook: *create_hook,
+                    store: *create_store,
+                    logic: *create_logic,
+                    api: *create_api,
+                    types: *create_types,
+                },
+                true,
+                architecture,
+            )?;
+        }
+        CodeProjectScaffoldCapability::SharedWidgetConnector => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.connector_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetConnector,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Connector,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedWidgetHook => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.hook_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetHook,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Hook,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedWidgetStore => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.store_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetStore,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Store,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedWidgetLogic => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.logic_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetLogic,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Logic,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedWidgetApi => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.api_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedWidgetApi,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Api,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedWidgetTypes => plans.push(scaffold_file_plan(
+            owner_relative.join(architecture.types_file_name(&name)),
+            CodeProjectScaffoldFileRole::SharedWidgetTypes,
+            shared_owner_types_source(&name),
+        )),
+        CodeProjectScaffoldCapability::SharedWidgetBehaviorHook { hook_name } => {
+            validate_scoped_hook_name(hook_name, &name)?;
+            let files = expand_owner_capability(
+                root,
+                architecture,
+                &owner_relative,
+                &name,
+                ExpandedOwnerCapability::Hook,
+                hook_name,
+                CodeProjectScaffoldFileRole::SharedWidgetHook,
+            )?;
+            return shared_scaffold_response(
+                root,
+                name,
+                &owner_relative,
+                request.capability,
+                files,
+            );
+        }
+        CodeProjectScaffoldCapability::SharedWidgetStoreSlice { store_name } => {
+            validate_scoped_store_name(store_name, &name)?;
+            let files = expand_owner_capability(
+                root,
+                architecture,
+                &owner_relative,
+                &name,
+                ExpandedOwnerCapability::Store,
+                store_name,
+                CodeProjectScaffoldFileRole::SharedWidgetStore,
+            )?;
+            return shared_scaffold_response(
+                root,
+                name,
+                &owner_relative,
+                request.capability,
+                files,
+            );
+        }
+        CodeProjectScaffoldCapability::SharedCapability {
+            create_hook,
+            create_store,
+            create_logic,
+            create_api,
+            create_types,
+        } => {
+            if !create_hook && !create_store && !create_logic && !create_api {
+                return Err(StudioCoreError::InvalidProject(
+                    "a Shared Headless Capability requires at least one runtime layer",
+                ));
+            }
+            append_shared_owner_capability_plans(
+                &mut plans,
+                &owner_relative,
+                &name,
+                capability_roles,
+                OwnerLayerSelection {
+                    hook: *create_hook,
+                    store: *create_store,
+                    logic: *create_logic,
+                    api: *create_api,
+                    types: *create_types,
+                },
+                false,
+                architecture,
+            )?;
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityHook => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.hook_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedCapabilityHook,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Hook,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityStore => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.store_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedCapabilityStore,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Store,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityLogic => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.logic_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedCapabilityLogic,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Logic,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityApi => {
+            let layers = existing_owner_layers(root, &owner_relative, &name, architecture);
+            plans.push(scaffold_file_plan(
+                owner_relative.join(architecture.api_file_name(&name)),
+                CodeProjectScaffoldFileRole::SharedCapabilityApi,
+                canonical_shared_runtime_source_for_new_file(
+                    root,
+                    &owner_relative,
+                    &name,
+                    OwnerRuntimeLayer::Api,
+                    layers,
+                    architecture,
+                ),
+            ));
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityTypes => plans.push(scaffold_file_plan(
+            owner_relative.join(architecture.types_file_name(&name)),
+            CodeProjectScaffoldFileRole::SharedCapabilityTypes,
+            shared_owner_types_source(&name),
+        )),
+        CodeProjectScaffoldCapability::SharedCapabilityBehaviorHook { hook_name } => {
+            validate_scoped_hook_name(hook_name, &name)?;
+            let files = expand_owner_capability(
+                root,
+                architecture,
+                &owner_relative,
+                &name,
+                ExpandedOwnerCapability::Hook,
+                hook_name,
+                CodeProjectScaffoldFileRole::SharedCapabilityHook,
+            )?;
+            return shared_scaffold_response(
+                root,
+                name,
+                &owner_relative,
+                request.capability,
+                files,
+            );
+        }
+        CodeProjectScaffoldCapability::SharedCapabilityStoreSlice { store_name } => {
+            validate_scoped_store_name(store_name, &name)?;
+            let files = expand_owner_capability(
+                root,
+                architecture,
+                &owner_relative,
+                &name,
+                ExpandedOwnerCapability::Store,
+                store_name,
+                CodeProjectScaffoldFileRole::SharedCapabilityStore,
+            )?;
+            return shared_scaffold_response(
+                root,
+                name,
+                &owner_relative,
+                request.capability,
+                files,
+            );
+        }
+        _ => {
+            return Err(StudioCoreError::InvalidProject(
+                "the requested capability is not valid inside the configured Shared root",
+            ));
+        }
+    }
+    let senior_update = if matches!(
+        &request.capability,
+        CodeProjectScaffoldCapability::SharedUiTypes
+    ) {
+        standalone_shared_primitive_types_update(root, &owner_relative, &name, architecture)?
+    } else {
+        standalone_shared_senior_update(
+            root,
+            &owner_relative,
+            &name,
+            &request.capability,
+            architecture,
+        )?
+    };
+    let files = create_scaffold_files(root, plans)?;
+    apply_scaffold_source_update(&files, senior_update, "shared runtime gateway")?;
+    shared_scaffold_response(root, name, &owner_relative, request.capability, files)
+}
+
+fn connector_source(name: &str, architecture: &CodeProjectArchitectureConfig) -> String {
+    let ui_module = architecture.ui_module(name);
     format!(
-        "import type {{ ComponentProps }} from 'react';\n\nimport {{ {name}UI }} from './{name}.ui';\n\nexport type {name}ConnectorProps = ComponentProps<typeof {name}UI>;\n\nexport function {name}Connector(props: {name}ConnectorProps) {{\n  return <{name}UI {{...props}} />;\n}}\n"
+        "import type {{ ComponentProps }} from 'react';\n\nimport {{ {name}UI }} from '{ui_module}';\n\nexport type {name}ConnectorProps = ComponentProps<typeof {name}UI>;\n\nexport function {name}Connector(props: {name}ConnectorProps) {{\n  return <{name}UI {{...props}} />;\n}}\n"
     )
 }
 
@@ -3768,6 +5519,625 @@ struct OwnerLayerSelection {
     types: bool,
 }
 
+impl OwnerLayerSelection {
+    fn has_runtime(self) -> bool {
+        self.hook || self.store || self.logic || self.api
+    }
+
+    fn with_runtime_layer(mut self, layer: OwnerRuntimeLayer) -> Self {
+        match layer {
+            OwnerRuntimeLayer::Connector => {}
+            OwnerRuntimeLayer::Hook => self.hook = true,
+            OwnerRuntimeLayer::Store => self.store = true,
+            OwnerRuntimeLayer::Logic => self.logic = true,
+            OwnerRuntimeLayer::Api => self.api = true,
+            OwnerRuntimeLayer::Types => self.types = true,
+        }
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OwnerRuntimeLayer {
+    Connector,
+    Hook,
+    Store,
+    Logic,
+    Api,
+    Types,
+}
+
+#[derive(Debug)]
+struct ScaffoldSourceUpdate {
+    path: PathBuf,
+    previous_source: String,
+    next_source: String,
+}
+
+fn standalone_shared_runtime_layer(
+    capability: &CodeProjectScaffoldCapability,
+) -> Option<OwnerRuntimeLayer> {
+    match capability {
+        CodeProjectScaffoldCapability::SharedWidgetConnector => Some(OwnerRuntimeLayer::Connector),
+        CodeProjectScaffoldCapability::SharedWidgetHook
+        | CodeProjectScaffoldCapability::SharedCapabilityHook => Some(OwnerRuntimeLayer::Hook),
+        CodeProjectScaffoldCapability::SharedWidgetStore
+        | CodeProjectScaffoldCapability::SharedCapabilityStore => Some(OwnerRuntimeLayer::Store),
+        CodeProjectScaffoldCapability::SharedWidgetLogic
+        | CodeProjectScaffoldCapability::SharedCapabilityLogic => Some(OwnerRuntimeLayer::Logic),
+        CodeProjectScaffoldCapability::SharedWidgetApi
+        | CodeProjectScaffoldCapability::SharedCapabilityApi => Some(OwnerRuntimeLayer::Api),
+        CodeProjectScaffoldCapability::SharedWidgetTypes
+        | CodeProjectScaffoldCapability::SharedCapabilityTypes => Some(OwnerRuntimeLayer::Types),
+        _ => None,
+    }
+}
+
+fn standalone_progressive_runtime_layer(
+    capability: &CodeProjectScaffoldCapability,
+) -> Option<OwnerRuntimeLayer> {
+    match capability {
+        CodeProjectScaffoldCapability::FeatureConnector
+        | CodeProjectScaffoldCapability::SlotConnector { .. }
+        | CodeProjectScaffoldCapability::PartConnector { .. } => Some(OwnerRuntimeLayer::Connector),
+        CodeProjectScaffoldCapability::FeatureHook
+        | CodeProjectScaffoldCapability::SlotHook { .. }
+        | CodeProjectScaffoldCapability::PartHook { .. } => Some(OwnerRuntimeLayer::Hook),
+        CodeProjectScaffoldCapability::FeatureStore
+        | CodeProjectScaffoldCapability::SlotStore { .. }
+        | CodeProjectScaffoldCapability::PartStore { .. } => Some(OwnerRuntimeLayer::Store),
+        CodeProjectScaffoldCapability::FeatureLogic
+        | CodeProjectScaffoldCapability::SlotLogic { .. }
+        | CodeProjectScaffoldCapability::PartLogic { .. } => Some(OwnerRuntimeLayer::Logic),
+        CodeProjectScaffoldCapability::FeatureApi
+        | CodeProjectScaffoldCapability::SlotApi { .. }
+        | CodeProjectScaffoldCapability::PartApi { .. } => Some(OwnerRuntimeLayer::Api),
+        _ => None,
+    }
+}
+
+fn standalone_progressive_owner<'a>(
+    feature_relative: &Path,
+    feature_name: &'a str,
+    capability: &'a CodeProjectScaffoldCapability,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<Option<(PathBuf, &'a str)>, StudioCoreError> {
+    match capability {
+        CodeProjectScaffoldCapability::FeatureConnector
+        | CodeProjectScaffoldCapability::FeatureHook
+        | CodeProjectScaffoldCapability::FeatureStore
+        | CodeProjectScaffoldCapability::FeatureLogic
+        | CodeProjectScaffoldCapability::FeatureApi => {
+            Ok(Some((feature_relative.to_path_buf(), feature_name)))
+        }
+        CodeProjectScaffoldCapability::SlotConnector { slot_name }
+        | CodeProjectScaffoldCapability::SlotHook { slot_name }
+        | CodeProjectScaffoldCapability::SlotStore { slot_name }
+        | CodeProjectScaffoldCapability::SlotLogic { slot_name }
+        | CodeProjectScaffoldCapability::SlotApi { slot_name } => Ok(Some((
+            feature_relative
+                .join(&architecture.slots_directory)
+                .join(pascal_case_path_segment(slot_name)?),
+            slot_name,
+        ))),
+        CodeProjectScaffoldCapability::PartConnector {
+            slot_name,
+            part_name,
+        }
+        | CodeProjectScaffoldCapability::PartHook {
+            slot_name,
+            part_name,
+        }
+        | CodeProjectScaffoldCapability::PartStore {
+            slot_name,
+            part_name,
+        }
+        | CodeProjectScaffoldCapability::PartLogic {
+            slot_name,
+            part_name,
+        }
+        | CodeProjectScaffoldCapability::PartApi {
+            slot_name,
+            part_name,
+        } => Ok(Some((
+            feature_relative
+                .join(&architecture.slots_directory)
+                .join(pascal_case_path_segment(slot_name)?)
+                .join(&architecture.parts_directory)
+                .join(pascal_case_path_segment(part_name)?),
+            part_name,
+        ))),
+        _ => Ok(None),
+    }
+}
+
+fn owner_runtime_layer_relative(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    layer: OwnerRuntimeLayer,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Option<PathBuf> {
+    let flat_name = match layer {
+        OwnerRuntimeLayer::Connector => architecture.connector_file_name(owner_name),
+        OwnerRuntimeLayer::Hook => architecture.hook_file_name(owner_name),
+        OwnerRuntimeLayer::Store => architecture.store_file_name(owner_name),
+        OwnerRuntimeLayer::Logic => architecture.logic_file_name(owner_name),
+        OwnerRuntimeLayer::Api => architecture.api_file_name(owner_name),
+        OwnerRuntimeLayer::Types => architecture.types_file_name(owner_name),
+    };
+    let flat = owner_relative.join(&flat_name);
+    if root.join(&flat).is_file() {
+        return Some(flat);
+    }
+    let expanded = match layer {
+        OwnerRuntimeLayer::Hook => Some(
+            owner_relative
+                .join(&architecture.hooks_directory)
+                .join(flat_name),
+        ),
+        OwnerRuntimeLayer::Store => Some(
+            owner_relative
+                .join(&architecture.stores_directory)
+                .join(flat_name),
+        ),
+        OwnerRuntimeLayer::Connector
+        | OwnerRuntimeLayer::Logic
+        | OwnerRuntimeLayer::Api
+        | OwnerRuntimeLayer::Types => None,
+    };
+    expanded.filter(|path| root.join(path).is_file())
+}
+
+fn runtime_layer_is_expanded(owner_relative: &Path, path: &Path) -> bool {
+    path.parent().is_some_and(|parent| parent != owner_relative)
+}
+
+fn canonical_owner_runtime_source(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    layer: OwnerRuntimeLayer,
+    layers: OwnerLayerSelection,
+    layer_path: &Path,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let mut source = match layer {
+        OwnerRuntimeLayer::Connector => {
+            shared_owner_connector_source(owner_name, layers, architecture)
+        }
+        OwnerRuntimeLayer::Hook => shared_owner_hook_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Store => shared_owner_store_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Logic => shared_owner_logic_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Api => shared_owner_api_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Types => shared_owner_types_source(owner_name),
+    };
+    if layer == OwnerRuntimeLayer::Connector {
+        if owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Hook,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+        {
+            source = source.replace(
+                &format!("from '{}'", architecture.hook_module(owner_name)),
+                &format!(
+                    "from './{}/{}'",
+                    architecture.hooks_directory,
+                    architecture
+                        .hook_file_name(owner_name)
+                        .trim_end_matches(".ts")
+                ),
+            );
+        }
+        if owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Store,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+        {
+            source = source.replace(
+                &format!("from '{}'", architecture.store_module(owner_name)),
+                &format!(
+                    "from './{}/{}'",
+                    architecture.stores_directory,
+                    architecture
+                        .store_file_name(owner_name)
+                        .trim_end_matches(".ts")
+                ),
+            );
+        }
+    }
+    if layer == OwnerRuntimeLayer::Hook
+        && owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Store,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+    {
+        source = source.replace(
+            &format!("from '{}'", architecture.store_module(owner_name)),
+            &format!(
+                "from './{}/{}'",
+                architecture.stores_directory,
+                architecture
+                    .store_file_name(owner_name)
+                    .trim_end_matches(".ts")
+            ),
+        );
+    }
+    if runtime_layer_is_expanded(owner_relative, layer_path) {
+        source = relocate_gateway_source_one_level(&source);
+    }
+    source
+}
+
+fn canonical_shared_runtime_source_for_new_file(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    layer: OwnerRuntimeLayer,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let relative = owner_relative.join(match layer {
+        OwnerRuntimeLayer::Connector => architecture.connector_file_name(owner_name),
+        OwnerRuntimeLayer::Hook => architecture.hook_file_name(owner_name),
+        OwnerRuntimeLayer::Store => architecture.store_file_name(owner_name),
+        OwnerRuntimeLayer::Logic => architecture.logic_file_name(owner_name),
+        OwnerRuntimeLayer::Api => architecture.api_file_name(owner_name),
+        OwnerRuntimeLayer::Types => architecture.types_file_name(owner_name),
+    });
+    canonical_owner_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        layer,
+        layers,
+        &relative,
+        architecture,
+    )
+}
+
+fn safely_preserve_gateway_exports(
+    current: &str,
+    previous_canonical: &str,
+    next_canonical: &str,
+) -> Option<String> {
+    if current == previous_canonical {
+        return Some(next_canonical.to_owned());
+    }
+    let previous_body = previous_canonical.trim_end();
+    let suffix = current.strip_prefix(previous_body)?;
+    let safe = suffix.lines().all(|line| {
+        let line = line.trim();
+        line.is_empty()
+            || (line.starts_with("export { ")
+                && line.contains(" } from './")
+                && (line.ends_with("';") || line.ends_with("\";")))
+    });
+    safe.then(|| format!("{}{}", next_canonical.trim_end(), suffix))
+}
+
+fn standalone_shared_primitive_types_update(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<Option<ScaffoldSourceUpdate>, StudioCoreError> {
+    let relative = owner_relative.join(architecture.ui_file_name(owner_name));
+    let path = root.join(relative);
+    let current =
+        read_regular_utf8_file(&path, MAX_ARCHITECTURE_SOURCE_BYTES, "shared primitive UI")?;
+    let previous_canonical = shared_primitive_ui_source(owner_name, false, architecture);
+    let next_canonical = shared_primitive_ui_source(owner_name, true, architecture);
+    if current == next_canonical {
+        return Ok(None);
+    }
+    if current != previous_canonical {
+        return Err(StudioCoreError::InvalidProject(
+            "the Shared UI Primitive contains custom code; move its inline props contract into Types in one reviewed edit",
+        ));
+    }
+    Ok(Some(ScaffoldSourceUpdate {
+        path,
+        previous_source: current,
+        next_source: next_canonical,
+    }))
+}
+
+fn standalone_shared_senior_update(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    capability: &CodeProjectScaffoldCapability,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<Option<ScaffoldSourceUpdate>, StudioCoreError> {
+    let Some(new_layer) = standalone_shared_runtime_layer(capability) else {
+        return Ok(None);
+    };
+    let order = [
+        OwnerRuntimeLayer::Connector,
+        OwnerRuntimeLayer::Hook,
+        OwnerRuntimeLayer::Store,
+        OwnerRuntimeLayer::Logic,
+        OwnerRuntimeLayer::Api,
+        OwnerRuntimeLayer::Types,
+    ];
+    let Some(new_index) = order.iter().position(|candidate| *candidate == new_layer) else {
+        return Ok(None);
+    };
+    let senior = if new_layer == OwnerRuntimeLayer::Types {
+        owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Api,
+            architecture,
+        )
+        .map(|path| (OwnerRuntimeLayer::Api, path))
+    } else {
+        order[..new_index].iter().rev().find_map(|candidate| {
+            owner_runtime_layer_relative(root, owner_relative, owner_name, *candidate, architecture)
+                .map(|path| (*candidate, path))
+        })
+    };
+    let Some((senior_layer, senior_relative)) = senior else {
+        return Ok(None);
+    };
+
+    let previous_layers = existing_owner_layers(root, owner_relative, owner_name, architecture);
+    let next_layers = previous_layers.with_runtime_layer(new_layer);
+    let previous_canonical = canonical_owner_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        senior_layer,
+        previous_layers,
+        &senior_relative,
+        architecture,
+    );
+    let next_canonical = canonical_owner_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        senior_layer,
+        next_layers,
+        &senior_relative,
+        architecture,
+    );
+    if previous_canonical == next_canonical {
+        return Ok(None);
+    }
+    let path = root.join(&senior_relative);
+    let current = read_regular_utf8_file(
+        &path,
+        MAX_ARCHITECTURE_SOURCE_BYTES,
+        "shared runtime gateway",
+    )?;
+    if current == next_canonical {
+        return Ok(None);
+    }
+    let Some(next_source) =
+        safely_preserve_gateway_exports(&current, &previous_canonical, &next_canonical)
+    else {
+        if senior_layer == OwnerRuntimeLayer::Connector {
+            return Err(StudioCoreError::InvalidProject(
+                "the Shared Widget Connector contains custom code; connect the new runtime boundary in one reviewed edit",
+            ));
+        }
+        return Ok(None);
+    };
+    Ok(Some(ScaffoldSourceUpdate {
+        path,
+        previous_source: current,
+        next_source,
+    }))
+}
+
+fn canonical_progressive_runtime_source(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    layer: OwnerRuntimeLayer,
+    layers: OwnerLayerSelection,
+    layer_path: &Path,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let mut source = match layer {
+        OwnerRuntimeLayer::Connector => {
+            progressive_connector_source(owner_name, layers, architecture)
+        }
+        OwnerRuntimeLayer::Hook => progressive_hook_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Store => progressive_store_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Logic => progressive_logic_source(owner_name, layers, architecture),
+        OwnerRuntimeLayer::Api => progressive_api_source(owner_name),
+        OwnerRuntimeLayer::Types => owner_types_source(owner_name),
+    };
+    if layer == OwnerRuntimeLayer::Connector {
+        if owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Hook,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+        {
+            source = source.replace(
+                &format!("from '{}'", architecture.hook_module(owner_name)),
+                &format!(
+                    "from './{}/{}'",
+                    architecture.hooks_directory,
+                    architecture
+                        .hook_file_name(owner_name)
+                        .trim_end_matches(".ts")
+                ),
+            );
+        }
+        if owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Store,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+        {
+            source = source.replace(
+                &format!("from '{}'", architecture.store_module(owner_name)),
+                &format!(
+                    "from './{}/{}'",
+                    architecture.stores_directory,
+                    architecture
+                        .store_file_name(owner_name)
+                        .trim_end_matches(".ts")
+                ),
+            );
+        }
+    }
+    if layer == OwnerRuntimeLayer::Hook
+        && owner_runtime_layer_relative(
+            root,
+            owner_relative,
+            owner_name,
+            OwnerRuntimeLayer::Store,
+            architecture,
+        )
+        .is_some_and(|path| runtime_layer_is_expanded(owner_relative, &path))
+    {
+        source = source.replace(
+            &format!("from '{}'", architecture.store_module(owner_name)),
+            &format!(
+                "from './{}/{}'",
+                architecture.stores_directory,
+                architecture
+                    .store_file_name(owner_name)
+                    .trim_end_matches(".ts")
+            ),
+        );
+    }
+    if runtime_layer_is_expanded(owner_relative, layer_path) {
+        source = relocate_gateway_source_one_level(&source);
+    }
+    source
+}
+
+fn canonical_progressive_runtime_source_for_new_file(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    layer: OwnerRuntimeLayer,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let relative = owner_relative.join(match layer {
+        OwnerRuntimeLayer::Connector => architecture.connector_file_name(owner_name),
+        OwnerRuntimeLayer::Hook => architecture.hook_file_name(owner_name),
+        OwnerRuntimeLayer::Store => architecture.store_file_name(owner_name),
+        OwnerRuntimeLayer::Logic => architecture.logic_file_name(owner_name),
+        OwnerRuntimeLayer::Api => architecture.api_file_name(owner_name),
+        OwnerRuntimeLayer::Types => architecture.types_file_name(owner_name),
+    });
+    canonical_progressive_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        layer,
+        layers,
+        &relative,
+        architecture,
+    )
+}
+
+fn standalone_progressive_senior_update(
+    root: &Path,
+    owner_relative: &Path,
+    owner_name: &str,
+    new_layer: OwnerRuntimeLayer,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<Option<ScaffoldSourceUpdate>, StudioCoreError> {
+    let order = [
+        OwnerRuntimeLayer::Connector,
+        OwnerRuntimeLayer::Hook,
+        OwnerRuntimeLayer::Store,
+        OwnerRuntimeLayer::Logic,
+        OwnerRuntimeLayer::Api,
+    ];
+    let Some(new_index) = order.iter().position(|candidate| *candidate == new_layer) else {
+        return Ok(None);
+    };
+    let Some((senior_layer, senior_relative)) =
+        order[..new_index].iter().rev().find_map(|candidate| {
+            owner_runtime_layer_relative(root, owner_relative, owner_name, *candidate, architecture)
+                .map(|path| (*candidate, path))
+        })
+    else {
+        return Ok(None);
+    };
+
+    let previous_layers = existing_owner_layers(root, owner_relative, owner_name, architecture);
+    let next_layers = previous_layers.with_runtime_layer(new_layer);
+    let previous_canonical = canonical_progressive_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        senior_layer,
+        previous_layers,
+        &senior_relative,
+        architecture,
+    );
+    let next_canonical = canonical_progressive_runtime_source(
+        root,
+        owner_relative,
+        owner_name,
+        senior_layer,
+        next_layers,
+        &senior_relative,
+        architecture,
+    );
+    if previous_canonical == next_canonical {
+        return Ok(None);
+    }
+
+    let path = root.join(&senior_relative);
+    let current = read_regular_utf8_file(
+        &path,
+        MAX_ARCHITECTURE_SOURCE_BYTES,
+        "owner runtime gateway",
+    )?;
+    if current == next_canonical {
+        return Ok(None);
+    }
+    let Some(next_source) =
+        safely_preserve_gateway_exports(&current, &previous_canonical, &next_canonical)
+    else {
+        if senior_layer == OwnerRuntimeLayer::Connector {
+            return Err(StudioCoreError::InvalidProject(
+                "the owner Connector contains custom code; connect the new runtime boundary in one reviewed edit",
+            ));
+        }
+        // Preserve a custom Hook, Store, Logic, or API byte-for-byte, matching
+        // the canonical planner. Architecture validation still rejects a
+        // custom boundary if it jumps over the newly-created lower layer.
+        return Ok(None);
+    };
+    Ok(Some(ScaffoldSourceUpdate {
+        path,
+        previous_source: current,
+        next_source,
+    }))
+}
+
 #[derive(Debug, Clone, Copy)]
 struct OwnerFileRoles {
     connector: CodeProjectScaffoldFileRole,
@@ -3778,16 +6148,25 @@ struct OwnerFileRoles {
     types: CodeProjectScaffoldFileRole,
 }
 
-fn progressive_connector_source(name: &str, layers: OwnerLayerSelection) -> String {
-    let stem = lower_camel_owner_name(name).expect("validated owner name");
+fn progressive_connector_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
     let (import, access) = if layers.hook {
         (
-            format!("import {{ use{name} }} from './use{name}';\n"),
+            format!(
+                "import {{ use{name} }} from '{}';\n",
+                architecture.hook_module(name)
+            ),
             format!("const {{ ready, run }} = use{name}();"),
         )
     } else if layers.store {
         (
-            format!("import {{ use{name}Store }} from './{stem}.store';\n"),
+            format!(
+                "import {{ use{name}Store }} from '{}';\n",
+                architecture.store_module(name)
+            ),
             format!(
                 "const ready = use{name}Store((state) => state.ready);\n  const run = use{name}Store((state) => state.run);"
             ),
@@ -3795,7 +6174,8 @@ fn progressive_connector_source(name: &str, layers: OwnerLayerSelection) -> Stri
     } else if layers.logic {
         (
             format!(
-                "import {{ useCallback, useState }} from 'react';\n\nimport {{ run{name}Logic }} from './{stem}.logic';\n"
+                "import {{ useCallback, useState }} from 'react';\n\nimport {{ run{name}Logic }} from '{}';\n",
+                architecture.logic_module(name)
             ),
             format!(
                 "const [ready, setReady] = useState(false);\n  const run = useCallback(async () => setReady(await run{name}Logic()), []);"
@@ -3804,37 +6184,50 @@ fn progressive_connector_source(name: &str, layers: OwnerLayerSelection) -> Stri
     } else if layers.api {
         (
             format!(
-                "import {{ useCallback, useState }} from 'react';\n\nimport {{ load{name}FromApi }} from './{stem}.api';\n"
+                "import {{ useCallback, useState }} from 'react';\n\nimport {{ load{name}FromApi }} from '{}';\n",
+                architecture.api_module(name)
             ),
             format!(
                 "const [ready, setReady] = useState(false);\n  const run = useCallback(async () => setReady(await load{name}FromApi()), []);"
             ),
         )
     } else {
-        return connector_source(name);
+        return connector_source(name, architecture);
     };
 
+    let ui_module = architecture.ui_module(name);
+
     format!(
-        "{import}\nimport {{ {name}UI }} from './{name}.ui';\n\nexport function {name}Connector() {{\n  {access}\n\n  return <{name}UI ready={{ready}} onRun={{() => void run()}} />;\n}}\n"
+        "{import}\nimport {{ {name}UI }} from '{ui_module}';\n\nexport function {name}Connector() {{\n  {access}\n\n  return <{name}UI ready={{ready}} onRun={{() => void run()}} />;\n}}\n"
     )
 }
 
-fn progressive_hook_source(name: &str, layers: OwnerLayerSelection) -> String {
-    let stem = lower_camel_owner_name(name).expect("validated owner name");
+fn progressive_hook_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
     if layers.store {
         return format!(
-            "import {{ use{name}Store }} from './{stem}.store';\n\nexport function use{name}() {{\n  const ready = use{name}Store((state) => state.ready);\n  const run = use{name}Store((state) => state.run);\n\n  return {{ ready, run }};\n}}\n"
+            "import {{ use{name}Store }} from '{}';\n\nexport function use{name}() {{\n  const ready = use{name}Store((state) => state.ready);\n  const run = use{name}Store((state) => state.run);\n\n  return {{ ready, run }};\n}}\n",
+            architecture.store_module(name)
         );
     }
 
     let (import, operation) = if layers.logic {
         (
-            format!("import {{ run{name}Logic }} from './{stem}.logic';"),
+            format!(
+                "import {{ run{name}Logic }} from '{}';",
+                architecture.logic_module(name)
+            ),
             format!("run{name}Logic"),
         )
     } else if layers.api {
         (
-            format!("import {{ load{name}FromApi }} from './{stem}.api';"),
+            format!(
+                "import {{ load{name}FromApi }} from '{}';",
+                architecture.api_module(name)
+            ),
             format!("load{name}FromApi"),
         )
     } else {
@@ -3848,16 +6241,25 @@ fn progressive_hook_source(name: &str, layers: OwnerLayerSelection) -> String {
     )
 }
 
-fn progressive_store_source(name: &str, layers: OwnerLayerSelection) -> String {
-    let stem = lower_camel_owner_name(name).expect("validated owner name");
+fn progressive_store_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
     let (import, run_body) = if layers.logic {
         (
-            format!("import {{ run{name}Logic }} from './{stem}.logic';\n"),
+            format!(
+                "import {{ run{name}Logic }} from '{}';\n",
+                architecture.logic_module(name)
+            ),
             format!("const ready = await run{name}Logic();\n    set({{ ready }});"),
         )
     } else if layers.api {
         (
-            format!("import {{ load{name}FromApi }} from './{stem}.api';\n"),
+            format!(
+                "import {{ load{name}FromApi }} from '{}';\n",
+                architecture.api_module(name)
+            ),
             format!("const ready = await load{name}FromApi();\n    set({{ ready }});"),
         )
     } else {
@@ -3869,11 +6271,15 @@ fn progressive_store_source(name: &str, layers: OwnerLayerSelection) -> String {
     )
 }
 
-fn progressive_logic_source(name: &str, layers: OwnerLayerSelection) -> String {
+fn progressive_logic_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
     if layers.api {
-        let stem = lower_camel_owner_name(name).expect("validated owner name");
         return format!(
-            "import {{ load{name}FromApi }} from './{stem}.api';\n\nexport async function run{name}Logic(): Promise<boolean> {{\n  const ready = await load{name}FromApi();\n\n  // Keep {name} business rules, validation, and transformations here.\n  return ready;\n}}\n"
+            "import {{ load{name}FromApi }} from '{}';\n\nexport async function run{name}Logic(): Promise<boolean> {{\n  const ready = await load{name}FromApi();\n\n  // Keep {name} business rules, validation, and transformations here.\n  return ready;\n}}\n",
+            architecture.api_module(name)
         );
     }
 
@@ -3894,6 +6300,62 @@ fn owner_types_source(name: &str) -> String {
     )
 }
 
+fn append_shared_owner_capability_plans(
+    plans: &mut Vec<ScaffoldFilePlan>,
+    relative: &Path,
+    name: &str,
+    roles: OwnerFileRoles,
+    layers: OwnerLayerSelection,
+    create_connector: bool,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<(), StudioCoreError> {
+    // Keep public plan order identical to the canonical TypeScript planner:
+    // UI (owned by the caller), Types, API, Logic, Store, Hook, Connector.
+    if layers.types {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.types_file_name(name)),
+            roles.types,
+            shared_owner_types_source(name),
+        ));
+    }
+    if layers.api {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.api_file_name(name)),
+            roles.api,
+            shared_owner_api_source(name, layers, architecture),
+        ));
+    }
+    if layers.logic {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.logic_file_name(name)),
+            roles.logic,
+            shared_owner_logic_source(name, layers, architecture),
+        ));
+    }
+    if layers.store {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.store_file_name(name)),
+            roles.store,
+            shared_owner_store_source(name, layers, architecture),
+        ));
+    }
+    if layers.hook {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.hook_file_name(name)),
+            roles.hook,
+            shared_owner_hook_source(name, layers, architecture),
+        ));
+    }
+    if create_connector {
+        plans.push(scaffold_file_plan(
+            relative.join(architecture.connector_file_name(name)),
+            roles.connector,
+            shared_owner_connector_source(name, layers, architecture),
+        ));
+    }
+    Ok(())
+}
+
 fn append_owner_capability_plans(
     plans: &mut Vec<ScaffoldFilePlan>,
     relative: &Path,
@@ -3902,46 +6364,78 @@ fn append_owner_capability_plans(
     layers: OwnerLayerSelection,
     create_connector: bool,
     legacy_hook_name: Option<&str>,
+    architecture: &CodeProjectArchitectureConfig,
 ) -> Result<(), StudioCoreError> {
-    let stem = lower_camel_owner_name(name)?;
+    if legacy_hook_name.is_some() && !layers.hook {
+        return Err(StudioCoreError::InvalidProject(
+            "a private Hook requires its canonical owner Hook gateway",
+        ));
+    }
+    let expanded_hook = legacy_hook_name.is_some();
     if create_connector {
+        let mut source = progressive_connector_source(name, layers, architecture);
+        if expanded_hook {
+            source = source.replace(
+                &format!("from '{}'", architecture.hook_module(name)),
+                &format!(
+                    "from './{}/{}'",
+                    architecture.hooks_directory,
+                    architecture.hook_file_name(name).trim_end_matches(".ts")
+                ),
+            );
+        }
         plans.push(scaffold_file_plan(
-            relative.join(format!("{name}.connector.tsx")),
+            relative.join(architecture.connector_file_name(name)),
             roles.connector,
-            progressive_connector_source(name, layers),
+            source,
         ));
     }
     if layers.hook {
+        let source = progressive_hook_source(name, layers, architecture);
+        let source = if let Some(hook_name) = legacy_hook_name {
+            append_gateway_export(
+                &relocate_gateway_source_one_level(&source),
+                &format!("export {{ {hook_name} }} from './{hook_name}';"),
+            )
+        } else {
+            source
+        };
         plans.push(scaffold_file_plan(
-            relative.join(format!("use{name}.ts")),
+            if expanded_hook {
+                relative
+                    .join(&architecture.hooks_directory)
+                    .join(architecture.hook_file_name(name))
+            } else {
+                relative.join(architecture.hook_file_name(name))
+            },
             roles.hook,
-            progressive_hook_source(name, layers),
+            source,
         ));
     }
     if layers.store {
         plans.push(scaffold_file_plan(
-            relative.join(format!("{stem}.store.ts")),
+            relative.join(architecture.store_file_name(name)),
             roles.store,
-            progressive_store_source(name, layers),
+            progressive_store_source(name, layers, architecture),
         ));
     }
     if layers.logic {
         plans.push(scaffold_file_plan(
-            relative.join(format!("{stem}.logic.ts")),
+            relative.join(architecture.logic_file_name(name)),
             roles.logic,
-            progressive_logic_source(name, layers),
+            progressive_logic_source(name, layers, architecture),
         ));
     }
     if layers.api {
         plans.push(scaffold_file_plan(
-            relative.join(format!("{stem}.api.ts")),
+            relative.join(architecture.api_file_name(name)),
             roles.api,
             progressive_api_source(name),
         ));
     }
     if layers.types {
         plans.push(scaffold_file_plan(
-            relative.join(format!("{stem}.types.ts")),
+            relative.join(architecture.types_file_name(name)),
             roles.types,
             owner_types_source(name),
         ));
@@ -3949,7 +6443,9 @@ fn append_owner_capability_plans(
     if let Some(hook_name) = legacy_hook_name {
         validate_scoped_hook_name(hook_name, name)?;
         plans.push(scaffold_file_plan(
-            relative.join("hooks").join(format!("{hook_name}.ts")),
+            relative
+                .join(&architecture.hooks_directory)
+                .join(format!("{hook_name}.ts")),
             roles.hook,
             hook_source(hook_name, name),
         ));
@@ -3957,30 +6453,1211 @@ fn append_owner_capability_plans(
     Ok(())
 }
 
-fn existing_owner_layers(root: &Path, relative: &Path, name: &str) -> OwnerLayerSelection {
-    let stem = lower_camel_owner_name(name).expect("validated owner name");
+fn existing_owner_layers(
+    root: &Path,
+    relative: &Path,
+    name: &str,
+    architecture: &CodeProjectArchitectureConfig,
+) -> OwnerLayerSelection {
     OwnerLayerSelection {
-        hook: root.join(relative).join(format!("use{name}.ts")).is_file(),
+        hook: root
+            .join(relative)
+            .join(architecture.hook_file_name(name))
+            .is_file()
+            || root
+                .join(relative)
+                .join(&architecture.hooks_directory)
+                .join(architecture.hook_file_name(name))
+                .is_file(),
         store: root
             .join(relative)
-            .join(format!("{stem}.store.ts"))
-            .is_file(),
+            .join(architecture.store_file_name(name))
+            .is_file()
+            || root
+                .join(relative)
+                .join(&architecture.stores_directory)
+                .join(architecture.store_file_name(name))
+                .is_file(),
         logic: root
             .join(relative)
-            .join(format!("{stem}.logic.ts"))
+            .join(architecture.logic_file_name(name))
             .is_file(),
-        api: root.join(relative).join(format!("{stem}.api.ts")).is_file(),
+        api: root
+            .join(relative)
+            .join(architecture.api_file_name(name))
+            .is_file(),
         types: root
             .join(relative)
-            .join(format!("{stem}.types.ts"))
+            .join(architecture.types_file_name(name))
             .is_file(),
     }
 }
 
 fn hook_source(hook_name: &str, owner_name: &str) -> String {
+    let prefix = format!("use{owner_name}");
+    let behavior_name = hook_name.strip_prefix(&prefix).unwrap_or("Behavior");
     format!(
-        "export function {hook_name}() {{\n  // Keep {owner_name}-scoped React behavior here.\n}}\n"
+        "export function {hook_name}() {{\n  // Keep {owner_name} {behavior_name} React behavior here.\n  return {{}};\n}}\n"
     )
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ExpandedOwnerCapability {
+    Hook,
+    Store,
+}
+
+fn store_slice_source(store_name: &str, _owner_name: &str) -> String {
+    let mut state_name = store_name.to_owned();
+    if let Some(first) = state_name.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+    format!(
+        "import {{ create }} from 'zustand';\n\ninterface {state_name}State {{\n  ready: boolean;\n  setReady: (ready: boolean) => void;\n}}\n\nexport const use{state_name}Store = create<{state_name}State>((set) => ({{\n  ready: false,\n  setReady: (ready) => set({{ ready }}),\n}}));\n"
+    )
+}
+
+#[derive(Debug)]
+enum JavascriptModuleToken {
+    Identifier(String),
+    Punctuation(u8),
+    StringLiteral {
+        content_start: usize,
+        content_end: usize,
+        no_substitution: bool,
+        quote: u8,
+    },
+}
+
+#[derive(Debug)]
+struct JavascriptModuleLex {
+    tokens: Vec<JavascriptModuleToken>,
+    complete: bool,
+}
+
+fn javascript_identifier_start(byte: u8) -> bool {
+    byte.is_ascii_alphabetic() || matches!(byte, b'_' | b'$')
+}
+
+fn javascript_identifier_continue(byte: u8) -> bool {
+    javascript_identifier_start(byte) || byte.is_ascii_digit()
+}
+
+fn javascript_template_may_hide_module_reference(content: &str) -> bool {
+    let bytes = content.as_bytes();
+    for keyword in [b"import".as_slice(), b"require".as_slice()] {
+        let mut start = 0_usize;
+        while start + keyword.len() <= bytes.len() {
+            let Some(offset) = bytes[start..]
+                .windows(keyword.len())
+                .position(|window| window == keyword)
+            else {
+                break;
+            };
+            let index = start + offset;
+            let before = index.checked_sub(1).and_then(|value| bytes.get(value));
+            let after = bytes.get(index + keyword.len());
+            if !before.is_some_and(|byte| javascript_identifier_continue(*byte))
+                && !after.is_some_and(|byte| javascript_identifier_continue(*byte))
+            {
+                return true;
+            }
+            start = index + keyword.len();
+        }
+    }
+    false
+}
+
+fn javascript_closes_control_parenthesis(tokens: &[JavascriptModuleToken]) -> bool {
+    if !matches!(
+        tokens.last(),
+        Some(JavascriptModuleToken::Punctuation(b')'))
+    ) {
+        return false;
+    }
+    let mut depth = 0_usize;
+    for (index, token) in tokens.iter().enumerate().rev() {
+        match token {
+            JavascriptModuleToken::Punctuation(b')') => depth += 1,
+            JavascriptModuleToken::Punctuation(b'(') => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return matches!(
+                        index.checked_sub(1).and_then(|value| tokens.get(value)),
+                        Some(JavascriptModuleToken::Identifier(keyword))
+                            if matches!(
+                                keyword.as_str(),
+                                "if" | "while" | "for" | "with" | "switch" | "catch"
+                            )
+                    );
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn javascript_token_allows_regex(tokens: &[JavascriptModuleToken]) -> bool {
+    if javascript_closes_control_parenthesis(tokens) {
+        return true;
+    }
+    match tokens.last() {
+        None => true,
+        Some(JavascriptModuleToken::Punctuation(value)) => matches!(
+            value,
+            b'(' | b'['
+                | b'{'
+                | b','
+                | b';'
+                | b':'
+                | b'='
+                | b'!'
+                | b'?'
+                | b'&'
+                | b'|'
+                | b'+'
+                | b'-'
+                | b'*'
+                | b'%'
+                | b'^'
+                | b'~'
+                | b'<'
+                | b'>'
+        ),
+        Some(JavascriptModuleToken::Identifier(value)) => matches!(
+            value.as_str(),
+            "return"
+                | "throw"
+                | "case"
+                | "delete"
+                | "void"
+                | "typeof"
+                | "instanceof"
+                | "in"
+                | "of"
+                | "yield"
+                | "await"
+                | "else"
+                | "do"
+        ),
+        Some(JavascriptModuleToken::StringLiteral { .. }) => false,
+    }
+}
+
+fn javascript_module_tokens(source: &str) -> JavascriptModuleLex {
+    let bytes = source.as_bytes();
+    let mut tokens = Vec::new();
+    let mut complete = true;
+    let mut index = 0_usize;
+    while index < bytes.len() {
+        let byte = bytes[index];
+        if byte.is_ascii_whitespace() {
+            index += 1;
+            continue;
+        }
+        if byte == b'/' && bytes.get(index + 1) == Some(&b'/') {
+            index += 2;
+            while index < bytes.len() && bytes[index] != b'\n' {
+                index += 1;
+            }
+            continue;
+        }
+        if byte == b'/' && bytes.get(index + 1) == Some(&b'*') {
+            index += 2;
+            while index + 1 < bytes.len() && !(bytes[index] == b'*' && bytes[index + 1] == b'/') {
+                index += 1;
+            }
+            index = (index + 2).min(bytes.len());
+            continue;
+        }
+        let jsx_delimiter = bytes.get(index + 1) == Some(&b'>')
+            || index.checked_sub(1).and_then(|value| bytes.get(value)) == Some(&b'<');
+        let ambiguous_after_brace = !jsx_delimiter
+            && matches!(
+                tokens.last(),
+                Some(JavascriptModuleToken::Punctuation(b'}'))
+            );
+        if byte == b'/'
+            && !jsx_delimiter
+            && (javascript_token_allows_regex(&tokens) || ambiguous_after_brace)
+        {
+            if ambiguous_after_brace {
+                complete = false;
+            }
+            index += 1;
+            let mut escaped = false;
+            let mut in_character_class = false;
+            while index < bytes.len() {
+                let current = bytes[index];
+                if escaped {
+                    escaped = false;
+                } else if current == b'\\' {
+                    escaped = true;
+                } else if current == b'[' {
+                    in_character_class = true;
+                } else if current == b']' {
+                    in_character_class = false;
+                } else if current == b'/' && !in_character_class {
+                    index += 1;
+                    while index < bytes.len() && bytes[index].is_ascii_alphabetic() {
+                        index += 1;
+                    }
+                    break;
+                } else if current == b'\n' || current == b'\r' {
+                    break;
+                }
+                index += 1;
+            }
+            continue;
+        }
+        if matches!(byte, b'\'' | b'"' | b'`') {
+            let quote = byte;
+            let content_start = index + 1;
+            let mut content_end = content_start;
+            let mut escaped = false;
+            let mut no_substitution = true;
+            index += 1;
+            while index < bytes.len() {
+                let current = bytes[index];
+                if escaped {
+                    escaped = false;
+                    index += 1;
+                    continue;
+                }
+                if current == b'\\' {
+                    escaped = true;
+                    index += 1;
+                    continue;
+                }
+                if quote == b'`' && current == b'$' && bytes.get(index + 1) == Some(&b'{') {
+                    no_substitution = false;
+                }
+                if current == quote {
+                    content_end = index;
+                    index += 1;
+                    break;
+                }
+                index += 1;
+            }
+            if content_end >= content_start {
+                if quote == b'`'
+                    && !no_substitution
+                    && javascript_template_may_hide_module_reference(
+                        &source[content_start..content_end],
+                    )
+                {
+                    complete = false;
+                }
+                tokens.push(JavascriptModuleToken::StringLiteral {
+                    content_start,
+                    content_end,
+                    no_substitution: quote != b'`' || no_substitution,
+                    quote,
+                });
+            }
+            continue;
+        }
+        if javascript_identifier_start(byte) {
+            let start = index;
+            index += 1;
+            while index < bytes.len() && javascript_identifier_continue(bytes[index]) {
+                index += 1;
+            }
+            tokens.push(JavascriptModuleToken::Identifier(
+                source[start..index].to_owned(),
+            ));
+            continue;
+        }
+        tokens.push(JavascriptModuleToken::Punctuation(byte));
+        index += 1;
+    }
+    JavascriptModuleLex { tokens, complete }
+}
+
+fn is_javascript_module_string(tokens: &[JavascriptModuleToken], index: usize) -> bool {
+    let JavascriptModuleToken::StringLiteral {
+        no_substitution, ..
+    } = &tokens[index]
+    else {
+        return false;
+    };
+    if !no_substitution {
+        return false;
+    }
+    match index.checked_sub(1).and_then(|value| tokens.get(value)) {
+        Some(JavascriptModuleToken::Identifier(keyword))
+            if keyword == "from" || keyword == "import" =>
+        {
+            true
+        }
+        Some(JavascriptModuleToken::Punctuation(b'(')) => {
+            let Some(JavascriptModuleToken::Identifier(keyword)) =
+                index.checked_sub(2).and_then(|value| tokens.get(value))
+            else {
+                return false;
+            };
+            if keyword != "import" && keyword != "require" {
+                return false;
+            }
+            !matches!(
+                index.checked_sub(3).and_then(|value| tokens.get(value)),
+                Some(JavascriptModuleToken::Punctuation(b'.'))
+            )
+        }
+        _ => false,
+    }
+}
+
+fn javascript_hex_value(byte: u8) -> Option<u32> {
+    match byte {
+        b'0'..=b'9' => Some(u32::from(byte - b'0')),
+        b'a'..=b'f' => Some(u32::from(byte - b'a' + 10)),
+        b'A'..=b'F' => Some(u32::from(byte - b'A' + 10)),
+        _ => None,
+    }
+}
+
+fn javascript_fixed_hex(bytes: &[u8], start: usize, digits: usize) -> Option<u32> {
+    let end = start.checked_add(digits)?;
+    let mut value = 0_u32;
+    for byte in bytes.get(start..end)? {
+        value = value
+            .checked_mul(16)?
+            .checked_add(javascript_hex_value(*byte)?)?;
+    }
+    Some(value)
+}
+
+fn decode_javascript_string_content(raw: &str) -> Option<String> {
+    let bytes = raw.as_bytes();
+    let mut output = String::with_capacity(raw.len());
+    let mut index = 0_usize;
+    while index < bytes.len() {
+        if bytes[index] != b'\\' {
+            let character = raw.get(index..)?.chars().next()?;
+            output.push(character);
+            index = index.checked_add(character.len_utf8())?;
+            continue;
+        }
+
+        index = index.checked_add(1)?;
+        let escaped = *bytes.get(index)?;
+        match escaped {
+            b'b' => {
+                output.push('\u{0008}');
+                index += 1;
+            }
+            b'f' => {
+                output.push('\u{000c}');
+                index += 1;
+            }
+            b'n' => {
+                output.push('\n');
+                index += 1;
+            }
+            b'r' => {
+                output.push('\r');
+                index += 1;
+            }
+            b't' => {
+                output.push('\t');
+                index += 1;
+            }
+            b'v' => {
+                output.push('\u{000b}');
+                index += 1;
+            }
+            b'x' => {
+                let value = javascript_fixed_hex(bytes, index + 1, 2)?;
+                output.push(char::from_u32(value)?);
+                index += 3;
+            }
+            b'u' if bytes.get(index + 1) == Some(&b'{') => {
+                let digits_start = index + 2;
+                let close = bytes
+                    .get(digits_start..)?
+                    .iter()
+                    .position(|byte| *byte == b'}')?
+                    .checked_add(digits_start)?;
+                if close == digits_start || close.saturating_sub(digits_start) > 6 {
+                    return None;
+                }
+                let mut value = 0_u32;
+                for byte in bytes.get(digits_start..close)? {
+                    value = value
+                        .checked_mul(16)?
+                        .checked_add(javascript_hex_value(*byte)?)?;
+                }
+                output.push(char::from_u32(value)?);
+                index = close + 1;
+            }
+            b'u' => {
+                let first = javascript_fixed_hex(bytes, index + 1, 4)?;
+                index += 5;
+                let value = if (0xd800..=0xdbff).contains(&first) {
+                    if bytes.get(index) != Some(&b'\\') || bytes.get(index + 1) != Some(&b'u') {
+                        return None;
+                    }
+                    let second = javascript_fixed_hex(bytes, index + 2, 4)?;
+                    if !(0xdc00..=0xdfff).contains(&second) {
+                        return None;
+                    }
+                    index += 6;
+                    0x1_0000 + ((first - 0xd800) << 10) + (second - 0xdc00)
+                } else {
+                    if (0xdc00..=0xdfff).contains(&first) {
+                        return None;
+                    }
+                    first
+                };
+                output.push(char::from_u32(value)?);
+            }
+            b'0'..=b'7' => {
+                // TypeScript still parses legacy octal escapes in non-strict
+                // JavaScript, so decode them for migration parity too.
+                let mut value = u32::from(escaped - b'0');
+                let mut digits = 1_usize;
+                while digits < 3 {
+                    let Some(next @ b'0'..=b'7') = bytes.get(index + digits).copied() else {
+                        break;
+                    };
+                    let next_value = value * 8 + u32::from(next - b'0');
+                    if next_value > 0xff {
+                        break;
+                    }
+                    value = next_value;
+                    digits += 1;
+                }
+                output.push(char::from_u32(value)?);
+                index += digits;
+            }
+            b'\r' => {
+                index += 1;
+                if bytes.get(index) == Some(&b'\n') {
+                    index += 1;
+                }
+            }
+            b'\n' => index += 1,
+            _ => {
+                let character = raw.get(index..)?.chars().next()?;
+                if matches!(character, '\u{2028}' | '\u{2029}') {
+                    index += character.len_utf8();
+                } else {
+                    output.push(character);
+                    index += character.len_utf8();
+                }
+            }
+        }
+    }
+    Some(output)
+}
+
+fn encode_javascript_string_content(value: &str, quote: u8) -> String {
+    let characters = value.chars().collect::<Vec<_>>();
+    let mut output = String::with_capacity(value.len());
+    for (index, character) in characters.iter().copied().enumerate() {
+        match character {
+            '\\' => output.push_str("\\\\"),
+            '\'' if quote == b'\'' => output.push_str("\\'"),
+            '"' if quote == b'"' => output.push_str("\\\""),
+            '`' if quote == b'`' => output.push_str("\\`"),
+            '$' if quote == b'`' && characters.get(index + 1) == Some(&'{') => {
+                output.push_str("\\$");
+            }
+            '\u{0008}' => output.push_str("\\b"),
+            '\u{000c}' => output.push_str("\\f"),
+            '\n' => output.push_str("\\n"),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            '\u{000b}' => output.push_str("\\v"),
+            '\u{2028}' => output.push_str("\\u2028"),
+            '\u{2029}' => output.push_str("\\u2029"),
+            value if value.is_control() => {
+                output.push_str(&format!("\\u{:04x}", u32::from(value)));
+            }
+            _ => output.push(character),
+        }
+    }
+    output
+}
+
+fn transform_javascript_module_specifiers(
+    source: &str,
+    mut transform: impl FnMut(&str) -> Option<String>,
+) -> String {
+    let lex = javascript_module_tokens(source);
+    if !lex.complete {
+        return source.to_owned();
+    }
+    let tokens = lex.tokens;
+    let mut replacements = Vec::<(usize, usize, String)>::new();
+    for (index, token) in tokens.iter().enumerate() {
+        let JavascriptModuleToken::StringLiteral {
+            content_start,
+            content_end,
+            quote,
+            ..
+        } = token
+        else {
+            continue;
+        };
+        if !is_javascript_module_string(&tokens, index) {
+            continue;
+        }
+        let raw = &source[*content_start..*content_end];
+        let Some(decoded) = decode_javascript_string_content(raw) else {
+            continue;
+        };
+        if let Some(next) = transform(&decoded) {
+            replacements.push((
+                *content_start,
+                *content_end,
+                encode_javascript_string_content(&next, *quote),
+            ));
+        }
+    }
+    let mut output = source.to_owned();
+    for (start, end, next) in replacements.into_iter().rev() {
+        output.replace_range(start..end, &next);
+    }
+    output
+}
+
+fn javascript_module_scan_is_complete(source: &str) -> bool {
+    javascript_module_tokens(source).complete
+}
+
+fn relocate_gateway_source_one_level(source: &str) -> String {
+    transform_javascript_module_specifiers(source, |specifier| {
+        if specifier == "." {
+            Some("..".to_owned())
+        } else if specifier == ".." {
+            Some("../..".to_owned())
+        } else if let Some(relative) = specifier.strip_prefix("./") {
+            Some(format!("../{relative}"))
+        } else if specifier.starts_with("../") {
+            Some(format!("../{specifier}"))
+        } else {
+            None
+        }
+    })
+}
+
+fn append_gateway_export(source: &str, export_line: &str) -> String {
+    if source.lines().any(|line| line.trim() == export_line) {
+        return source.to_owned();
+    }
+    format!("{}\n\n{export_line}\n", source.trim_end())
+}
+
+fn path_without_typescript_extension(path: &Path) -> PathBuf {
+    let mut output = path.to_path_buf();
+    output.set_extension("");
+    output
+}
+
+fn relative_module_specifier(from_file: &Path, to_file: &Path) -> Result<String, StudioCoreError> {
+    let from = from_file
+        .parent()
+        .unwrap_or_else(|| Path::new(""))
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => value.to_str().map(ToOwned::to_owned),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let target = path_without_typescript_extension(to_file)
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => value.to_str().map(ToOwned::to_owned),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let common = from
+        .iter()
+        .zip(&target)
+        .take_while(|(left, right)| left == right)
+        .count();
+    let mut parts = vec!["..".to_owned(); from.len().saturating_sub(common)];
+    parts.extend(target.into_iter().skip(common));
+    if parts.is_empty() {
+        return Err(StudioCoreError::InvalidProject(
+            "capability gateway import target is invalid",
+        ));
+    }
+    let joined = parts.join("/");
+    Ok(if joined.starts_with('.') {
+        joined
+    } else {
+        format!("./{joined}")
+    })
+}
+
+fn rewrite_exact_module_specifier(source: &str, old: &str, new: &str) -> String {
+    transform_javascript_module_specifiers(source, |specifier| {
+        if specifier == old {
+            return Some(new.to_owned());
+        }
+        for extension in [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"] {
+            if specifier == format!("{old}{extension}") {
+                return Some(format!("{new}{extension}"));
+            }
+        }
+        None
+    })
+}
+
+fn jsonc_as_json(source: &str) -> Result<String, StudioCoreError> {
+    let characters = source.chars().collect::<Vec<_>>();
+    let mut output = String::with_capacity(source.len());
+    let mut index = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    while index < characters.len() {
+        let character = characters[index];
+        if in_string {
+            output.push(character);
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            index += 1;
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            output.push(character);
+            index += 1;
+            continue;
+        }
+        if character == '/' && characters.get(index + 1) == Some(&'/') {
+            index += 2;
+            while index < characters.len() && characters[index] != '\n' {
+                index += 1;
+            }
+            continue;
+        }
+        if character == '/' && characters.get(index + 1) == Some(&'*') {
+            index += 2;
+            let mut closed = false;
+            while index < characters.len() {
+                if characters[index] == '\n' {
+                    output.push('\n');
+                }
+                if characters[index] == '*' && characters.get(index + 1) == Some(&'/') {
+                    index += 2;
+                    closed = true;
+                    break;
+                }
+                index += 1;
+            }
+            if !closed {
+                return Err(StudioCoreError::InvalidProject(
+                    "tsconfig.json is not valid JSONC",
+                ));
+            }
+            continue;
+        }
+        output.push(character);
+        index += 1;
+    }
+
+    let characters = output.chars().collect::<Vec<_>>();
+    let mut normalized = String::with_capacity(output.len());
+    let mut index = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+    while index < characters.len() {
+        let character = characters[index];
+        if in_string {
+            normalized.push(character);
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            index += 1;
+            continue;
+        }
+        if character == '"' {
+            in_string = true;
+            normalized.push(character);
+            index += 1;
+            continue;
+        }
+        if character == ',' {
+            let mut next = index + 1;
+            while characters
+                .get(next)
+                .is_some_and(|value| value.is_whitespace())
+            {
+                next += 1;
+            }
+            if matches!(characters.get(next), Some('}') | Some(']')) {
+                index += 1;
+                continue;
+            }
+        }
+        normalized.push(character);
+        index += 1;
+    }
+    Ok(normalized)
+}
+
+fn normalized_tsconfig_path(value: &str, allow_empty: bool) -> Result<String, StudioCoreError> {
+    if value.contains(['\0', '\\']) || value.starts_with('/') || is_windows_drive_path(value) {
+        return Err(StudioCoreError::InvalidProject(
+            "tsconfig.json aliases must remain inside the project root",
+        ));
+    }
+    let mut output = Vec::new();
+    for segment in value.split('/') {
+        if segment.is_empty() || segment == "." {
+            continue;
+        }
+        if segment == ".." {
+            if output.pop().is_none() {
+                return Err(StudioCoreError::InvalidProject(
+                    "tsconfig.json aliases must not traverse outside the project",
+                ));
+            }
+        } else {
+            output.push(segment);
+        }
+    }
+    let normalized = output.join("/");
+    if !allow_empty && normalized.is_empty() {
+        return Err(StudioCoreError::InvalidProject(
+            "tsconfig.json aliases must be nonempty",
+        ));
+    }
+    Ok(normalized)
+}
+
+fn parse_typescript_path_aliases(source: &str) -> Result<Vec<(String, String)>, StudioCoreError> {
+    let normalized = jsonc_as_json(source)?;
+    let root: Value = serde_json::from_str(&normalized)
+        .map_err(|_| StudioCoreError::InvalidProject("tsconfig.json is not valid JSONC"))?;
+    let root = root.as_object().ok_or(StudioCoreError::InvalidProject(
+        "tsconfig.json must contain an object",
+    ))?;
+    if root.contains_key("extends") {
+        return Err(StudioCoreError::InvalidProject(
+            "tsconfig.json extends is unsupported for deterministic local aliases",
+        ));
+    }
+    if let Some(references) = root.get("references") {
+        if !references
+            .as_array()
+            .is_some_and(|references| references.is_empty())
+        {
+            return Err(StudioCoreError::InvalidProject(
+                "tsconfig.json project references are unsupported for deterministic local aliases",
+            ));
+        }
+    }
+    let Some(compiler_options) = root.get("compilerOptions") else {
+        return Ok(Vec::new());
+    };
+    let compiler_options = compiler_options
+        .as_object()
+        .ok_or(StudioCoreError::InvalidProject(
+            "tsconfig.json compilerOptions must be an object",
+        ))?;
+    if compiler_options.contains_key("baseUrl") {
+        return Err(StudioCoreError::InvalidProject(
+            "tsconfig.json compilerOptions.baseUrl is unsupported for deterministic local aliases; omit it",
+        ));
+    }
+    let Some(paths) = compiler_options.get("paths") else {
+        return Ok(Vec::new());
+    };
+    let paths = paths.as_object().ok_or(StudioCoreError::InvalidProject(
+        "tsconfig.json compilerOptions.paths must be an object",
+    ))?;
+    let mut aliases = Vec::with_capacity(paths.len());
+    for (pattern, targets) in paths {
+        let wildcard_count = pattern.matches('*').count();
+        if pattern.is_empty()
+            || pattern.contains(['\0', '\\'])
+            || wildcard_count > 1
+            || (wildcard_count == 1 && !pattern.ends_with('*'))
+        {
+            return Err(StudioCoreError::InvalidProject(
+                "tsconfig.json path aliases must be deterministic",
+            ));
+        }
+        let targets = targets.as_array().ok_or(StudioCoreError::InvalidProject(
+            "tsconfig.json path aliases require string targets",
+        ))?;
+        let first_target =
+            targets
+                .first()
+                .and_then(Value::as_str)
+                .ok_or(StudioCoreError::InvalidProject(
+                    "tsconfig.json path aliases require string targets",
+                ))?;
+        let wildcard = pattern.ends_with('*');
+        if (wildcard && !pattern.ends_with("/*")) || (!wildcard && pattern.ends_with('/')) {
+            return Err(StudioCoreError::InvalidProject(
+                "tsconfig.json path aliases must be exact aliases or slash-delimited /* wildcards",
+            ));
+        }
+        if first_target.contains('*') != wildcard
+            || first_target.matches('*').count() > 1
+            || (first_target.contains('*') && !first_target.ends_with('*'))
+            || (wildcard && !first_target.ends_with("/*"))
+        {
+            return Err(StudioCoreError::InvalidProject(
+                "tsconfig.json path aliases must use matching terminal wildcards",
+            ));
+        }
+        let alias = pattern.strip_suffix('*').unwrap_or(pattern).to_owned();
+        let raw_target = first_target.strip_suffix('*').unwrap_or(first_target);
+        aliases.push((alias, normalized_tsconfig_path(raw_target, true)?));
+    }
+    Ok(aliases)
+}
+
+fn project_typescript_path_aliases(root: &Path) -> Result<Vec<(String, String)>, StudioCoreError> {
+    let path = root.join("tsconfig.json");
+    match fs::symlink_metadata(&path) {
+        Ok(_) => parse_typescript_path_aliases(&read_regular_utf8_file_in_project(
+            &path,
+            MAX_TYPESCRIPT_CONFIG_BYTES,
+            "TypeScript config",
+            root,
+        )?),
+        Err(source) if source.kind() == ErrorKind::NotFound => Ok(Vec::new()),
+        Err(source) => Err(source_io("inspect TypeScript config", &path, source)),
+    }
+}
+
+fn typescript_module_alias_specifiers(
+    path: &Path,
+    architecture: &CodeProjectArchitectureConfig,
+) -> Result<Vec<String>, StudioCoreError> {
+    let normalized = path_to_forward_slashes(&path_without_typescript_extension(path))?;
+    let mut specifiers = vec![normalized.clone()];
+    if let Some(relative) = normalized.strip_prefix("src/") {
+        specifiers.push(format!("@/{relative}"));
+    }
+    let features_root = format!("{}/", path_to_forward_slashes(&architecture.features)?);
+    if let Some(relative) = normalized.strip_prefix(&features_root) {
+        specifiers.push(format!("@features/{relative}"));
+    }
+    let shared_root = format!("{}/", path_to_forward_slashes(&architecture.shared)?);
+    if let Some(relative) = normalized.strip_prefix(&shared_root) {
+        specifiers.push(format!("@shared/{relative}"));
+    }
+    Ok(specifiers)
+}
+
+fn rewrite_declared_typescript_aliases(
+    source: &str,
+    old_path: &Path,
+    new_path: &Path,
+    new_relative_specifier: &str,
+    aliases: &[(String, String)],
+) -> Result<String, StudioCoreError> {
+    let normalized_old = path_to_forward_slashes(old_path)?;
+    let normalized_new = path_to_forward_slashes(new_path)?;
+    let old_without_extension =
+        path_to_forward_slashes(&path_without_typescript_extension(old_path))?;
+    let new_without_extension =
+        path_to_forward_slashes(&path_without_typescript_extension(new_path))?;
+    let mut output = source.to_owned();
+    for (prefix, target) in aliases {
+        let target = target.trim_end_matches('/');
+        let target_without_extension =
+            path_to_forward_slashes(&path_without_typescript_extension(Path::new(target)))?;
+        if prefix.ends_with('/') {
+            for (previous_path, next_path, target_path) in [
+                (normalized_old.as_str(), normalized_new.as_str(), target),
+                (
+                    old_without_extension.as_str(),
+                    new_without_extension.as_str(),
+                    target_without_extension.as_str(),
+                ),
+            ] {
+                let target_prefix = format!("{target_path}/");
+                if let Some(previous_rest) = previous_path.strip_prefix(&target_prefix) {
+                    let previous = format!("{prefix}{previous_rest}");
+                    let next = next_path
+                        .strip_prefix(&target_prefix)
+                        .map(|rest| format!("{prefix}{rest}"))
+                        .unwrap_or_else(|| new_relative_specifier.to_owned());
+                    output = rewrite_exact_module_specifier(&output, &previous, &next);
+                }
+            }
+        }
+    }
+    Ok(output)
+}
+
+fn exact_typescript_alias_targets_path(
+    path: &Path,
+    aliases: &[(String, String)],
+) -> Result<bool, StudioCoreError> {
+    let normalized = path_to_forward_slashes(path)?;
+    let without_extension = path_to_forward_slashes(&path_without_typescript_extension(path))?;
+    for (prefix, raw_target) in aliases {
+        if prefix.ends_with('/') {
+            continue;
+        }
+        let target = raw_target.trim_end_matches('/');
+        let target_without_extension =
+            path_to_forward_slashes(&path_without_typescript_extension(Path::new(target)))?;
+        if normalized == target || without_extension == target_without_extension {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn expand_owner_capability(
+    root: &Path,
+    architecture: &CodeProjectArchitectureConfig,
+    owner_relative: &Path,
+    owner_name: &str,
+    capability: ExpandedOwnerCapability,
+    helper_name: &str,
+    role: CodeProjectScaffoldFileRole,
+) -> Result<Vec<ScaffoldedCodeProjectFile>, StudioCoreError> {
+    let (folder_name, flat_name, helper_file_name, helper_source, export_line) = match capability {
+        ExpandedOwnerCapability::Hook => (
+            architecture.hooks_directory.as_str(),
+            architecture.hook_file_name(owner_name),
+            format!("{helper_name}.ts"),
+            hook_source(helper_name, owner_name),
+            format!("export {{ {helper_name} }} from './{helper_name}';"),
+        ),
+        ExpandedOwnerCapability::Store => {
+            let mut state_name = helper_name.to_owned();
+            if let Some(first) = state_name.get_mut(0..1) {
+                first.make_ascii_uppercase();
+            }
+            (
+                architecture.stores_directory.as_str(),
+                architecture.store_file_name(owner_name),
+                format!("{helper_name}{}", architecture.store_suffix),
+                store_slice_source(helper_name, owner_name),
+                format!(
+                    "export {{ use{state_name}Store }} from '{}';",
+                    architecture.local_module_for_file_name(format!(
+                        "{helper_name}{}",
+                        architecture.store_suffix
+                    ))
+                ),
+            )
+        }
+    };
+    let flat_relative = owner_relative.join(&flat_name);
+    let expanded_relative = owner_relative.join(folder_name).join(&flat_name);
+    let helper_relative = owner_relative.join(folder_name).join(helper_file_name);
+    let flat_path = root.join(&flat_relative);
+    let expanded_path = root.join(&expanded_relative);
+    let helper_path = root.join(&helper_relative);
+    let flat_exists = flat_path.is_file();
+    let expanded_exists = expanded_path.is_file();
+    if flat_exists && expanded_exists {
+        return Err(StudioCoreError::InvalidProject(
+            "flat and expanded capability gateways cannot coexist",
+        ));
+    }
+    if !flat_exists && !expanded_exists {
+        return Err(StudioCoreError::InvalidProject(
+            "create the canonical owner gateway before adding private behavior",
+        ));
+    }
+    let gateway_path = if flat_exists {
+        &flat_path
+    } else {
+        &expanded_path
+    };
+    let gateway_source = read_regular_utf8_file(
+        gateway_path,
+        MAX_ARCHITECTURE_SOURCE_BYTES,
+        "capability gateway",
+    )?;
+    if flat_exists && !javascript_module_scan_is_complete(&gateway_source) {
+        return Err(StudioCoreError::InvalidProject(
+            "capability expansion cannot prove complete module rewrites across template substitutions or ambiguous regular expressions",
+        ));
+    }
+    let relocated_source = if flat_exists {
+        relocate_gateway_source_one_level(&gateway_source)
+    } else {
+        gateway_source.clone()
+    };
+    let next_gateway_source = append_gateway_export(&relocated_source, &export_line);
+
+    let mut updated_sources = Vec::<(PathBuf, String, String)>::new();
+    if flat_exists {
+        let declared_aliases = project_typescript_path_aliases(root)?;
+        if exact_typescript_alias_targets_path(&flat_relative, &declared_aliases)? {
+            return Err(StudioCoreError::InvalidProject(
+                "capability expansion cannot move a gateway targeted by an exact tsconfig alias; use a terminal-wildcard owner alias",
+            ));
+        }
+        let mut scan = ProjectTreeScan::architecture(root, architecture);
+        // This is a full-project importer rewrite, not an ownership-root
+        // validation pass. Never cross into another nested Srijika project.
+        scan.stop_at_nested_projects = true;
+        // Match CLI/VS Code migration inventory: ignored dependency/output
+        // names are never traversed even when the ignored entry is a symlink.
+        // Every non-ignored symlink still fails the transaction before writes.
+        scan.reject_ignored_symlinks = false;
+        scan_directory(root, Path::new(""), 1, &mut scan)?;
+        if scan.unsafe_entry.is_some() || scan.truncated {
+            return Err(StudioCoreError::InvalidProject(
+                "capability expansion requires a complete safe project source scan",
+            ));
+        }
+        let migration_sources = scan
+            .entries
+            .into_iter()
+            .filter(|entry| {
+                entry.kind == ProjectTreeEntryKind::File
+                    && is_migration_source_path(&entry.relative_path)
+            })
+            .collect::<Vec<_>>();
+        if migration_sources.len() > MAX_ARCHITECTURE_SOURCE_FILES {
+            return Err(StudioCoreError::InvalidProject(
+                "capability expansion source scan exceeds the source file count limit",
+            ));
+        }
+        let mut migration_bytes = 0_u64;
+        for entry in migration_sources {
+            let expected_bytes = entry.bytes.ok_or(StudioCoreError::InvalidProject(
+                "capability expansion source must be a regular file",
+            ))?;
+            if expected_bytes > MAX_ARCHITECTURE_SOURCE_BYTES {
+                return Err(StudioCoreError::InvalidProject(
+                    "capability expansion source exceeds the per-file size limit",
+                ));
+            }
+            migration_bytes = migration_bytes.checked_add(expected_bytes).ok_or(
+                StudioCoreError::InvalidProject(
+                    "capability expansion sources exceed the combined size limit",
+                ),
+            )?;
+            if migration_bytes > MAX_ARCHITECTURE_SOURCES_BYTES {
+                return Err(StudioCoreError::InvalidProject(
+                    "capability expansion sources exceed the combined size limit",
+                ));
+            }
+            let relative = PathBuf::from(&entry.relative_path);
+            if relative == flat_relative {
+                continue;
+            }
+            ensure_project_path_components_are_real(root, &relative, false)?;
+            let path = root.join(&relative);
+            let source = read_regular_utf8_file_in_project(
+                &path,
+                MAX_ARCHITECTURE_SOURCE_BYTES,
+                "architecture source",
+                root,
+            )?;
+            if source.len() as u64 != expected_bytes {
+                return Err(StudioCoreError::ProjectChangedDuringRead);
+            }
+            if !javascript_module_scan_is_complete(&source) {
+                return Err(StudioCoreError::InvalidProject(
+                    "capability expansion cannot prove complete module rewrites across template substitutions or ambiguous regular expressions",
+                ));
+            }
+            let old_specifier = relative_module_specifier(&relative, &flat_relative)?;
+            let new_specifier = relative_module_specifier(&relative, &expanded_relative)?;
+            let mut next_source =
+                rewrite_exact_module_specifier(&source, &old_specifier, &new_specifier);
+            for (old_alias, new_alias) in
+                typescript_module_alias_specifiers(&flat_relative, architecture)?
+                    .into_iter()
+                    .zip(typescript_module_alias_specifiers(
+                        &expanded_relative,
+                        architecture,
+                    )?)
+            {
+                next_source = rewrite_exact_module_specifier(&next_source, &old_alias, &new_alias);
+            }
+            next_source = rewrite_declared_typescript_aliases(
+                &next_source,
+                &flat_relative,
+                &expanded_relative,
+                &new_specifier,
+                &declared_aliases,
+            )?;
+            if next_source != source {
+                updated_sources.push((path, source, next_source));
+            }
+        }
+    }
+
+    let created_directories = ensure_safe_project_directory(
+        root,
+        helper_relative.parent().unwrap_or_else(|| Path::new("")),
+    )?;
+    if let Err(error) = refuse_existing_project_file(&helper_path) {
+        remove_created_directories(&created_directories);
+        return Err(error);
+    }
+    if flat_exists {
+        if let Err(error) = refuse_existing_project_file(&expanded_path) {
+            remove_created_directories(&created_directories);
+            return Err(error);
+        }
+    }
+
+    let mut helper_created = false;
+    let mut expanded_created = false;
+    let mut updated_count = 0_usize;
+    let apply = (|| {
+        atomic_create_text(root, &helper_path, &helper_source)?;
+        helper_created = true;
+        if flat_exists {
+            atomic_create_text(root, &expanded_path, &next_gateway_source)?;
+            expanded_created = true;
+            for (path, _, next_source) in &updated_sources {
+                atomic_write_text(path, next_source)?;
+                updated_count += 1;
+            }
+            fs::remove_file(&flat_path).map_err(|source| {
+                source_io("remove migrated capability gateway", &flat_path, source)
+            })?;
+        } else {
+            atomic_write_text(&expanded_path, &next_gateway_source)?;
+        }
+        Ok::<(), StudioCoreError>(())
+    })();
+    if let Err(error) = apply {
+        for (path, source, _) in updated_sources.iter().take(updated_count).rev() {
+            let _ = atomic_write_text(path, source);
+        }
+        if expanded_created {
+            let _ = fs::remove_file(&expanded_path);
+        }
+        if helper_created {
+            let _ = fs::remove_file(&helper_path);
+        }
+        remove_created_directories(&created_directories);
+        return Err(error);
+    }
+
+    let helper_relative_string = path_to_forward_slashes(&helper_relative)?;
+    Ok(vec![ScaffoldedCodeProjectFile {
+        path: helper_path.to_string_lossy().into_owned(),
+        relative_path: helper_relative_string,
+        role,
+        bytes: helper_source.len() as u64,
+        hash: source_hash(&helper_source),
+    }])
 }
 
 fn feature_ui_source(name: &str) -> String {
@@ -3999,6 +7676,165 @@ fn part_ui_source(name: &str) -> String {
     format!(
         "export interface {name}UIProps {{\n  label?: string;\n  ready?: boolean;\n  onRun?: () => void;\n}}\n\nexport function {name}UI(props: {name}UIProps) {{\n  return (\n    <div data-srijika-part=\"{name}\">\n      <span>{{props.label}}</span>\n      <button type=\"button\" onClick={{props.onRun}}>\n        {{props.ready ? 'Ready' : 'Run'}}\n      </button>\n    </div>\n  );\n}}\n"
     )
+}
+
+fn shared_primitive_ui_source(
+    name: &str,
+    has_types: bool,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let props_contract = if has_types {
+        let types_module = architecture.types_module(name);
+        format!(
+            "import type {{ {name}UIProps }} from '{types_module}';\n\nexport type {{ {name}UIProps }} from '{types_module}';\n\n"
+        )
+    } else {
+        format!("export interface {name}UIProps {{\n  className?: string;\n}}\n\n")
+    };
+    format!(
+        "{props_contract}export function {name}UI({{ className }}: {name}UIProps) {{\n  return (\n    <section className={{className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
+    )
+}
+
+fn shared_primitive_types_source(name: &str) -> String {
+    format!("export interface {name}UIProps {{\n  className?: string;\n}}\n")
+}
+
+fn shared_widget_ui_source(name: &str) -> String {
+    format!(
+        "export interface {name}UIProps {{\n  className?: string;\n}}\n\nexport function {name}UI({{ className }}: {name}UIProps) {{\n  return (\n    <section className={{className}} data-srijika-owner=\"{name}\">\n      <h2>{name}</h2>\n    </section>\n  );\n}}\n"
+    )
+}
+
+fn shared_owner_types_source(name: &str) -> String {
+    format!("export interface {name}Result {{\n  ok: boolean;\n}}\n")
+}
+
+fn shared_owner_api_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let stem = lower_camel_owner_name(name).expect("validated owner name");
+    let type_import = if layers.types {
+        format!(
+            "import type {{ {name}Result }} from '{}';\n\n",
+            architecture.types_module(name)
+        )
+    } else {
+        String::new()
+    };
+    let result_type = if layers.types {
+        format!("{name}Result")
+    } else {
+        "{ ok: boolean }".to_owned()
+    };
+    format!(
+        "{type_import}export const {stem}Api = {{\n  async load(): Promise<{result_type}> {{\n    throw new Error('Connect {name} API transport.');\n  }},\n}};\n"
+    )
+}
+
+fn shared_owner_logic_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let stem = lower_camel_owner_name(name).expect("validated owner name");
+    if layers.api {
+        return format!(
+            "import {{ {stem}Api }} from '{}';\n\nexport const {stem}Logic = {{\n  load: () => {stem}Api.load(),\n}};\n",
+            architecture.api_module(name)
+        );
+    }
+    format!("export const {stem}Logic = {{\n  load: async () => ({{ ok: true }}),\n}};\n")
+}
+
+fn shared_owner_store_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let stem = lower_camel_owner_name(name).expect("validated owner name");
+    let target = if layers.logic {
+        Some((format!("{stem}Logic"), architecture.logic_module(name)))
+    } else if layers.api {
+        Some((format!("{stem}Api"), architecture.api_module(name)))
+    } else {
+        None
+    };
+    let junior_import = target
+        .as_ref()
+        .map(|(symbol, specifier)| format!("import {{ {symbol} }} from '{specifier}';\n"))
+        .unwrap_or_default();
+    let load = target
+        .as_ref()
+        .map(|(symbol, _)| format!("await {symbol}.load();"))
+        .unwrap_or_else(|| "// Add an owner action when state needs one.".to_owned());
+    format!(
+        "import {{ create }} from 'zustand';\n{junior_import}\ninterface {name}State {{\n  ready: boolean;\n  load: () => Promise<void>;\n}}\n\nexport const use{name}Store = create<{name}State>((set) => ({{\n  ready: false,\n  load: async () => {{\n    {load}\n    set({{ ready: true }});\n  }},\n}}));\n"
+    )
+}
+
+fn shared_owner_hook_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let stem = lower_camel_owner_name(name).expect("validated owner name");
+    if layers.store {
+        return format!(
+            "import {{ use{name}Store }} from '{}';\n\nexport function use{name}() {{\n  return use{name}Store();\n}}\n",
+            architecture.store_module(name)
+        );
+    }
+    if layers.logic || layers.api {
+        let suffix = if layers.logic { "Logic" } else { "Api" };
+        let module = if layers.logic {
+            architecture.logic_module(name)
+        } else {
+            architecture.api_module(name)
+        };
+        return format!(
+            "import {{ {stem}{suffix} }} from '{module}';\n\nexport function use{name}() {{\n  return {{ load: {stem}{suffix}.load }};\n}}\n"
+        );
+    }
+    format!("export function use{name}() {{\n  return {{}};\n}}\n")
+}
+
+fn shared_owner_connector_source(
+    name: &str,
+    layers: OwnerLayerSelection,
+    architecture: &CodeProjectArchitectureConfig,
+) -> String {
+    let stem = lower_camel_owner_name(name).expect("validated owner name");
+    let ui_import = format!(
+        "import {{ {name}UI }} from '{}';\n",
+        architecture.ui_module(name)
+    );
+    if layers.hook {
+        return format!(
+            "{ui_import}import {{ use{name} }} from '{}';\n\nexport function {name}Connector() {{\n  const model = use{name}();\n  void model;\n  return <{name}UI />;\n}}\n",
+            architecture.hook_module(name)
+        );
+    }
+    if layers.store {
+        return format!(
+            "{ui_import}import {{ use{name}Store }} from '{}';\n\nexport function {name}Connector() {{\n  const model = use{name}Store();\n  void model;\n  return <{name}UI />;\n}}\n",
+            architecture.store_module(name)
+        );
+    }
+    if layers.logic || layers.api {
+        let suffix = if layers.logic { "Logic" } else { "Api" };
+        let module = if layers.logic {
+            architecture.logic_module(name)
+        } else {
+            architecture.api_module(name)
+        };
+        return format!(
+            "{ui_import}import {{ {stem}{suffix} }} from '{module}';\n\nexport function {name}Connector() {{\n  void {stem}{suffix};\n  return <{name}UI />;\n}}\n"
+        );
+    }
+    format!("{ui_import}\nexport function {name}Connector() {{\n  return <{name}UI />;\n}}\n")
 }
 
 fn create_scaffold_files(
@@ -4071,6 +7907,39 @@ fn create_scaffold_files(
             hash: source_hash(&plan.source),
         })
         .collect())
+}
+
+fn apply_scaffold_source_update(
+    files: &[ScaffoldedCodeProjectFile],
+    update: Option<ScaffoldSourceUpdate>,
+    description: &'static str,
+) -> Result<(), StudioCoreError> {
+    let Some(update) = update else {
+        return Ok(());
+    };
+    let current =
+        match read_regular_utf8_file(&update.path, MAX_ARCHITECTURE_SOURCE_BYTES, description) {
+            Ok(source) => source,
+            Err(error) => {
+                for file in files {
+                    let _ = fs::remove_file(&file.path);
+                }
+                return Err(error);
+            }
+        };
+    if current != update.previous_source {
+        for file in files {
+            let _ = fs::remove_file(&file.path);
+        }
+        return Err(StudioCoreError::ProjectChangedDuringRead);
+    }
+    if let Err(error) = atomic_write_text(&update.path, &update.next_source) {
+        for file in files {
+            let _ = fs::remove_file(&file.path);
+        }
+        return Err(error);
+    }
+    Ok(())
 }
 
 fn ensure_safe_project_directory(
@@ -4242,12 +8111,14 @@ fn atomic_write_text(path: &Path, contents: &str) -> Result<(), StudioCoreError>
 }
 
 fn upgrade_legacy_live_preview_bridge(project_root: &Path) -> Result<bool, StudioCoreError> {
-    let path = project_root.join(LIVE_PREVIEW_BRIDGE_RELATIVE_PATH);
+    let relative_path = Path::new(LIVE_PREVIEW_BRIDGE_RELATIVE_PATH);
+    let path = project_root.join(relative_path);
     let metadata = match fs::symlink_metadata(&path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
         Err(source) => return Err(source_io("inspect live preview bridge", &path, source)),
     };
+    ensure_project_path_components_are_real(project_root, relative_path, false)?;
     if metadata.file_type().is_symlink() || !metadata.is_file() {
         return Ok(false);
     }
@@ -4258,9 +8129,14 @@ fn upgrade_legacy_live_preview_bridge(project_root: &Path) -> Result<bool, Studi
     let canonical_path = fs::canonicalize(&path)
         .map_err(|source| source_io("resolve live preview bridge", &path, source))?;
     ensure_project_containment(project_root, &canonical_path)?;
-    let source = fs::read_to_string(&canonical_path)
-        .map_err(|source| source_io("read live preview bridge", &canonical_path, source))?;
-    if source.contains("const LIVE_PREVIEW_VERSION = 1;")
+    let source = read_regular_utf8_file_in_project(
+        &path,
+        MAX_TSX_SOURCE_BYTES,
+        "live preview bridge",
+        project_root,
+    )?;
+    if source.contains("// @srijika-config-driven-preview-v2")
+        && source.contains("const LIVE_PREVIEW_VERSION = 1;")
         && source.contains("srijika:preview-runtime-state")
     {
         return Ok(false);
@@ -4483,6 +8359,7 @@ mod tests {
         fs,
         io::{Read, Write},
         net::{TcpListener, TcpStream},
+        path::Path,
         process::Command,
         sync::{Arc, Mutex, mpsc},
         thread,
@@ -4498,16 +8375,20 @@ mod tests {
     use super::{
         CappedOutput, CodeProjectFile, CodeProjectScaffoldCapability, CodeProjectScaffoldFileRole,
         CodeProjectUiSourceKind, CreateCodeProjectRequest, CreateCodeProjectUiSourceRequest,
-        DevServerState, DocumentValidationError, LoadCodeProjectArchitectureSourcesRequest,
-        LoadCodeProjectPreviewStylesRequest, LoadTsxSourceRequest, LoadUiDocumentRequest,
-        MAX_ARCHITECTURE_SOURCE_BYTES, MAX_ARCHITECTURE_SOURCES_BYTES, MAX_PROJECT_TREE_DEPTH,
-        MAX_PROJECT_TREE_ENTRIES, MAX_TOOL_OUTPUT_BYTES, MIN_DEV_SERVER_PORT, ManagedDevServer,
+        DevServerState, DocumentValidationError, IGNORED_PROJECT_DIRECTORIES,
+        LoadCodeProjectArchitectureSourcesRequest, LoadCodeProjectPreviewStylesRequest,
+        LoadTsxSourceRequest, LoadUiDocumentRequest, MAX_ARCHITECTURE_SCAN_DEPTH,
+        MAX_ARCHITECTURE_SCAN_DIRECTORIES, MAX_ARCHITECTURE_SCAN_ENTRIES,
+        MAX_ARCHITECTURE_SOURCE_BYTES, MAX_ARCHITECTURE_SOURCE_FILES, MAX_PROJECT_ENTRY_SEGMENTS,
+        MAX_PROJECT_TREE_DEPTH, MAX_PROJECT_TREE_ENTRIES, MAX_TOOL_OUTPUT_BYTES,
+        MAX_TYPESCRIPT_CONFIG_BYTES, MIN_DEV_SERVER_PORT, ManagedDevServer,
         OpenCodeProjectAppRequest, OpenCodeProjectRequest, OpenInVsCodeRequest,
         ProjectDependencyState, ProjectRuntimeRecord, ProjectRuntimeStatusRequest,
-        ProjectTaskRequest, SaveTsxSourceRequest, SaveUiDocumentRequest,
+        ProjectTaskRequest, ProjectTreeScan, SaveTsxSourceRequest, SaveUiDocumentRequest,
         ScaffoldCodeProjectStructureRequest, ScanCodeProjectRequest, StartCodeProjectRequest,
-        StudioCore, StudioCoreError, pnpm_dev_arguments, pnpm_executable, project_runtime_is_busy,
-        upgrade_legacy_live_preview_bridge, validate_ui_document_envelope,
+        StudioCore, StudioCoreError, configured_architecture, pnpm_dev_arguments, pnpm_executable,
+        project_runtime_is_busy, scan_directory, upgrade_legacy_live_preview_bridge,
+        validate_ui_document_envelope,
     };
 
     #[cfg(unix)]
@@ -4632,10 +8513,29 @@ mod tests {
 
         assert!(upgrade_legacy_live_preview_bridge(project).expect("upgrade legacy bridge"));
         let upgraded = fs::read_to_string(&bridge).expect("read upgraded bridge");
+        assert!(upgraded.contains("// @srijika-config-driven-preview-v2"));
         assert!(upgraded.contains("const LIVE_PREVIEW_VERSION = 1;"));
         assert!(upgraded.contains("srijika:preview-runtime-state"));
-        assert!(upgraded.contains("import.meta.glob<RuntimeModule>('../**/*.connector.tsx')"));
+        assert!(upgraded.contains(
+            "import projectConfig from '../../srijika.config.json' with { type: 'json' };"
+        ));
+        assert!(upgraded.contains("import(/* @vite-ignore */ connectorModuleUrl(uiSource))"));
+        assert_eq!(upgraded.matches("/^[A-Za-z]:/.test(").count(), 2);
         assert!(!upgrade_legacy_live_preview_bridge(project).expect("keep current bridge"));
+
+        let previous_v1 = upgraded
+            .replace(
+                "// @srijika-config-driven-preview-v2",
+                "// @srijika-config-driven-preview-v1",
+            )
+            .replace(" ||\n    suffix.endsWith('.d.tsx')", "");
+        fs::write(&bridge, previous_v1).expect("write generated v1 bridge");
+        assert!(upgrade_legacy_live_preview_bridge(project).expect("upgrade generated v1 bridge"));
+        assert!(
+            fs::read_to_string(&bridge)
+                .expect("read v2 bridge")
+                .contains("// @srijika-config-driven-preview-v2")
+        );
 
         fs::write(&bridge, "// application-owned custom bridge\n").expect("write custom bridge");
         assert!(!upgrade_legacy_live_preview_bridge(project).expect("preserve custom bridge"));
@@ -4805,6 +8705,80 @@ mod tests {
     }
 
     #[test]
+    fn creates_opens_loads_and_saves_a_project_with_a_configured_ui_suffix() {
+        let directory = tempdir().expect("temporary directory");
+        let project_path = directory.path().join("configured-ui-project");
+        let source_relative = "application/modules/home/Home.view.tsx";
+        let original = "export function HomeUI() { return <main>Configured</main>; }\n";
+        let config = format!(
+            r#"{{"sourceOfTruth":"tsx","entry":"{source_relative}","architecture":{{"profile":"feature-slot-part-v1","featuresRoot":"application/modules","sharedRoot":"application/common","uiSuffix":".view.tsx","connectorSuffix":".gateway.tsx"}}}}"#
+        );
+        let core = StudioCore::default();
+        let created = core
+            .create_code_project(CreateCodeProjectRequest {
+                path: project_path.to_string_lossy().into_owned(),
+                entry_source: source_relative.to_owned(),
+                files: vec![
+                    CodeProjectFile {
+                        path: source_relative.to_owned(),
+                        contents: original.to_owned(),
+                    },
+                    CodeProjectFile {
+                        path: "srijika.config.json".to_owned(),
+                        contents: config,
+                    },
+                ],
+            })
+            .expect("create configured UI project");
+
+        let opened = core
+            .open_code_project(OpenCodeProjectRequest {
+                path: project_path.to_string_lossy().into_owned(),
+            })
+            .expect("open configured UI project");
+        assert_eq!(opened.entry_source_path, created.entry_source_path);
+        assert_eq!(opened.source, original);
+
+        let updated = "export function HomeUI() { return <main>Saved</main>; }\n";
+        core.save_tsx_source(SaveTsxSourceRequest {
+            path: created.entry_source_path.clone(),
+            source: updated.to_owned(),
+            expected_hash: Some(opened.hash),
+        })
+        .expect("save configured UI source");
+        assert_eq!(
+            core.load_tsx_source(LoadTsxSourceRequest {
+                path: created.entry_source_path,
+            })
+            .expect("reload configured UI source")
+            .source,
+            updated
+        );
+
+        fs::create_dir_all(project_path.join("src/pages")).expect("create pages directory");
+        let page = core
+            .create_code_project_ui_source(CreateCodeProjectUiSourceRequest {
+                project_path: project_path.to_string_lossy().into_owned(),
+                relative_path: "src/pages/Dashboard.view.tsx".to_owned(),
+                kind: CodeProjectUiSourceKind::Page,
+                component_name: "Dashboard".to_owned(),
+                create_connector: true,
+            })
+            .expect("create configured-suffix page pair");
+        assert_eq!(page.relative_path, "src/pages/Dashboard.view.tsx");
+        assert!(
+            page.connector_path
+                .as_deref()
+                .is_some_and(|path| path.ends_with("src/pages/Dashboard.gateway.tsx"))
+        );
+        assert!(
+            fs::read_to_string(project_path.join("src/pages/Dashboard.gateway.tsx"))
+                .expect("read configured Connector")
+                .contains("from './Dashboard.view'")
+        );
+    }
+
+    #[test]
     fn creates_canonical_page_pair_and_rejects_legacy_component_roots() {
         let directory = tempdir().expect("temporary directory");
         let project = directory.path().join("source-pair-project");
@@ -4907,6 +8881,11 @@ export function DashboardConnector() {
                 "src/features/home/home.store.ts",
             ),
             (
+                CodeProjectScaffoldCapability::FeatureHook,
+                CodeProjectScaffoldFileRole::FeatureHook,
+                "src/features/home/useHome.ts",
+            ),
+            (
                 CodeProjectScaffoldCapability::FeatureBehaviorHook {
                     hook_name: "useHomeAnalytics".to_owned(),
                 },
@@ -4927,12 +8906,38 @@ export function DashboardConnector() {
             assert_eq!(created.files[0].relative_path, relative_path);
             assert!(project.join(relative_path).is_file());
         }
+        assert!(!project.join("src/features/home/useHome.ts").exists());
+        assert!(project.join("src/features/home/hooks/useHome.ts").is_file());
+        let store_slice = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Home".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureStoreSlice {
+                    store_name: "homeFilters".to_owned(),
+                },
+            })
+            .expect("expand feature store");
+        assert_eq!(
+            store_slice.files[0].relative_path,
+            "src/features/home/stores/homeFilters.store.ts"
+        );
+        assert!(!project.join("src/features/home/home.store.ts").exists());
+        assert!(
+            project
+                .join("src/features/home/stores/home.store.ts")
+                .is_file()
+        );
+        assert!(
+            fs::read_to_string(project.join("src/features/home/hooks/useHome.ts"))
+                .expect("read expanded Hook gateway")
+                .contains("from '../stores/home.store'")
+        );
 
         let connector = fs::read_to_string(project.join("src/features/home/Home.connector.tsx"))
             .expect("read feature connector");
-        assert!(connector.contains("ComponentProps<typeof HomeUI>"));
-        assert!(connector.contains("return <HomeUI {...props} />;"));
-        let store = fs::read_to_string(project.join("src/features/home/home.store.ts"))
+        assert!(connector.contains("from './hooks/useHome'"));
+        assert!(connector.contains("const { ready, run } = useHome();"));
+        let store = fs::read_to_string(project.join("src/features/home/stores/home.store.ts"))
             .expect("read feature store");
         assert!(store.contains("import { create } from 'zustand';"));
         assert!(store.contains("export const useHomeStore"));
@@ -4940,12 +8945,12 @@ export function DashboardConnector() {
         let slot_capability = CodeProjectScaffoldCapability::Slot {
             slot_name: "Navigation".to_owned(),
             create_connector: true,
-            create_hook: false,
+            create_hook: true,
             create_store: true,
             create_logic: false,
             create_api: false,
             create_types: false,
-            hook_name: Some("useNavigationKeyboard".to_owned()),
+            hook_name: None,
             part_name: Some("NavItem".to_owned()),
             create_part_connector: true,
         };
@@ -4972,12 +8977,12 @@ export function DashboardConnector() {
                     "src/features/home/slots/navigation/Navigation.connector.tsx",
                 ),
                 (
-                    CodeProjectScaffoldFileRole::SlotStore,
-                    "src/features/home/slots/navigation/navigation.store.ts",
+                    CodeProjectScaffoldFileRole::SlotHook,
+                    "src/features/home/slots/navigation/useNavigation.ts",
                 ),
                 (
-                    CodeProjectScaffoldFileRole::SlotHook,
-                    "src/features/home/slots/navigation/hooks/useNavigationKeyboard.ts",
+                    CodeProjectScaffoldFileRole::SlotStore,
+                    "src/features/home/slots/navigation/navigation.store.ts",
                 ),
                 (
                     CodeProjectScaffoldFileRole::PartUi,
@@ -4995,12 +9000,12 @@ export function DashboardConnector() {
                 "kind": "slot",
                 "slotName": "Navigation",
                 "createConnector": true,
-                "createHook": false,
+                "createHook": true,
                 "createStore": true,
                 "createLogic": false,
                 "createApi": false,
                 "createTypes": false,
-                "hookName": "useNavigationKeyboard",
+                "hookName": null,
                 "partName": "NavItem",
                 "createPartConnector": true
             })
@@ -5052,6 +9057,1415 @@ export function DashboardConnector() {
     }
 
     #[test]
+    fn scaffolds_strict_shared_ui_widget_and_headless_capability_owners() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("shared-structure-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        let primitive = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Button".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedUi { create_types: true },
+            })
+            .expect("create shared UI primitive");
+        assert_eq!(primitive.feature_path, "src/shared/ui/button");
+        assert_eq!(
+            primitive
+                .files
+                .iter()
+                .map(|file| (file.role, file.relative_path.as_str()))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    CodeProjectScaffoldFileRole::SharedUi,
+                    "src/shared/ui/button/Button.ui.tsx",
+                ),
+                (
+                    CodeProjectScaffoldFileRole::SharedUiTypes,
+                    "src/shared/ui/button/button.types.ts",
+                ),
+            ]
+        );
+        let primitive_source =
+            fs::read_to_string(project.join("src/shared/ui/button/Button.ui.tsx"))
+                .expect("read primitive");
+        assert!(primitive_source.contains("import type { ButtonUIProps }"));
+        assert!(primitive_source.contains("export type { ButtonUIProps }"));
+        assert!(!primitive_source.contains("Connector"));
+        assert_eq!(
+            fs::read_to_string(project.join("src/shared/ui/button/button.types.ts"))
+                .expect("read primitive types"),
+            "export interface ButtonUIProps {\n  className?: string;\n}\n"
+        );
+
+        let widget = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "NotificationBell".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidget {
+                    create_connector: true,
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create shared widget");
+        assert_eq!(widget.feature_path, "src/shared/widgets/notification-bell");
+        assert_eq!(widget.files.len(), 7);
+        assert!(
+            project
+                .join("src/shared/widgets/notification-bell/NotificationBell.connector.tsx")
+                .is_file()
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "NotificationBell".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidgetBehaviorHook {
+                hook_name: "useNotificationBellPolling".to_owned(),
+            },
+        })
+        .expect("expand shared widget Hook");
+        assert!(
+            project
+                .join("src/shared/widgets/notification-bell/hooks/useNotificationBell.ts")
+                .is_file()
+        );
+        assert!(
+            fs::read_to_string(
+                project
+                    .join("src/shared/widgets/notification-bell/NotificationBell.connector.tsx",),
+            )
+            .expect("read rewired widget Connector")
+            .contains("from './hooks/useNotificationBell'")
+        );
+
+        let headless = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Auth".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedCapability {
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create headless shared capability");
+        assert_eq!(headless.feature_path, "src/shared/capabilities/auth");
+        assert_eq!(headless.files.len(), 5);
+        assert!(
+            !project
+                .join("src/shared/capabilities/auth/Auth.ui.tsx")
+                .exists()
+        );
+        assert!(
+            project
+                .join("src/shared/capabilities/auth/useAuth.ts")
+                .is_file()
+        );
+
+        let invalid = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Telemetry".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedCapability {
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: true,
+                },
+            })
+            .expect_err("types-only headless capability must fail");
+        assert_eq!(invalid.code(), "invalid_project");
+        assert!(!project.join("src/shared/capabilities/telemetry").exists());
+    }
+
+    #[test]
+    fn shared_native_sources_match_the_canonical_planner_byte_for_byte() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("shared-source-parity-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Badge".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedUi {
+                create_types: false,
+            },
+        })
+        .expect("create inline-contract Shared UI Primitive");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Badge".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedUiTypes,
+        })
+        .expect("move the primitive contract into standalone Types");
+        assert_eq!(
+            fs::read_to_string(project.join("src/shared/ui/badge/Badge.ui.tsx"))
+                .expect("read typed primitive UI"),
+            "import type { BadgeUIProps } from './badge.types';\n\nexport type { BadgeUIProps } from './badge.types';\n\nexport function BadgeUI({ className }: BadgeUIProps) {\n  return (\n    <section className={className} data-srijika-owner=\"Badge\">\n      <h2>Badge</h2>\n    </section>\n  );\n}\n"
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "CustomBadge".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedUi {
+                create_types: false,
+            },
+        })
+        .expect("create custom primitive fixture");
+        let custom_primitive = project.join("src/shared/ui/custom-badge");
+        fs::write(
+            custom_primitive.join("CustomBadge.ui.tsx"),
+            "export function CustomBadgeUI() { return <span />; }\n",
+        )
+        .expect("customize primitive UI");
+        let custom_primitive_error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "CustomBadge".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedUiTypes,
+            })
+            .expect_err("custom primitive UI contract migration must require review");
+        assert_eq!(custom_primitive_error.code(), "invalid_project");
+        assert!(!custom_primitive.join("customBadge.types.ts").exists());
+
+        let widget_plan = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "ProfileCard".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidget {
+                    create_connector: true,
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create canonical Shared Widget");
+        assert_eq!(
+            widget_plan
+                .files
+                .iter()
+                .map(|file| file.role)
+                .collect::<Vec<_>>(),
+            vec![
+                CodeProjectScaffoldFileRole::SharedWidgetUi,
+                CodeProjectScaffoldFileRole::SharedWidgetTypes,
+                CodeProjectScaffoldFileRole::SharedWidgetApi,
+                CodeProjectScaffoldFileRole::SharedWidgetLogic,
+                CodeProjectScaffoldFileRole::SharedWidgetStore,
+                CodeProjectScaffoldFileRole::SharedWidgetHook,
+                CodeProjectScaffoldFileRole::SharedWidgetConnector,
+            ]
+        );
+        let widget = project.join("src/shared/widgets/profile-card");
+        let expected_ui = "export interface ProfileCardUIProps {\n  className?: string;\n}\n\nexport function ProfileCardUI({ className }: ProfileCardUIProps) {\n  return (\n    <section className={className} data-srijika-owner=\"ProfileCard\">\n      <h2>ProfileCard</h2>\n    </section>\n  );\n}\n";
+        let expected_connector = "import { ProfileCardUI } from './ProfileCard.ui';\nimport { useProfileCard } from './useProfileCard';\n\nexport function ProfileCardConnector() {\n  const model = useProfileCard();\n  void model;\n  return <ProfileCardUI />;\n}\n";
+        let expected_hook = "import { useProfileCardStore } from './profileCard.store';\n\nexport function useProfileCard() {\n  return useProfileCardStore();\n}\n";
+        let expected_store = "import { create } from 'zustand';\nimport { profileCardLogic } from './profileCard.logic';\n\ninterface ProfileCardState {\n  ready: boolean;\n  load: () => Promise<void>;\n}\n\nexport const useProfileCardStore = create<ProfileCardState>((set) => ({\n  ready: false,\n  load: async () => {\n    await profileCardLogic.load();\n    set({ ready: true });\n  },\n}));\n";
+        let expected_logic = "import { profileCardApi } from './profileCard.api';\n\nexport const profileCardLogic = {\n  load: () => profileCardApi.load(),\n};\n";
+        let expected_api = "import type { ProfileCardResult } from './profileCard.types';\n\nexport const profileCardApi = {\n  async load(): Promise<ProfileCardResult> {\n    throw new Error('Connect ProfileCard API transport.');\n  },\n};\n";
+        let expected_types = "export interface ProfileCardResult {\n  ok: boolean;\n}\n";
+        for (file_name, expected) in [
+            ("ProfileCard.ui.tsx", expected_ui),
+            ("ProfileCard.connector.tsx", expected_connector),
+            ("useProfileCard.ts", expected_hook),
+            ("profileCard.store.ts", expected_store),
+            ("profileCard.logic.ts", expected_logic),
+            ("profileCard.api.ts", expected_api),
+            ("profileCard.types.ts", expected_types),
+        ] {
+            assert_eq!(
+                fs::read_to_string(widget.join(file_name)).expect("read Shared Widget layer"),
+                expected,
+                "{file_name} must match the canonical TypeScript planner"
+            );
+        }
+
+        let headless_plan = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "AuthSession".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedCapability {
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create canonical Shared Headless Capability");
+        assert_eq!(
+            headless_plan
+                .files
+                .iter()
+                .map(|file| file.role)
+                .collect::<Vec<_>>(),
+            vec![
+                CodeProjectScaffoldFileRole::SharedCapabilityTypes,
+                CodeProjectScaffoldFileRole::SharedCapabilityApi,
+                CodeProjectScaffoldFileRole::SharedCapabilityLogic,
+                CodeProjectScaffoldFileRole::SharedCapabilityStore,
+                CodeProjectScaffoldFileRole::SharedCapabilityHook,
+            ]
+        );
+        let headless = project.join("src/shared/capabilities/auth-session");
+        for (file_name, widget_expected) in [
+            ("useAuthSession.ts", expected_hook),
+            ("authSession.store.ts", expected_store),
+            ("authSession.logic.ts", expected_logic),
+            ("authSession.api.ts", expected_api),
+            ("authSession.types.ts", expected_types),
+        ] {
+            let expected = widget_expected
+                .replace("ProfileCard", "AuthSession")
+                .replace("profileCard", "authSession");
+            assert_eq!(
+                fs::read_to_string(headless.join(file_name)).expect("read Shared Headless layer"),
+                expected,
+                "{file_name} must match the canonical TypeScript planner"
+            );
+        }
+        assert!(!headless.join("AuthSession.ui.tsx").exists());
+        assert!(!headless.join("AuthSession.connector.tsx").exists());
+    }
+
+    #[test]
+    fn structure_scaffolding_uses_configured_feature_and_shared_roots() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("configured-architecture-roots");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application/domain/features","sharedRoot":"application/domain/shared"}}"#,
+        )
+        .expect("write configured architecture roots");
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        let feature = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                },
+            })
+            .expect("create Feature in configured root");
+        assert_eq!(
+            feature.feature_path,
+            "application/domain/features/dashboard"
+        );
+        assert!(
+            project
+                .join("application/domain/features/dashboard/Dashboard.ui.tsx")
+                .is_file()
+        );
+
+        let slot = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Slot {
+                    slot_name: "Summary".to_owned(),
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                    part_name: None,
+                    create_part_connector: false,
+                },
+            })
+            .expect("create Slot below configured Feature root");
+        assert!(slot.files.iter().all(|file| {
+            file.relative_path
+                .starts_with("application/domain/features/dashboard/slots/summary/")
+        }));
+
+        let widget = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "StatusCard".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidget {
+                    create_connector: true,
+                    create_hook: true,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                },
+            })
+            .expect("create Widget in configured Shared root");
+        assert_eq!(
+            widget.feature_path,
+            "application/domain/shared/widgets/status-card"
+        );
+        assert!(
+            project
+                .join("application/domain/shared/widgets/status-card/StatusCard.connector.tsx")
+                .is_file()
+        );
+
+        let headless = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Session".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedCapability {
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create Headless Capability in configured Shared root");
+        assert_eq!(
+            headless.feature_path,
+            "application/domain/shared/capabilities/session"
+        );
+        assert!(
+            !project
+                .join("application/domain/shared/capabilities/session/Session.ui.tsx")
+                .exists()
+        );
+        assert!(!project.join("src/features/dashboard").exists());
+        assert!(!project.join("src/shared/widgets/status-card").exists());
+    }
+
+    #[test]
+    fn structure_scaffolding_honors_every_configured_directory_and_suffix() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("fully-configured-architecture");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        fs::rename(
+            project.join("src/Home.ui.tsx"),
+            project.join("src/Home.view.tsx"),
+        )
+        .expect("rename configured entry source");
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.view.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application/modules","sharedRoot":"application/common","slotsDirectory":"regions","partsDirectory":"fragments","hooksDirectory":"effects","storesDirectory":"state","uiSuffix":".view.tsx","connectorSuffix":".gateway.tsx","storeSuffix":".state.ts","logicSuffix":".rules.ts","apiSuffix":".transport.ts","typesSuffix":".contract.ts"}}"#,
+        )
+        .expect("write complete architecture config");
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        let feature = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                    hook_name: None,
+                },
+            })
+            .expect("create fully configured Feature");
+        let feature_paths = feature
+            .files
+            .iter()
+            .map(|file| file.relative_path.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            feature_paths,
+            vec![
+                "application/modules/dashboard/Dashboard.view.tsx",
+                "application/modules/dashboard/Dashboard.gateway.tsx",
+                "application/modules/dashboard/useDashboard.ts",
+                "application/modules/dashboard/dashboard.state.ts",
+                "application/modules/dashboard/dashboard.rules.ts",
+                "application/modules/dashboard/dashboard.transport.ts",
+                "application/modules/dashboard/dashboard.contract.ts",
+            ]
+        );
+        assert!(
+            fs::read_to_string(project.join("application/modules/dashboard/Dashboard.gateway.tsx"))
+                .expect("read configured Connector")
+                .contains("from './Dashboard.view'")
+        );
+        assert!(
+            fs::read_to_string(project.join("application/modules/dashboard/useDashboard.ts"))
+                .expect("read configured Hook")
+                .contains("from './dashboard.state'")
+        );
+        assert!(
+            fs::read_to_string(project.join("application/modules/dashboard/dashboard.state.ts"))
+                .expect("read configured Store")
+                .contains("from './dashboard.rules'")
+        );
+        assert!(
+            fs::read_to_string(project.join("application/modules/dashboard/dashboard.rules.ts"))
+                .expect("read configured Logic")
+                .contains("from './dashboard.transport'")
+        );
+        assert!(
+            project
+                .join("application/modules/dashboard/dashboard.contract.ts")
+                .is_file()
+        );
+
+        let slot = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Slot {
+                    slot_name: "Summary".to_owned(),
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                    part_name: Some("MetricCard".to_owned()),
+                    create_part_connector: true,
+                },
+            })
+            .expect("create configured Slot and Part");
+        assert!(slot.files.iter().any(|file| {
+            file.relative_path == "application/modules/dashboard/regions/summary/Summary.view.tsx"
+        }));
+        assert!(slot.files.iter().any(|file| {
+            file.relative_path == "application/modules/dashboard/regions/summary/fragments/metric-card/MetricCard.gateway.tsx"
+        }));
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                hook_name: "useDashboardSearch".to_owned(),
+            },
+        })
+        .expect("expand configured Hook directory");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureStoreSlice {
+                store_name: "dashboardFilters".to_owned(),
+            },
+        })
+        .expect("expand configured Store directory");
+        assert!(
+            project
+                .join("application/modules/dashboard/effects/useDashboard.ts")
+                .is_file()
+        );
+        assert!(
+            project
+                .join("application/modules/dashboard/effects/useDashboardSearch.ts")
+                .is_file()
+        );
+        assert!(
+            project
+                .join("application/modules/dashboard/state/dashboard.state.ts")
+                .is_file()
+        );
+        assert!(
+            project
+                .join("application/modules/dashboard/state/dashboardFilters.state.ts")
+                .is_file()
+        );
+        assert!(
+            fs::read_to_string(project.join("application/modules/dashboard/Dashboard.gateway.tsx"))
+                .expect("read rewired Connector")
+                .contains("from './effects/useDashboard'")
+        );
+        assert!(
+            fs::read_to_string(
+                project.join("application/modules/dashboard/effects/useDashboard.ts")
+            )
+            .expect("read rewired Hook")
+            .contains("from '../state/dashboard.state'")
+        );
+
+        let widget = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "StatusCard".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidget {
+                    create_connector: true,
+                    create_hook: true,
+                    create_store: true,
+                    create_logic: true,
+                    create_api: true,
+                    create_types: true,
+                },
+            })
+            .expect("create fully configured Shared Widget");
+        assert_eq!(
+            widget
+                .files
+                .iter()
+                .map(|file| file.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "application/common/widgets/status-card/StatusCard.view.tsx",
+                "application/common/widgets/status-card/statusCard.contract.ts",
+                "application/common/widgets/status-card/statusCard.transport.ts",
+                "application/common/widgets/status-card/statusCard.rules.ts",
+                "application/common/widgets/status-card/statusCard.state.ts",
+                "application/common/widgets/status-card/useStatusCard.ts",
+                "application/common/widgets/status-card/StatusCard.gateway.tsx",
+            ]
+        );
+        let scan = core
+            .scan_code_project(ScanCodeProjectRequest { path: project_path })
+            .expect("scan configured project");
+        let configured_ui = scan
+            .entries
+            .iter()
+            .find(|entry| entry.relative_path == "application/modules/dashboard/Dashboard.view.tsx")
+            .expect("configured UI entry");
+        assert!(configured_ui.is_ui_source);
+    }
+
+    #[test]
+    fn configured_architecture_requires_the_exact_supported_profile() {
+        for (source, expected) in [
+            (
+                r#"{"architecture":{"featuresRoot":"application/features"}}"#,
+                "architecture.profile is required",
+            ),
+            (
+                r#"{"architecture":{"profile":"feature-slot-part-v2"}}"#,
+                "architecture profile is unsupported",
+            ),
+        ] {
+            let config: Value = serde_json::from_str(source).expect("parse project config fixture");
+            let error = configured_architecture(
+                config
+                    .as_object()
+                    .expect("project config fixture must be an object"),
+            )
+            .expect_err("invalid architecture profile must fail closed");
+            assert!(error.to_string().contains(expected), "{error}");
+        }
+    }
+
+    #[test]
+    fn configured_architecture_rejects_invalid_directories_and_suffixes_before_writing() {
+        let invalid_architectures = [
+            r#"{"profile":"feature-slot-part-v1","slotsDirectory":"nested/slots"}"#,
+            r#"{"profile":"feature-slot-part-v1","slotsDirectory":"owners","partsDirectory":"owners"}"#,
+            r#"{"profile":"feature-slot-part-v1","slotsDirectory":"owners","partsDirectory":"Owners"}"#,
+            r#"{"profile":"feature-slot-part-v1","featuresRoot":"src/Owners","sharedRoot":"src/owners"}"#,
+            r#"{"profile":"feature-slot-part-v1","hooksDirectory":"C:/hooks"}"#,
+            r#"{"profile":"feature-slot-part-v1","hooksDirectory":"C:hooks"}"#,
+            r#"{"profile":"feature-slot-part-v1","featuresRoot":"C:features"}"#,
+            r#"{"profile":"feature-slot-part-v1","uiSuffix":"ui.tsx"}"#,
+            r#"{"profile":"feature-slot-part-v1","storeSuffix":"nested/.state.ts"}"#,
+            r#"{"profile":"feature-slot-part-v1","typesSuffix":".d.ts"}"#,
+            r#"{"profile":"feature-slot-part-v1","uiSuffix":".d.tsx"}"#,
+            r#"{"profile":"feature-slot-part-v1","storeSuffix":".data.ts","logicSuffix":".data.ts"}"#,
+            r#"{"profile":"feature-slot-part-v1","uiSuffix":".View.tsx","connectorSuffix":".view.tsx"}"#,
+            r#"{"profile":"feature-slot-part-v1","storeSuffix":".cache.state.ts","logicSuffix":".state.ts"}"#,
+            r#"{"profile":"feature-slot-part-v1","uiSuffix":".view.tsx","connectorSuffix":".connector.view.tsx"}"#,
+            r#"{"profile":"feature-slot-part-v1","uiSuffix":".View.tsx","connectorSuffix":".connector.view.tsx"}"#,
+        ];
+        for (index, architecture) in invalid_architectures.into_iter().enumerate() {
+            let directory = tempdir().expect("temporary directory");
+            let project = directory
+                .path()
+                .join(format!("invalid-architecture-{index}"));
+            fs::create_dir(&project).expect("create project");
+            write_code_project(&project, false, false);
+            fs::write(
+                project.join("srijika.config.json"),
+                format!(
+                    r#"{{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{architecture}}}"#
+                ),
+            )
+            .expect("write invalid architecture config");
+            let error = StudioCore::default()
+                .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                    project_path: project.to_string_lossy().into_owned(),
+                    feature_name: "Dashboard".to_owned(),
+                    capability: CodeProjectScaffoldCapability::Feature {
+                        create_connector: true,
+                        create_hook: false,
+                        create_store: false,
+                        create_logic: false,
+                        create_api: false,
+                        create_types: false,
+                        hook_name: None,
+                    },
+                })
+                .expect_err("invalid architecture must fail before writing");
+            assert_eq!(error.code(), "invalid_project");
+            assert!(!project.join("src/features/dashboard").exists());
+        }
+    }
+
+    #[test]
+    fn configured_architecture_roots_reject_traversal_before_writing() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("invalid-architecture-root");
+        let outside = directory.path().join("outside");
+        fs::create_dir(&project).expect("create project");
+        fs::create_dir(&outside).expect("create outside");
+        write_code_project(&project, false, false);
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"../outside","sharedRoot":"src/shared"}}"#,
+        )
+        .expect("write unsafe architecture root");
+
+        let error = StudioCore::default()
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project.to_string_lossy().into_owned(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                },
+            })
+            .expect_err("traversing architecture root must fail");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(outside.read_dir().expect("read outside").next().is_none());
+
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application//features","sharedRoot":"src/shared"}}"#,
+        )
+        .expect("write non-normalized architecture root");
+        let error = StudioCore::default()
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project.to_string_lossy().into_owned(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                },
+            })
+            .expect_err("architecture roots with empty path segments must fail");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(!project.join("application").exists());
+
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"a/b/c/d/e/f/g/h/i/j/k","sharedRoot":"src/shared"}}"#,
+        )
+        .expect("write overly deep architecture root");
+        let error = StudioCore::default()
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project.to_string_lossy().into_owned(),
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                },
+            })
+            .expect_err("an architecture root that cannot fit a Part must fail early");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(!project.join("a").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn configured_architecture_roots_reject_symlinked_ancestors_before_writing() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("symlinked-architecture-root");
+        let outside = directory.path().join("outside");
+        fs::create_dir(&project).expect("create project");
+        fs::create_dir(&outside).expect("create outside");
+        write_code_project(&project, false, false);
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"workspace/features","sharedRoot":"workspace/shared"}}"#,
+        )
+        .expect("write symlinked architecture config");
+        symlink(&outside, project.join("workspace")).expect("create architecture root symlink");
+
+        let error = StudioCore::default()
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project.to_string_lossy().into_owned(),
+                feature_name: "Button".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedUi {
+                    create_types: false,
+                },
+            })
+            .expect_err("symlinked configured Shared root must fail");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(outside.read_dir().expect("read outside").next().is_none());
+    }
+
+    #[test]
+    fn shared_standalone_layers_preserve_required_boundaries_and_rewire_the_runtime_chain() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("shared-progressive-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "StatusCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidget {
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create minimal shared widget");
+        let widget = project.join("src/shared/widgets/status-card");
+
+        for capability in [
+            CodeProjectScaffoldCapability::SharedWidgetApi,
+            CodeProjectScaffoldCapability::SharedWidgetLogic,
+            CodeProjectScaffoldCapability::SharedWidgetStore,
+            CodeProjectScaffoldCapability::SharedWidgetHook,
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "StatusCard".to_owned(),
+                capability,
+            })
+            .expect("add and rewire standalone shared widget layer");
+        }
+        assert!(
+            fs::read_to_string(widget.join("StatusCard.connector.tsx"))
+                .expect("read rewired connector")
+                .contains("from './useStatusCard'")
+        );
+        assert!(
+            fs::read_to_string(widget.join("useStatusCard.ts"))
+                .expect("read rewired hook")
+                .contains("from './statusCard.store'")
+        );
+        assert!(
+            fs::read_to_string(widget.join("statusCard.store.ts"))
+                .expect("read rewired store")
+                .contains("from './statusCard.logic'")
+        );
+        assert!(
+            fs::read_to_string(widget.join("statusCard.logic.ts"))
+                .expect("read rewired logic")
+                .contains("from './statusCard.api'")
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "BrokenCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidget {
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create second shared widget");
+        let broken = project.join("src/shared/widgets/broken-card");
+        fs::remove_file(broken.join("BrokenCard.connector.tsx"))
+            .expect("remove required connector");
+        let missing_connector = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "BrokenCard".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidgetApi,
+            })
+            .expect_err("optional widget layer must require its Connector");
+        assert_eq!(missing_connector.code(), "not_found");
+        assert!(!broken.join("brokenCard.api.ts").exists());
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "CustomCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidget {
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create custom-code fixture");
+        let custom = project.join("src/shared/widgets/custom-card");
+        fs::write(
+            custom.join("CustomCard.connector.tsx"),
+            "export function CustomCardConnector() { return null; }\n",
+        )
+        .expect("customize connector");
+        let custom_error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "CustomCard".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedWidgetHook,
+            })
+            .expect_err("custom connector must not be silently replaced");
+        assert_eq!(custom_error.code(), "invalid_project");
+        assert!(!custom.join("useCustomCard.ts").exists());
+
+        fs::create_dir_all(project.join("src/shared/capabilities/types-only"))
+            .expect("create malformed headless owner fixture");
+        let types_only = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "TypesOnly".to_owned(),
+                capability: CodeProjectScaffoldCapability::SharedCapabilityTypes,
+            })
+            .expect_err("headless Types require a runtime boundary");
+        assert_eq!(types_only.code(), "invalid_project");
+        assert!(
+            !project
+                .join("src/shared/capabilities/types-only/typesOnly.types.ts")
+                .exists()
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Session".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedCapability {
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: true,
+                create_types: false,
+            },
+        })
+        .expect("create API-backed headless capability");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Session".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedCapabilityTypes,
+        })
+        .expect("add Types after a valid headless runtime boundary");
+        assert_eq!(
+            fs::read_to_string(project.join("src/shared/capabilities/session/session.api.ts"))
+                .expect("read typed standalone API"),
+            "import type { SessionResult } from './session.types';\n\nexport const sessionApi = {\n  async load(): Promise<SessionResult> {\n    throw new Error('Connect Session API transport.');\n  },\n};\n"
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ReverseFlow".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedCapability {
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create Hook-first headless capability");
+        for capability in [
+            CodeProjectScaffoldCapability::SharedCapabilityStore,
+            CodeProjectScaffoldCapability::SharedCapabilityLogic,
+            CodeProjectScaffoldCapability::SharedCapabilityApi,
+            CodeProjectScaffoldCapability::SharedCapabilityTypes,
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "ReverseFlow".to_owned(),
+                capability,
+            })
+            .expect("add and rewire reverse-order headless layer");
+        }
+        let reverse = project.join("src/shared/capabilities/reverse-flow");
+        assert_eq!(
+            fs::read_to_string(reverse.join("useReverseFlow.ts")).expect("read reverse Hook"),
+            "import { useReverseFlowStore } from './reverseFlow.store';\n\nexport function useReverseFlow() {\n  return useReverseFlowStore();\n}\n"
+        );
+        assert_eq!(
+            fs::read_to_string(reverse.join("reverseFlow.store.ts")).expect("read reverse Store"),
+            "import { create } from 'zustand';\nimport { reverseFlowLogic } from './reverseFlow.logic';\n\ninterface ReverseFlowState {\n  ready: boolean;\n  load: () => Promise<void>;\n}\n\nexport const useReverseFlowStore = create<ReverseFlowState>((set) => ({\n  ready: false,\n  load: async () => {\n    await reverseFlowLogic.load();\n    set({ ready: true });\n  },\n}));\n"
+        );
+        assert_eq!(
+            fs::read_to_string(reverse.join("reverseFlow.logic.ts")).expect("read reverse Logic"),
+            "import { reverseFlowApi } from './reverseFlow.api';\n\nexport const reverseFlowLogic = {\n  load: () => reverseFlowApi.load(),\n};\n"
+        );
+        assert_eq!(
+            fs::read_to_string(reverse.join("reverseFlow.api.ts")).expect("read reverse API"),
+            "import type { ReverseFlowResult } from './reverseFlow.types';\n\nexport const reverseFlowApi = {\n  async load(): Promise<ReverseFlowResult> {\n    throw new Error('Connect ReverseFlow API transport.');\n  },\n};\n"
+        );
+    }
+
+    #[test]
+    fn expanded_owner_gateways_rewrite_relative_and_canonical_alias_imports() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("gateway-alias-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "AliasCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidget {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create shared alias fixture");
+        for (file_name, specifier) in [
+            ("shared-at.ts", "@/shared/widgets/alias-card/useAliasCard"),
+            ("shared-scope.ts", "@shared/widgets/alias-card/useAliasCard"),
+            (
+                "shared-src.ts",
+                "src/shared/widgets/alias-card/useAliasCard.ts",
+            ),
+            (
+                "shared-escaped.ts",
+                r#"@/shared/widgets/alias-card/useAliasC\u0061rd"#,
+            ),
+        ] {
+            fs::write(
+                project.join("src").join(file_name),
+                format!("import {{ useAliasCard }} from '{specifier}';\nvoid useAliasCard;\n"),
+            )
+            .expect("write shared alias consumer");
+        }
+        let control_regex_consumer = project.join("src/shared-control-regex.ts");
+        fs::write(
+            &control_regex_consumer,
+            "import { useAliasCard } from '@/shared/widgets/alias-card/useAliasCard';\nif (ready) /import\\('\\@\\/shared\\/widgets\\/alias-card\\/useAliasCard'\\)/.test(value);\nvoid useAliasCard;\n",
+        )
+        .expect("write control-statement regex consumer");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "AliasCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidgetBehaviorHook {
+                hook_name: "useAliasCardPolling".to_owned(),
+            },
+        })
+        .expect("expand shared aliased Hook gateway");
+        for file_name in [
+            "shared-at.ts",
+            "shared-scope.ts",
+            "shared-src.ts",
+            "shared-escaped.ts",
+        ] {
+            assert!(
+                fs::read_to_string(project.join("src").join(file_name))
+                    .expect("read rewritten shared alias")
+                    .contains("/hooks/useAliasCard")
+            );
+        }
+        let control_regex_source =
+            fs::read_to_string(control_regex_consumer).expect("read control regex consumer");
+        assert!(
+            control_regex_source.contains("from '@/shared/widgets/alias-card/hooks/useAliasCard'")
+        );
+        assert!(
+            control_regex_source
+                .contains("/import\\('\\@\\/shared\\/widgets\\/alias-card\\/useAliasCard'\\)/")
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "AliasFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create feature alias fixture");
+        fs::write(
+            project.join("src/feature-alias.ts"),
+            "import { useAliasFeature } from '@features/alias-feature/useAliasFeature';\nvoid useAliasFeature;\n",
+        )
+        .expect("write feature alias consumer");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "AliasFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                hook_name: "useAliasFeaturePolling".to_owned(),
+            },
+        })
+        .expect("expand feature aliased Hook gateway");
+        assert!(
+            fs::read_to_string(project.join("src/feature-alias.ts"))
+                .expect("read rewritten feature alias")
+                .contains("@features/alias-feature/hooks/useAliasFeature")
+        );
+
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application/domain/features","sharedRoot":"application/domain/shared"}}"#,
+        )
+        .expect("write configured alias roots");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ConfiguredCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidget {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+            },
+        })
+        .expect("create configured Shared alias fixture");
+        fs::write(
+            project.join("src/configured-shared-alias.ts"),
+            "import { useConfiguredCard } from '@shared/widgets/configured-card/useConfiguredCard';\nvoid useConfiguredCard;\n",
+        )
+        .expect("write configured Shared alias consumer");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ConfiguredCard".to_owned(),
+            capability: CodeProjectScaffoldCapability::SharedWidgetBehaviorHook {
+                hook_name: "useConfiguredCardPolling".to_owned(),
+            },
+        })
+        .expect("expand configured Shared Hook gateway");
+        assert!(
+            fs::read_to_string(project.join("src/configured-shared-alias.ts"))
+                .expect("read configured Shared alias")
+                .contains("@shared/widgets/configured-card/hooks/useConfiguredCard")
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ConfiguredFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create configured Feature alias fixture");
+        fs::write(
+            project.join("src/configured-feature-alias.ts"),
+            "import { useConfiguredFeature } from '@features/configured-feature/useConfiguredFeature';\nvoid useConfiguredFeature;\n",
+        )
+        .expect("write configured Feature alias consumer");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path,
+            feature_name: "ConfiguredFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                hook_name: "useConfiguredFeaturePolling".to_owned(),
+            },
+        })
+        .expect("expand configured Feature Hook gateway");
+        assert!(
+            fs::read_to_string(project.join("src/configured-feature-alias.ts"))
+                .expect("read configured Feature alias")
+                .contains("@features/configured-feature/hooks/useConfiguredFeature")
+        );
+    }
+
+    #[test]
+    fn expanded_owner_gateways_rewrite_declared_wildcard_aliases_and_reject_exact_aliases() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("declared-alias-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "DeclaredFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: true,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create declared-alias Feature");
+        fs::write(
+            project.join("tsconfig.json"),
+            r#"{
+  // Terminal wildcards remain stable when a gateway moves.
+  "compilerOptions": {
+    "paths": { "@app/*": ["src/*"], },
+  },
+}"#,
+        )
+        .expect("write JSONC wildcard alias");
+        fs::write(
+            project.join("src/features/declared-feature/useDeclaredFeature.ts"),
+            "const untouched = './declaredFeature.store.js';\n// import(`./declaredFeature.store.js`) must stay a comment.\nexport async function useDeclaredFeature() {\n  return import(`./declaredFeature.store.js`);\n}\n",
+        )
+        .expect("write custom flat Hook gateway");
+        let wildcard_consumer = project.join("src/declared-alias-consumer.ts");
+        fs::write(
+            &wildcard_consumer,
+            "import { useDeclaredFeature } from '@app/features/declared-feature/useDeclaredFeature';\nimport { useDeclaredFeature as typed } from \"@app/features/declared-feature/useDeclaredFeature.ts\";\nconst lazy = import(`@app/features/declared-feature/useDeclaredFeature.js`);\nconst untouched = '@app/features/declared-feature/useDeclaredFeature';\n// import('@app/features/declared-feature/useDeclaredFeature') must stay a comment.\nvoid useDeclaredFeature; void typed; void lazy; void untouched;\n",
+        )
+        .expect("write wildcard alias consumers");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "DeclaredFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                hook_name: "useDeclaredFeaturePolling".to_owned(),
+            },
+        })
+        .expect("expand wildcard-aliased gateway");
+        let wildcard_source =
+            fs::read_to_string(&wildcard_consumer).expect("read wildcard alias consumer");
+        assert!(
+            wildcard_source.contains("'@app/features/declared-feature/hooks/useDeclaredFeature'")
+        );
+        assert!(
+            wildcard_source
+                .contains("\"@app/features/declared-feature/hooks/useDeclaredFeature.ts\"")
+        );
+        assert!(
+            wildcard_source
+                .contains("`@app/features/declared-feature/hooks/useDeclaredFeature.js`")
+        );
+        assert!(
+            wildcard_source
+                .contains("const untouched = '@app/features/declared-feature/useDeclaredFeature';")
+        );
+        assert!(wildcard_source.contains(
+            "// import('@app/features/declared-feature/useDeclaredFeature') must stay a comment."
+        ));
+        let relocated_gateway = fs::read_to_string(
+            project.join("src/features/declared-feature/hooks/useDeclaredFeature.ts"),
+        )
+        .expect("read relocated Hook gateway");
+        assert!(relocated_gateway.contains("import(`../declaredFeature.store.js`)"));
+        assert!(relocated_gateway.contains("const untouched = './declaredFeature.store.js';"));
+        assert!(
+            relocated_gateway
+                .contains("// import(`./declaredFeature.store.js`) must stay a comment.")
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ExactFeature".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create exact-alias Feature");
+        fs::write(
+            project.join("tsconfig.json"),
+            r##"{"compilerOptions":{"paths":{"#exact":["src/features/exact-feature/useExactFeature.ts"]}}}"##,
+        )
+        .expect("write exact alias");
+        let exact_consumer = project.join("src/exact-alias-consumer.ts");
+        let exact_source = "import { useExactFeature } from '#exact';\nvoid useExactFeature;\n";
+        fs::write(&exact_consumer, exact_source).expect("write exact alias consumer");
+        let error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "ExactFeature".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                    hook_name: "useExactFeaturePolling".to_owned(),
+                },
+            })
+            .expect_err("exact alias migration must fail before mutation");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(error.to_string().contains("terminal-wildcard"));
+        assert!(
+            project
+                .join("src/features/exact-feature/useExactFeature.ts")
+                .is_file()
+        );
+        assert!(
+            !project
+                .join("src/features/exact-feature/hooks/useExactFeature.ts")
+                .exists()
+        );
+        assert!(
+            !project
+                .join("src/features/exact-feature/hooks/useExactFeaturePolling.ts")
+                .exists()
+        );
+        assert_eq!(
+            fs::read_to_string(exact_consumer).expect("read unchanged exact alias consumer"),
+            exact_source
+        );
+    }
+
+    #[test]
+    fn module_rewrites_touch_only_static_module_reference_literals() {
+        let source = r#"import value from './old';
+import type { Model } from "./old.ts";
+export { value as renamed } from './old.js';
+import './old.jsx';
+const dynamic = import(`./old.mjs`);
+const required = require("./old.cjs");
+import escapedUnicode from './\u006fld';
+const escapedHex = require("./\x6fld.ts");
+const escapedOctal = require('./\157ld.js');
+const untouched = './old';
+const object = { from: './old' };
+// import('./old') must remain a comment.
+const pattern = /from '.\/old'/;
+if (ready) /import\('\.\/old'\)/.test(value);
+"#;
+        let rewritten = super::rewrite_exact_module_specifier(source, "./old", "./next");
+        for expected in [
+            "from './next'",
+            "from \"./next.ts\"",
+            "from './next.js'",
+            "import './next.jsx'",
+            "import(`./next.mjs`)",
+            "require(\"./next.cjs\")",
+            "from './next'",
+            "require(\"./next.ts\")",
+            "require('./next.js')",
+        ] {
+            assert!(
+                rewritten.contains(expected),
+                "missing {expected}: {rewritten}"
+            );
+        }
+        for untouched in [
+            "const untouched = './old';",
+            "const object = { from: './old' };",
+            "// import('./old') must remain a comment.",
+            "const pattern = /from '.\\/old'/;",
+            "if (ready) /import\\('\\.\\/old'\\)/.test(value);",
+        ] {
+            assert!(
+                rewritten.contains(untouched),
+                "changed unrelated source {untouched}: {rewritten}"
+            );
+        }
+        assert_eq!(rewritten.matches("from './next';").count(), 2);
+        let relocated = super::relocate_gateway_source_one_level(
+            "const store = import(`./\\u0068ome.store.ts`);\n",
+        );
+        assert_eq!(relocated, "const store = import(`../home.store.ts`);\n");
+
+        let hidden_template = "const value = `loaded: ${import('./old')}`;\n";
+        assert!(!super::javascript_module_scan_is_complete(hidden_template));
+        assert_eq!(
+            super::rewrite_exact_module_specifier(hidden_template, "./old", "./next"),
+            hidden_template
+        );
+        let ordinary_template = "const value = `loaded: ${count}`;\nimport value from './old';\n";
+        assert!(super::javascript_module_scan_is_complete(ordinary_template));
+        assert!(
+            super::rewrite_exact_module_specifier(ordinary_template, "./old", "./next")
+                .contains("from './next'")
+        );
+        let ambiguous_block_regex = "if (ready) {} /import\\('\\.\\/old'\\)/.test(value);\n";
+        assert!(!super::javascript_module_scan_is_complete(
+            ambiguous_block_regex
+        ));
+        assert_eq!(
+            super::rewrite_exact_module_specifier(ambiguous_block_regex, "./old", "./next"),
+            ambiguous_block_regex
+        );
+    }
+
+    #[test]
+    fn typescript_alias_parser_rejects_inherited_base_urls_and_project_references() {
+        for (source, expected) in [
+            (
+                r#"{"extends":"./tsconfig.base.json","compilerOptions":{}}"#,
+                "extends is unsupported",
+            ),
+            (
+                r#"{"compilerOptions":{"baseUrl":"src"}}"#,
+                "baseUrl is unsupported",
+            ),
+            (
+                r#"{"compilerOptions":{"baseUrl":"."}}"#,
+                "baseUrl is unsupported",
+            ),
+            (
+                r#"{"references":[{"path":"../shared"}],"compilerOptions":{}}"#,
+                "project references are unsupported",
+            ),
+            (
+                r#"{"compilerOptions":{"paths":{"@feature*":["src/features/*"]}}}"#,
+                "exact aliases or slash-delimited",
+            ),
+            (
+                r#"{"compilerOptions":{"paths":{"@feature/":["src/features/Home.ts"]}}}"#,
+                "exact aliases or slash-delimited",
+            ),
+            (
+                r#"{"compilerOptions":{"paths":{"@feature/*":["src/features*"]}}}"#,
+                "matching terminal wildcards",
+            ),
+        ] {
+            let error = super::parse_typescript_path_aliases(source)
+                .expect_err("nonlocal alias configuration must fail closed");
+            assert!(error.to_string().contains(expected), "{error}");
+        }
+        assert!(
+            super::parse_typescript_path_aliases(
+                r#"{"references":[],"compilerOptions":{"paths":{"@app/*":["src/*"]}}}"#,
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
     fn scaffolds_new_features_and_standalone_multword_owner_capabilities() {
         let directory = tempdir().expect("temporary directory");
         let project = directory.path().join("new-feature-project");
@@ -5066,7 +10480,7 @@ export function DashboardConnector() {
                 feature_name: "AdminPanel".to_owned(),
                 capability: CodeProjectScaffoldCapability::Feature {
                     create_connector: true,
-                    create_hook: false,
+                    create_hook: true,
                     create_store: true,
                     create_logic: false,
                     create_api: false,
@@ -5090,6 +10504,10 @@ export function DashboardConnector() {
                 (
                     CodeProjectScaffoldFileRole::FeatureConnector,
                     "src/features/admin-panel/AdminPanel.connector.tsx",
+                ),
+                (
+                    CodeProjectScaffoldFileRole::FeatureHook,
+                    "src/features/admin-panel/hooks/useAdminPanel.ts",
                 ),
                 (
                     CodeProjectScaffoldFileRole::FeatureStore,
@@ -5213,6 +10631,14 @@ export function DashboardConnector() {
                 },
                 CodeProjectScaffoldFileRole::PartStore,
                 "src/features/admin-panel/slots/user-navigation/parts/account-menu/accountMenu.store.ts",
+            ),
+            (
+                CodeProjectScaffoldCapability::PartHook {
+                    slot_name: "UserNavigation".to_owned(),
+                    part_name: "AccountMenu".to_owned(),
+                },
+                CodeProjectScaffoldFileRole::PartHook,
+                "src/features/admin-panel/slots/user-navigation/parts/account-menu/useAccountMenu.ts",
             ),
             (
                 CodeProjectScaffoldCapability::PartBehaviorHook {
@@ -5494,6 +10920,481 @@ export function DashboardConnector() {
     }
 
     #[test]
+    fn reverse_order_standalone_layers_rewire_feature_slot_and_part_seniors() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("reverse-progressive-owner-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create minimal Feature");
+        for capability in [
+            CodeProjectScaffoldCapability::FeatureApi,
+            CodeProjectScaffoldCapability::FeatureLogic,
+            CodeProjectScaffoldCapability::FeatureStore,
+            CodeProjectScaffoldCapability::FeatureHook,
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability,
+            })
+            .expect("insert reverse-order Feature layer");
+        }
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Slot {
+                slot_name: "Navigation".to_owned(),
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+                part_name: None,
+                create_part_connector: false,
+            },
+        })
+        .expect("create minimal Slot");
+        for capability in [
+            CodeProjectScaffoldCapability::SlotApi {
+                slot_name: "Navigation".to_owned(),
+            },
+            CodeProjectScaffoldCapability::SlotLogic {
+                slot_name: "Navigation".to_owned(),
+            },
+            CodeProjectScaffoldCapability::SlotStore {
+                slot_name: "Navigation".to_owned(),
+            },
+            CodeProjectScaffoldCapability::SlotHook {
+                slot_name: "Navigation".to_owned(),
+            },
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability,
+            })
+            .expect("insert reverse-order Slot layer");
+        }
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Part {
+                slot_name: "Navigation".to_owned(),
+                part_name: "UserMenu".to_owned(),
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create minimal Part");
+        for capability in [
+            CodeProjectScaffoldCapability::PartApi {
+                slot_name: "Navigation".to_owned(),
+                part_name: "UserMenu".to_owned(),
+            },
+            CodeProjectScaffoldCapability::PartLogic {
+                slot_name: "Navigation".to_owned(),
+                part_name: "UserMenu".to_owned(),
+            },
+            CodeProjectScaffoldCapability::PartStore {
+                slot_name: "Navigation".to_owned(),
+                part_name: "UserMenu".to_owned(),
+            },
+            CodeProjectScaffoldCapability::PartHook {
+                slot_name: "Navigation".to_owned(),
+                part_name: "UserMenu".to_owned(),
+            },
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "Dashboard".to_owned(),
+                capability,
+            })
+            .expect("insert reverse-order Part layer");
+        }
+
+        for (root, name, stem) in [
+            (
+                project.join("src/features/dashboard"),
+                "Dashboard",
+                "dashboard",
+            ),
+            (
+                project.join("src/features/dashboard/slots/navigation"),
+                "Navigation",
+                "navigation",
+            ),
+            (
+                project.join("src/features/dashboard/slots/navigation/parts/user-menu"),
+                "UserMenu",
+                "userMenu",
+            ),
+        ] {
+            assert!(
+                fs::read_to_string(root.join(format!("{name}.connector.tsx")))
+                    .expect("read rewired Connector")
+                    .contains(&format!("from './use{name}'"))
+            );
+            assert!(
+                fs::read_to_string(root.join(format!("use{name}.ts")))
+                    .expect("read rewired Hook")
+                    .contains(&format!("from './{stem}.store'"))
+            );
+            assert!(
+                fs::read_to_string(root.join(format!("{stem}.store.ts")))
+                    .expect("read rewired Store")
+                    .contains(&format!("from './{stem}.logic'"))
+            );
+            assert!(
+                fs::read_to_string(root.join(format!("{stem}.logic.ts")))
+                    .expect("read rewired Logic")
+                    .contains(&format!("from './{stem}.api'"))
+            );
+        }
+    }
+
+    #[test]
+    fn custom_connector_blocks_reverse_layer_insertion_without_partial_files() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("custom-connector-reverse-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: false,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create minimal Feature");
+        let root = project.join("src/features/dashboard");
+        let connector = root.join("Dashboard.connector.tsx");
+        let custom = "export function DashboardConnector() { return null; }\n";
+        fs::write(&connector, custom).expect("customize Connector");
+
+        let error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureStore,
+            })
+            .expect_err("custom Connector insertion must require review");
+        assert_eq!(error.code(), "invalid_project");
+        assert_eq!(
+            fs::read_to_string(connector).expect("read preserved Connector"),
+            custom
+        );
+        assert!(!root.join("dashboard.store.ts").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn capability_expansion_aborts_before_mutation_when_the_rewrite_scan_is_unsafe() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("unsafe-expansion-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create flat Hook owner");
+        let owner = project.join("src/features/dashboard");
+        let flat_hook = owner.join("useDashboard.ts");
+        let connector = owner.join("Dashboard.connector.tsx");
+        let flat_source = fs::read_to_string(&flat_hook).expect("read flat Hook");
+        let connector_source = fs::read_to_string(&connector).expect("read Connector");
+        let outside = directory.path().join("outside.ts");
+        fs::write(&outside, "export const outside = true;\n").expect("write outside source");
+        symlink(&outside, project.join("src/features/unsafe-import.ts"))
+            .expect("create unsafe rewrite-scan symlink");
+
+        let error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                    hook_name: "useDashboardSearch".to_owned(),
+                },
+            })
+            .expect_err("unsafe importer scan must abort capability expansion");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(flat_hook.is_file());
+        assert!(!owner.join("hooks/useDashboard.ts").exists());
+        assert!(!owner.join("hooks/useDashboardSearch.ts").exists());
+        assert_eq!(fs::read_to_string(flat_hook).unwrap(), flat_source);
+        assert_eq!(fs::read_to_string(connector).unwrap(), connector_source);
+
+        fs::remove_file(project.join("src/features/unsafe-import.ts"))
+            .expect("remove non-ignored unsafe symlink");
+        symlink(directory.path(), project.join("node_modules"))
+            .expect("create ignored dependency symlink");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project.to_string_lossy().into_owned(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                hook_name: "useDashboardSearch".to_owned(),
+            },
+        })
+        .expect("ignored-name symlink must not block importer migration");
+        assert!(owner.join("hooks/useDashboard.ts").is_file());
+        assert!(owner.join("hooks/useDashboardSearch.ts").is_file());
+    }
+
+    #[test]
+    fn capability_expansion_aborts_before_mutation_when_a_template_hides_an_import() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("template-expansion-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create flat Hook owner");
+        let owner = project.join("src/features/dashboard");
+        let flat_hook = owner.join("useDashboard.ts");
+        let connector = owner.join("Dashboard.connector.tsx");
+        let flat_source = fs::read_to_string(&flat_hook).expect("read flat Hook");
+        let connector_source = fs::read_to_string(&connector).expect("read Connector");
+        fs::write(
+            project.join("src/template-consumer.ts"),
+            "const loaded = `module: ${import('./features/dashboard/useDashboard')}`;\nvoid loaded;\n",
+        )
+        .expect("write hidden static import fixture");
+
+        let error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                    hook_name: "useDashboardSearch".to_owned(),
+                },
+            })
+            .expect_err("hidden template import must abort capability expansion");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(error.to_string().contains("complete module rewrites"));
+        assert_eq!(fs::read_to_string(&flat_hook).unwrap(), flat_source);
+        assert_eq!(fs::read_to_string(&connector).unwrap(), connector_source);
+        assert!(!owner.join("hooks/useDashboard.ts").exists());
+        assert!(!owner.join("hooks/useDashboardSearch.ts").exists());
+    }
+
+    #[test]
+    fn capability_expansion_aborts_before_mutation_when_the_rewrite_scan_exceeds_its_budget() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("over-budget-expansion-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "Dashboard".to_owned(),
+            capability: CodeProjectScaffoldCapability::Feature {
+                create_connector: true,
+                create_hook: true,
+                create_store: false,
+                create_logic: false,
+                create_api: false,
+                create_types: false,
+                hook_name: None,
+            },
+        })
+        .expect("create flat Hook owner");
+        let owner = project.join("src/features/dashboard");
+        let flat_hook = owner.join("useDashboard.ts");
+        let connector = owner.join("Dashboard.connector.tsx");
+        let flat_source = fs::read_to_string(&flat_hook).expect("read flat Hook");
+        let connector_source = fs::read_to_string(&connector).expect("read Connector");
+        let audit_sources = project.join("src/rewrite-audit");
+        fs::create_dir_all(&audit_sources).expect("create rewrite audit directory");
+        for index in 0..=MAX_ARCHITECTURE_SOURCE_FILES {
+            fs::write(
+                audit_sources.join(format!("source-{index:05}.ts")),
+                "export {};\n",
+            )
+            .expect("write rewrite audit source");
+        }
+
+        let error = core
+            .scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path,
+                feature_name: "Dashboard".to_owned(),
+                capability: CodeProjectScaffoldCapability::FeatureBehaviorHook {
+                    hook_name: "useDashboardSearch".to_owned(),
+                },
+            })
+            .expect_err("over-budget importer scan must abort capability expansion");
+        assert_eq!(error.code(), "invalid_project");
+        assert!(error.to_string().contains("source file count limit"));
+        assert!(flat_hook.is_file());
+        assert!(!owner.join("hooks/useDashboard.ts").exists());
+        assert!(!owner.join("hooks/useDashboardSearch.ts").exists());
+        assert_eq!(fs::read_to_string(flat_hook).unwrap(), flat_source);
+        assert_eq!(fs::read_to_string(connector).unwrap(), connector_source);
+    }
+
+    #[test]
+    fn reverse_order_rewiring_honors_configured_suffixes_and_expanded_store_paths() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("configured-reverse-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        fs::rename(
+            project.join("src/Home.ui.tsx"),
+            project.join("src/Home.view.tsx"),
+        )
+        .expect("rename configured entry source");
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.view.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application/modules","sharedRoot":"application/common","slotsDirectory":"regions","partsDirectory":"fragments","hooksDirectory":"effects","storesDirectory":"state","uiSuffix":".view.tsx","connectorSuffix":".gateway.tsx","storeSuffix":".state.ts","logicSuffix":".rules.ts","apiSuffix":".transport.ts","typesSuffix":".contract.ts"}}"#,
+        )
+        .expect("write configured architecture");
+        let core = StudioCore::default();
+        let project_path = project.to_string_lossy().into_owned();
+
+        for feature_name in ["AuditFlow", "ExpandedFlow"] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: feature_name.to_owned(),
+                capability: CodeProjectScaffoldCapability::Feature {
+                    create_connector: true,
+                    create_hook: false,
+                    create_store: false,
+                    create_logic: false,
+                    create_api: false,
+                    create_types: false,
+                    hook_name: None,
+                },
+            })
+            .expect("create configured minimal Feature");
+        }
+
+        for capability in [
+            CodeProjectScaffoldCapability::FeatureApi,
+            CodeProjectScaffoldCapability::FeatureLogic,
+            CodeProjectScaffoldCapability::FeatureStore,
+            CodeProjectScaffoldCapability::FeatureHook,
+        ] {
+            core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+                project_path: project_path.clone(),
+                feature_name: "AuditFlow".to_owned(),
+                capability,
+            })
+            .expect("insert configured reverse-order layer");
+        }
+        let audit = project.join("application/modules/audit-flow");
+        assert!(
+            fs::read_to_string(audit.join("AuditFlow.gateway.tsx"))
+                .expect("read configured Connector")
+                .contains("from './useAuditFlow'")
+        );
+        assert!(
+            fs::read_to_string(audit.join("useAuditFlow.ts"))
+                .expect("read configured Hook")
+                .contains("from './auditFlow.state'")
+        );
+        assert!(
+            fs::read_to_string(audit.join("auditFlow.state.ts"))
+                .expect("read configured Store")
+                .contains("from './auditFlow.rules'")
+        );
+        assert!(
+            fs::read_to_string(audit.join("auditFlow.rules.ts"))
+                .expect("read configured Logic")
+                .contains("from './auditFlow.transport'")
+        );
+
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ExpandedFlow".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureStore,
+        })
+        .expect("add configured flat Store");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path: project_path.clone(),
+            feature_name: "ExpandedFlow".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureStoreSlice {
+                store_name: "expandedFlowFilters".to_owned(),
+            },
+        })
+        .expect("expand configured Store");
+        core.scaffold_code_project_structure(ScaffoldCodeProjectStructureRequest {
+            project_path,
+            feature_name: "ExpandedFlow".to_owned(),
+            capability: CodeProjectScaffoldCapability::FeatureHook,
+        })
+        .expect("insert Hook above expanded Store");
+        let expanded = project.join("application/modules/expanded-flow");
+        assert!(
+            fs::read_to_string(expanded.join("ExpandedFlow.gateway.tsx"))
+                .expect("read rewired configured Connector")
+                .contains("from './useExpandedFlow'")
+        );
+        assert!(
+            fs::read_to_string(expanded.join("useExpandedFlow.ts"))
+                .expect("read Hook above expanded Store")
+                .contains("from './state/expandedFlow.state'")
+        );
+    }
+
+    #[test]
     fn progressive_optional_file_collision_rolls_back_the_entire_owner() {
         let directory = tempdir().expect("temporary directory");
         let project = directory.path().join("progressive-collision-project");
@@ -5604,6 +11505,32 @@ export function DashboardConnector() {
                 CodeProjectScaffoldCapability::FeatureBehaviorHook {
                     hook_name: "useDashboardKeyboard".to_owned(),
                 },
+            ),
+            (
+                json!({
+                    "kind": "partStoreSlice",
+                    "slotName": "Summary",
+                    "partName": "MetricCard",
+                    "storeName": "metricCardFilters"
+                }),
+                CodeProjectScaffoldCapability::PartStoreSlice {
+                    slot_name: "Summary".to_owned(),
+                    part_name: "MetricCard".to_owned(),
+                    store_name: "metricCardFilters".to_owned(),
+                },
+            ),
+            (
+                json!({
+                    "kind": "sharedWidgetBehaviorHook",
+                    "hookName": "useProfileCardPolling"
+                }),
+                CodeProjectScaffoldCapability::SharedWidgetBehaviorHook {
+                    hook_name: "useProfileCardPolling".to_owned(),
+                },
+            ),
+            (
+                json!({ "kind": "sharedCapabilityTypes" }),
+                CodeProjectScaffoldCapability::SharedCapabilityTypes,
             ),
         ] {
             let parsed: CodeProjectScaffoldCapability =
@@ -5992,6 +11919,62 @@ export function DashboardConnector() {
             })
             .expect_err("escaping entry must fail");
         assert_eq!(escaping.code(), "invalid_project");
+
+        fs::write(
+            project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"C:Home.ui.tsx"}"#,
+        )
+        .expect("write Windows drive-relative config");
+        let drive_relative = core
+            .open_code_project(OpenCodeProjectRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect_err("Windows drive-relative entry must fail on every platform");
+        assert_eq!(drive_relative.code(), "invalid_project");
+
+        fs::create_dir_all(project.join("src")).expect("create normalized entry directory");
+        fs::write(
+            project.join("src/Home.ui.tsx"),
+            "export function HomeUI() { return <main />; }\n",
+        )
+        .expect("write normalized entry");
+        for malformed_entry in ["src//Home.ui.tsx", r"src\Home.ui.tsx"] {
+            fs::write(
+                project.join("srijika.config.json"),
+                json!({"sourceOfTruth": "tsx", "entry": malformed_entry}).to_string(),
+            )
+            .expect("write non-normalized entry config");
+            let error = core
+                .open_code_project(OpenCodeProjectRequest {
+                    path: project.to_string_lossy().into_owned(),
+                })
+                .expect_err("non-normalized entry must fail before opening a file");
+            assert_eq!(error.code(), "invalid_project", "{malformed_entry}");
+        }
+
+        let deep_entry = format!(
+            "{}/Home.ui.tsx",
+            vec!["level"; MAX_PROJECT_ENTRY_SEGMENTS].join("/")
+        );
+        let deep_path = project.join(&deep_entry);
+        fs::create_dir_all(deep_path.parent().expect("deep entry parent"))
+            .expect("create real over-depth entry");
+        fs::write(
+            &deep_path,
+            "export function HomeUI() { return <main />; }\n",
+        )
+        .expect("write real over-depth entry");
+        fs::write(
+            project.join("srijika.config.json"),
+            json!({"sourceOfTruth": "tsx", "entry": deep_entry}).to_string(),
+        )
+        .expect("write over-depth entry config");
+        let over_depth = core
+            .open_code_project(OpenCodeProjectRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect_err("33-segment existing entry must fail closed");
+        assert_eq!(over_depth.code(), "invalid_project");
     }
 
     #[test]
@@ -6171,22 +12154,82 @@ export function DashboardConnector() {
     }
 
     #[test]
-    fn loads_architecture_sources_deterministically_without_following_links_or_ignored_dirs() {
+    fn loads_architecture_sources_deterministically_while_ignoring_generated_directories() {
         let directory = tempdir().expect("temporary directory");
         let project = directory.path().join("architecture-project");
         fs::create_dir(&project).expect("create project");
         write_code_project(&project, false, false);
-        fs::create_dir_all(project.join("src/nested")).expect("create nested source directory");
-        fs::write(project.join("src/a.ts"), "export const a = 1;\n").expect("write TS source");
+        fs::create_dir_all(project.join("src/features/home/nested"))
+            .expect("create nested source directory");
         fs::write(
-            project.join("src/nested/View.tsx"),
+            project.join("src/features/home/nested/srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"View.tsx"}"#,
+        )
+        .expect("write governed-root nested config marker");
+        fs::create_dir_all(project.join("src/shared/capabilities/session"))
+            .expect("create shared source directory");
+        fs::write(
+            project.join("src/features/home/a.ts"),
+            "export const a = 1;\n",
+        )
+        .expect("write TS source");
+        fs::write(
+            project.join("src/features/home/nested/View.tsx"),
             "export function View() { return <section />; }\n",
         )
         .expect("write TSX source");
-        fs::write(project.join("src/nested/module.mts"), "export {};\n").expect("write MTS source");
-        fs::write(project.join("src/nested/module.cts"), "export {};\n").expect("write CTS source");
-        fs::write(project.join("src/nested/notes.css"), ".ignored {}\n")
-            .expect("write non-source file");
+        fs::write(
+            project.join("src/features/home/nested/module.mts"),
+            "export {};\n",
+        )
+        .expect("write MTS source");
+        fs::write(
+            project.join("src/shared/capabilities/session/module.cts"),
+            "export {};\n",
+        )
+        .expect("write CTS source");
+        fs::write(
+            project.join("src/features/home/runtime.js"),
+            "export const runtime = true;\n",
+        )
+        .expect("write JS source");
+        fs::write(
+            project.join("src/features/home/nested/View.jsx"),
+            "export function JsView() { return <section />; }\n",
+        )
+        .expect("write JSX source");
+        fs::write(
+            project.join("src/shared/capabilities/session/runtime.mjs"),
+            "export {};\n",
+        )
+        .expect("write MJS source");
+        fs::write(
+            project.join("src/shared/capabilities/session/runtime.cjs"),
+            "module.exports = {};\n",
+        )
+        .expect("write CJS source");
+        fs::write(
+            project.join("src/features/home/ambient.d.ts"),
+            "declare const ambient: true;\n",
+        )
+        .expect("write declaration file");
+        fs::write(
+            project.join("src/features/home/ambient.d.tsx"),
+            "export const governedTsx = true;\n",
+        )
+        .expect("write declaration TSX source");
+        fs::write(
+            project.join("src/Home.ui.tsx"),
+            "export function HomeUI() { void fetch('/entry-runtime'); return <main />; }\n",
+        )
+        .expect("write authoritative entry outside ownership roots");
+        let tsconfig_source = r#"{"compilerOptions":{"paths":{"@/*":["src/*"]}}}"#;
+        fs::write(project.join("tsconfig.json"), tsconfig_source).expect("write TypeScript config");
+        fs::write(
+            project.join("src/features/home/nested/notes.css"),
+            ".ignored {}\n",
+        )
+        .expect("write non-source file");
         fs::create_dir_all(project.join("zz-nested-project/src"))
             .expect("create nested project source");
         fs::write(
@@ -6199,17 +12242,12 @@ export function DashboardConnector() {
             "export function NestedUI() { return <main />; }\n",
         )
         .expect("write nested project architecture source");
-        fs::create_dir(project.join("node_modules")).expect("create ignored directory");
-        fs::write(project.join("node_modules/hidden.ts"), "hidden\n")
-            .expect("write ignored source");
-        #[cfg(unix)]
-        {
-            let outside = directory.path().join("outside.ts");
-            fs::write(&outside, "outside\n").expect("write outside source");
-            symlink(outside, project.join("src/nested/Escape.ts"))
-                .expect("create architecture source symlink");
+        for ignored in IGNORED_PROJECT_DIRECTORIES {
+            let ignored_directory = project.join("src/features/home").join(ignored);
+            fs::create_dir(&ignored_directory).expect("create ignored directory");
+            fs::write(ignored_directory.join("hidden.ts"), "hidden\n")
+                .expect("write ignored source");
         }
-
         let core = StudioCore::default();
         let request = LoadCodeProjectArchitectureSourcesRequest {
             path: project.to_string_lossy().into_owned(),
@@ -6231,14 +12269,27 @@ export function DashboardConnector() {
         assert_eq!(paths, sorted_paths);
         assert_eq!(first.sources, second.sources);
         assert!(first.config_source.contains(r#""sourceOfTruth":"tsx""#));
+        assert_eq!(first.tsconfig_source.as_deref(), Some(tsconfig_source));
         assert!(paths.contains(&"src/Home.ui.tsx".to_owned()));
-        assert!(paths.contains(&"src/a.ts".to_owned()));
-        assert!(paths.contains(&"src/nested/View.tsx".to_owned()));
-        assert!(paths.contains(&"src/nested/module.mts".to_owned()));
-        assert!(paths.contains(&"src/nested/module.cts".to_owned()));
-        assert!(!paths.iter().any(|path| path.contains("node_modules")));
+        assert!(first.sources.iter().any(|source| {
+            source.relative_path == "src/Home.ui.tsx" && source.source.contains("fetch(")
+        }));
+        assert!(paths.contains(&"src/features/home/a.ts".to_owned()));
+        assert!(paths.contains(&"src/features/home/nested/View.tsx".to_owned()));
+        assert!(paths.contains(&"src/features/home/nested/module.mts".to_owned()));
+        assert!(paths.contains(&"src/shared/capabilities/session/module.cts".to_owned()));
+        assert!(paths.contains(&"src/features/home/runtime.js".to_owned()));
+        assert!(paths.contains(&"src/features/home/nested/View.jsx".to_owned()));
+        assert!(paths.contains(&"src/shared/capabilities/session/runtime.mjs".to_owned()));
+        assert!(paths.contains(&"src/shared/capabilities/session/runtime.cjs".to_owned()));
+        assert!(!paths.contains(&"src/features/home/ambient.d.ts".to_owned()));
+        assert!(!paths.contains(&"src/features/home/ambient.d.tsx".to_owned()));
+        assert!(!paths.iter().any(|path| {
+            IGNORED_PROJECT_DIRECTORIES
+                .iter()
+                .any(|ignored| path.split('/').any(|segment| segment == *ignored))
+        }));
         assert!(!paths.iter().any(|path| path.contains("zz-nested-project")));
-        assert!(!paths.iter().any(|path| path.ends_with("Escape.ts")));
         assert!(!paths.iter().any(|path| path.ends_with("notes.css")));
         assert!(first.sources.iter().all(|source| {
             source.bytes == source.source.len() as u64 && source.hash.starts_with("fnv1a64:")
@@ -6247,13 +12298,15 @@ export function DashboardConnector() {
     }
 
     #[test]
-    fn architecture_source_reader_skips_per_file_and_combined_limit_overflow() {
+    fn architecture_source_reader_rejects_per_file_and_combined_limit_overflow() {
         let directory = tempdir().expect("temporary directory");
         let oversized_project = directory.path().join("oversized-architecture-project");
         fs::create_dir(&oversized_project).expect("create oversized project");
         write_code_project(&oversized_project, false, false);
+        fs::create_dir_all(oversized_project.join("src/features/home"))
+            .expect("create feature directory");
         fs::write(
-            oversized_project.join("src/Oversized.ts"),
+            oversized_project.join("src/features/home/Oversized.ts"),
             vec![b'x'; MAX_ARCHITECTURE_SOURCE_BYTES as usize + 1],
         )
         .expect("write oversized architecture source");
@@ -6262,28 +12315,19 @@ export function DashboardConnector() {
             .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
                 path: oversized_project.to_string_lossy().into_owned(),
             })
-            .expect("load project with oversized source");
-        assert!(oversized.truncated);
-        assert!(
-            !oversized
-                .sources
-                .iter()
-                .any(|source| source.relative_path.ends_with("Oversized.ts"))
-        );
-        assert!(
-            oversized
-                .sources
-                .iter()
-                .any(|source| source.relative_path == "src/Home.ui.tsx")
-        );
+            .expect_err("oversized architecture source must fail closed");
+        assert_eq!(oversized.code(), "invalid_project");
+        assert!(oversized.to_string().contains("per-file size limit"));
 
         let combined_project = directory.path().join("combined-architecture-project");
         fs::create_dir(&combined_project).expect("create combined project");
         write_code_project(&combined_project, false, false);
+        fs::create_dir_all(combined_project.join("src/features/home"))
+            .expect("create feature directory");
         let bounded_source = vec![b'x'; MAX_ARCHITECTURE_SOURCE_BYTES as usize];
         for index in 0..7 {
             fs::write(
-                combined_project.join(format!("src/blob-{index:02}.ts")),
+                combined_project.join(format!("src/features/home/blob-{index:02}.ts")),
                 &bounded_source,
             )
             .expect("write bounded architecture source");
@@ -6292,15 +12336,24 @@ export function DashboardConnector() {
             .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
                 path: combined_project.to_string_lossy().into_owned(),
             })
-            .expect("load project at combined bound");
-        let combined_bytes = combined
-            .sources
-            .iter()
-            .map(|source| source.bytes)
-            .sum::<u64>();
-        assert!(combined.truncated);
-        assert!(combined_bytes <= MAX_ARCHITECTURE_SOURCES_BYTES);
-        assert!(combined.sources.len() < 8);
+            .expect_err("combined architecture source overflow must fail closed");
+        assert_eq!(combined.code(), "invalid_project");
+        assert!(combined.to_string().contains("combined size limit"));
+
+        let oversized_tsconfig_project = directory.path().join("oversized-tsconfig-project");
+        fs::create_dir(&oversized_tsconfig_project).expect("create oversized tsconfig project");
+        write_code_project(&oversized_tsconfig_project, false, false);
+        fs::write(
+            oversized_tsconfig_project.join("tsconfig.json"),
+            vec![b' '; MAX_TYPESCRIPT_CONFIG_BYTES as usize + 1],
+        )
+        .expect("write oversized TypeScript config");
+        let oversized_tsconfig = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: oversized_tsconfig_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("oversized TypeScript config must fail closed");
+        assert_eq!(oversized_tsconfig.code(), "invalid_project");
     }
 
     #[cfg(unix)]
@@ -6320,6 +12373,22 @@ export function DashboardConnector() {
             })
             .expect_err("symlinked project root must fail");
         assert_eq!(linked_root.code(), "invalid_project");
+
+        let real_parent = directory.path().join("real-parent");
+        let child_project = real_parent.join("child-project");
+        fs::create_dir_all(&child_project).expect("create project below real parent");
+        write_code_project(&child_project, false, false);
+        let linked_parent = directory.path().join("linked-parent");
+        symlink(&real_parent, &linked_parent).expect("create ancestor directory symlink");
+        let ancestor_link = core
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: linked_parent
+                    .join("child-project")
+                    .to_string_lossy()
+                    .into_owned(),
+            })
+            .expect_err("project root with a symlink ancestor must fail");
+        assert_eq!(ancestor_link.code(), "invalid_project");
 
         let linked_config_project = directory.path().join("linked-config-project");
         fs::create_dir(&linked_config_project).expect("create linked config project");
@@ -6344,6 +12413,292 @@ export function DashboardConnector() {
             })
             .expect_err("symlinked project config must fail");
         assert_eq!(linked_config.code(), "invalid_project");
+
+        let linked_tsconfig_project = directory.path().join("linked-tsconfig-project");
+        fs::create_dir(&linked_tsconfig_project).expect("create linked tsconfig project");
+        write_code_project(&linked_tsconfig_project, false, false);
+        let outside_tsconfig = directory.path().join("outside-tsconfig.json");
+        fs::write(&outside_tsconfig, r#"{"compilerOptions":{}}"#)
+            .expect("write outside TypeScript config");
+        symlink(
+            &outside_tsconfig,
+            linked_tsconfig_project.join("tsconfig.json"),
+        )
+        .expect("create TypeScript config symlink");
+        let linked_tsconfig = core
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: linked_tsconfig_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("symlinked TypeScript config must fail closed");
+        assert_eq!(linked_tsconfig.code(), "invalid_project");
+
+        let linked_source_project = directory.path().join("linked-source-project");
+        fs::create_dir(&linked_source_project).expect("create linked source project");
+        write_code_project(&linked_source_project, false, false);
+        fs::create_dir_all(linked_source_project.join("src/features/home"))
+            .expect("create feature directory");
+        let outside_source = directory.path().join("outside.ts");
+        fs::write(&outside_source, "export const outside = true;\n").expect("write outside source");
+        symlink(
+            &outside_source,
+            linked_source_project.join("src/features/home/Escape.ts"),
+        )
+        .expect("create architecture source symlink");
+
+        let linked_source = core
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: linked_source_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("symlinked architecture source must fail closed");
+        assert_eq!(linked_source.code(), "invalid_project");
+        assert!(linked_source.to_string().contains("symbolic links"));
+
+        let unrelated_link_project = directory.path().join("unrelated-link-project");
+        fs::create_dir(&unrelated_link_project).expect("create unrelated-link project");
+        write_code_project(&unrelated_link_project, false, false);
+        symlink(
+            &outside_source,
+            unrelated_link_project.join("src/Unrelated.ts"),
+        )
+        .expect("create unrelated source symlink");
+        core.load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+            path: unrelated_link_project.to_string_lossy().into_owned(),
+        })
+        .expect("symlink outside configured ownership roots must be ignored");
+
+        let ignored_link_project = directory.path().join("ignored-link-project");
+        fs::create_dir(&ignored_link_project).expect("create ignored-link project");
+        write_code_project(&ignored_link_project, false, false);
+        fs::create_dir_all(ignored_link_project.join("src/features/home"))
+            .expect("create ownership root");
+        symlink(
+            directory.path(),
+            ignored_link_project.join("src/features/home/node_modules"),
+        )
+        .expect("create ignored-name symlink inside ownership root");
+        let ignored_link = core
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: ignored_link_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("ignored-name symlink inside ownership root must fail closed");
+        assert_eq!(ignored_link.code(), "invalid_project");
+
+        let internal_ancestor_project = directory.path().join("internal-ancestor-project");
+        fs::create_dir(&internal_ancestor_project).expect("create internal-ancestor project");
+        write_code_project(&internal_ancestor_project, false, false);
+        fs::create_dir_all(internal_ancestor_project.join("real-application/modules"))
+            .expect("create real configured root");
+        symlink(
+            internal_ancestor_project.join("real-application"),
+            internal_ancestor_project.join("application"),
+        )
+        .expect("create internal configured-root ancestor symlink");
+        fs::write(
+            internal_ancestor_project.join("srijika.config.json"),
+            r#"{"sourceOfTruth":"tsx","entry":"src/Home.ui.tsx","architecture":{"profile":"feature-slot-part-v1","featuresRoot":"application/modules","sharedRoot":"src/shared"}}"#,
+        )
+        .expect("write configured root config");
+        let internal_ancestor = core
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: internal_ancestor_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("internal configured-root symlink ancestor must fail");
+        assert_eq!(internal_ancestor.code(), "invalid_project");
+    }
+
+    #[test]
+    fn architecture_source_reader_rejects_non_utf8_source_instead_of_omitting_it() {
+        let directory = tempdir().expect("temporary directory");
+        let project = directory.path().join("non-utf8-architecture-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        fs::create_dir_all(project.join("src/features/home")).expect("create feature directory");
+        fs::write(
+            project.join("src/features/home/Broken.ts"),
+            [0xff, 0xfe, 0xfd],
+        )
+        .expect("write non-UTF-8 source");
+
+        let error = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect_err("non-UTF-8 architecture source must fail closed");
+        assert_eq!(error.code(), "persistence_error");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_file_stability_identity_includes_size_and_change_timestamps() {
+        use std::os::unix::fs::MetadataExt;
+
+        let directory = tempdir().expect("temporary directory");
+        let path = directory.path().join("stable.ts");
+        fs::write(&path, "a").expect("write first source");
+        let before = fs::metadata(&path).expect("inspect first source");
+        fs::write(&path, "changed in place").expect("mutate same inode");
+        let after = fs::metadata(&path).expect("inspect changed source");
+        assert_eq!(before.dev(), after.dev());
+        assert_eq!(before.ino(), after.ino());
+        assert!(!super::same_file_identity(&before, &after));
+
+        let scanned_directory = directory.path().join("scanned");
+        let replaced_directory = directory.path().join("scanned-old");
+        fs::create_dir(&scanned_directory).expect("create scanned directory");
+        let directory_before = fs::metadata(&scanned_directory).expect("inspect scanned directory");
+        fs::rename(&scanned_directory, &replaced_directory)
+            .expect("move original scanned directory");
+        fs::create_dir(&scanned_directory).expect("replace scanned directory");
+        let directory_after = fs::metadata(&scanned_directory).expect("inspect replacement");
+        assert!(!super::same_file_identity(
+            &directory_before,
+            &directory_after
+        ));
+    }
+
+    #[test]
+    fn architecture_source_reader_uses_the_independent_contract_budgets() {
+        let architecture = configured_architecture(
+            json!({"sourceOfTruth": "tsx", "entry": "src/Home.ui.tsx"})
+                .as_object()
+                .expect("config object"),
+        )
+        .expect("default architecture");
+        let budget = ProjectTreeScan::architecture(Path::new("/project"), &architecture);
+        assert_eq!(budget.max_entries, MAX_ARCHITECTURE_SCAN_ENTRIES);
+        assert_eq!(
+            budget.max_directories,
+            Some(MAX_ARCHITECTURE_SCAN_DIRECTORIES)
+        );
+        assert_eq!(budget.max_depth, MAX_ARCHITECTURE_SCAN_DEPTH);
+        assert_eq!(budget.max_metadata_bytes, None);
+        assert_eq!(budget.max_hash_bytes, None);
+
+        let mut missing_root_budget =
+            ProjectTreeScan::architecture(Path::new("/project"), &architecture);
+        missing_root_budget.max_directories = Some(1);
+        missing_root_budget.record_directory_visit();
+        assert!(!missing_root_budget.truncated);
+        missing_root_budget.record_directory_visit();
+        assert!(missing_root_budget.truncated);
+
+        let directory = tempdir().expect("temporary directory");
+        let ignored_entry_root = directory.path().join("ignored-entry-budget");
+        fs::create_dir(&ignored_entry_root).expect("create ignored-entry budget root");
+        fs::create_dir(ignored_entry_root.join(".next")).expect("create ignored entry");
+        fs::write(ignored_entry_root.join("visible.ts"), "export {};\n")
+            .expect("write visible source");
+        let mut ignored_entry_budget =
+            ProjectTreeScan::architecture(&ignored_entry_root, &architecture);
+        ignored_entry_budget.max_entries = 1;
+        scan_directory(
+            &ignored_entry_root,
+            Path::new("src/features"),
+            1,
+            &mut ignored_entry_budget,
+        )
+        .expect("scan physical entries");
+        assert_eq!(ignored_entry_budget.scanned_entries, 2);
+        assert!(ignored_entry_budget.truncated);
+
+        let exact_entry_root = directory.path().join("exact-entry-budget");
+        fs::create_dir(&exact_entry_root).expect("create exact-entry budget root");
+        let mut exact_entry_budget =
+            ProjectTreeScan::architecture(&exact_entry_root, &architecture);
+        exact_entry_budget.scanned_entries = exact_entry_budget.max_entries;
+        scan_directory(
+            &exact_entry_root,
+            Path::new("src/features/empty"),
+            1,
+            &mut exact_entry_budget,
+        )
+        .expect("scan empty directory at exact physical-entry boundary");
+        assert!(!exact_entry_budget.truncated);
+        fs::write(exact_entry_root.join("overflow.ts"), "export {};\n")
+            .expect("write first over-budget physical entry");
+        scan_directory(
+            &exact_entry_root,
+            Path::new("src/features/overflow"),
+            1,
+            &mut exact_entry_budget,
+        )
+        .expect("scan over-budget directory");
+        assert!(exact_entry_budget.truncated);
+
+        let project = directory.path().join("independent-budget-project");
+        fs::create_dir(&project).expect("create project");
+        write_code_project(&project, false, false);
+        let feature = project.join("src/features/home");
+        fs::create_dir_all(&feature).expect("create feature directory");
+        for index in 0..5_000 {
+            fs::write(feature.join(format!("note-{index:05}.txt")), "not source\n")
+                .expect("write non-source entry");
+        }
+        let loaded = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect("architecture reader must not inherit the Explorer 4096-entry cap");
+        assert_eq!(
+            loaded
+                .sources
+                .iter()
+                .map(|source| source.relative_path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["src/Home.ui.tsx"]
+        );
+
+        let deep_project = directory.path().join("architecture-depth-project");
+        fs::create_dir(&deep_project).expect("create deep project");
+        write_code_project(&deep_project, false, false);
+        let mut nested = deep_project.join("src/features");
+        for index in 0..MAX_ARCHITECTURE_SCAN_DEPTH.saturating_sub(1) {
+            nested = nested.join(format!("level-{index:02}"));
+        }
+        fs::create_dir_all(&nested).expect("create architecture-depth tree");
+        fs::write(nested.join("boundary.ts"), "export {};\n").expect("write boundary source");
+        let boundary = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: deep_project.to_string_lossy().into_owned(),
+            })
+            .expect("architecture root plus 31 descendants must fit depth 32");
+        assert!(
+            boundary
+                .sources
+                .iter()
+                .any(|source| source.relative_path.ends_with("/boundary.ts"))
+        );
+
+        let overflow = nested.join("too-deep");
+        fs::create_dir(&overflow).expect("create over-depth directory");
+        fs::write(overflow.join("hidden.ts"), "export {};\n").expect("write deep source");
+        let depth_error = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: deep_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("architecture depth overflow must fail closed");
+        assert_eq!(depth_error.code(), "invalid_project");
+        assert!(depth_error.to_string().contains("complete-project"));
+
+        let source_count_project = directory.path().join("architecture-source-count-project");
+        fs::create_dir(&source_count_project).expect("create source-count project");
+        write_code_project(&source_count_project, false, false);
+        let source_count_feature = source_count_project.join("src/features/home");
+        fs::create_dir_all(&source_count_feature).expect("create source-count Feature");
+        for index in 0..=MAX_ARCHITECTURE_SOURCE_FILES {
+            fs::write(
+                source_count_feature.join(format!("source-{index:05}.ts")),
+                "export {};\n",
+            )
+            .expect("write counted architecture source");
+        }
+        let count_error = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: source_count_project.to_string_lossy().into_owned(),
+            })
+            .expect_err("architecture source count overflow must fail closed");
+        assert_eq!(count_error.code(), "invalid_project");
+        assert!(count_error.to_string().contains("source file count limit"));
     }
 
     #[test]
@@ -6371,6 +12726,13 @@ export function DashboardConnector() {
                 .iter()
                 .any(|entry| entry.relative_path.ends_with("hidden.ts"))
         );
+        let architecture = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect("unrelated deep tree must not affect ownership architecture scan");
+        assert_eq!(architecture.sources.len(), 1);
+        assert_eq!(architecture.sources[0].relative_path, "src/Home.ui.tsx");
     }
 
     #[test]
@@ -6391,18 +12753,21 @@ export function DashboardConnector() {
             .expect("scan wide project");
 
         assert!(scan.truncated);
-        assert_eq!(scan.entries.len(), MAX_PROJECT_TREE_ENTRIES);
-        assert!(
-            scan.entries
-                .iter()
-                .any(|entry| entry.relative_path == "entry-00000.ts")
-        );
-        assert!(
-            !scan
-                .entries
-                .iter()
-                .any(|entry| entry.relative_path == "entry-04096.ts")
-        );
+        assert!(scan.entries.is_empty());
+        let repeated = StudioCore::default()
+            .scan_code_project(ScanCodeProjectRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect("repeat bounded wide scan");
+        assert!(repeated.truncated);
+        assert_eq!(scan.entries, repeated.entries);
+        let architecture = StudioCore::default()
+            .load_code_project_architecture_sources(LoadCodeProjectArchitectureSourcesRequest {
+                path: project.to_string_lossy().into_owned(),
+            })
+            .expect("unrelated wide tree must not affect ownership architecture scan");
+        assert_eq!(architecture.sources.len(), 1);
+        assert_eq!(architecture.sources[0].relative_path, "src/Home.ui.tsx");
     }
 
     #[test]

@@ -16,7 +16,10 @@ import {
 } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
 
-import { resolveSrijikaStructureOwner } from '@srijika/architecture-rules';
+import {
+  resolveSrijikaStructureOwner,
+  type SrijikaArchitectureConfig,
+} from '@srijika/architecture-rules';
 
 import type { CodeProjectEntry } from '../../lib/project-service';
 
@@ -37,6 +40,7 @@ export interface ProjectExplorerProps {
   truncated?: boolean;
   creationDisabled?: boolean;
   standaloneSourceName?: string | null;
+  architectureRoots?: Partial<SrijikaArchitectureConfig> | undefined;
   onRefresh: () => void;
   onNewProject: () => void;
   onOpenProject: () => void;
@@ -63,7 +67,9 @@ function joinProjectPath(rootPath: string, relativePath: string): string {
 export function codeProjectEntriesFromFileMap(
   files: Readonly<Record<string, string>>,
   rootPath = 'srijika-memory:/srijika-app',
+  architecture?: Partial<SrijikaArchitectureConfig>,
 ): readonly CodeProjectEntry[] {
+  const uiSuffix = architecture?.uiSuffix ?? '.ui.tsx';
   const entries = new Map<string, CodeProjectEntry>();
   for (const [rawPath, contents] of Object.entries(files)) {
     const relativePath = rawPath.replaceAll('\\', '/').replace(/^\/+/, '');
@@ -86,7 +92,7 @@ export function codeProjectEntriesFromFileMap(
       kind: 'file',
       bytes: new TextEncoder().encode(contents).byteLength,
       hash: null,
-      isUiSource: relativePath.endsWith('.ui.tsx'),
+      isUiSource: relativePath.endsWith(uiSuffix),
     });
   }
   return [...entries.values()];
@@ -129,6 +135,7 @@ interface ProjectTreeRowProps {
   collapsed: ReadonlySet<string>;
   createMenuFolder: string | null;
   creationDisabled: boolean;
+  architectureRoots?: Partial<SrijikaArchitectureConfig> | undefined;
   onToggle: (path: string) => void;
   onToggleCreateMenu: (path: string) => void;
   onCreatePage: (folder: string) => void;
@@ -147,6 +154,7 @@ function ProjectTreeRow({
   collapsed,
   createMenuFolder,
   creationDisabled,
+  architectureRoots,
   onToggle,
   onToggleCreateMenu,
   onCreatePage,
@@ -160,7 +168,7 @@ function ProjectTreeRow({
   const canCreateStructureInside =
     isDirectory &&
     onCreateStructure !== undefined &&
-    resolveSrijikaStructureOwner(entry.relativePath) !== null;
+    resolveSrijikaStructureOwner(entry.relativePath, architectureRoots) !== null;
   const canCreatePageInside =
     isDirectory &&
     (entry.relativePath === 'src' ||
@@ -310,6 +318,7 @@ function ProjectTreeRow({
               collapsed={collapsed}
               createMenuFolder={createMenuFolder}
               creationDisabled={creationDisabled}
+              architectureRoots={architectureRoots}
               onToggle={onToggle}
               onToggleCreateMenu={onToggleCreateMenu}
               onCreatePage={onCreatePage}
@@ -337,6 +346,7 @@ export function ProjectExplorer({
   truncated = false,
   creationDisabled = false,
   standaloneSourceName = null,
+  architectureRoots,
   onRefresh,
   onNewProject,
   onOpenProject,
@@ -426,7 +436,7 @@ export function ProjectExplorer({
           <button
             type="button"
             aria-label="New feature"
-            title="New feature in src/features"
+            title={`New feature in ${architectureRoots?.featuresRoot ?? 'src/features'}`}
             disabled={!displayName || creationDisabled || mode !== 'desktop'}
             onClick={onCreateFeature}
           >
@@ -502,7 +512,7 @@ export function ProjectExplorer({
               </ul>
             ) : !uiSourcesCollapsed ? (
               <p>
-                No <code>.ui.tsx</code> files indexed yet.
+                No <code>{architectureRoots?.uiSuffix ?? '.ui.tsx'}</code> files indexed yet.
               </p>
             ) : null}
           </section>
@@ -543,6 +553,7 @@ export function ProjectExplorer({
                       collapsed={collapsed}
                       createMenuFolder={createMenuFolder}
                       creationDisabled={creationDisabled}
+                      architectureRoots={architectureRoots}
                       onToggle={toggle}
                       onToggleCreateMenu={(path) =>
                         setCreateMenuFolder((current) => (current === path ? null : path))

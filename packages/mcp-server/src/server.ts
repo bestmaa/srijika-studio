@@ -164,7 +164,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     { name: 'srijika-studio', version: TOOL_VERSION },
     {
       instructions:
-        'For a CLI-first TSX project, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, and capability files; these tools work without Desktop Studio. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview.',
+        'For a CLI-first TSX project, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, strict Shared, and capability files; these tools work without Desktop Studio. Shared kinds are exactly shared-ui, shared-widget, and shared-capability. Only a matching Connector renders owner UI (except pure Shared UI Primitive composition); UI never owns Hooks, browser APIs, or external runtime behavior. Types remain passive import type/export type contracts. Logic remains framework-free and deterministic: React/query/router/state lifecycle belongs in Hook, Connector, or Store, while request transport belongs in API. Honor validated bounded custom roots/directories/suffixes. An absent architecture block uses defaults; an explicit block requires exact feature-slot-part-v1 and otherwise fails closed. Treat generated validation, configured-root watch, and exact-file/safe-move previews as resolved canonical-planner behavior, never hardcoded paths. Never bypass direct-child-UI, passive-Types, Logic-runtime-concern, path-containment, canonical-name, freehand-Shared, Shared-cycle, PROMOTE, or SPLIT diagnostics. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview.',
     },
   );
   registerSrijikaDocumentation(server);
@@ -174,9 +174,14 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
       'feature',
       'slot',
       'part',
+      'shared-ui',
+      'shared-widget',
+      'shared-capability',
       'connector',
       'hook',
+      'behavior-hook',
       'store',
+      'store-slice',
       'logic',
       'api',
       'types',
@@ -219,7 +224,8 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     'srijika_plan_code_structure',
     {
       title: 'Plan Srijika code structure',
-      description: 'Plan exact canonical files and safe rewires without writing.',
+      description:
+        'Plan exact canonical Feature, Slot, Part, or strict Shared files and safe rewires without writing.',
       inputSchema: structureInput,
       annotations: READ_ONLY,
     },

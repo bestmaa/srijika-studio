@@ -1,5 +1,7 @@
 import { watch } from 'node:fs';
 import { basename, resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
+import { stdin, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import {
@@ -14,6 +16,10 @@ import {
   type SrijikaProjectCommandKind,
   type SrijikaRuntimePreference,
 } from '@srijika/developer-engine';
+import {
+  resolveSrijikaArchitectureConfig,
+  type SrijikaArchitectureConfig,
+} from '@srijika/architecture-rules';
 import { writeSrijikaProject } from '@srijika/project-scaffold';
 
 import { addSrijikaStructure } from './add.js';
@@ -32,18 +38,23 @@ import {
   SRIJIKA_VSCODE_EXTENSION_ID,
 } from './vscode.js';
 
-export const SRIJIKA_CLI_VERSION = '0.1.0';
+export const SRIJIKA_CLI_VERSION = '0.2.0';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 
 Usage:
-  srijika create <directory> [--name package-name] [--display-name "App Name"]
-                 [--no-install] [--no-vscode] [--no-extension] [--no-studio]
-  srijika init <directory> [--name package-name] [--display-name "App Name"] [--install]
+  srijika create [directory] [--name package-name] [--display-name "App Name"]
+                 [--react-query] [--no-install] [--no-vscode] [--no-extension] [--no-studio]
+  srijika init [directory] [--name package-name] [--display-name "App Name"] [--react-query] [--install]
   srijika add feature <Name> [--hook] [--store] [--logic] [--api] [--types]
   srijika add slot <Name> --in <feature-folder> [optional capability flags]
   srijika add part <Name> --in <slot-folder> [optional capability flags]
+  srijika add shared-ui <Name> [--types]
+  srijika add shared-widget <Name> [--hook] [--store] [--logic] [--api] [--types]
+  srijika add shared-capability <Name> <--hook|--store|--logic|--api> [other capability flags]
   srijika add <hook|store|logic|api|types> --to <owner-folder>
+  srijika add behavior-hook <Behavior> --in <owner-folder>
+  srijika add store-slice <Concern> --in <owner-folder>
   srijika check [project] [--watch] [--json]
   srijika dev [project] [--runtime node|bun] [--port 5173]
   srijika install|build|preview|validate [project]
@@ -61,15 +72,53 @@ interface CreatedProject {
   files: readonly string[];
 }
 
-async function createProjectFiles(parsed: ParsedArguments): Promise<CreatedProject> {
-  const [directory] = parsed.positionals;
-  if (!directory || parsed.positionals.length !== 1) {
-    throw new Error('A single new project directory is required.');
+type ProjectDirectoryPrompt = () => Promise<string>;
+
+async function promptForProjectDirectory(): Promise<string> {
+  if (!stdin.isTTY || !stdout.isTTY) {
+    throw new Error(
+      'A project name is required in non-interactive mode. Example: npm create srijika@latest my-app',
+    );
   }
+  const prompt = createInterface({ input: stdin, output: stdout });
+  try {
+    while (true) {
+      const directory = (await prompt.question('Project name: ')).trim();
+      if (directory) return directory;
+      console.log('! Enter a project name to continue.');
+    }
+  } finally {
+    prompt.close();
+  }
+}
+
+export async function resolveCreationDirectory(
+  parsed: ParsedArguments,
+  prompt: ProjectDirectoryPrompt = promptForProjectDirectory,
+): Promise<string> {
+  if (parsed.positionals.length > 1) {
+    throw new Error('Only one new project directory can be provided.');
+  }
+  const provided = parsed.positionals[0]?.trim();
+  if (provided) return provided;
+  if (booleanOption(parsed, 'json')) {
+    throw new Error(
+      'A project name is required with --json. Example: npm create srijika@latest my-app -- --json',
+    );
+  }
+  return prompt();
+}
+
+async function createProjectFiles(parsed: ParsedArguments): Promise<CreatedProject> {
+  const directory = await resolveCreationDirectory(parsed);
   const target = resolve(directory);
   const projectName = stringOption(parsed, 'name') ?? kebabName(basename(target));
   const displayName = stringOption(parsed, 'display-name') ?? basename(target);
-  const result = await writeSrijikaProject(target, { projectName, displayName });
+  const result = await writeSrijikaProject(target, {
+    projectName,
+    displayName,
+    reactQuery: booleanOption(parsed, 'react-query'),
+  });
   return { target, projectName, displayName, files: result.files };
 }
 
@@ -105,7 +154,7 @@ function kebabName(value: string): string {
 }
 
 async function runInit(parsed: ParsedArguments): Promise<number> {
-  assertKnownOptions(parsed, ['name', 'display-name', 'install', 'json']);
+  assertKnownOptions(parsed, ['name', 'display-name', 'install', 'json', 'react-query']);
   const result = await createProjectFiles(parsed);
   const { target, projectName } = result;
   const install = booleanOption(parsed, 'install');
@@ -134,6 +183,7 @@ async function runCreate(parsed: ParsedArguments): Promise<number> {
     'no-studio',
     'no-extension',
     'extension',
+    'react-query',
   ]);
   const result = await createProjectFiles(parsed);
   const json = booleanOption(parsed, 'json');
@@ -224,14 +274,66 @@ async function runAdd(parsed: ParsedArguments): Promise<number> {
     dryRun: result.dryRun,
     created: result.plan.files.map((file) => file.relativePath),
     updated: result.plan.updates.map((file) => file.relativePath),
+    moved: (result.plan.moves ?? []).map((move) => ({
+      from: move.fromRelativePath,
+      to: move.toRelativePath,
+    })),
   };
   if (json) console.log(JSON.stringify(payload, null, 2));
   else {
     const prefix = result.dryRun ? 'Would create' : 'Created';
     for (const path of payload.created) console.log(`✓ ${prefix}: ${path}`);
+    for (const move of payload.moved) console.log(`↪ Safe move: ${move.from} → ${move.to}`);
     for (const path of payload.updated) console.log(`↻ Safe rewire: ${path}`);
   }
   return 0;
+}
+
+export function resolveSrijikaWatchRoots(
+  projectRoot: string,
+  architecture: Partial<SrijikaArchitectureConfig> = {},
+): readonly string[] {
+  const resolvedArchitecture = resolveSrijikaArchitectureConfig(architecture);
+  return Object.freeze(
+    [...new Set([resolvedArchitecture.featuresRoot, resolvedArchitecture.sharedRoot])].map(
+      (relativeRoot) => resolve(projectRoot, ...relativeRoot.split('/')),
+    ),
+  );
+}
+
+const SRIJIKA_WATCH_IGNORED_DIRECTORIES = new Set([
+  '.git',
+  '.next',
+  '.srijika',
+  '.turbo',
+  'build',
+  'coverage',
+  'dist',
+  'node_modules',
+  'out',
+  'target',
+]);
+
+export function isSrijikaArchitectureWatchPath(
+  relativePath: string | undefined,
+  architecture: Partial<SrijikaArchitectureConfig> | undefined,
+  entry: string,
+): boolean {
+  if (!relativePath) return true;
+  const normalized = relativePath.replaceAll('\\', '/').replace(/^\.\//, '');
+  const normalizedKey = normalized.toLowerCase();
+  if (normalizedKey === 'srijika.config.json' || normalizedKey === 'tsconfig.json') return true;
+  if (normalizedKey === entry.toLowerCase()) return true;
+  const resolved = resolveSrijikaArchitectureConfig(architecture ?? {});
+  return [resolved.featuresRoot, resolved.sharedRoot].some((root) => {
+    const rootKey = root.toLowerCase();
+    if (normalizedKey === rootKey || rootKey.startsWith(`${normalizedKey}/`)) return true;
+    if (!normalizedKey.startsWith(`${rootKey}/`)) return false;
+    return !normalizedKey
+      .slice(rootKey.length + 1)
+      .split('/')
+      .some((segment) => SRIJIKA_WATCH_IGNORED_DIRECTORIES.has(segment));
+  });
 }
 
 async function runCheck(parsed: ParsedArguments): Promise<number> {
@@ -258,27 +360,65 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
     printResult(result);
     return result.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ? 1 : 0;
   }
-  const project = await inspectSrijikaProject(projectArgument);
+  let project = await inspectSrijikaProject(projectArgument);
   const index = new SrijikaArchitectureIndex();
   printResult(await index.check(project.root));
-  const sourceRoot = resolve(project.root, project.architecture?.featuresRoot ?? 'src/features');
-  console.log(`→ Watching ${sourceRoot}; unchanged source text is reused.`);
+  let watchAllUntilProjectIsValid = false;
+  console.log(
+    `→ Watching ${project.root} for project config, aliases, entry, Feature, and Shared changes; unchanged source text is reused.`,
+  );
   await new Promise<void>((done, reject) => {
     let timer: NodeJS.Timeout | undefined;
-    const watcher = watch(sourceRoot, { recursive: true }, () => {
+    const watcher = watch(project.root, { recursive: true }, (_eventType, fileName) => {
+      const relativePath = fileName?.toString();
+      if (
+        !watchAllUntilProjectIsValid &&
+        !isSrijikaArchitectureWatchPath(relativePath, project.architecture, project.entry)
+      ) {
+        return;
+      }
+      if (
+        watchAllUntilProjectIsValid &&
+        relativePath
+          ?.replaceAll('\\', '/')
+          .toLowerCase()
+          .split('/')
+          .some((segment) => SRIJIKA_WATCH_IGNORED_DIRECTORIES.has(segment))
+      ) {
+        return;
+      }
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => {
-        void index.check(project.root).then(printResult).catch(reject);
+        void inspectSrijikaProject(project.root)
+          .then((nextProject) => {
+            project = nextProject;
+            watchAllUntilProjectIsValid = false;
+            return index.check(project.root);
+          })
+          .then(printResult)
+          .catch((error) => {
+            watchAllUntilProjectIsValid = true;
+            console.error(
+              `✗ Srijika watch failed closed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          });
       }, 80);
     });
-    watcher.once('error', reject);
-    const stop = (): void => {
+    const cleanup = (): void => {
       if (timer) clearTimeout(timer);
       watcher.close();
       process.off('SIGINT', stop);
       process.off('SIGTERM', stop);
+    };
+    const fail = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+    const stop = (): void => {
+      cleanup();
       done();
     };
+    watcher.once('error', fail);
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);
   });

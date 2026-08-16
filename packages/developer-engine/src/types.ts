@@ -13,12 +13,15 @@ export interface SrijikaProjectMetadata {
   root: string;
   packageJsonPath: string;
   configPath: string;
+  /** Canonical project-root-relative UI entry from srijika.config.json. */
+  entry: string;
   projectName: string;
   packageManager: SrijikaPackageManager;
   packageManagerVersion?: string;
   lockfile: string | null;
   scripts: Readonly<Record<string, string>>;
   architecture?: Partial<SrijikaArchitectureConfig>;
+  aliases?: Readonly<Record<string, string>>;
   viteProject: boolean;
   warnings: readonly string[];
 }

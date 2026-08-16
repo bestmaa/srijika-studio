@@ -1,4 +1,4 @@
-export const GENERATED_PNPM_LOCKFILE = String.raw`lockfileVersion: '9.0'
+export const GENERATED_PNPM_LOCKFILE_WITH_REACT_QUERY = String.raw`lockfileVersion: '9.0'
 
 settings:
   autoInstallPeers: true
@@ -958,3 +958,39 @@ snapshots:
       '@types/react': 19.2.18
       react: 19.2.8
 `;
+
+const REACT_QUERY_LOCKFILE_SECTIONS = [
+  String.raw`      '@tanstack/react-query':
+        specifier: 5.101.4
+        version: 5.101.4(react@19.2.8)
+`,
+  String.raw`  '@tanstack/query-core@5.101.4':
+    resolution: {integrity: sha512-gNwcvOJcRbLWPOLG/2OBm+zM+Yv+MKsXKEOWC57USuZDEsI71hEErQsiEGx5wX9rzWWkfwM0fVSPoiIFSsxfiw==}
+
+  '@tanstack/react-query@5.101.4':
+    resolution: {integrity: sha512-yRg2pfOCxIs4ZJW3XYYHU/WgtD04FHSnfHlpRT7h7pR77hwkdRG4wxbKe4aq6P0RvXUTBSQpQeadS1SUYUe+KA==}
+    peerDependencies:
+      react: ^18 || ^19
+
+`,
+  String.raw`  '@tanstack/query-core@5.101.4': {}
+
+  '@tanstack/react-query@5.101.4(react@19.2.8)':
+    dependencies:
+      '@tanstack/query-core': 5.101.4
+      react: 19.2.8
+
+`,
+] as const;
+
+const removeRequiredLockfileSection = (lockfile: string, section: string): string => {
+  if (!lockfile.includes(section)) {
+    throw new Error('The generated React Query lockfile section is out of sync.');
+  }
+  return lockfile.replace(section, '');
+};
+
+export const GENERATED_PNPM_LOCKFILE = REACT_QUERY_LOCKFILE_SECTIONS.reduce(
+  removeRequiredLockfileSection,
+  GENERATED_PNPM_LOCKFILE_WITH_REACT_QUERY,
+);

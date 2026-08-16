@@ -7,7 +7,7 @@ Date: 2026-08-14
 | Surface               | Verified behavior                                                                                           | Result |
 | --------------------- | ----------------------------------------------------------------------------------------------------------- | ------ |
 | Activity Bar          | A dedicated Srijika container contributes the Structure view                                                | Pass   |
-| Structure hierarchy   | Shows only canonical `src/features -> Feature -> Slot -> Part` owners                                       | Pass   |
+| Structure hierarchy   | Shows configured Feature → Slot → Part owners plus the three canonical Shared owner shapes                  | Pass   |
 | Inline Add            | Every owner row exposes the same `+` creation command                                                       | Pass   |
 | Explorer context      | Exact ownership folders retain the right-click creation command                                             | Pass   |
 | Visual form           | Opens in the editor area with owner-valid actions, required files, optional checks, and exact paths         | Pass   |
@@ -28,7 +28,29 @@ Date: 2026-08-14
 Both entry points use `buildSrijikaOwnershipCreationPlan`; the sidebar does not
 contain a second or weaker scaffold implementation.
 
+## 2026-08-16 configuration-parity release follow-up
+
+| Release blocker              | Verified behavior                                                                                                                 | Result |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Optional architecture block  | An absent block uses defaults; an explicit block requires exact profile `feature-slot-part-v1`                                    | Pass   |
+| Fail-closed discovery        | Missing/unsupported explicit profiles stop Structure discovery and creation instead of falling back to default roots              | Pass   |
+| Runtime generated validation | `scripts/srijika-validate.mjs` reloads current roots, structural directories, and suffixes rather than retaining a snapshot       | Pass   |
+| Recoverable filtered watch   | project-root watch filters to config/tsconfig/entry/resolved roots, follows future roots, and survives temporarily invalid config | Pass   |
+| Strict TypeScript aliases    | JSONC root only; no `extends`/nonempty `references`/`baseUrl`; exact or slash-terminal `/*` paths only                            | Pass   |
+| Authoritative outside entry  | configured UI entry is counted and strictly validated even when outside ownership roots                                           | Pass   |
+| Canonical webview preview    | **Exact files and safe rewiring** is canonical planner output; the webview contains no string-built default path implementation   | Pass   |
+| Full naming projection       | Structure and preview use configured roots, Slot/Part/Hook/Store directories, and all six suffixes                                | Pass   |
+
+Focused architecture, portable-validator, developer-engine, CLI watch-root,
+Structure-tree, and creation-webview tests cover this contract. MCP and portal
+publish the same machine- and human-readable behavior.
+
 ## Verification
+
+The counts below are the immutable 2026-08-14 audit snapshot. The current
+2026-08-16 contract and expanded counts are recorded in
+`SHARED_ARCHITECTURE_AUDIT_2026-08-16.md`; they supersede these historical
+totals without rewriting the original evidence.
 
 | Gate                                              | Result                                                   |
 | ------------------------------------------------- | -------------------------------------------------------- |

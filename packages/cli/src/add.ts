@@ -17,7 +17,12 @@ const STRUCTURE_KINDS = Object.freeze([
   'feature',
   'slot',
   'part',
+  'shared-ui',
+  'shared-widget',
+  'shared-capability',
   'connector',
+  'behavior-hook',
+  'store-slice',
   ...OPTIONAL_CAPABILITIES,
 ] as const);
 
@@ -27,7 +32,9 @@ export async function addSrijikaStructure(parsed: ParsedArguments): Promise<Srij
   assertKnownOptions(parsed, ['project', 'in', 'to', 'dry-run', 'json', ...OPTIONAL_CAPABILITIES]);
   const [rawKind, name] = parsed.positionals;
   if (!rawKind) {
-    throw new Error('Choose what to add: feature, slot, part, hook, store, logic, api, or types.');
+    throw new Error(
+      'Choose what to add: feature, slot, part, shared-ui, shared-widget, shared-capability, hook, behavior-hook, store, store-slice, logic, api, or types.',
+    );
   }
   if (parsed.positionals.length > 2) {
     throw new Error('The add command accepts only a target and optional owner name.');

@@ -81,22 +81,22 @@ across Features.
 
 ## Product implementation matrix
 
-| Area                            | Implemented behavior                                                                                                     | Result |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
-| Feature creation                | UI + locked required Connector; optional Hook, Store, Logic, API, Types checkboxes                                       | ✅     |
-| Slot creation                   | Same six capability choices at the Slot owner root                                                                       | ✅     |
-| Part creation                   | Same six capability choices at the Part owner root                                                                       | ✅     |
-| Bundled first Part              | UI + required Connector are always selected when a Slot includes its first Part                                          | ✅     |
-| Standalone capability actions   | Connector, Hook, Store, Logic, API, and Types can be added at the exact selected owner                                   | ✅     |
-| Canonical Hook                  | Creates flat public `useOwner.ts`; additional behavior hooks remain private helpers                                      | ✅     |
-| Atomic scaffold                 | Multi-file plans preflight every path, do not overwrite, and roll back partial writes                                    | ✅     |
-| Highest-available templates     | Newly generated files import the next available lower capability                                                         | ✅     |
-| Studio Problems                 | Errors block; recommendations are amber, separate, and do not falsely mark the architecture invalid                      | ✅     |
-| VS Code parity                  | Same numeric code, semantic `ruleId`, severity, message, rule guidance, and quick-action model                           | ✅     |
-| Portable/browser validator      | Same suffix classification, required Connector, no-jump, reverse-dependency, and recommendation behavior                 | ✅     |
-| Generated project               | TanStack Query provider and canonical starter Hook included; frozen-lock install/typecheck/build verified                | ✅     |
-| MCP/Codex architecture resource | Read-only `srijika://docs/code-first-architecture`, contract ID `srijika.progressive-behavior-chain`                     | ✅     |
-| Product/website documentation   | Studio Structure guide, engineering docs, portal Project Anatomy, generated reference, and Codex plugin guidance aligned | ✅     |
+| Area                            | Implemented behavior                                                                                                      | Result |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ |
+| Feature creation                | UI + locked required Connector; optional Hook, Store, Logic, API, Types checkboxes                                        | ✅     |
+| Slot creation                   | Same six capability choices at the Slot owner root                                                                        | ✅     |
+| Part creation                   | Same six capability choices at the Part owner root                                                                        | ✅     |
+| Bundled first Part              | UI + required Connector are always selected when a Slot includes its first Part                                           | ✅     |
+| Standalone capability actions   | Connector, Hook, Store, Logic, API, and Types can be added at the exact selected owner                                    | ✅     |
+| Canonical Hook and Store        | Starts flat; the first named helper atomically moves the public gateway into `hooks/` or `stores/` with no mixed layout   | ✅     |
+| Atomic scaffold                 | Multi-file plans preflight every path, do not overwrite, and roll back partial writes                                     | ✅     |
+| Highest-available templates     | Newly generated files import the next available lower capability                                                          | ✅     |
+| Studio Problems                 | Errors block; recommendations are amber, separate, and do not falsely mark the architecture invalid                       | ✅     |
+| VS Code parity                  | Same numeric code, semantic `ruleId`, severity, message, rule guidance, and quick-action model                            | ✅     |
+| Portable/browser validator      | Same suffix classification, required Connector, no-jump, reverse-dependency, and recommendation behavior                  | ✅     |
+| Generated project               | Minimal starter omits TanStack Query; both default and `--react-query` frozen-lock install/typecheck/build flows verified | ✅     |
+| MCP/Codex architecture resource | Read-only `srijika://docs/code-first-architecture`, contract ID `srijika.progressive-behavior-chain`                      | ✅     |
+| Product/website documentation   | Studio Structure guide, engineering docs, portal Project Anatomy, generated reference, and Codex plugin guidance aligned  | ✅     |
 
 ## Enforced errors
 
@@ -218,7 +218,7 @@ the current Codex task, not a claim that the desktop editor failed.
 
 | Surface                         | Verified behavior                                                                                                | Result |
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------ |
-| Shared architecture contract    | One parser and action matrix resolves only `src/features`, Feature, Slot, and Part owner roots                   | Pass   |
+| Shared architecture contract    | One parser resolves configured Feature/Slot/Part roots plus the three strict Shared owner shapes                 | Pass   |
 | Studio folder `+`               | Opens the ownership dialog directly; no clipped intermediate menu                                                | Pass   |
 | Studio folder right-click       | Opens the same ownership dialog directly                                                                         | Pass   |
 | Studio composite owner          | UI + Connector locked required; Hook, Store, Logic, API, and Types selectable                                    | Pass   |
@@ -232,6 +232,12 @@ the current Codex task, not a claim that the desktop editor failed.
 | MCP packaged stdio bundle       | Starts successfully and publishes all four documentation resources                                               | Pass   |
 | Codex plugin skill              | Strict owner resolution and no-arbitrary-write workflow documented; plugin and skill validators pass             | Pass   |
 | Website/reference documentation | Portal project anatomy and generated architecture reference include the same strict creation matrix              | Pass   |
+| Exact architecture profile      | Explicit architecture requires `feature-slot-part-v1`; missing/unsupported profiles fail closed                  | Pass   |
+| Live generated validator config | Generated validation reloads current roots/directories/suffixes rather than a baked scaffold snapshot            | Pass   |
+| Recoverable filtered CLI watch  | Project-root watch filters to config/tsconfig/entry/resolved roots and future roots, surviving invalid config    | Pass   |
+| Strict TypeScript alias policy  | Root JSONC only; `extends`, nonempty `references`, and `baseUrl` rejected; exact/slash-terminal `/*` paths only  | Pass   |
+| Authoritative outside entry     | Configured entry is counted and receives strict UI/import checks outside ownership roots                         | Pass   |
+| Resolved Studio path preview    | Exact files, safe moves, and rewires come from the canonical planner with configured directories/suffixes        | Pass   |
 
 Native follow-up evidence:
 
@@ -241,6 +247,10 @@ C:\Users\beste\AppData\Local\Temp\srijika-native-strict-feature-preview2.png
 ```
 
 ## Automated verification
+
+This table is the immutable 2026-08-13 audit snapshot. The expanded 2026-08-16
+suite and current counts are recorded in
+`SHARED_ARCHITECTURE_AUDIT_2026-08-16.md` and supersede these historical totals.
 
 | Gate                             | Final result                                                |
 | -------------------------------- | ----------------------------------------------------------- |
@@ -297,3 +307,9 @@ performance follow-up.
 - 2026-08-13: strict ownership-aware folder creation unified across Studio,
   native writer, VS Code Explorer, MCP resource, Codex skill, and portal docs;
   native input/focus/path preview and packaged MCP startup re-audited.
+- 2026-08-16: release-blocker parity hardened: explicit architecture profiles
+  fail closed, generated validation reads current config, filtered watch mode
+  recovers through invalid config and follows current/future roots, strict root
+  JSONC aliases reject `extends`, nonempty `references`, and `baseUrl`, the
+  authoritative outside-root entry remains covered, and VS Code/Studio path
+  previews use canonical planner output.

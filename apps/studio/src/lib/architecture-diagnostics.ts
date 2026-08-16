@@ -1,11 +1,21 @@
 import {
+  parseSrijikaProjectConfig,
+  parseSrijikaTypeScriptPathAliases,
+  resolveSrijikaArchitectureConfig,
   SRIJIKA_ARCHITECTURE_PROFILE,
   validateSrijikaArchitecture,
   type SrijikaArchitectureConfig,
   type SrijikaArchitectureDiagnostic,
   type SrijikaArchitectureRecommendation,
   type SrijikaArchitectureSourceFile,
+  type ResolvedSrijikaArchitectureConfig,
 } from '@srijika/architecture-rules';
+
+export type CodeProjectArchitectureConfig = ResolvedSrijikaArchitectureConfig;
+export type CodeProjectArchitectureRoots = Pick<
+  ResolvedSrijikaArchitectureConfig,
+  'featuresRoot' | 'sharedRoot'
+>;
 
 export interface CodeProjectArchitectureDiagnostic extends SrijikaArchitectureDiagnostic {
   /** Keeps project-wide rules distinct from active-file compiler diagnostics in Studio. */
@@ -23,19 +33,6 @@ export interface CodeProjectArchitectureSource {
   source: string;
 }
 
-const architectureKeys = [
-  'featuresRoot',
-  'slotsDirectory',
-  'partsDirectory',
-  'hooksDirectory',
-  'uiSuffix',
-  'connectorSuffix',
-  'storeSuffix',
-  'logicSuffix',
-  'apiSuffix',
-  'typesSuffix',
-] as const;
-
 function normalizePath(value: string): string {
   return value
     .replaceAll('\\', '/')
@@ -50,7 +47,10 @@ function joinProjectPath(rootPath: string | undefined, relativePath: string): st
 }
 
 function isArchitectureSource(path: string): boolean {
-  return /\.(?:ts|tsx|mts|cts)$/.test(path) && !path.endsWith('.d.ts');
+  const lower = path.toLowerCase();
+  return (
+    /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/.test(lower) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(lower)
+  );
 }
 
 function architectureConfigFromProject(
@@ -60,31 +60,35 @@ function architectureConfigFromProject(
     ([path]) => normalizePath(path) === 'srijika.config.json',
   );
   if (!configEntry) return { profile: SRIJIKA_ARCHITECTURE_PROFILE };
+  return parseSrijikaProjectConfig(configEntry[1]).architecture;
+}
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(configEntry[1]);
-  } catch {
-    return { profile: SRIJIKA_ARCHITECTURE_PROFILE };
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { profile: SRIJIKA_ARCHITECTURE_PROFILE };
-  }
-  const candidate = (parsed as Record<string, unknown>)['architecture'];
-  if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
-    return { profile: SRIJIKA_ARCHITECTURE_PROFILE };
-  }
+function architectureAliasesFromProject(
+  sourceByPath: Readonly<Record<string, string>>,
+): Readonly<Record<string, string>> {
+  const tsconfigEntry = Object.entries(sourceByPath).find(
+    ([path]) => normalizePath(path) === 'tsconfig.json',
+  );
+  return tsconfigEntry ? parseSrijikaTypeScriptPathAliases(tsconfigEntry[1]) : {};
+}
 
-  const architecture: Partial<SrijikaArchitectureConfig> = {
-    profile: SRIJIKA_ARCHITECTURE_PROFILE,
-  };
-  const profile = (candidate as Record<string, unknown>)['profile'];
-  if (profile === SRIJIKA_ARCHITECTURE_PROFILE) architecture.profile = profile;
-  for (const key of architectureKeys) {
-    const value = (candidate as Record<string, unknown>)[key];
-    if (typeof value === 'string' && value.trim()) architecture[key] = value;
-  }
-  return architecture;
+/**
+ * Reads the same configured ownership roots used by architecture validation.
+ * Desktop callers still rely on the native scaffold service as the final path
+ * and symlink-safety authority; this projection only keeps discovery and path
+ * previews aligned with that validated write boundary.
+ */
+export function architectureConfigFromFileMap(
+  files: Readonly<Record<string, string>>,
+): CodeProjectArchitectureConfig {
+  return resolveSrijikaArchitectureConfig(architectureConfigFromProject(files));
+}
+
+export function architectureRootsFromFileMap(
+  files: Readonly<Record<string, string>>,
+): CodeProjectArchitectureRoots {
+  const { featuresRoot, sharedRoot } = architectureConfigFromFileMap(files);
+  return { featuresRoot, sharedRoot };
 }
 
 export function architectureSourcesFromFileMap(
@@ -107,6 +111,7 @@ export function analyzeCodeProjectArchitecture(
   options: {
     projectRoot?: string;
     architecture?: Partial<SrijikaArchitectureConfig>;
+    aliases?: Readonly<Record<string, string>>;
   } = {},
 ): CodeProjectArchitectureAnalysis {
   const sourceFiles: readonly SrijikaArchitectureSourceFile[] = files
@@ -115,6 +120,7 @@ export function analyzeCodeProjectArchitecture(
   const validation = validateSrijikaArchitecture(sourceFiles, {
     ...(options.projectRoot ? { projectRoot: normalizePath(options.projectRoot) } : {}),
     architecture: options.architecture ?? { profile: SRIJIKA_ARCHITECTURE_PROFILE },
+    ...(options.aliases ? { aliases: options.aliases } : {}),
   });
   return {
     checkedFileCount: sourceFiles.length,
@@ -133,5 +139,6 @@ export function analyzeCodeProjectFileMap(
   return analyzeCodeProjectArchitecture(architectureSourcesFromFileMap(files, projectRoot), {
     ...(projectRoot ? { projectRoot } : {}),
     architecture: architectureConfigFromProject(files),
+    aliases: architectureAliasesFromProject(files),
   });
 }

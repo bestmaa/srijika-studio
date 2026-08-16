@@ -11,7 +11,7 @@ Desktop Studio works with one validated project root at a time. The root contain
 
 | Surface            | Responsibility                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------- |
-| Project Explorer   | Shows the bounded real filesystem tree and every indexed `.ui.tsx` source.                |
+| Project Explorer   | Shows the bounded real filesystem tree and every source ending in the resolved UI suffix. |
 | Source             | Displays read-only source with exact diagnostic and node ranges.                          |
 | UI Nodes           | Shows the compiled JSX hierarchy for the active source.                                   |
 | Inspector          | Displays the authored prop contract and supported derived value shapes.                   |
@@ -23,9 +23,46 @@ Desktop Studio works with one validated project root at a time. The root contain
 
 Double-clicking a project, file, node, or diagnostic asks the native boundary to validate the target remains inside the current project and opens the exact line and column in VS Code.
 
+## Structure creation
+
+Project Explorer folder `+` and ownership-folder context actions use the same
+planner as CLI, VS Code, and MCP. Feature → Slot → Part owners always start with
+UI + Connector and may select Hook, Store, Logic, API, and Types. `src/shared`
+offers exactly three composite owners:
+
+- Shared UI Primitive: pure UI plus optional Types;
+- Shared Widget: UI + Connector plus optional runtime layers and Types;
+- Shared Headless Capability: no UI/Connector and at least one runtime layer.
+
+Studio previews every canonical path, rejects freehand shared folders and
+overwrites, and applies the approved batch atomically. Expanded Hook/Store
+creation moves the public gateway, rewrites project imports, and removes the old
+flat file just as the other surfaces do. The migration covers the complete
+bounded TS/JS project corpus; unsafe entries, symlinks, incomplete scans, stale
+source, or budget failures abort before any write.
+
+Studio uses canonical defaults only when `srijika.config.json` has no
+`architecture` block. An explicit block must declare exact profile
+`feature-slot-part-v1`; missing or unsupported profiles fail closed. Structure
+discovery and the **Exact files and safe move/rewire** preview both use the
+resolved canonical planner, including custom Feature/Shared roots,
+Slot/Part/Hook/Store directories, and all six configured suffixes. No dialog
+path is rebuilt from hardcoded defaults.
+
+The complete config requires exact `sourceOfTruth: "tsx"`, a bounded entry
+ending in the resolved UI suffix, and—when architecture exists—the profile plus
+all twelve supported root/directory/suffix fields. That entry remains strict and
+counted outside ownership roots. Studio reads root JSONC `tsconfig.json` only:
+`extends` and nonempty `references` are rejected, empty references are valid,
+`compilerOptions.baseUrl` must be omitted, and aliases must be exact or
+slash-delimited terminal `/*`. Vite-only aliases do not define the architecture
+graph. Project config is capped at 64 KiB,
+`tsconfig.json` at 1 MiB, and architecture/migration source at 4,096 files,
+32,768 entries, 4,096 directories, depth 32, 4 MiB per source, and 24 MiB total.
+
 ## Preview behavior
 
-Browser demos and detached sources use the dependency-free derived renderer. An attached desktop project initially shows **Start App** instead of a derived rendering. Once started, the center uses the tracked real Vite process. Selecting a UI Source dynamically renders its matching Connector inside that runtime, including Providers, Hook, Store, Logic, API, CSS, and HMR, without restarting the app. Runtime loading and failures are reported back to Studio.
+Browser demos and detached sources use the dependency-free derived renderer. An attached desktop project initially shows **Start App** instead of a derived rendering. Once started, the center uses the tracked real Vite process. Studio opens the configured entry, discovers the configured UI suffix, and dynamically renders the sibling with the configured Connector suffix inside that runtime, including Providers, Hook, Store, Logic, API, CSS, and HMR, without restarting the app. Runtime loading and failures are reported back to Studio.
 
 ## Failure behavior
 

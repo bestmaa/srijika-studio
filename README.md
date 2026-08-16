@@ -1,6 +1,6 @@
 # Srijika Studio
 
-Srijika Studio is a code-first React application studio. Restricted, typed `.ui.tsx` is the single persisted UI source of truth; the hierarchy, contract Inspector, diagnostics console, and live React preview are derived projections. `UiDocument` remains the validated renderer IR, but Studio never saves it back over developer-owned TSX.
+Srijika Studio is a code-first React application studio. Restricted, typed source ending in the resolved UI suffix (canonical default `.ui.tsx`) is the single persisted UI source of truth; the hierarchy, contract Inspector, diagnostics console, and live React preview are derived projections. `UiDocument` remains the validated renderer IR, but Studio never saves it back over developer-owned TSX.
 
 ## Code-first milestone
 
@@ -10,9 +10,9 @@ The repository currently implements:
 - deterministic new-project scaffolding plus no-overwrite UI and architecture-aware
   Feature → Slot → Part creation with optional Connectors, Stores, and Hooks;
 - a non-executing restricted-TSX compiler that emits source diagnostics, quick fixes, stable source ranges, and a derived `UiDocument`;
-- a real Project Explorer, project-wide `.ui.tsx` index, derived DOM preview, read-only source viewer, UI Nodes hierarchy, prop-contract Inspector, and Studio problems console;
+- a real Project Explorer, project-wide resolved-UI-suffix index, derived DOM preview, read-only source viewer, UI Nodes hierarchy, prop-contract Inspector, and Studio problems console;
 - last-good preview behavior when the current source has errors;
-- safe native `.ui.tsx` reads, optimistic hash-checked atomic saves, and explicit non-overwriting project creation;
+- safe native resolved-UI-suffix reads, optimistic hash-checked atomic saves, and explicit non-overwriting project creation;
 - direct project/file/node navigation into VS Code plus a managed frozen-lockfile install, run, open, stop, and build lifecycle;
 - a polished interactive one-page Srijika starter that demonstrates pure UI, connector state, typed events, slots, responsive styling, and the pinned project toolchain;
 - a Srijika VS Code extension for the same compiler diagnostics and fixes; and
@@ -64,8 +64,9 @@ and a build-time architecture validator. The canonical starter lives at
 feature Store, and a private `slots/navigation` subtree. Select a canonical feature,
 slot, or part folder in Project Explorer to add only the capabilities that owner may
 contain. The new source opens immediately across Source, UI Nodes, Preview, and
-Inspector. Use the compact UI Sources list or click any `.ui.tsx` in Project Explorer
-to switch views; double-click opens the exact location in VS Code. Routes, services,
+Inspector. Use the compact UI Sources list or click any file ending in the resolved
+UI suffix in Project Explorer to switch views; double-click opens the exact location
+in VS Code. Routes, services,
 and intentionally cross-feature code remain normal VS Code work under the appropriate
 owner or `src/shared`.
 For an attached desktop project, the center preview, `Browser preview`, and `Open App`
@@ -76,7 +77,7 @@ Preview opens it in Srijika's separate window and Open App uses the system brows
 Project CSS, assets, dependencies, Connector behavior, routes, and HMR therefore stay
 identical in all three views. The dependency-free derived preview remains available
 for browser demos and detached standalone UI files. In development, the scaffold's
-Vite bridge adds source-location metadata to `.ui.tsx` elements: clicking the embedded
+Vite bridge adds source-location metadata to resolved-UI-suffix elements: clicking the embedded
 live app selects the matching stable UI node, source range, and Inspector entry, while
 selecting a Studio node outlines that live element. `Stop` terminates the tracked
 process tree.

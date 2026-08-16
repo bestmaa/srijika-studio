@@ -26,7 +26,25 @@
     "generatedTsxInspection": true,
     "softwareIndependentCodeProjects": true,
     "architectureValidation": true,
-    "reviewedAtomicScaffolding": true
+    "reviewedAtomicScaffolding": true,
+    "strictSharedOwners": true,
+    "strictUiBehaviorIsolation": true,
+    "strictUiExternalRuntimeIsolation": true,
+    "directChildConnectorComposition": true,
+    "passiveTypesContracts": true,
+    "logicRuntimeConcernIsolation": true,
+    "safeCustomArchitectureConfig": true,
+    "caseInsensitiveSuffixNonOverlap": true,
+    "failClosedArchitectureProfile": true,
+    "strictRootJsoncAliasContract": true,
+    "authoritativeOutsideEntryValidation": true,
+    "boundedSymlinkSafeProjectScans": true,
+    "recoverableFilteredProjectWatch": true,
+    "provableProjectImportGraph": true,
+    "runtimeArchitectureConfigParity": true,
+    "canonicalStructurePreviews": true,
+    "sharedRuntimeCycleValidation": true,
+    "promotionAndSplitRecommendations": true
   },
   "limits": {
     "customViewport": {

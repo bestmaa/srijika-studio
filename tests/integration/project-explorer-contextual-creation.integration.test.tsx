@@ -32,6 +32,7 @@ function renderExplorer(overrides?: {
   onCreateFeature?: () => void;
   onCreateStructure?: (folder: string) => void;
   entries?: readonly CodeProjectEntry[];
+  architectureRoots?: { featuresRoot: string; sharedRoot: string };
 }) {
   return render(
     <ProjectExplorer
@@ -41,6 +42,7 @@ function renderExplorer(overrides?: {
       entries={overrides?.entries ?? ENTRIES}
       selectedPath={null}
       activeUiSourcePath={`${ROOT}/src/components/home/Home.ui.tsx`}
+      architectureRoots={overrides?.architectureRoots}
       onRefresh={vi.fn()}
       onNewProject={vi.fn()}
       onOpenProject={vi.fn()}
@@ -56,6 +58,46 @@ function renderExplorer(overrides?: {
 }
 
 describe('Project Explorer contextual creation', () => {
+  it('discovers exact owners below configured Feature and Shared roots', () => {
+    const onCreateStructure = vi.fn();
+    renderExplorer({
+      onCreateStructure,
+      architectureRoots: {
+        featuresRoot: 'application/domain/features',
+        sharedRoot: 'application/domain/shared',
+      },
+      entries: [
+        entry('src/features', 'directory'),
+        entry('application', 'directory'),
+        entry('application/domain', 'directory'),
+        entry('application/domain/features', 'directory'),
+        entry('application/domain/features/home', 'directory'),
+        entry('application/domain/features/home/Home.ui.tsx', 'file'),
+        entry('application/domain/shared', 'directory'),
+        entry('application/domain/shared/widgets', 'directory'),
+        entry('application/domain/shared/widgets/profile-card', 'directory'),
+        entry('application/domain/shared/widgets/profile-card/ProfileCard.ui.tsx', 'file'),
+      ],
+    });
+
+    const explorer = screen.getByRole('region', { name: 'Project Explorer' });
+    expect(within(explorer).getByTitle('New feature in application/domain/features')).toBeVisible();
+    for (const folder of [
+      'application/domain/features',
+      'application/domain/features/home',
+      'application/domain/shared',
+      'application/domain/shared/widgets/profile-card',
+    ]) {
+      fireEvent.click(
+        within(explorer).getByRole('button', { name: `Add capability inside ${folder}` }),
+      );
+      expect(onCreateStructure).toHaveBeenLastCalledWith(folder);
+    }
+    expect(
+      within(explorer).queryByRole('button', { name: 'Add capability inside src/features' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('routes pages and features to their canonical roots and hides legacy component creation', () => {
     const onCreatePage = vi.fn();
     const onCreateFeature = vi.fn();
@@ -127,7 +169,7 @@ describe('Project Explorer contextual creation', () => {
     });
   });
 
-  it('offers ownership-aware capabilities only on exact feature, slot, and part owner folders', () => {
+  it('offers ownership-aware capabilities only on exact feature and Shared owner folders', () => {
     const onCreateStructure = vi.fn();
     renderExplorer({
       onCreateStructure,
@@ -142,6 +184,17 @@ describe('Project Explorer contextual creation', () => {
         entry('src/features/home/slots/navigation/parts', 'directory'),
         entry('src/features/home/slots/navigation/parts/user-menu', 'directory'),
         entry('src/features/home/slots/navigation/parts/user-menu/UserMenu.ui.tsx', 'file'),
+        entry('src/shared', 'directory'),
+        entry('src/shared/.gitkeep', 'file'),
+        entry('src/shared/ui', 'directory'),
+        entry('src/shared/ui/button', 'directory'),
+        entry('src/shared/ui/button/Button.ui.tsx', 'file'),
+        entry('src/shared/widgets', 'directory'),
+        entry('src/shared/widgets/profile-card', 'directory'),
+        entry('src/shared/widgets/profile-card/ProfileCard.ui.tsx', 'file'),
+        entry('src/shared/capabilities', 'directory'),
+        entry('src/shared/capabilities/auth-session', 'directory'),
+        entry('src/shared/capabilities/auth-session/useAuthSession.ts', 'file'),
       ],
     });
 
@@ -179,7 +232,21 @@ describe('Project Explorer contextual creation', () => {
     expect(onCreateStructure).toHaveBeenLastCalledWith(
       'src/features/home/slots/navigation/parts/user-menu',
     );
-    expect(onCreateStructure).toHaveBeenCalledTimes(4);
+
+    for (const folder of [
+      'src/shared',
+      'src/shared/ui/button',
+      'src/shared/widgets/profile-card',
+      'src/shared/capabilities/auth-session',
+    ]) {
+      fireEvent.click(
+        within(explorer).getByRole('button', {
+          name: `Add capability inside ${folder}`,
+        }),
+      );
+      expect(onCreateStructure).toHaveBeenLastCalledWith(folder);
+    }
+    expect(onCreateStructure).toHaveBeenCalledTimes(8);
   });
 
   it('opens the same strict creation dialog from a canonical folder right-click only', () => {

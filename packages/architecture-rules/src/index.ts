@@ -1,4 +1,10 @@
-export { DEFAULT_SRIJIKA_ARCHITECTURE, resolveSrijikaArchitectureConfig } from './config';
+export {
+  DEFAULT_SRIJIKA_ARCHITECTURE,
+  parseSrijikaProjectArchitectureConfig,
+  parseSrijikaProjectConfig,
+  parseSrijikaTypeScriptPathAliases,
+  resolveSrijikaArchitectureConfig,
+} from './config';
 export {
   canonicalSrijikaOwnerName,
   normalizeSrijikaRelativePath,
@@ -8,6 +14,7 @@ export {
   srijikaStructureCreationActionsForOwner,
   SRIJIKA_OWNER_FILE_CONTRACT,
   SRIJIKA_OWNER_NAME_PATTERN,
+  SRIJIKA_SHARED_FILE_CONTRACT,
   SRIJIKA_STRUCTURE_CREATION_MATRIX,
 } from './creation';
 export {
@@ -27,6 +34,7 @@ export type {
   SrijikaArchitectureSourceFile,
   SrijikaArchitectureSourceSpan,
   SrijikaArchitectureValidationResult,
+  SrijikaProjectConfig,
   ValidateSrijikaArchitectureOptions,
 } from './types';
 export type { SrijikaStructureCreationAction, SrijikaStructureOwnerContext } from './creation';

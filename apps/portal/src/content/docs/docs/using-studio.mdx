@@ -24,7 +24,7 @@ A project must contain the Srijika configuration and pinned toolchain files desc
 
 ## 2. Choose a UI source
 
-Select a `.ui.tsx` file in **Project Explorer**. Studio compiles the restricted TSX without executing arbitrary project modules, then synchronizes these views:
+Select a file ending in the resolved UI suffix (canonical default `.ui.tsx`) in **Project Explorer**. Studio compiles the restricted TSX without executing arbitrary project modules, then synchronizes these views:
 
 - **Source** shows the authored file and exact diagnostic ranges.
 - **UI Nodes** shows the compiled JSX hierarchy.
@@ -63,7 +63,7 @@ Use Studio's managed build action when the project is ready for a production Rea
 
 ## Browser mode
 
-The browser version is useful for the in-memory demo project and detached `.ui.tsx` inspection. Browser security prevents it from opening project directories, launching VS Code, or managing local application processes. Use the Tauri desktop application for the complete workflow.
+The browser version is useful for the in-memory demo project and detached resolved-UI-suffix inspection. Browser security prevents it from opening project directories, launching VS Code, or managing local application processes. Use the Tauri desktop application for the complete workflow.
 
 ## What is intentionally unavailable
 

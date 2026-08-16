@@ -5,8 +5,9 @@ built-in TypeScript/TSX language service remains responsible for standard
 TypeScript, React JSX, HTML attributes, navigation, and IntelliSense. Srijika
 only adds the stricter authoring contract used by Studio.
 
-The extension validates `*.ui.tsx` documents with `@srijika/tsx-compiler` when they
-are opened, changed, or saved. Compiler diagnostics are shown as editor
+The extension validates documents ending in the resolved `uiSuffix`
+(`.ui.tsx` by default) with `@srijika/tsx-compiler` when they are opened,
+changed, or saved. Compiler diagnostics are shown as editor
 squiggles, and compiler-provided text edits are exposed as Quick Fixes. Inside
 intrinsic JSX opening tags it also suggests the supported props and event bindings
 such as `onClick={props.onOpen}`. The extension does not contain a second set of
@@ -39,10 +40,16 @@ Run **Srijika: Open Setup and Language Support Guide** at any time for this guid
 ## Feature architecture and ownership
 
 Srijika validates the `feature-slot-part-v1` downward ownership model across the
-whole project. The canonical source tree is `src/features/<feature>`. A feature
+whole project. The canonical source tree is the resolved
+`{featuresRoot}/<feature>` (`src/features/<feature>` by default). A feature
 owns optional `slots/`; each slot may own optional `parts/`. Parent stores and
 hooks may be consumed anywhere below their owner, while child-private modules
 cannot move upward or sideways into a parent or sibling.
+
+Ownership is promoted only as far as its real consumers require: one Part keeps
+it in that Part; two Parts promote it to their Slot; two Slots promote it to
+their Feature; and two Features promote it to the resolved `sharedRoot`
+(`src/shared` by default).
 
 ```text
 Home feature
@@ -66,6 +73,40 @@ Home feature
         `-- userMenu.logic.ts      UserMenu subtree only
 ```
 
+Those flat Hook/Store paths are the small-owner mode. Adding another behavior
+or state concern moves the gateway to `hooks/useHome.ts` or
+`stores/home.store.ts` and creates only owner-prefixed private files beside it.
+The extension rewires imports and removes the root gateway atomically; both
+locations can never coexist.
+
+Cross-feature code has three canonical, non-freehand shapes. The paths below
+show the default `sharedRoot`; configured roots and suffixes are resolved before
+discovery or creation:
+
+```text
+src/shared/ui/button
+|-- Button.ui.tsx                  required pure props/events UI
+`-- button.types.ts                optional; no runtime imports
+
+src/shared/widgets/user-menu
+|-- UserMenu.ui.tsx                required pure reusable UI
+|-- UserMenu.connector.tsx         required and only runtime UI gateway
+`-- useUserMenu.ts                 optional strict runtime chain
+
+src/shared/capabilities/auth
+|-- useAuth.ts                     optional public React gateway
+|-- auth.store.ts                  optional shared client state
+|-- auth.logic.ts                  optional rules
+|-- auth.api.ts                    optional transport
+`-- auth.types.ts                  optional contracts
+```
+
+A Shared UI Primitive allows only UI and optional Types. A Shared Widget uses
+the same Connector -> Hook -> Store -> Logic -> API chain as a Feature. A
+Headless Capability has no UI or Connector and must contain at least one Hook,
+Store, Logic, or API layer. Shared code can never import a Feature or another
+owner's private internals.
+
 Allowed access:
 
 | Owner module               | Feature root | Owning slot |      Slot parts | Sibling slot | Other feature |
@@ -75,9 +116,43 @@ Allowed access:
 | Part-private Store / Hooks |           NO |          NO | owning part YES |           NO |            NO |
 
 When two siblings need a private module, do not cross-import it. Promote it to
-their nearest common owner. Pure `*.ui.tsx` files never import stores, hooks, or
-Connectors; a matching Connector performs that wiring and supplies typed props.
+their nearest common owner. Pure files ending in the resolved `uiSuffix`
+(`.ui.tsx` by default) never import stores, hooks, or Connectors; a matching
+Connector performs that wiring and supplies typed props.
 Run **Srijika: Check Feature Architecture** to validate the complete workspace.
+
+The extension resolves the complete project contract before it discovers,
+previews, or creates files. `srijika.config.json` requires exact
+`sourceOfTruth: "tsx"` and a normalized configured entry ending in the resolved
+UI suffix. An omitted `architecture` object uses defaults; an explicit object
+must declare profile `feature-slot-part-v1`. Its twelve optional overrides are
+the Feature/Shared roots, Slot/Part/Hook/Store directory names, and
+UI/Connector/Store/Logic/API/Types suffixes. Roots are bounded,
+project-relative, non-overlapping, and symlink-safe. Directory names and
+suffixes are case-insensitively distinct; suffixes are basename-only and no one
+suffix may end with another. Invalid explicit configuration fails closed.
+
+Root `tsconfig.json` is parsed as JSONC. `extends` is rejected, `references`
+must be absent or empty, and `compilerOptions.baseUrl` must be omitted. Only
+exact and slash-delimited terminal `/*` `compilerOptions.paths` aliases are
+portable; their first target must stay inside the project. Vite-only aliases do
+not become architecture aliases until the same mapping exists in that root
+TypeScript configuration.
+
+The configured entry remains authoritative and is included in the bounded scan
+even if it is outside the ownership roots. It is still a behavior-free UI and
+receives `SRIJIKA4119` computed-module, `SRIJIKA4120` unresolved-alias, and
+`SRIJIKA4121` missing/outside-root source-import checks. Complete scans reject
+symlinks or partial results and are capped at 4,096 sources, 32,768 entries,
+4,096 directories, depth 32, 4 MiB per source, and 24 MiB total.
+
+Every UI rejects identifier/property Hooks, browser/runtime globals, local or
+external state/router/request/query behavior, and callable utilities. Only
+type-only imports, safe React JSX support, JSX-only presentational bindings,
+and CSS/image/icon/font/audio/video assets are accepted. Types is passive and
+must use `import type`/`export type`. Logic keeps deterministic business rules
+but rejects React/query/router/state lifecycle, browser globals, and transport
+APIs/modules; transport belongs in API.
 
 ### Fast application runtime
 
@@ -98,13 +173,15 @@ resolved dependency graph.
 Open the **Srijika** Activity Bar icon and expand the **Structure** view. Every
 canonical Feature, Slot, and Part owner has an inline `+` action. The same flow
 is also available by right-clicking an exact ownership folder in the normal VS
-Code Explorer and running **Srijika: Add Feature / Slot / Part Capability...**:
+Code Explorer and running **Srijika: Add Strict Feature / Shared Owner...**:
 
 ```text
-src/features -> New Feature
+{featuresRoot} -> New Feature
 Feature root  -> Feature capabilities or New Slot
 Slot root     -> Slot capabilities or New Part
 Part root     -> Part capabilities only
+{sharedRoot}  -> New Shared UI Primitive, New Shared Widget, or New Headless Capability
+Shared owner  -> Only the capabilities valid for that exact shared owner kind
 ```
 
 For an existing Feature, Slot, or Part, the form first shows its complete file
@@ -113,6 +190,12 @@ missing Connector, Hook, Store, Logic, API, and Types entries can be selected
 individually or with **Select all missing files** and created as one safely
 rewired batch. `New Slot` and `New Part` remain separate choices in the same
 form, so completing an owner never hides child creation.
+
+If Hook or Store already exists, **Add private Hook / Store behavior** accepts a
+suffix such as `Keyboard` or `Filters`. It derives `useOwnerKeyboard.ts` or
+`ownerFilters.store.ts` and switches the capability from flat to expanded mode
+when necessary. `index.ts`, custom prefixes, mixed layouts, and deeper
+`hooks/`/`stores/` folders are rejected by the same workspace validator.
 
 For a new Feature, Slot, or Part, enter one normalized PascalCase name and tick
 only the optional Hook, Store, Logic, API, and Types you need. UI + Connector
@@ -126,12 +209,13 @@ use the same scaffold engine as the strict project contract.
 
 ## Complexity policy
 
-The shared Srijika compiler reports editor diagnostics when a `*.ui.tsx` file
-exceeds any of these project rules:
+The shared Srijika compiler reports editor diagnostics when a file ending in
+the resolved `uiSuffix` (`.ui.tsx` by default) exceeds any of these project
+rules:
 
 - 200 meaningful lines in the exported UI function. Its local props interface,
   blank lines, and comments are excluded from this function count.
-- 300 meaningful lines in the complete `*.ui.tsx` file.
+- 300 meaningful lines in the complete resolved UI Source file.
 - 16 top-level component contract members. Data props, events, ReactNode slots,
   and optional props all count.
 
@@ -141,12 +225,15 @@ Code extension always enforce the same policy.
 ## Command
 
 - **Srijika: Check Current UI File** (`srijika.checkCurrentFile`) validates the
-  active `*.ui.tsx` document and writes a summary to the Srijika output channel.
-- **Srijika: Add Feature / Slot / Part Capability...**
+  active document ending in the resolved `uiSuffix` and writes a summary to the
+  Srijika output channel.
+- **Srijika: Check Strict Project Architecture** (`srijika.checkArchitecture`)
+  validates Feature and Shared ownership with the same project rule engine.
+- **Srijika: Add Strict Feature / Shared Owner...**
   (`srijika.addOwnershipCapability`) opens the strict visual scaffold form from
   the Structure `+` action or Explorer folder context menu.
 - **Srijika: Refresh Structure** (`srijika.refreshStructure`) refreshes the
-  Feature -> Slot -> Part sidebar hierarchy.
+  Feature -> Slot -> Part and canonical Shared owner hierarchies.
 - **Srijika: Run App** (`srijika.runApp`) starts the real strict-port Vite app.
 - **Srijika: Stop App** (`srijika.stopApp`) terminates the managed VS Code task.
 - **Srijika: Run Doctor** (`srijika.doctor`) audits Node, Bun, package manager,

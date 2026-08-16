@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+import { resolveSrijikaArchitectureConfig } from '@srijika/architecture-rules';
+import { parseSrijikaArchitectureConfig } from './architecture-adapter';
+import { discoverSafeSrijikaSources, openSafeSrijikaWorkspace } from './safe-workspace-files';
 import {
   buildSrijikaStructureTreeOwners,
   childSrijikaStructureOwners,
@@ -13,26 +16,43 @@ export class SrijikaStructureTreeItem extends vscode.TreeItem {
   ) {
     super(
       structureOwner.name,
-      structureOwner.level === 'part'
+      structureOwner.level === 'part' ||
+        structureOwner.level === 'sharedUi' ||
+        structureOwner.level === 'sharedWidget' ||
+        structureOwner.level === 'sharedCapability'
         ? vscode.TreeItemCollapsibleState.None
         : vscode.TreeItemCollapsibleState.Collapsed,
     );
     this.id = `${workspaceFolder.uri.toString()}::${structureOwner.relativeFolder}`;
     this.contextValue = 'srijikaStructureOwner';
-    if (structureOwner.level === 'featuresRoot') this.description = workspaceFolder.name;
-    this.tooltip = `${structureOwner.relativeFolder}\nUse the + action to add only valid Srijika capabilities.`;
+    if (structureOwner.level === 'featuresRoot' || structureOwner.level === 'sharedRoot') {
+      this.description = workspaceFolder.name;
+    } else if (structureOwner.level === 'sharedUi') {
+      this.description = 'pure UI';
+    } else if (structureOwner.level === 'sharedWidget') {
+      this.description = 'widget';
+    } else if (structureOwner.level === 'sharedCapability') {
+      this.description = 'headless';
+    }
+    this.tooltip = `${structureOwner.relativeFolder}\nStrict owner-aware creation only; arbitrary shared files and folders are not offered.`;
     this.resourceUri = vscode.Uri.joinPath(
       workspaceFolder.uri,
       ...structureOwner.relativeFolder.split('/'),
     );
     this.iconPath = new vscode.ThemeIcon(
-      structureOwner.level === 'featuresRoot'
+      structureOwner.level === 'featuresRoot' || structureOwner.level === 'sharedRoot'
         ? 'library'
         : structureOwner.level === 'feature'
           ? 'symbol-module'
           : structureOwner.level === 'slot'
             ? 'symbol-namespace'
-            : 'symbol-method',
+            : structureOwner.level === 'part'
+              ? 'symbol-method'
+              : structureOwner.level === 'sharedUi'
+                ? 'symbol-color'
+                : structureOwner.level === 'sharedWidget'
+                  ? 'symbol-event'
+                  : 'symbol-interface',
     );
   }
 }
@@ -82,16 +102,32 @@ export class SrijikaStructureTreeProvider
     const cached = this.ownerCache.get(cacheKey);
     if (cached) return cached;
 
-    const sourceUris = await vscode.workspace.findFiles(
-      new vscode.RelativePattern(workspaceFolder, 'src/features/**/*.{ts,tsx,mts,cts}'),
-      '**/{node_modules,dist,build,target,.git}/**',
-      20_000,
-    );
-    const folders = sourceUris.map((uri) => {
-      const relativeFile = vscode.workspace.asRelativePath(uri, false).replaceAll('\\', '/');
+    let architecture = resolveSrijikaArchitectureConfig();
+    const fileSystem = await openSafeSrijikaWorkspace(workspaceFolder.uri.fsPath);
+    try {
+      const config = await fileSystem.readText('srijika.config.json', 64 * 1024);
+      const parsed = parseSrijikaArchitectureConfig(config.source);
+      if (!parsed) {
+        this.ownerCache.set(cacheKey, []);
+        return [];
+      }
+      architecture = resolveSrijikaArchitectureConfig(parsed);
+    } catch (error) {
+      if (!(
+        (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') ||
+        (error instanceof Error && 'code' in error && error.code === 'ENOENT')
+      )) {
+        // Keep malformed/unsupported project configuration visible to the
+        // user instead of silently rendering a default or empty strict tree.
+        throw error;
+      }
+      // An older project without config still gets the canonical default roots.
+    }
+    const sourceFiles = await discoverSafeSrijikaSources(fileSystem, architecture);
+    const folders = sourceFiles.map(({ relativePath: relativeFile }) => {
       return relativeFile.slice(0, relativeFile.lastIndexOf('/'));
     });
-    const owners = buildSrijikaStructureTreeOwners(folders);
+    const owners = buildSrijikaStructureTreeOwners(folders, architecture);
     this.ownerCache.set(cacheKey, owners);
     return owners;
   }
