@@ -226648,7 +226648,7 @@ var init_project_filesystem = __esm({
           throw new Error("The Srijika project root must be a real directory, not a symbolic link.");
         }
         const canonicalRoot = await realpath(root);
-        if (pathKey(canonicalRoot) !== pathKey(root)) {
+        if (process.platform !== "win32" && pathKey(canonicalRoot) !== pathKey(root)) {
           throw new Error("The Srijika project root must not be reached through a symbolic link.");
         }
         return new _SrijikaProjectFileSystem(canonicalRoot);
@@ -226860,7 +226860,7 @@ var init_project_filesystem = __esm({
         }
         const canonical = await realpath(target);
         assertContained(this.root, canonical, relativeOrAbsolutePath);
-        if (pathKey(canonical) !== pathKey(target)) {
+        if (process.platform !== "win32" && pathKey(canonical) !== pathKey(target)) {
           throw new Error(
             `${relativePath.replaceAll("\\", "/") || "project root"} must not be reached through a symbolic link.`
           );
@@ -226872,7 +226872,7 @@ var init_project_filesystem = __esm({
 });
 
 // ../developer-engine/src/project.ts
-import { dirname, join as join2, parse as parse3, resolve as resolve3 } from "node:path";
+import { dirname, join, parse as parse3, resolve as resolve3 } from "node:path";
 function recordValue(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
@@ -226915,8 +226915,8 @@ async function findSrijikaProjectRoot(startDirectory = process.cwd()) {
 async function inspectSrijikaProject(projectRoot) {
   const root = await findSrijikaProjectRoot(projectRoot);
   const fileSystem = await SrijikaProjectFileSystem.open(root);
-  const packageJsonPath = join2(root, "package.json");
-  const configPath = join2(root, "srijika.config.json");
+  const packageJsonPath = join(root, "package.json");
+  const configPath = join(root, "srijika.config.json");
   const packageJson = JSON.parse(
     (await fileSystem.readText(packageJsonPath, MAX_PACKAGE_JSON_BYTES)).source
   );
@@ -227141,7 +227141,7 @@ var init_portable = __esm({
       }
       const canonicalProjectRoot = await fs.realpath(lexicalProjectRoot);
       const comparable = (value) => process.platform === "win32" ? path.resolve(value).toLowerCase() : path.resolve(value);
-      if (comparable(canonicalProjectRoot) !== comparable(lexicalProjectRoot)) {
+      if (process.platform !== "win32" && comparable(canonicalProjectRoot) !== comparable(lexicalProjectRoot)) {
         throw new Error("The Srijika project root must not be reached through a symbolic link.");
       }
       projectRoot = canonicalProjectRoot;
@@ -236399,7 +236399,7 @@ var init_src4 = __esm({
 
 // ../developer-engine/src/ui-diagnostics.ts
 import { createHash } from "node:crypto";
-import { posix, relative as relative7 } from "node:path";
+import { posix as posix2, relative as relative7 } from "node:path";
 function isUiPath(fileName, uiSuffix) {
   return fileName.toLowerCase().endsWith(uiSuffix.toLowerCase());
 }
@@ -236411,18 +236411,18 @@ function sourceHash(source) {
 }
 function canonicalTypesPath(uiPath, uiSuffix, typesSuffix) {
   const uiBase = uiPath.slice(0, -uiSuffix.length);
-  const directory = posix.dirname(uiBase);
-  const ownerName = posix.basename(uiBase);
+  const directory = posix2.dirname(uiBase);
+  const ownerName = posix2.basename(uiBase);
   const typesName = `${ownerName.charAt(0).toLowerCase()}${ownerName.slice(1)}${typesSuffix}`;
-  return directory === "." ? typesName : posix.join(directory, typesName);
+  return directory === "." ? typesName : posix2.join(directory, typesName);
 }
 async function resolvedTypeModules(uiPath, source, uiSuffix, typesSuffix, readSource) {
   const expectedPath = canonicalTypesPath(uiPath, uiSuffix, typesSuffix);
   const modules = [];
   for (const specifier of srijikaTypeOnlyModuleSpecifiers(source)) {
-    const resolved = posix.normalize(posix.join(posix.dirname(uiPath), specifier));
+    const resolved = posix2.normalize(posix2.join(posix2.dirname(uiPath), specifier));
     const candidate = /\.(?:ts|tsx)$/i.test(resolved) ? resolved : `${resolved}.ts`;
-    if (candidate !== expectedPath || posix.dirname(candidate) !== posix.dirname(uiPath)) continue;
+    if (candidate !== expectedPath || posix2.dirname(candidate) !== posix2.dirname(uiPath)) continue;
     const moduleSource = await readSource(candidate);
     if (moduleSource === void 0) continue;
     modules.push({
@@ -236570,7 +236570,7 @@ import { constants as constants2 } from "node:fs";
 import { lstat as lstat6, mkdir as mkdir3, mkdtemp, open as open3, realpath as realpath3, rename as rename2, rm as rm2, writeFile as writeFile2 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { delimiter, isAbsolute as isAbsolute8, join as join3, relative as relative9, resolve as resolve10 } from "node:path";
+import { delimiter, isAbsolute as isAbsolute8, join as join2, relative as relative9, resolve as resolve10 } from "node:path";
 function sha256(value) {
   return createHash2("sha256").update(value).digest("hex");
 }
@@ -236825,7 +236825,7 @@ async function captureSide(context, baseUrl, route, viewport, deadline, evidence
   if (png.byteLength > MAX_SCREENSHOT_BYTES)
     throw new Error(`${requestedUrl} screenshot exceeds 8 MiB.`);
   const screenshotPath = `${evidenceDirectory.relativePath}/${fileStem}.png`;
-  await writeFile2(join3(evidenceDirectory.absolutePath, `${fileStem}.png`), png, { flag: "wx" });
+  await writeFile2(join2(evidenceDirectory.absolutePath, `${fileStem}.png`), png, { flag: "wx" });
   return {
     capture: {
       requestedUrl,
@@ -236976,7 +236976,7 @@ function assertManifestSemantics(manifest) {
 async function persistManifest(targetRoot, evidenceDirectory, manifest) {
   const serialized = `${JSON.stringify(manifest, null, 2)}
 `;
-  await writeFile2(join3(evidenceDirectory.absolutePath, "manifest.json"), serialized, {
+  await writeFile2(join2(evidenceDirectory.absolutePath, "manifest.json"), serialized, {
     flag: "wx"
   });
   const latest = resolve10(targetRoot, ...LATEST_MANIFEST_PATH.split("/"));
@@ -237003,7 +237003,7 @@ async function packageManagerFor(root) {
     ["bun.lockb", "bun"]
   ]) {
     try {
-      const metadata = await lstat6(join3(root, lockfile));
+      const metadata = await lstat6(join2(root, lockfile));
       if (metadata.isFile() && !metadata.isSymbolicLink()) return manager;
     } catch (error2) {
       if (!(error2 instanceof Error && "code" in error2 && error2.code === "ENOENT")) throw error2;
@@ -237055,7 +237055,7 @@ function installCommand(manager, hasLockfile, includeInstall) {
   ];
 }
 function parityProcessEnvironment() {
-  const userLocalBin = process.env["HOME"] ? join3(process.env["HOME"], ".local", "bin") : void 0;
+  const userLocalBin = process.env["HOME"] ? join2(process.env["HOME"], ".local", "bin") : void 0;
   return {
     ...process.env,
     ...userLocalBin ? {
@@ -237104,7 +237104,7 @@ async function runBoundedCommand(executable, args, cwd, timeoutMs) {
 async function ensureRuntimeDependencies(root, includeInstall) {
   const manager = await packageManagerFor(root);
   try {
-    const modules = await lstat6(join3(root, "node_modules"));
+    const modules = await lstat6(join2(root, "node_modules"));
     if (modules.isDirectory() && !modules.isSymbolicLink()) return manager;
   } catch (error2) {
     if (!(error2 instanceof Error && "code" in error2 && error2.code === "ENOENT")) throw error2;
@@ -237118,7 +237118,7 @@ async function ensureRuntimeDependencies(root, includeInstall) {
   const hasLockfile = (await Promise.all(
     lockNames[manager].map(async (name) => {
       try {
-        return (await lstat6(join3(root, name))).isFile();
+        return (await lstat6(join2(root, name))).isFile();
       } catch (error2) {
         if (error2 instanceof Error && "code" in error2 && error2.code === "ENOENT") return false;
         throw error2;
@@ -237147,11 +237147,11 @@ async function createVerifiedSourceRuntimeCopy(target) {
     );
   }
   const sourceFileSystem = await SrijikaProjectFileSystem.open(session.sourceRoot);
-  const temporaryRoot = await mkdtemp(join3(tmpdir(), "srijika-react-parity-source-"));
+  const temporaryRoot = await mkdtemp(join2(tmpdir(), "srijika-react-parity-source-"));
   try {
     for (const file of session.inventory.files) {
       const bytes = await readBoundedBinary(sourceFileSystem, file.relativePath, 4 * 1024 * 1024);
-      const destination = join3(temporaryRoot, ...file.relativePath.split("/"));
+      const destination = join2(temporaryRoot, ...file.relativePath.split("/"));
       await mkdir3(resolve10(destination, ".."), { recursive: true });
       await writeFile2(destination, bytes, { flag: "wx" });
     }
@@ -237539,9 +237539,9 @@ import {
   delimiter as delimiter2,
   dirname as dirname4,
   isAbsolute as isAbsolute9,
-  join as join4,
+  join as join3,
   parse as parse5,
-  posix as posix2,
+  posix as posix3,
   relative as relative10,
   resolve as resolve11
 } from "node:path";
@@ -237569,7 +237569,7 @@ async function canonicalFutureTarget(targetDirectory) {
       throw new Error("Migration target must be a real directory, not a file or symbolic link.");
     }
     const canonical = await realpath4(target);
-    if (pathKey2(canonical) !== pathKey2(target)) {
+    if (process.platform !== "win32" && pathKey2(canonical) !== pathKey2(target)) {
       throw new Error("Migration target must not be reached through a symbolic-link ancestor.");
     }
     return canonical;
@@ -237584,7 +237584,7 @@ async function canonicalFutureTarget(targetDirectory) {
         throw new Error("Migration target parent must be a real directory.");
       }
       const canonical = await realpath4(existing);
-      if (pathKey2(canonical) !== pathKey2(existing)) {
+      if (process.platform !== "win32" && pathKey2(canonical) !== pathKey2(existing)) {
         throw new Error("Migration target must not be reached through a symbolic-link ancestor.");
       }
       return resolve11(canonical, relative10(existing, target));
@@ -237725,7 +237725,7 @@ function referencedSpecifiers(relativePath, source) {
 function resolveSourceDependency(sourcePath, specifier, sourcePaths, aliases = {}) {
   let base;
   if (specifier.startsWith(".")) {
-    base = posix2.normalize(posix2.join(posix2.dirname(sourcePath), specifier));
+    base = posix3.normalize(posix3.join(posix3.dirname(sourcePath), specifier));
   } else {
     const match = Object.entries(aliases).find(
       ([pattern2]) => pattern2.endsWith("/") ? specifier.startsWith(pattern2) : specifier === pattern2
@@ -237733,7 +237733,7 @@ function resolveSourceDependency(sourcePath, specifier, sourcePaths, aliases = {
     if (!match) return void 0;
     const [pattern, target] = match;
     const aliasSuffix = pattern.endsWith("/") ? specifier.slice(pattern.length) : void 0;
-    base = aliasSuffix === void 0 ? target : target.includes("*") ? target.replace("*", aliasSuffix) : posix2.join(target, aliasSuffix);
+    base = aliasSuffix === void 0 ? target : target.includes("*") ? target.replace("*", aliasSuffix) : posix3.join(target, aliasSuffix);
   }
   const candidates = [
     base,
@@ -237741,7 +237741,7 @@ function resolveSourceDependency(sourcePath, specifier, sourcePaths, aliases = {
       (extension) => `${base}${extension}`
     ),
     ...["index.ts", "index.tsx", "index.js", "index.jsx"].map(
-      (fileName) => posix2.join(base, fileName)
+      (fileName) => posix3.join(base, fileName)
     )
   ];
   return candidates.find((candidate) => sourcePaths.has(candidate));
@@ -237757,8 +237757,8 @@ function sourceAliasesFromConfigs(configs) {
     if (!options || typeof options !== "object" || Array.isArray(options)) continue;
     const record3 = options;
     const baseUrl = typeof record3["baseUrl"] === "string" ? record3["baseUrl"] : ".";
-    const base = posix2.normalize(posix2.join(posix2.dirname(configPath), baseUrl));
-    if (base === ".." || base.startsWith("../") || posix2.isAbsolute(base)) continue;
+    const base = posix3.normalize(posix3.join(posix3.dirname(configPath), baseUrl));
+    if (base === ".." || base.startsWith("../") || posix3.isAbsolute(base)) continue;
     const paths = record3["paths"];
     if (!paths || typeof paths !== "object" || Array.isArray(paths)) continue;
     for (const [rawPattern, rawTargets] of Object.entries(paths)) {
@@ -237767,8 +237767,8 @@ function sourceAliasesFromConfigs(configs) {
       const pattern = wildcard ? rawPattern.slice(0, -1) : rawPattern;
       const rawTarget = rawTargets[0];
       if (!pattern || pattern.includes("*")) continue;
-      const target = posix2.normalize(posix2.join(base, rawTarget));
-      if (!target || target === ".." || target.startsWith("../") || posix2.isAbsolute(target))
+      const target = posix3.normalize(posix3.join(base, rawTarget));
+      if (!target || target === ".." || target.startsWith("../") || posix3.isAbsolute(target))
         continue;
       if (!(pattern in aliases)) aliases[pattern] = target.replace(/\/$/u, "");
     }
@@ -238286,7 +238286,7 @@ async function scanReactMigrationSource(sourceDirectory) {
   }
   const seededOwnership = inventory.map((file) => {
     const stylePeer = file.category === "style" ? inventory.find(
-      (candidate) => candidate.category === "component" && posix2.dirname(candidate.relativePath) === posix2.dirname(file.relativePath) && canonicalName(basename(candidate.relativePath)) === canonicalName(basename(file.relativePath))
+      (candidate) => candidate.category === "component" && posix3.dirname(candidate.relativePath) === posix3.dirname(file.relativePath) && canonicalName(basename(candidate.relativePath)) === canonicalName(basename(file.relativePath))
     ) : void 0;
     const base = stylePeer ? baseOwners.get(stylePeer.relativePath) : baseOwners.get(file.relativePath);
     const source = sourceTexts.get(file.relativePath) ?? "";
@@ -238825,11 +238825,11 @@ async function readSession(targetDirectory) {
   return session;
 }
 async function writeSession(session) {
-  const directory = dirname4(join4(session.targetRoot, SESSION_PATH));
+  const directory = dirname4(join3(session.targetRoot, SESSION_PATH));
   await assertNoSymlinkAncestors(session.targetRoot, directory);
   await mkdir4(directory, { recursive: true });
   await assertNoSymlinkAncestors(session.targetRoot, directory);
-  const target = join4(session.targetRoot, SESSION_PATH);
+  const target = join3(session.targetRoot, SESSION_PATH);
   const temporary = `${target}.${process.pid}.${randomUUID2()}.tmp`;
   await writeFile3(temporary, `${JSON.stringify(session, null, 2)}
 `, {
@@ -238929,7 +238929,7 @@ async function startReactMigration(request) {
     appliedSlices: Object.freeze([]),
     reviewedSlices: Object.freeze([])
   });
-  const evidenceKeyTarget = join4(targetRoot, EVIDENCE_KEY_PATH);
+  const evidenceKeyTarget = join3(targetRoot, EVIDENCE_KEY_PATH);
   await assertNoSymlinkAncestors(targetRoot, dirname4(evidenceKeyTarget));
   await mkdir4(dirname4(evidenceKeyTarget), { recursive: true });
   await writeFile3(evidenceKeyTarget, randomBytes2(32).toString("hex"), {
@@ -239192,7 +239192,7 @@ async function assertNoSymlinkAncestors(targetRoot, target) {
   }
   let current = targetRoot;
   for (const segment of fromRoot.split(/[\\/]/u).filter(Boolean)) {
-    current = join4(current, segment);
+    current = join3(current, segment);
     try {
       const metadata = await lstat7(current);
       if (metadata.isSymbolicLink()) {
@@ -239768,7 +239768,7 @@ async function validateReviewedSlice(session, slice2) {
     if (decision.completionObligation === "native-owner" && mapping.mode === "native") {
       const primary = mapping.targetPaths[0];
       if (!primary) throw new Error(`${mapping.sourcePath} requires a canonical target module.`);
-      const canonicalOwnerPath = decision.canonicalTargetPaths[0] ? posix2.dirname(decision.canonicalTargetPaths[0]) : decision.ownerPath;
+      const canonicalOwnerPath = decision.canonicalTargetPaths[0] ? posix3.dirname(decision.canonicalTargetPaths[0]) : decision.ownerPath;
       const prior = nativePrimaries.get(primary);
       if (prior && prior.sourcePath !== mapping.sourcePath) {
         const reviewedMerge = !!mapping.mergeGroupId && mapping.mergeGroupId === prior.mergeGroupId && writePaths.has(primary) && mapping.mode === "native" && prior.mode === "native" && (mapping.traceRanges?.length ?? 0) > 0 && (prior.traceRanges?.length ?? 0) > 0;
@@ -239985,7 +239985,7 @@ async function reviewReactMigrationSlice(request) {
     `${randomUUID2()}\0${session.plan.id}\0${request.slice.id}\0${session.inventory.snapshotSha256}\0${targetSnapshotSha256}\0${sessionStateSha256}\0${payloadSha256}`
   );
   const payloadPath = `.srijika/migrations/react/reviews/${token}.json`;
-  const target = join4(session.targetRoot, payloadPath);
+  const target = join3(session.targetRoot, payloadPath);
   await assertNoSymlinkAncestors(session.targetRoot, dirname4(target));
   await mkdir4(dirname4(target), { recursive: true });
   await assertNoSymlinkAncestors(session.targetRoot, dirname4(target));
@@ -240267,7 +240267,7 @@ async function applyReactMigrationSlice(request) {
     }
     let targetDependenciesInstalled = false;
     try {
-      targetDependenciesInstalled = (await lstat7(join4(session.targetRoot, "node_modules"))).isDirectory();
+      targetDependenciesInstalled = (await lstat7(join3(session.targetRoot, "node_modules"))).isDirectory();
     } catch {
     }
     const stagedCommands = targetDependenciesInstalled ? await runReactMigrationVerificationGates({
@@ -240455,10 +240455,21 @@ function packageManagerCommand(manager, operation, scriptName = operation) {
 async function pnpmExecutableFallback() {
   const home = process.env["HOME"];
   if (home) {
-    const userLocalPnpm = join4(home, ".local", "bin", "pnpm");
+    const userLocalPnpm = join3(home, ".local", "bin", "pnpm");
     try {
       const metadata = await lstat7(userLocalPnpm);
       if (metadata.isFile() || metadata.isSymbolicLink()) return userLocalPnpm;
+    } catch {
+    }
+  }
+  const executableName = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  for (const directory of (process.env["PATH"] ?? "").split(delimiter2).filter(Boolean)) {
+    const candidate = join3(directory, executableName);
+    try {
+      const metadata = await lstat7(candidate);
+      if (metadata.isFile() || metadata.isSymbolicLink()) {
+        return process.platform === "win32" ? "pnpm" : candidate;
+      }
     } catch {
     }
   }
@@ -240502,14 +240513,7 @@ async function executeBoundedGate(cwd, executable, args, gateName) {
       clearTimeout(timer);
       if (executable === "pnpm" && "code" in error2 && error2.code === "ENOENT") {
         fallingBackToCorepack = true;
-        void pnpmExecutableFallback().then(
-          (fallback) => executeBoundedGate(
-            cwd,
-            fallback,
-            fallback === "corepack" ? ["pnpm", ...args] : args,
-            gateName
-          ).then(resolveGate)
-        );
+        void executeBoundedGate(cwd, "corepack", ["pnpm", ...args], gateName).then(resolveGate);
         return;
       }
       resolveGate({
@@ -256261,7 +256265,7 @@ var CAPABILITIES = {
 // src/bridge-client.ts
 import { readFile, stat } from "node:fs/promises";
 import { homedir, platform } from "node:os";
-import { join, resolve, win32 } from "node:path";
+import { posix, resolve, win32 } from "node:path";
 var DESCRIPTOR_FILE_NAME = "codex-bridge-v1.json";
 var DEFAULT_TIMEOUT_MS = 3e4;
 var SrijikaBridgeError = class extends Error {
@@ -256359,7 +256363,7 @@ function descriptorCandidates(options = {}) {
   }
   if (currentPlatform === "darwin") {
     return [
-      join(
+      posix.join(
         userHome,
         "Library",
         "Application Support",
@@ -256368,8 +256372,8 @@ function descriptorCandidates(options = {}) {
       )
     ];
   }
-  const localData = environment["XDG_DATA_HOME"] ?? join(userHome, ".local", "share");
-  return [join(localData, "studio.srijika.desktop", DESCRIPTOR_FILE_NAME)];
+  const localData = environment["XDG_DATA_HOME"] ?? posix.join(userHome, ".local", "share");
+  return [posix.join(localData, "studio.srijika.desktop", DESCRIPTOR_FILE_NAME)];
 }
 async function readDescriptor(candidate) {
   try {
@@ -258260,7 +258264,7 @@ function registerSrijikaDocumentation(server2) {
 // src/react-migration.ts
 import { createHash as createHash4 } from "node:crypto";
 import { access } from "node:fs/promises";
-import { join as join5 } from "node:path";
+import { join as join4 } from "node:path";
 var SrijikaReactMigrationService = class {
   async scan(request) {
     return pageInventory(
@@ -258280,7 +258284,7 @@ var SrijikaReactMigrationService = class {
         ]
       };
     }
-    const sessionFile = join5(request.target, ".srijika", "migrations", "react", "session.json");
+    const sessionFile = join4(request.target, ".srijika", "migrations", "react", "session.json");
     try {
       await access(sessionFile);
     } catch (error2) {
