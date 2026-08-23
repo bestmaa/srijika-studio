@@ -4360,9 +4360,14 @@ fn configure_process_group(_command: &mut Command) {}
 
 #[cfg(unix)]
 fn terminate_process_tree(child: &mut Child, pid: u32) -> Result<(), StudioCoreError> {
-    let process_group = format!("-{pid}");
+    let owns_process_group = unix_process_group(pid).is_some_and(|group| group == pid);
+    let target = if owns_process_group {
+        format!("-{pid}")
+    } else {
+        pid.to_string()
+    };
     let _ = Command::new("kill")
-        .args(["-TERM", process_group.as_str()])
+        .args(["-TERM", "--", target.as_str()])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -4371,7 +4376,7 @@ fn terminate_process_tree(child: &mut Child, pid: u32) -> Result<(), StudioCoreE
         return Ok(());
     }
     let _ = Command::new("kill")
-        .args(["-KILL", process_group.as_str()])
+        .args(["-KILL", "--", target.as_str()])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -4411,13 +4416,28 @@ fn terminate_process_tree(child: &mut Child, _pid: u32) -> Result<(), StudioCore
 
 #[cfg(unix)]
 fn terminate_process_tree_by_pid(pid: u32) {
-    let process_group = format!("-{pid}");
+    let target = unix_process_group(pid)
+        .filter(|group| *group == pid)
+        .map_or_else(|| pid.to_string(), |group| format!("-{group}"));
     let _ = Command::new("kill")
-        .args(["-KILL", process_group.as_str()])
+        .args(["-KILL", "--", target.as_str()])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status();
+}
+
+#[cfg(unix)]
+fn unix_process_group(pid: u32) -> Option<u32> {
+    let output = Command::new("ps")
+        .args(["-o", "pgid=", "-p", pid.to_string().as_str()])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout).ok()?.trim().parse().ok()
 }
 
 #[cfg(windows)]
