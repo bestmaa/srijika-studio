@@ -47,7 +47,7 @@ export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; 
       name: 'title',
       contractSource: {
         kind: 'imported',
-        fileName: typesFileName,
+        fileName: typesFileName.replaceAll('\\', '/'),
       },
     });
   });
