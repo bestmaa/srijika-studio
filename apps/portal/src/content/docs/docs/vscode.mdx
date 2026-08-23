@@ -53,6 +53,24 @@ handoff** prepares the safe one-slice-at-a-time MCP instruction.
 **Full session JSON** opens the complete uncapped machine-readable plan when the
 compact owner list is not enough.
 
+### Inspect the architecture graph
+
+Choose **Open Architecture Graph** after Start/Resume. A full editor panel shows
+Application → Feature → Slot → Part and Shared ownership without squeezing the
+graph into the sidebar. Click any owner to expand its modules and load exact
+named source exports through bounded immutable slice context. Applied
+UI/Connector/Hook/Store/API nodes and edges come from read-only inspection of
+the real converted target; pending work remains marked as planned source. The
+detail panel lists roles, source and canonical target paths, imports, exports,
+and linked violations.
+
+Gray means ownership, blue a same-owner import, green a Shared import, and
+dashed amber a cross-owner dependency that migration must review. Only
+engine-reported unresolved imports, Srijika diagnostics, architecture/target
+graph failures, blockers, or failed verification produce a red node. Search,
+violations-only filtering, import-edge visibility, collapse, zoom, and session
+refresh are built in.
+
 The webview is not a second source of truth. To place it on the right, enable
 **View → Appearance → Secondary Side Bar**, then use the Migration view menu and
 **Move View → Secondary Side Bar**. Without the extension, run the complete

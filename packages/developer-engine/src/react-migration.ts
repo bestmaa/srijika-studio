@@ -16,7 +16,10 @@ import {
 } from 'node:path';
 import ts from 'typescript';
 
-import { type SrijikaArchitectureConfig } from '@srijika/architecture-rules';
+import {
+  resolveSrijikaArchitectureConfig,
+  type SrijikaArchitectureConfig,
+} from '@srijika/architecture-rules';
 import { createSrijikaArchitectureValidatorScript } from '@srijika/architecture-rules/portable';
 
 import {
@@ -404,6 +407,32 @@ export interface ReactMigrationSliceVerification {
   srijikaDiagnosticsValid: boolean;
   architectureValid: boolean;
   commands: readonly ReactMigrationCommandStatus[];
+}
+
+export interface ReactMigrationTargetModuleImport {
+  specifier: string;
+  kind: 'target' | 'package' | 'unresolved';
+  resolvedTargetPath?: string;
+  packageName?: string;
+}
+
+export type ReactMigrationTargetRole = ReactMigrationOwnerRole | 'connector' | 'entry' | 'unknown';
+
+export interface ReactMigrationTargetModule {
+  relativePath: string;
+  ownerIds: readonly string[];
+  roles: readonly ReactMigrationTargetRole[];
+  imports: readonly ReactMigrationTargetModuleImport[];
+  exports: readonly string[];
+}
+
+export interface ReactMigrationArchitectureInspection {
+  sessionId: string;
+  targetSnapshotSha256: string;
+  modules: readonly ReactMigrationTargetModule[];
+  wrapperFindings: readonly string[];
+  unownedTargetPaths: readonly string[];
+  graphFindings: readonly string[];
 }
 
 export interface ReactMigrationSession {
@@ -5022,6 +5051,7 @@ interface NativeTargetInspection {
   wrapperFindings: readonly string[];
   unownedTargetPaths: readonly string[];
   graphFindings: readonly string[];
+  modules: readonly ReactMigrationTargetModule[];
 }
 
 async function inspectNativeTarget(
@@ -5054,7 +5084,21 @@ async function inspectNativeTarget(
     }
   }
   const allPaths = new Set(hashes.keys());
-  const targetAliases = (await inspectSrijikaProject(session.targetRoot)).aliases ?? {};
+  const targetProject = await inspectSrijikaProject(session.targetRoot);
+  const targetAliases = targetProject.aliases ?? {};
+  const targetArchitecture = resolveSrijikaArchitectureConfig(targetProject.architecture);
+  const inferredTargetRole = (relativePath: string): ReactMigrationTargetRole => {
+    if (relativePath === targetProject.entry) return 'entry';
+    if (relativePath.endsWith(targetArchitecture.connectorSuffix)) return 'connector';
+    if (relativePath.endsWith(targetArchitecture.uiSuffix)) return 'ui';
+    if (relativePath.endsWith(targetArchitecture.storeSuffix)) return 'store';
+    if (relativePath.endsWith(targetArchitecture.logicSuffix)) return 'logic';
+    if (relativePath.endsWith(targetArchitecture.apiSuffix)) return 'api';
+    if (relativePath.endsWith(targetArchitecture.typesSuffix)) return 'types';
+    if (/\.(?:css|scss|sass|less)$/iu.test(relativePath)) return 'style';
+    if (/\/(?:hooks\/)?use[A-Z][^/]*\.[cm]?[jt]sx?$/u.test(relativePath)) return 'hook';
+    return 'unknown';
+  };
   const packageSource = sources.get('package.json');
   const packageJson = packageSource ? (JSON.parse(packageSource) as Record<string, unknown>) : {};
   const dependencyEntries = [
@@ -5090,6 +5134,7 @@ async function inspectNativeTarget(
   });
   const graphFindings: string[] = [];
   const targetGraph = new Map<string, Set<string>>();
+  const targetModules: ReactMigrationTargetModule[] = [];
   const runtimeSourceHashes = new Map(
     session.inventory.files
       .filter(
@@ -5104,6 +5149,12 @@ async function inspectNativeTarget(
   );
   const baselinePaths = new Set(Object.keys(createSrijikaProjectFileMap()));
   const unownedTargetPaths: string[] = [];
+  const mappingsByTarget = new Map<string, ReactMigrationSourceMapping[]>();
+  for (const mapping of session.mappings) {
+    for (const targetPath of mapping.targetPaths) {
+      mappingsByTarget.set(targetPath, [...(mappingsByTarget.get(targetPath) ?? []), mapping]);
+    }
+  }
   for (const [relativePath, source] of sources) {
     const wrapper = wrapperFinding(relativePath, source, session.sourceRoot);
     if (wrapper) wrapperFindings.push(wrapper);
@@ -5122,6 +5173,7 @@ async function inspectNativeTarget(
       }
     }
     if (!sourceExtension.test(relativePath) && !styleExtension.test(relativePath)) continue;
+    const moduleImports: ReactMigrationTargetModuleImport[] = [];
     for (const specifier of referencedSpecifiers(relativePath, source)) {
       if (
         specifier.startsWith('.') ||
@@ -5139,18 +5191,40 @@ async function inspectNativeTarget(
           graphFindings.push(
             `${relativePath} has unresolved or escaping local import ${specifier}.`,
           );
+          moduleImports.push(Object.freeze({ specifier, kind: 'unresolved' }));
         } else {
           const edges = targetGraph.get(relativePath) ?? new Set<string>();
           edges.add(resolvedDependency);
           targetGraph.set(relativePath, edges);
+          moduleImports.push(
+            Object.freeze({
+              specifier,
+              kind: 'target',
+              resolvedTargetPath: resolvedDependency,
+            }),
+          );
         }
       } else {
         const packageName = packageNameForSpecifier(specifier);
         if (!declaredPackages.has(packageName) && !specifier.startsWith('node:')) {
           graphFindings.push(`${relativePath} imports undeclared package ${packageName}.`);
         }
+        moduleImports.push(Object.freeze({ specifier, kind: 'package', packageName }));
       }
     }
+    const mapped = mappingsByTarget.get(relativePath) ?? [];
+    const inferredRole = inferredTargetRole(relativePath);
+    targetModules.push(
+      Object.freeze({
+        relativePath,
+        ownerIds: Object.freeze([...new Set(mapped.map(({ ownerId }) => ownerId))].sort()),
+        roles: Object.freeze(
+          [...new Set([inferredRole, ...mapped.map(({ role }) => role)])].sort(),
+        ),
+        imports: Object.freeze(moduleImports),
+        exports: exportedNames(relativePath, source),
+      }),
+    );
   }
   const entryRoots = new Set<string>();
   const indexSource = sources.get('index.html') ?? '';
@@ -5215,6 +5289,24 @@ async function inspectNativeTarget(
     wrapperFindings: Object.freeze([...new Set(wrapperFindings)].sort()),
     unownedTargetPaths: Object.freeze([...new Set(unownedTargetPaths)].sort()),
     graphFindings: Object.freeze([...new Set(graphFindings)].sort()),
+    modules: Object.freeze(
+      targetModules.sort((left, right) => left.relativePath.localeCompare(right.relativePath)),
+    ),
+  });
+}
+
+export async function inspectReactMigrationArchitecture(
+  target: string,
+): Promise<ReactMigrationArchitectureInspection> {
+  const session = await readSession(target);
+  const inspection = await inspectNativeTarget(session);
+  return Object.freeze({
+    sessionId: session.id,
+    targetSnapshotSha256: inspection.targetSnapshotSha256,
+    modules: inspection.modules,
+    wrapperFindings: inspection.wrapperFindings,
+    unownedTargetPaths: inspection.unownedTargetPaths,
+    graphFindings: inspection.graphFindings,
   });
 }
 

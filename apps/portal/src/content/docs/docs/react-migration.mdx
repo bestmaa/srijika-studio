@@ -130,6 +130,24 @@ instruction.
 Use **Full session JSON** to inspect the complete uncapped machine-readable
 inventory and plan behind the compact dashboard.
 
+### Interactive architecture graph
+
+**Open Architecture Graph** renders the persisted plan in a full editor panel:
+Application → Feature → Slot → Part plus Shared/application/project owners.
+Clicking an owner expands its modules and lazily loads exact named exports from
+bounded immutable slice context. Applied UI → Connector → Hook/Store/API nodes,
+imports, and exports come from bounded read-only inspection of the real
+converted target; pending obligations stay marked as planned source. Details
+include roles, paths, canonical targets, imports, exports, and linked evidence.
+
+Ownership edges are gray, same-owner imports blue, Shared imports green, and
+cross-owner review edges dashed amber. Amber is not silently called a Srijika
+violation. Red is reserved for engine evidence such as unresolved imports,
+unsupported findings, unmapped/unowned paths, failed Srijika diagnostics,
+architecture/target-graph gates, or failed slice commands. Search,
+violations-only mode, dependency visibility, collapse, zoom, and refresh support
+both the whole-product overview and one-owner inspection.
+
 To keep the view on the right, enable **View → Appearance → Secondary Side
 Bar**, then choose **Move View → Secondary Side Bar** from the Migration view
 menu. Without the extension, use the CLI in the integrated terminal or the

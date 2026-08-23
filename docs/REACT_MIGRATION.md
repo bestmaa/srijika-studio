@@ -160,6 +160,31 @@ and choose **Move View → Secondary Side Bar** from the Migration view menu to
 keep the dashboard on the right while Structure remains on the left. Terminal
 commands and MCP remain fully usable when the extension is absent.
 
+### Interactive architecture graph
+
+Once a session is loaded, **Open Architecture Graph** opens a full editor panel
+backed by that same persisted plan. The compact view starts at Application and
+groups canonical Feature, Slot, Part, Shared, application-shell, and project
+owners below it. Applied modules and UI -> Connector -> Hook/Store/API edges
+come from a bounded read-only inspection of the real converted target; pending
+obligations remain visibly marked as planned source. Clicking an owner also
+requests exact named source exports through byte-bounded, cursor-bound immutable
+slice context. The detail panel shows role/path, canonical target paths, source
+and package imports, named exports, and linked evidence without returning file
+content to the webview.
+
+Gray edges are ownership, blue edges are same-owner imports, green edges consume
+a Shared owner, and dashed amber edges cross source-owner boundaries and require
+migration review. Amber does not claim the final target is invalid. A red node
+border is reserved for evidence: unresolved source imports, unsupported plan
+findings, unmapped/unowned paths, wrapper findings, failed Srijika diagnostics,
+architecture/target-graph/native/environment gates, or failed slice commands.
+
+Search, import-edge visibility, violations-only filtering, collapse, zoom,
+session refresh, and exact source navigation make both the overview and a
+single Feature/Slot/Part inspection available without changing the migration
+session. The graph is a projection; session JSON remains authoritative.
+
 ## Desktop Studio
 
 Desktop Studio is optional. Its migration surface reads the same persisted

@@ -107,6 +107,7 @@ describe('Srijika VS Code migration dashboard', () => {
     expect(html).toContain('Current workspace target');
     expect(html).toContain('Start / Resume Migration');
     expect(html).toContain('Full session JSON');
+    expect(html).toContain('Open Architecture Graph');
     expect(html).toContain('Planned architecture');
     expect(html).toContain('Home &lt;safe&gt;');
     expect(html).toContain('feature-home');

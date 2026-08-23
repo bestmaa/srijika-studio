@@ -209,7 +209,7 @@ export function renderSrijikaMigrationDashboard(model: SrijikaMigrationDashboard
     ${model.currentWorkspace ? `<small>Current workspace: <code>${escapeHtml(model.currentWorkspace)}</code></small>` : '<small>Open a folder to enable the current-workspace target.</small>'}
     ${model.error ? `<div class="error">${escapeHtml(model.error)}</div>` : ''}
     <button id="start" class="primary"${model.busy || !model.source || !model.target ? ' disabled' : ''}>${model.busy ? 'Migration engine is working…' : 'Start / Resume Migration'}</button>
-    <div class="actions"><button id="refresh" class="secondary"${model.busy || !model.target ? ' disabled' : ''}>Refresh status</button><button id="verify" class="secondary"${model.busy || !model.target ? ' disabled' : ''}>Run verification</button><button id="open-session" class="secondary"${session ? '' : ' disabled'}>Full session JSON</button><button id="open-target" class="secondary"${!model.target ? ' disabled' : ''}>Open target</button></div>
+    <div class="actions"><button id="open-architecture"${session ? '' : ' disabled'}>Open Architecture Graph</button><button id="refresh" class="secondary"${model.busy || !model.target ? ' disabled' : ''}>Refresh status</button><button id="verify" class="secondary"${model.busy || !model.target ? ' disabled' : ''}>Run verification</button><button id="open-session" class="secondary"${session ? '' : ' disabled'}>Full session JSON</button><button id="open-target" class="secondary"${!model.target ? ' disabled' : ''}>Open target</button></div>
   </section>
 
   <section class="card">
@@ -244,6 +244,7 @@ export function renderSrijikaMigrationDashboard(model: SrijikaMigrationDashboard
     document.getElementById('verify').addEventListener('click', () => send('verify'));
     document.getElementById('open-target').addEventListener('click', () => send('openTarget'));
     document.getElementById('open-session').addEventListener('click', () => send('openSession'));
+    document.getElementById('open-architecture').addEventListener('click', () => send('openArchitecture'));
     document.getElementById('refresh-connectors').addEventListener('click', () => send('refreshConnectors'));
     document.getElementById('copy-handoff').addEventListener('click', () => send('copyHandoff'));
     document.getElementById('open-docs').addEventListener('click', () => send('openDocs'));

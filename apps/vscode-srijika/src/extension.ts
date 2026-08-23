@@ -645,6 +645,10 @@ export function activate(context: vscode.ExtensionContext): void {
     'srijika.importReactProject',
     () => migrationProvider.reveal(),
   );
+  const openMigrationArchitecture = vscode.commands.registerCommand(
+    'srijika.openMigrationArchitecture',
+    () => migrationProvider.openArchitectureGraph(),
+  );
 
   const architectureForCreation = async (workspaceFolder: vscode.WorkspaceFolder) => {
     uiSuffixByWorkspace.delete(workspaceFolder.uri.toString());
@@ -1526,10 +1530,12 @@ export function activate(context: vscode.ExtensionContext): void {
     structureProvider,
     structureView,
     migrationView,
+    migrationProvider,
     checkCurrentFile,
     checkArchitecture,
     showSetup,
     importExistingReactProject,
+    openMigrationArchitecture,
     addOwnershipCapability,
     refreshStructure,
     runApp,

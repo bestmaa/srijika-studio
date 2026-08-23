@@ -15,6 +15,7 @@ import {
   discardReactMigrationSliceReview,
   finalizeReactMigration,
   getReactMigrationStatus,
+  inspectReactMigrationArchitecture,
   planReactMigration,
   scanReactMigrationSource,
   reviewReactMigrationOwnership,
@@ -217,6 +218,30 @@ afterEach(async () => {
 });
 
 describe('React migration engine', () => {
+  it('inspects exact converted-target imports, exports, roles, and graph findings read-only', async () => {
+    const source = await reactFixture();
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-react-architecture-target-'));
+    roots.push(parent);
+    const target = join(parent, 'converted');
+    const started = await startReactMigration({ source, target });
+
+    const inspection = await inspectReactMigrationArchitecture(target);
+    expect(inspection.sessionId).toBe(started.id);
+    expect(inspection.targetSnapshotSha256).toBeTruthy();
+    const connector = inspection.modules.find(({ relativePath }) =>
+      relativePath.endsWith('Home.connector.tsx'),
+    );
+    expect(connector?.roles).toContain('connector');
+    expect(
+      connector?.imports.some(
+        (item) =>
+          item.kind === 'target' && item.resolvedTargetPath?.endsWith('Home.ui.tsx') === true,
+      ),
+    ).toBe(true);
+    expect(connector?.exports).toContain('HomeConnector');
+    expect((await getReactMigrationStatus(target)).id).toBe(started.id);
+  });
+
   it('scans without exposing environment values and builds one deterministic snapshot', async () => {
     const source = await reactFixture();
     await writeFile(

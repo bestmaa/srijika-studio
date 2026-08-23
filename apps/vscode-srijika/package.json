@@ -34,6 +34,7 @@
     "onCommand:srijika.checkArchitecture",
     "onCommand:srijika.showSetup",
     "onCommand:srijika.importReactProject",
+    "onCommand:srijika.openMigrationArchitecture",
     "onCommand:srijika.addOwnershipCapability",
     "onCommand:srijika.refreshStructure",
     "onCommand:srijika.runApp",
@@ -69,6 +70,13 @@
         "shortTitle": "Open Migration",
         "category": "Srijika",
         "icon": "$(repo-clone)"
+      },
+      {
+        "command": "srijika.openMigrationArchitecture",
+        "title": "Srijika: Open Migration Architecture Graph",
+        "shortTitle": "Open Architecture Graph",
+        "category": "Srijika",
+        "icon": "$(type-hierarchy)"
       },
       {
         "command": "srijika.addOwnershipCapability",
@@ -179,6 +187,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "srijika.openMigrationArchitecture",
+          "when": "view == srijika.migration",
+          "group": "navigation@1"
+        },
         {
           "command": "srijika.runApp",
           "when": "view == srijika.structure && !srijika.runtimeRunning",

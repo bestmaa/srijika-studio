@@ -11,6 +11,7 @@ import {
   type SrijikaMigrationConnectorStatus,
   type SrijikaMigrationTargetMode,
 } from './migration-dashboard';
+import { SrijikaMigrationArchitecturePanel } from './migration-architecture-panel';
 import {
   describeReactMigrationResult,
   runReactMigration,
@@ -30,6 +31,7 @@ interface MigrationViewMessage {
     | 'verify'
     | 'openTarget'
     | 'openSession'
+    | 'openArchitecture'
     | 'refreshConnectors'
     | 'copyHandoff'
     | 'openDocs';
@@ -49,6 +51,7 @@ function isMigrationViewMessage(value: unknown): value is MigrationViewMessage {
     'verify',
     'openTarget',
     'openSession',
+    'openArchitecture',
     'refreshConnectors',
     'copyHandoff',
     'openDocs',
@@ -110,8 +113,9 @@ function migrationHandoff(target: string, session: ReactMigrationSession | undef
   ].join('\n');
 }
 
-export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider {
+export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   readonly #output: vscode.OutputChannel;
+  readonly #architecturePanel: SrijikaMigrationArchitecturePanel;
   #view: vscode.WebviewView | undefined;
   #source = '';
   #target = '';
@@ -131,6 +135,7 @@ export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider 
 
   constructor(output: vscode.OutputChannel) {
     this.#output = output;
+    this.#architecturePanel = new SrijikaMigrationArchitecturePanel(output);
   }
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -145,6 +150,22 @@ export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider 
 
   async reveal(): Promise<void> {
     await vscode.commands.executeCommand('srijika.migration.focus');
+  }
+
+  async openArchitectureGraph(): Promise<void> {
+    if (!this.#session && this.#target) await this.#run('status');
+    if (!this.#session) {
+      await this.reveal();
+      void vscode.window.showWarningMessage(
+        'Start or resume a React migration before opening its architecture graph.',
+      );
+      return;
+    }
+    this.#architecturePanel.show(this.#session);
+  }
+
+  dispose(): void {
+    this.#architecturePanel.dispose();
   }
 
   async refreshConnectors(): Promise<void> {
@@ -228,6 +249,9 @@ export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider 
           const document = await vscode.workspace.openTextDocument(sessionUri);
           await vscode.window.showTextDocument(document, { preview: true });
         }
+        return;
+      case 'openArchitecture':
+        await this.openArchitectureGraph();
         return;
       case 'refreshConnectors':
         await this.refreshConnectors();
@@ -314,11 +338,13 @@ export class SrijikaMigrationViewProvider implements vscode.WebviewViewProvider 
               this.#session = session;
               this.#activity = `Phase ${session.phase} · session ${session.id}`;
               this.#output.appendLine(JSON.stringify(session, null, 2));
+              this.#architecturePanel.update(session);
               this.#render();
             },
           }),
       );
       this.#session = result.session;
+      this.#architecturePanel.update(result.session);
       this.#activity = describeReactMigrationResult(operation, result.session);
       void vscode.window.showInformationMessage(`Srijika migration ${this.#activity}.`);
     } catch (error) {

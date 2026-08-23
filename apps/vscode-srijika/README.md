@@ -73,6 +73,37 @@ cannot force itself onto the right edge. To keep Migration on the right, enable
 menu and **Move View -> Secondary Side Bar**. The Structure tree can remain on
 the left while the migration dashboard stays on the right.
 
+### Interactive architecture graph
+
+After a migration session exists, choose **Open Architecture Graph** in the
+Migration dashboard, use its title-bar hierarchy icon, or run **Srijika: Open
+Migration Architecture Graph**. The graph opens in a full editor panel so a
+real project is not compressed into the sidebar.
+
+The initial view is compact: Application -> Features / Shared / Project ->
+Feature -> Slot -> Part. Click an owner to expand its source modules. Selecting
+an owner or module shows its role, source path, canonical target paths, imported
+modules/packages, named exports, and engine-linked violations. Applied modules
+come from a bounded read-only inspection of the real converted target, so the
+UI -> Connector -> Hook/Store/API edges and exports are exact. Pending work is
+marked as planned source. Named source exports are loaded lazily through the
+migration engine's bounded, immutable slice context; the webview never reads
+arbitrary paths or keeps a second architecture plan.
+
+Graph edges have explicit meanings:
+
+- gray: ownership hierarchy;
+- blue: import inside one owner;
+- green: import from a Shared owner;
+- dashed amber: cross-owner source dependency that migration must review; and
+- red node border: an actual unresolved import or engine-reported migration,
+  Srijika diagnostic, architecture, target-graph, or verification failure.
+
+A cross-owner edge is not automatically mislabeled as a violation. It becomes
+red only when engine evidence fails. Search, import-edge visibility,
+violations-only filtering, collapse, zoom, refresh, and exact source opening are
+available from the same panel.
+
 ## Feature architecture and ownership
 
 Srijika validates the `feature-slot-part-v1` downward ownership model across the
@@ -266,6 +297,9 @@ Code extension always enforce the same policy.
   Srijika output channel.
 - **Srijika: Check Strict Project Architecture** (`srijika.checkArchitecture`)
   validates Feature and Shared ownership with the same project rule engine.
+- **Srijika: Open Migration Architecture Graph**
+  (`srijika.openMigrationArchitecture`) opens the session-backed interactive
+  ownership, import/export, Shared dependency, and violation graph.
 - **Srijika: Add Strict Feature / Shared Owner...**
   (`srijika.addOwnershipCapability`) opens the strict visual scaffold form from
   the Structure `+` action or Explorer folder context menu.
