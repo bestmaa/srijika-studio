@@ -131,6 +131,9 @@ jobs:
       - name: Reject production dependency advisories
         run: pnpm audit --prod
 
+      - name: Install Chromium for migration verification
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Build and re-verify release artifacts
         run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test && pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify
 
