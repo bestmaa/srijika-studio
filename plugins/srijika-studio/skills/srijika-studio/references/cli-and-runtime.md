@@ -120,7 +120,7 @@ Generated projects contain `.mcp.json`, `.vscode/mcp.json`, and `AGENTS.md`.
 Start the bounded server with:
 
 ```bash
-npx -y @srijika/mcp-server@0.4.0 --project .
+npx -y @srijika/mcp-server@0.4.1 --project .
 ```
 
 Call `srijika_get_code_project`, then `srijika_check_code_project`. For structure

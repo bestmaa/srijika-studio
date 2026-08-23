@@ -1,9 +1,10 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, extname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-const repositoryRoot = new URL('../../', import.meta.url);
+const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const oldBrand = ['su', 'tra'].join('');
 const ignoredDirectories = new Set(['dist', 'node_modules', 'target']);
 const allowedLegacyCompatibilityFiles = new Set([
@@ -45,16 +46,16 @@ function collectFiles(directory: string): string[] {
 describe('Srijika branding boundary', () => {
   it('keeps active product paths and text on the Srijika namespace', () => {
     const roots = ['apps', 'crates', 'docs', 'packages', 'plugins', 'tests'].map((directory) =>
-      join(repositoryRoot.pathname, directory),
+      join(repositoryRoot, directory),
     );
     const files = roots.flatMap(collectFiles);
     const oldBrandPaths = files
-      .map((path) => relative(repositoryRoot.pathname, path))
+      .map((path) => relative(repositoryRoot, path))
       .filter((path) => path.toLowerCase().includes(oldBrand));
     const oldBrandContents = files
       .filter((path) => basename(path) !== 'srijika-branding.unit.test.ts')
       .filter((path) => readFileSync(path, 'utf8').toLowerCase().includes(oldBrand))
-      .map((path) => relative(repositoryRoot.pathname, path).replaceAll('\\', '/'))
+      .map((path) => relative(repositoryRoot, path).replaceAll('\\', '/'))
       .filter((path) => !allowedLegacyCompatibilityFiles.has(path));
 
     expect(oldBrandPaths).toEqual([]);
@@ -62,15 +63,15 @@ describe('Srijika branding boundary', () => {
   });
 
   it('publishes the expected app, extension, and plugin identities', () => {
-    const workspace = JSON.parse(
-      readFileSync(join(repositoryRoot.pathname, 'package.json'), 'utf8'),
-    ) as { name: string };
+    const workspace = JSON.parse(readFileSync(join(repositoryRoot, 'package.json'), 'utf8')) as {
+      name: string;
+    };
     const extension = JSON.parse(
-      readFileSync(join(repositoryRoot.pathname, 'apps/vscode-srijika/package.json'), 'utf8'),
+      readFileSync(join(repositoryRoot, 'apps/vscode-srijika/package.json'), 'utf8'),
     ) as { displayName: string; name: string; publisher: string };
     const plugin = JSON.parse(
       readFileSync(
-        join(repositoryRoot.pathname, 'plugins/srijika-studio/.codex-plugin/plugin.json'),
+        join(repositoryRoot, 'plugins/srijika-studio/.codex-plugin/plugin.json'),
         'utf8',
       ),
     ) as { name: string; interface: { displayName: string } };

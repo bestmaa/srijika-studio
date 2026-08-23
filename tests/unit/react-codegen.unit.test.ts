@@ -311,6 +311,7 @@ function expectStrictTsxToCompile(output: string): void {
   const temporaryDirectory = mkdtempSync(join(process.cwd(), '.srijika-codegen-'));
   const generatedFile = join(temporaryDirectory, 'GeneratedPage.tsx');
   const rendererDeclaration = join(temporaryDirectory, 'srijika-react-renderer.d.ts');
+  const typescriptCli = join(process.cwd(), 'node_modules', 'typescript', 'bin', 'tsc');
   writeFileSync(generatedFile, output, 'utf8');
   writeFileSync(
     rendererDeclaration,
@@ -324,8 +325,9 @@ function expectStrictTsxToCompile(output: string): void {
 
   try {
     const result = spawnSync(
-      join(process.cwd(), 'node_modules', '.bin', 'tsc'),
+      process.execPath,
       [
+        typescriptCli,
         '--ignoreConfig',
         '--noEmit',
         '--strict',

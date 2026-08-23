@@ -2,6 +2,15 @@
 
 All notable changes to Srijika Language Support are documented here.
 
+## 0.4.1 — 2026-08-23
+
+- Made generated TSX compilation and repository-boundary tests portable on
+  Windows CI.
+- Made reviewed pnpm dependency migrations explicitly update and then verify
+  their lockfile in CI environments.
+- Hardened release verification with an installed Chromium browser and a
+  bounded larger heap for type-aware source linting.
+
 ## 0.4.0 — 2026-08-23
 
 - Added a session-backed React migration dashboard with immutable source and

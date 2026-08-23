@@ -33,7 +33,6 @@ const replacements = [
   ...[
     'packages/project-scaffold/src/templates.ts',
     'packages/project-scaffold/test/project-scaffold.test.ts',
-    'packages/developer-engine/src/workspace.ts',
     'docs/MONOREPO.md',
     'docs/codex-plugin-architecture.md',
     'plugins/srijika-studio/skills/srijika-studio/references/cli-and-runtime.md',
@@ -45,6 +44,11 @@ const replacements = [
     replacement: `@srijika/mcp-server@${version}`,
   })),
   {
+    path: 'packages/developer-engine/src/workspace.ts',
+    pattern: /const MCP_SERVER_VERSION = '[^']+';/,
+    replacement: `const MCP_SERVER_VERSION = '${version}';`,
+  },
+  {
     path: 'packages/create-srijika/test/create-srijika.test.mjs',
     pattern: /assert\.equal\(version\.stdout\.trim\(\), '[^']+'\);/,
     replacement: `assert.equal(version.stdout.trim(), '${version}');`,
@@ -53,6 +57,7 @@ const replacements = [
     'apps/portal/src/pages/index.astro',
     'apps/portal/src/content/docs/docs/product-status.mdx',
     'apps/portal/src/content/docs/docs/cli-runtime.mdx',
+    'docs/VSCODE_RELEASE.md',
   ].map((path) => ({
     path,
     pattern: /v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
@@ -67,6 +72,21 @@ const replacements = [
     path: 'docs/NPM_RELEASE.md',
     pattern: /v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
     replacement: `v${version}`,
+  },
+  {
+    path: 'docs/VSCODE_RELEASE.md',
+    pattern: /pnpm release:version \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
+    replacement: `pnpm release:version ${version}`,
+  },
+  {
+    path: 'docs/VSCODE_RELEASE.md',
+    pattern: /srijika-language-support-\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\.vsix/g,
+    replacement: `srijika-language-support-${version}.vsix`,
+  },
+  {
+    path: 'docs/VSCODE_RELEASE.md',
+    pattern: /srijika\.srijika-language-support@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
+    replacement: `srijika.srijika-language-support@${version}`,
   },
 ];
 

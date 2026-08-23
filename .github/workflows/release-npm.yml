@@ -64,6 +64,9 @@ jobs:
       - name: Reject production dependency advisories
         run: pnpm audit --prod
 
+      - name: Install Chromium for migration verification
+        run: pnpm exec playwright install --with-deps chromium
+
       - name: Typecheck workspace
         run: pnpm typecheck
 
@@ -78,10 +81,6 @@ jobs:
         env:
           SRIJIKA_RUN_GENERATED_PROJECT_SMOKE: '1'
         run: pnpm --filter @srijika/project-scaffold test
-
-      - name: Install Chromium for generated owner verification
-        if: matrix.node == '24'
-        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run generated Vite and Next.js owner verification
         if: matrix.node == '24'

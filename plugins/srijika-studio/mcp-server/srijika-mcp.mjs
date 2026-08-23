@@ -230421,7 +230421,7 @@ dist
           mcpServers: {
             "srijika-project": {
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.4.0", "--project", "."],
+              args: ["-y", "@srijika/mcp-server@0.4.1", "--project", "."],
               cwd: "."
             }
           }
@@ -230431,7 +230431,7 @@ dist
             "srijika-project": {
               type: "stdio",
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.4.0", "--project", "${workspaceFolder}"]
+              args: ["-y", "@srijika/mcp-server@0.4.1", "--project", "${workspaceFolder}"]
             }
           }
         }),
@@ -230650,7 +230650,7 @@ Studio later requires no migration: open this same project folder.
           scripts: {
             dev: "vite",
             "validate:srijika": "node scripts/srijika-validate.mjs",
-            "mcp:srijika": "npx -y @srijika/mcp-server@0.4.0 --project .",
+            "mcp:srijika": "npx -y @srijika/mcp-server@0.4.1 --project .",
             build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
             preview: "vite preview",
             typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"
@@ -240535,7 +240535,7 @@ async function executeBoundedGate(cwd, executable, args, gateName) {
 async function installReviewedSourcePackages(targetRoot) {
   const project = await inspectSrijikaProject(targetRoot);
   const commands = project.packageManager === "pnpm" ? [
-    { executable: "pnpm", args: ["install", "--ignore-scripts"] },
+    { executable: "pnpm", args: ["install", "--no-frozen-lockfile", "--ignore-scripts"] },
     { executable: "pnpm", args: ["install", "--frozen-lockfile", "--ignore-scripts"] }
   ] : project.packageManager === "npm" ? [
     { executable: "npm", args: ["install", "--ignore-scripts"] },

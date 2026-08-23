@@ -4727,7 +4727,7 @@ async function installReviewedSourcePackages(targetRoot: string): Promise<void> 
   const commands: readonly { executable: string; args: readonly string[] }[] =
     project.packageManager === 'pnpm'
       ? [
-          { executable: 'pnpm', args: ['install', '--ignore-scripts'] },
+          { executable: 'pnpm', args: ['install', '--no-frozen-lockfile', '--ignore-scripts'] },
           { executable: 'pnpm', args: ['install', '--frozen-lockfile', '--ignore-scripts'] },
         ]
       : project.packageManager === 'npm'

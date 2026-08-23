@@ -41,6 +41,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Verify source quality
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: pnpm verify:fast
 
       - name: Verify package contracts
