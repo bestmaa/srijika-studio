@@ -1,4 +1,5 @@
 import { SRIJIKA_UI_COMPLEXITY_POLICY } from '@srijika/tsx-compiler';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { compileUiSource } from '../src/compiler-adapter';
@@ -26,7 +27,8 @@ describe('VS Code compiler adapter', () => {
   });
 
   it('resolves one canonical owner-local type-only props contract', () => {
-    const fileName = '/project/src/features/home/Home.ui.tsx';
+    const fileName = resolve('/project/src/features/home/Home.ui.tsx');
+    const typesFileName = resolve('/project/src/features/home/Home.types.ts');
     const result = compileUiSource(
       {
         fileName,
@@ -35,10 +37,7 @@ export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; 
       },
       {
         sourceByFileName: new Map([
-          [
-            '/project/src/features/home/Home.types.ts',
-            'export interface HomeUIProps { title: string; }',
-          ],
+          [typesFileName, 'export interface HomeUIProps { title: string; }'],
         ]),
       },
     );
@@ -48,7 +47,7 @@ export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; 
       name: 'title',
       contractSource: {
         kind: 'imported',
-        fileName: '/project/src/features/home/Home.types.ts',
+        fileName: typesFileName,
       },
     });
   });
