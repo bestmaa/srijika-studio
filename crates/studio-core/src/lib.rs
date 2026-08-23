@@ -434,26 +434,28 @@ impl StudioCore {
                 ));
                 append_owner_capability_plans(
                     &mut plans,
-                    &feature_relative,
-                    &request.feature_name,
-                    OwnerFileRoles {
-                        connector: CodeProjectScaffoldFileRole::FeatureConnector,
-                        hook: CodeProjectScaffoldFileRole::FeatureHook,
-                        store: CodeProjectScaffoldFileRole::FeatureStore,
-                        logic: CodeProjectScaffoldFileRole::FeatureLogic,
-                        api: CodeProjectScaffoldFileRole::FeatureApi,
-                        types: CodeProjectScaffoldFileRole::FeatureTypes,
+                    OwnerCapabilityPlan {
+                        relative: &feature_relative,
+                        name: &request.feature_name,
+                        roles: OwnerFileRoles {
+                            connector: CodeProjectScaffoldFileRole::FeatureConnector,
+                            hook: CodeProjectScaffoldFileRole::FeatureHook,
+                            store: CodeProjectScaffoldFileRole::FeatureStore,
+                            logic: CodeProjectScaffoldFileRole::FeatureLogic,
+                            api: CodeProjectScaffoldFileRole::FeatureApi,
+                            types: CodeProjectScaffoldFileRole::FeatureTypes,
+                        },
+                        layers: OwnerLayerSelection {
+                            hook: *create_hook,
+                            store: *create_store,
+                            logic: *create_logic,
+                            api: *create_api,
+                            types: *create_types,
+                        },
+                        create_connector: *create_connector,
+                        legacy_hook_name: hook_name.as_deref(),
+                        architecture,
                     },
-                    OwnerLayerSelection {
-                        hook: *create_hook,
-                        store: *create_store,
-                        logic: *create_logic,
-                        api: *create_api,
-                        types: *create_types,
-                    },
-                    *create_connector,
-                    hook_name.as_deref(),
-                    architecture,
                 )?;
             }
             CodeProjectScaffoldCapability::FeatureConnector => {
@@ -634,26 +636,28 @@ impl StudioCore {
                 ));
                 append_owner_capability_plans(
                     &mut plans,
-                    &slot_relative,
-                    slot_name,
-                    OwnerFileRoles {
-                        connector: CodeProjectScaffoldFileRole::SlotConnector,
-                        hook: CodeProjectScaffoldFileRole::SlotHook,
-                        store: CodeProjectScaffoldFileRole::SlotStore,
-                        logic: CodeProjectScaffoldFileRole::SlotLogic,
-                        api: CodeProjectScaffoldFileRole::SlotApi,
-                        types: CodeProjectScaffoldFileRole::SlotTypes,
+                    OwnerCapabilityPlan {
+                        relative: &slot_relative,
+                        name: slot_name,
+                        roles: OwnerFileRoles {
+                            connector: CodeProjectScaffoldFileRole::SlotConnector,
+                            hook: CodeProjectScaffoldFileRole::SlotHook,
+                            store: CodeProjectScaffoldFileRole::SlotStore,
+                            logic: CodeProjectScaffoldFileRole::SlotLogic,
+                            api: CodeProjectScaffoldFileRole::SlotApi,
+                            types: CodeProjectScaffoldFileRole::SlotTypes,
+                        },
+                        layers: OwnerLayerSelection {
+                            hook: *create_hook,
+                            store: *create_store,
+                            logic: *create_logic,
+                            api: *create_api,
+                            types: *create_types,
+                        },
+                        create_connector: *create_connector,
+                        legacy_hook_name: hook_name.as_deref(),
+                        architecture,
                     },
-                    OwnerLayerSelection {
-                        hook: *create_hook,
-                        store: *create_store,
-                        logic: *create_logic,
-                        api: *create_api,
-                        types: *create_types,
-                    },
-                    *create_connector,
-                    hook_name.as_deref(),
-                    architecture,
                 )?;
                 if let Some(part_name) = part_name {
                     if !create_part_connector {
@@ -921,26 +925,28 @@ impl StudioCore {
                 ));
                 append_owner_capability_plans(
                     &mut plans,
-                    &part_relative,
-                    part_name,
-                    OwnerFileRoles {
-                        connector: CodeProjectScaffoldFileRole::PartConnector,
-                        hook: CodeProjectScaffoldFileRole::PartHook,
-                        store: CodeProjectScaffoldFileRole::PartStore,
-                        logic: CodeProjectScaffoldFileRole::PartLogic,
-                        api: CodeProjectScaffoldFileRole::PartApi,
-                        types: CodeProjectScaffoldFileRole::PartTypes,
+                    OwnerCapabilityPlan {
+                        relative: &part_relative,
+                        name: part_name,
+                        roles: OwnerFileRoles {
+                            connector: CodeProjectScaffoldFileRole::PartConnector,
+                            hook: CodeProjectScaffoldFileRole::PartHook,
+                            store: CodeProjectScaffoldFileRole::PartStore,
+                            logic: CodeProjectScaffoldFileRole::PartLogic,
+                            api: CodeProjectScaffoldFileRole::PartApi,
+                            types: CodeProjectScaffoldFileRole::PartTypes,
+                        },
+                        layers: OwnerLayerSelection {
+                            hook: *create_hook,
+                            store: *create_store,
+                            logic: *create_logic,
+                            api: *create_api,
+                            types: *create_types,
+                        },
+                        create_connector: *create_connector,
+                        legacy_hook_name: hook_name.as_deref(),
+                        architecture,
                     },
-                    OwnerLayerSelection {
-                        hook: *create_hook,
-                        store: *create_store,
-                        logic: *create_logic,
-                        api: *create_api,
-                        types: *create_types,
-                    },
-                    *create_connector,
-                    hook_name.as_deref(),
-                    architecture,
                 )?;
             }
             CodeProjectScaffoldCapability::PartConnector {
@@ -6148,6 +6154,16 @@ struct OwnerFileRoles {
     types: CodeProjectScaffoldFileRole,
 }
 
+struct OwnerCapabilityPlan<'a> {
+    relative: &'a Path,
+    name: &'a str,
+    roles: OwnerFileRoles,
+    layers: OwnerLayerSelection,
+    create_connector: bool,
+    legacy_hook_name: Option<&'a str>,
+    architecture: &'a CodeProjectArchitectureConfig,
+}
+
 fn progressive_connector_source(
     name: &str,
     layers: OwnerLayerSelection,
@@ -6358,14 +6374,17 @@ fn append_shared_owner_capability_plans(
 
 fn append_owner_capability_plans(
     plans: &mut Vec<ScaffoldFilePlan>,
-    relative: &Path,
-    name: &str,
-    roles: OwnerFileRoles,
-    layers: OwnerLayerSelection,
-    create_connector: bool,
-    legacy_hook_name: Option<&str>,
-    architecture: &CodeProjectArchitectureConfig,
+    request: OwnerCapabilityPlan<'_>,
 ) -> Result<(), StudioCoreError> {
+    let OwnerCapabilityPlan {
+        relative,
+        name,
+        roles,
+        layers,
+        create_connector,
+        legacy_hook_name,
+        architecture,
+    } = request;
     if legacy_hook_name.is_some() && !layers.hook {
         return Err(StudioCoreError::InvalidProject(
             "a private Hook requires its canonical owner Hook gateway",
@@ -7252,15 +7271,14 @@ fn parse_typescript_path_aliases(source: &str) -> Result<Vec<(String, String)>, 
             "tsconfig.json extends is unsupported for deterministic local aliases",
         ));
     }
-    if let Some(references) = root.get("references") {
-        if !references
+    if let Some(references) = root.get("references")
+        && !references
             .as_array()
             .is_some_and(|references| references.is_empty())
-        {
-            return Err(StudioCoreError::InvalidProject(
-                "tsconfig.json project references are unsupported for deterministic local aliases",
-            ));
-        }
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "tsconfig.json project references are unsupported for deterministic local aliases",
+        ));
     }
     let Some(compiler_options) = root.get("compilerOptions") else {
         return Ok(Vec::new());
@@ -7608,11 +7626,9 @@ fn expand_owner_capability(
         remove_created_directories(&created_directories);
         return Err(error);
     }
-    if flat_exists {
-        if let Err(error) = refuse_existing_project_file(&expanded_path) {
-            remove_created_directories(&created_directories);
-            return Err(error);
-        }
+    if flat_exists && let Err(error) = refuse_existing_project_file(&expanded_path) {
+        remove_created_directories(&created_directories);
+        return Err(error);
     }
 
     let mut helper_created = false;

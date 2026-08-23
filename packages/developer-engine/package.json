@@ -16,11 +16,14 @@
   "dependencies": {
     "@srijika/architecture-rules": "workspace:*",
     "@srijika/project-scaffold": "workspace:*",
-    "@srijika/tsx-compiler": "workspace:*"
+    "@srijika/tsx-compiler": "workspace:*",
+    "typescript": "6.0.3"
+  },
+  "optionalDependencies": {
+    "playwright": "1.62.1"
   },
   "devDependencies": {
     "@types/node": "26.1.2",
-    "typescript": "6.0.3",
     "vitest": "4.1.10"
   }
 }

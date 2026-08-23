@@ -40,6 +40,9 @@
     "onCommand:srijika.stopApp",
     "onCommand:srijika.installDependencies",
     "onCommand:srijika.doctor",
+    "onCommand:srijika.syncOwnerTests",
+    "onCommand:srijika.showTestEvidence",
+    "onCommand:srijika.verifyOwnerTests",
     "onView:srijika.structure"
   ],
   "contributes": {
@@ -100,6 +103,24 @@
         "title": "Srijika: Run Doctor",
         "category": "Srijika",
         "icon": "$(pulse)"
+      },
+      {
+        "command": "srijika.syncOwnerTests",
+        "title": "Srijika: Sync Owner Vitest / Playwright Tests",
+        "category": "Srijika",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "srijika.showTestEvidence",
+        "title": "Srijika: Show Owner Test Evidence",
+        "category": "Srijika",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "srijika.verifyOwnerTests",
+        "title": "Srijika: Verify All Owner Tests",
+        "category": "Srijika",
+        "icon": "$(run-all)"
       }
     ],
     "viewsContainers": {
@@ -167,9 +188,24 @@
           "group": "navigation@2"
         },
         {
-          "command": "srijika.refreshStructure",
+          "command": "srijika.syncOwnerTests",
           "when": "view == srijika.structure",
           "group": "navigation@3"
+        },
+        {
+          "command": "srijika.showTestEvidence",
+          "when": "view == srijika.structure",
+          "group": "navigation@4"
+        },
+        {
+          "command": "srijika.verifyOwnerTests",
+          "when": "view == srijika.structure",
+          "group": "navigation@5"
+        },
+        {
+          "command": "srijika.refreshStructure",
+          "when": "view == srijika.structure",
+          "group": "navigation@6"
         }
       ]
     },
@@ -210,7 +246,7 @@
   },
   "devDependencies": {
     "@types/vscode": "^1.100.0",
-    "esbuild": "0.25.12",
+    "esbuild": "0.28.2",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   }

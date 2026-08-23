@@ -1,5 +1,5 @@
-import { watch } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { constants, watch } from 'node:fs';
+import { lstat, open } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
@@ -8,7 +8,11 @@ import { pathToFileURL } from 'node:url';
 import {
   checkSrijikaArchitecture,
   checkSrijikaUiDiagnostics,
+  collectSrijikaTestEvidence,
+  applyReactMigrationSlice,
+  captureReactMigrationBrowserParity,
   createSrijikaDoctorReport,
+  discardReactMigrationSliceReview,
   finalizeReactMigration,
   findSrijikaProjectRoot,
   formatSrijikaCommand,
@@ -18,10 +22,23 @@ import {
   runSrijikaCommand,
   startReactMigration,
   getReactMigrationStatus,
+  replanPendingReactMigration,
+  getReactMigrationSliceContext,
+  reviewReactMigrationOwnership,
+  reviewReactMigrationSlice,
+  runReactMigrationVerificationGates,
+  synchronizeReactMigrationTestHarness,
+  synchronizeReactMigrationValidator,
+  synchronizeSrijikaNextTests,
+  synchronizeSrijikaViteTests,
+  verifySrijikaOwnerTests,
   verifyReactMigration,
+  verifyReactMigrationSlice,
   SrijikaArchitectureIndex,
   type ReactMigrationCommandStatus,
   type ReactMigrationSession,
+  type ReactMigrationSlice,
+  type ReviewReactMigrationOwnershipRequest,
   type SrijikaProjectCommandKind,
   type SrijikaRuntimePreference,
 } from '@srijika/developer-engine';
@@ -65,9 +82,24 @@ Usage:
   srijika add behavior-hook <Behavior> --in <owner-folder>
   srijika add store-slice <Concern> --in <owner-folder>
   srijika check [project] [--watch] [--json]
+  srijika tests sync [project] [--framework vite|next] [--dry-run] [--port 4174] [--json]
+  srijika tests evidence [project] [--framework vite|next] [--json]
+  srijika tests verify [project] [--framework vite|next] [--skip-install] [--port 4174] [--json]
   srijika migrate react --source <existing-react> --target <new-srijika> [--dry-run] [--json]
   srijika migrate status --target <new-srijika> [--json]
-  srijika migrate verify --target <new-srijika> [--routes-verified] [--visual-verified] [--json]
+  srijika migrate plan --target <new-srijika> [--json]
+  srijika migrate context --target <new-srijika> --slice <id> [--cursor <cursor>] [--limit <n>] [--max-bytes <n>] --json
+  srijika migrate ownership --target <new-srijika> --review-file <reviewed.json> [--json]
+  srijika migrate review --target <new-srijika> --slice-file <reviewed.json> [--json]
+  srijika migrate discard-review --target <new-srijika> --review-token <token> [--json]
+  srijika migrate apply --target <new-srijika> --review-token <token> [--json]
+  srijika migrate verify-slice --target <new-srijika> --slice <id> [--json]
+  srijika migrate replan --target <new-srijika> [--json]
+  srijika migrate sync-validator --target <new-srijika> [--json]
+  srijika migrate sync-test-harness --target <new-srijika> [--include-install] [--json]
+  srijika migrate parity --target <new-srijika> [--include-install] [--json]
+  srijika migrate verify --target <new-srijika> [--json]
+  srijika migrate finalize --target <new-srijika> [--json]
   srijika dev [project] [--runtime node|bun] [--port 5173]
   srijika install|build|preview|validate [project]
   srijika doctor [project] [--runtime node|bun] [--json]
@@ -338,6 +370,91 @@ async function runAdd(parsed: ParsedArguments): Promise<number> {
   return 0;
 }
 
+async function runTests(parsed: ParsedArguments): Promise<number> {
+  assertKnownOptions(parsed, ['project', 'dry-run', 'port', 'json', 'framework', 'skip-install']);
+  const [operation, positionalProject] = parsed.positionals;
+  if (!operation || (operation !== 'sync' && operation !== 'evidence' && operation !== 'verify')) {
+    throw new Error('tests requires sync, evidence, or verify.');
+  }
+  if (parsed.positionals.length > 2) throw new Error('tests accepts at most one project path.');
+  const start = positionalProject ?? stringOption(parsed, 'project') ?? process.cwd();
+  const project = await inspectSrijikaProject(start);
+  const requestedFramework = stringOption(parsed, 'framework');
+  if (requestedFramework && requestedFramework !== 'vite' && requestedFramework !== 'next') {
+    throw new Error('--framework must be vite or next.');
+  }
+  let payload: unknown;
+  if (operation === 'sync') {
+    const dryRun = booleanOption(parsed, 'dry-run');
+    const port = numberOption(parsed, 'port');
+    const framework =
+      requestedFramework ??
+      (project.nextProject && !project.viteProject
+        ? 'next'
+        : project.viteProject && !project.nextProject
+          ? 'vite'
+          : undefined);
+    if (framework === 'next') {
+      payload = await synchronizeSrijikaNextTests({
+        project: project.root,
+        dryRun,
+        ...(port === undefined ? {} : { port }),
+      });
+    } else if (framework === 'vite') {
+      payload = await synchronizeSrijikaViteTests({
+        project: project.root,
+        dryRun,
+        ...(port === undefined ? {} : { port }),
+      });
+    } else {
+      throw new Error('Select a project with exactly one supported Vite or Next.js framework.');
+    }
+  } else if (operation === 'evidence') {
+    payload = await collectSrijikaTestEvidence({
+      project: project.root,
+      ...(requestedFramework
+        ? { framework: requestedFramework === 'next' ? 'next-app-router' : 'vite' }
+        : {}),
+    });
+  } else {
+    const port = numberOption(parsed, 'port');
+    payload = await verifySrijikaOwnerTests({
+      project: project.root,
+      ...(requestedFramework
+        ? { framework: requestedFramework === 'next' ? 'next-app-router' : 'vite' }
+        : {}),
+      ...(port === undefined ? {} : { port }),
+      skipInstall: booleanOption(parsed, 'skip-install'),
+    });
+  }
+  if (booleanOption(parsed, 'json')) console.log(JSON.stringify(payload, null, 2));
+  else if (operation === 'sync') {
+    const result = payload as Awaited<ReturnType<typeof synchronizeSrijikaViteTests>>;
+    console.log(
+      `✓ ${result.adapter.framework} owner tests: ${result.write?.created.length ?? 0} created, ${result.write?.updated.length ?? 0} updated, ${result.write?.preserved.length ?? 0} preserved`,
+    );
+    for (const [name, command] of Object.entries(result.adapter.scripts)) {
+      console.log(`· package script ${name}: ${command}`);
+    }
+  } else if (operation === 'evidence') {
+    const result = payload as Awaited<ReturnType<typeof collectSrijikaTestEvidence>>;
+    console.log(`✓ ${result.manifest.framework} evidence status: ${result.manifest.status}`);
+    for (const owner of result.manifest.owners) console.log(`· ${owner.ownerId}: ${owner.status}`);
+  } else {
+    const result = payload as Awaited<ReturnType<typeof verifySrijikaOwnerTests>>;
+    console.log(
+      `${result.status === 'passed' ? '✓' : '✗'} ${result.framework} owner verification: ${result.status}`,
+    );
+    for (const gate of result.gates) {
+      console.log(`· ${gate.name}: ${gate.status}${gate.message ? ` — ${gate.message}` : ''}`);
+    }
+  }
+  return operation === 'verify' &&
+    (payload as Awaited<ReturnType<typeof verifySrijikaOwnerTests>>).status !== 'passed'
+    ? 1
+    : 0;
+}
+
 export function resolveSrijikaWatchRoots(
   projectRoot: string,
   architecture: Partial<SrijikaArchitectureConfig> = {},
@@ -563,54 +680,42 @@ function printMigrationSession(session: ReactMigrationSession, json: boolean): v
   }
 }
 
-function packageManagerExecutable(manager: string): string {
-  return process.platform === 'win32' ? `${manager}.cmd` : manager;
-}
-
-async function runMigrationScript(
-  project: Awaited<ReturnType<typeof inspectSrijikaProject>>,
-  name: 'typecheck' | 'build' | 'test',
-  json: boolean,
-): Promise<ReactMigrationCommandStatus> {
-  const scriptName =
-    name === 'test' && !project.scripts['test'] && project.scripts['validate:srijika']
-      ? 'validate:srijika'
-      : name;
-  if (!project.scripts[scriptName]) {
-    return {
-      name,
-      status: 'failed',
-      details: `package.json does not define a ${name} verification script.`,
-    };
+async function readBoundedMigrationJson(filePath: string): Promise<string> {
+  const before = await lstat(filePath);
+  if (!before.isFile() || before.isSymbolicLink() || before.size > 24 * 1024 * 1024) {
+    throw new Error(
+      'Migration review input must be a regular non-symlink file no larger than 24 MiB.',
+    );
   }
-  const executable = packageManagerExecutable(project.packageManager);
-  const code = await new Promise<number>((resolveCode, reject) => {
-    const child = spawn(executable, ['run', scriptName], {
-      cwd: project.root,
-      env: process.env,
-      stdio: json ? 'ignore' : 'inherit',
-      shell: false,
-      windowsHide: true,
-    });
-    child.once('error', reject);
-    child.once('exit', (exitCode) => resolveCode(exitCode ?? 1));
-  });
-  return {
-    name,
-    status: code === 0 ? 'passed' : 'failed',
-    details:
-      code === 0
-        ? scriptName === name
-          ? `${name} passed.`
-          : `${name} passed through the ${scriptName} migration fallback.`
-        : `${scriptName} exited with code ${code}.`,
-  };
+  const handle = await open(
+    filePath,
+    constants.O_RDONLY | (typeof constants.O_NOFOLLOW === 'number' ? constants.O_NOFOLLOW : 0),
+  );
+  try {
+    const opened = await handle.stat();
+    if (
+      !opened.isFile() ||
+      opened.dev !== before.dev ||
+      opened.ino !== before.ino ||
+      opened.size !== before.size
+    ) {
+      throw new Error('Migration review input changed while it was opened.');
+    }
+    const source = (await handle.readFile()).toString('utf8');
+    const after = await lstat(filePath);
+    if (after.dev !== opened.dev || after.ino !== opened.ino || after.size !== opened.size) {
+      throw new Error('Migration review input changed while it was read.');
+    }
+    return source;
+  } finally {
+    await handle.close();
+  }
 }
 
 async function runMigrate(parsed: ParsedArguments): Promise<number> {
   const [operation, ...extra] = parsed.positionals;
   if (!operation || extra.length > 0) {
-    throw new Error('Use `srijika migrate react|status|verify` with named source/target options.');
+    throw new Error('Use a supported `srijika migrate` operation with named options.');
   }
   if (operation === 'react') {
     assertKnownOptions(parsed, [
@@ -658,40 +763,184 @@ async function runMigrate(parsed: ParsedArguments): Promise<number> {
     );
     return 0;
   }
+  if (operation === 'replan') {
+    assertKnownOptions(parsed, ['target', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate replan requires --target.');
+    printMigrationSession(
+      await replanPendingReactMigration(resolve(target)),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'sync-validator') {
+    assertKnownOptions(parsed, ['target', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate sync-validator requires --target.');
+    printMigrationSession(
+      await synchronizeReactMigrationValidator({ target: resolve(target) }),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'sync-test-harness') {
+    assertKnownOptions(parsed, ['target', 'include-install', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate sync-test-harness requires --target.');
+    printMigrationSession(
+      await synchronizeReactMigrationTestHarness({
+        target: resolve(target),
+        includeInstall: booleanOption(parsed, 'include-install'),
+      }),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'plan') {
+    assertKnownOptions(parsed, ['target', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate plan requires --target.');
+    const session = await getReactMigrationStatus(resolve(target));
+    console.log(
+      booleanOption(parsed, 'json')
+        ? JSON.stringify(session.plan, null, 2)
+        : `Plan ${session.plan.id}: ${session.plan.slices.length} native owner slices.`,
+    );
+    return 0;
+  }
+  if (operation === 'context') {
+    assertKnownOptions(parsed, ['target', 'slice', 'cursor', 'limit', 'max-bytes', 'json']);
+    const target = stringOption(parsed, 'target');
+    const sliceId = stringOption(parsed, 'slice');
+    if (!target || !sliceId) throw new Error('migrate context requires --target and --slice.');
+    const boundedInteger = (name: string): number | undefined => {
+      const raw = stringOption(parsed, name);
+      if (raw === undefined) return undefined;
+      const value = Number(raw);
+      if (!Number.isSafeInteger(value) || value < 1)
+        throw new Error(`--${name} must be a positive safe integer.`);
+      return value;
+    };
+    const cursor = stringOption(parsed, 'cursor');
+    const limit = boundedInteger('limit');
+    const maxBytes = boundedInteger('max-bytes');
+    const context = await getReactMigrationSliceContext({
+      target: resolve(target),
+      sliceId,
+      ...(cursor ? { cursor } : {}),
+      ...(limit ? { limit } : {}),
+      ...(maxBytes ? { maxBytes } : {}),
+    });
+    console.log(JSON.stringify(context, null, 2));
+    return 0;
+  }
+  if (operation === 'ownership') {
+    assertKnownOptions(parsed, ['target', 'review-file', 'json']);
+    const target = stringOption(parsed, 'target');
+    const reviewFile = stringOption(parsed, 'review-file');
+    if (!target || !reviewFile)
+      throw new Error('migrate ownership requires --target and --review-file.');
+    const source = await readBoundedMigrationJson(resolve(reviewFile));
+    const review = JSON.parse(source) as Omit<ReviewReactMigrationOwnershipRequest, 'target'>;
+    printMigrationSession(
+      await reviewReactMigrationOwnership({ ...review, target: resolve(target) }),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'review') {
+    assertKnownOptions(parsed, ['target', 'slice-file', 'json']);
+    const target = stringOption(parsed, 'target');
+    const sliceFile = stringOption(parsed, 'slice-file');
+    if (!target || !sliceFile)
+      throw new Error('migrate review requires --target and --slice-file.');
+    const source = await readBoundedMigrationJson(resolve(sliceFile));
+    const review = await reviewReactMigrationSlice({
+      target: resolve(target),
+      slice: JSON.parse(source) as ReactMigrationSlice,
+    });
+    console.log(
+      booleanOption(parsed, 'json')
+        ? JSON.stringify(review, null, 2)
+        : `Reviewed ${review.sliceId}; token ${review.token}`,
+    );
+    return 0;
+  }
+  if (operation === 'discard-review') {
+    assertKnownOptions(parsed, ['target', 'review-token', 'json']);
+    const target = stringOption(parsed, 'target');
+    const reviewToken = stringOption(parsed, 'review-token');
+    if (!target || !reviewToken)
+      throw new Error('migrate discard-review requires --target and --review-token.');
+    printMigrationSession(
+      await discardReactMigrationSliceReview({ target: resolve(target), reviewToken }),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'apply') {
+    assertKnownOptions(parsed, ['target', 'review-token', 'json']);
+    const target = stringOption(parsed, 'target');
+    const reviewToken = stringOption(parsed, 'review-token');
+    if (!target || !reviewToken)
+      throw new Error('migrate apply requires --target and --review-token.');
+    printMigrationSession(
+      await applyReactMigrationSlice({ target: resolve(target), reviewToken }),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'verify-slice') {
+    assertKnownOptions(parsed, ['target', 'slice', 'json']);
+    const target = stringOption(parsed, 'target');
+    const sliceId = stringOption(parsed, 'slice');
+    if (!target || !sliceId) throw new Error('migrate verify-slice requires --target and --slice.');
+    const commands = await runReactMigrationVerificationGates({ target: resolve(target) });
+    printMigrationSession(
+      await verifyReactMigrationSlice(resolve(target), sliceId, commands),
+      booleanOption(parsed, 'json'),
+    );
+    return 0;
+  }
+  if (operation === 'parity') {
+    assertKnownOptions(parsed, ['target', 'include-install', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate parity requires --target.');
+    const manifest = await captureReactMigrationBrowserParity({
+      target: resolve(target),
+      includeInstall: booleanOption(parsed, 'include-install'),
+    });
+    console.log(
+      booleanOption(parsed, 'json')
+        ? JSON.stringify(manifest, null, 2)
+        : `${manifest.passed ? '✓' : '✗'} Browser parity ${manifest.manifestSha256}: ${manifest.routes.length} routes × ${manifest.viewports.length} viewports.`,
+    );
+    return manifest.passed ? 0 : 1;
+  }
   if (operation === 'verify') {
-    assertKnownOptions(parsed, ['target', 'json', 'routes-verified', 'visual-verified']);
+    assertKnownOptions(parsed, ['target', 'json']);
     const target = stringOption(parsed, 'target');
     if (!target) throw new Error('migrate verify requires --target.');
     const json = booleanOption(parsed, 'json');
     const project = await inspectSrijikaProject(resolve(target));
-    const commands: ReactMigrationCommandStatus[] = [];
-    commands.push(await runMigrationScript(project, 'typecheck', json));
-    commands.push(await runMigrationScript(project, 'build', json));
-    commands.push(await runMigrationScript(project, 'test', json));
-    if (booleanOption(parsed, 'routes-verified')) {
-      commands.push({
-        name: 'routes',
-        status: 'passed',
-        details: 'User confirmed the reviewed source and target route matrix matches.',
-      });
-    }
-    if (booleanOption(parsed, 'visual-verified')) {
-      commands.push({
-        name: 'visual',
-        status: 'passed',
-        details: 'User confirmed representative mobile, tablet, and desktop viewport parity.',
-      });
-    }
+    const commands: ReactMigrationCommandStatus[] = [
+      ...(await runReactMigrationVerificationGates({ target: project.root })),
+    ];
     const verified = await verifyReactMigration({ target: project.root, commands });
-    if (!verified.verification?.passed) {
-      printMigrationSession(verified, json);
-      return 1;
-    }
-    const completed = await finalizeReactMigration({ target: project.root, commands });
-    printMigrationSession(completed, json);
+    printMigrationSession(verified, json);
+    return verified.verification?.passed ? 0 : 1;
+  }
+  if (operation === 'finalize') {
+    assertKnownOptions(parsed, ['target', 'json']);
+    const target = stringOption(parsed, 'target');
+    if (!target) throw new Error('migrate finalize requires --target.');
+    printMigrationSession(
+      await finalizeReactMigration({ target: resolve(target) }),
+      booleanOption(parsed, 'json'),
+    );
     return 0;
   }
-  throw new Error(`Unknown migrate operation: ${operation}. Use react, status, or verify.`);
+  throw new Error(`Unknown migrate operation: ${operation}.`);
 }
 
 async function runStudio(parsed: ParsedArguments): Promise<number> {
@@ -730,6 +979,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
       return runCheck(parsed);
     case 'doctor':
       return runDoctor(parsed);
+    case 'tests':
+      return runTests(parsed);
     case 'migrate':
       return runMigrate(parsed);
     case 'dev':

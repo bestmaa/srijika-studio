@@ -37,11 +37,14 @@
     "typescript": "6.0.3",
     "zod": "4.4.3"
   },
+  "optionalDependencies": {
+    "playwright": "1.62.1"
+  },
   "devDependencies": {
     "@srijika/architecture-rules": "workspace:*",
     "@srijika/automation-protocol": "workspace:*",
     "@srijika/developer-engine": "workspace:*",
     "@srijika/project-scaffold": "workspace:*",
-    "esbuild": "0.25.12"
+    "esbuild": "0.28.2"
   }
 }

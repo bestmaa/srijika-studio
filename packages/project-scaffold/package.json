@@ -9,7 +9,11 @@
     "./types": "./src/types.ts",
     "./writer": "./src/writer.ts",
     "./ownership": "./src/ownership.ts",
-    "./ownership-writer": "./src/ownership-writer.ts"
+    "./ownership-writer": "./src/ownership-writer.ts",
+    "./test-writer": "./src/test-writer.ts",
+    "./next-testing": "./src/next-testing.ts",
+    "./next-app": "./src/next-app.ts",
+    "./evidence": "./src/evidence.ts"
   },
   "scripts": {
     "test": "vitest run --config vitest.config.ts",

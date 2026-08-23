@@ -152,6 +152,78 @@ src/
          └─ auth.types.ts                  optional Types; runtime layer required
 ```
 
+## Machine-owned test contract
+
+The framework-neutral architecture engine emits
+`srijika-test-contract-v1` for the same owner tree. This is the source of truth
+for automatic test generation; an AI caller does not decide that a Part is too
+small to test or invent its own affected-file list.
+
+Each discovered Feature, Slot, Part, Shared UI Primitive, Shared Widget, and
+Shared Headless Capability records:
+
+- its stable owner ID, canonical path, files, and capabilities;
+- required architecture and TypeScript checks;
+- Node unit coverage for Store, Logic, and API behavior;
+- framework-adapter component coverage for UI, Connector, and Hook composition;
+- browser, fixed-viewport visual, and accessibility evidence for every owner
+  with a canonical UI, including every Part;
+- runtime and type-only file dependency edges.
+
+The dependency graph includes governed owners and project-local support files.
+Given changed files, the engine walks reverse imports transitively and returns
+the exact affected owners and requirement IDs. A shared style or type change
+therefore selects every consuming Slot and Feature, while an unrelated Part is
+not rerun. Vite and Next.js adapters consume the same requirements and differ
+only in how they create the DOM or real-runtime harness.
+
+The Vite adapter currently generates a deterministic `tests/srijika/` plan:
+
+```text
+tests/srijika/
+├─ contract.generated.json
+├─ owner-fixtures.ts                    preserved, never overwritten by sync
+├─ harness/index.html
+├─ harness/main.tsx
+├─ vitest.config.ts
+├─ playwright.config.ts
+└─ owners/
+   ├─ feature--dashboard.component.test.tsx
+   ├─ feature--dashboard.spec.ts
+   ├─ part--dashboard--summary--metric-card.component.test.tsx
+   └─ part--dashboard--summary--metric-card.spec.ts
+```
+
+Every visual owner receives a server-rendered component smoke plus isolated
+Playwright behavior, visual, and Axe cases. Store, Logic, and API owners receive
+a Vitest runtime surface. The plan also declares exact test dependencies and
+scripts. Any requirement the first adapter cannot honestly satisfy—for example
+a headless Hook needing providers—is returned in
+`uncoveredRequirementIds`; tooling must not report the owner green until a
+fixture/provider adapter covers it.
+
+The Next App Router adapter keeps the same owner contract but uses the real
+framework runtime. It generates an isolated `tests/srijika-next/` App Router
+harness, Vitest only for framework-neutral Store/Logic/API modules, and
+Playwright render, visual, and Axe evidence for every visual owner. Async Server
+Components are never downgraded into a fake jsdom component test.
+
+Production routes remain a thin adapter layer:
+
+```text
+src/app/products/[productId]/page.tsx  → ProductConnector
+src/features/product/                  → owned UI and behavior
+```
+
+The route planner classifies each public Connector as `server`, `client`, or
+`invalid`. Hooks and browser APIs require a `'use client'` directive at the
+Connector. A client Connector may not absorb an async or `server-only` owner;
+server loading stays in a Server Component and passes serializable props across
+the boundary. Route synchronization fails closed while diagnostics remain,
+preserves an authored root layout, and updates only files carrying Srijika's
+generated-route marker. Srijika Slots are ownership concepts and are never
+silently translated into Next.js `@parallel-route` folders.
+
 ## Capability responsibilities
 
 | Capability | Responsibility                                                                                       | May know                                                  |

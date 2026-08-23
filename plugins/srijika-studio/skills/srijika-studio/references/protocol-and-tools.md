@@ -78,32 +78,50 @@ Read `srijika://docs/react-migration` and
 existing React project. The migration source is immutable and the target must
 be distinct, non-overlapping, and new or a recognizable clean generated starter.
 
-| Tool                                   | Use                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------- |
-| `srijika_create_react_migration`       | Preflight roots, baseline source, scaffold target, persist session. |
-| `srijika_scan_react_migration_source`  | Read the bounded source inventory without writing.                  |
-| `srijika_get_react_migration_plan`     | Read reviewed slices, mappings, blockers, and gates.                |
-| `srijika_get_react_migration_status`   | Resume the persisted target session.                                |
-| `srijika_apply_react_migration_slice`  | Apply one reviewed atomic target-only slice.                        |
-| `srijika_verify_react_migration_slice` | Verify one slice before continuing.                                 |
-| `srijika_verify_react_migration`       | Run source, traceability, architecture, and command gates.          |
-| `srijika_finalize_react_migration`     | Complete only when all current required evidence passes.            |
+| Tool                                        | Use                                                                 |
+| ------------------------------------------- | ------------------------------------------------------------------- |
+| `srijika_create_react_migration`            | Preflight roots, baseline source, scaffold target, persist session. |
+| `srijika_scan_react_migration_source`       | Read a compact paged source inventory without writing.              |
+| `srijika_get_react_migration_plan`          | Page deterministic owners or select one slice by ID.                |
+| `srijika_review_react_migration_ownership`  | Correct canonical ownership before any slice review or apply.       |
+| `srijika_get_react_migration_slice_context` | Read hash-checked source content for one slice in bounded pages.    |
+| `srijika_get_react_migration_status`        | Resume from compact persisted state and `nextAction`.               |
+| `srijika_review_react_migration_slice`      | Validate and persist one exact native slice; return a bound token.  |
+| `srijika_apply_react_migration_slice`       | Apply the persisted payload using only its review token.            |
+| `srijika_verify_react_migration_slice`      | Execute and snapshot-bind slice gates before continuing.            |
+| `srijika_verify_react_migration`            | Execute gates and optionally run engine-owned browser parity.       |
+| `srijika_finalize_react_migration`          | Rerun gates/capture; accepts only the target.                       |
 
 The engine inventories and guards the migration. Codex performs semantic slice
 analysis and supplies reviewed target writes and source mappings. Unsupported
 or ambiguous behavior is a blocker. Never describe these tools as an arbitrary
 automatic rewrite or guaranteed zero-loss conversion.
 
-Verification evidence names are `install`, `typecheck`, `build`, `test`,
-`routes`, and `visual`. Typecheck, build, and test are always required and must
-pass. Route files or `semanticRoutesPresent` require `routes` with status
-`passed`; any entry, component, style, or
-asset source requires `visual` with status `passed`. Slice verification also
-rescans the immutable source baseline before marking the slice verified. Route
-and visual entries require nonempty details naming the checked routes and
-representative viewports. Visual details must name at least two of mobile,
-tablet, desktop, and wide, or provide at least two `WxH` measurements. Duplicate
-or oversized evidence is rejected.
+The plan supplies deterministic owner IDs, owner paths, roles, graph components,
+completion obligations, and bounded legacy-adapter planning hints. Runtime
+mappings must finish in `native` mode; native slice review rejects every
+compatibility kind, mode, or adapter. Generic runtime ignores, bookkeeping-only mappings to starter
+files, copied legacy trees, wrappers/re-exports, iframe/webview fallbacks,
+source-root dependencies, and unowned target modules are blocking. Review binds
+the full payload—including expected-hash starter deletions—to source, target,
+plan, and slice hashes; apply accepts only `target` plus the 64-hex review
+token. Status exposes a pending apply handle after interruption so the review
+does not need to be recreated.
+
+Verification never accepts caller-authored command status, receipt, route,
+screenshot, artifact path, URL, viewport, or prose. The engine executes
+typecheck/build/test with bounded time and signs results to the current target
+snapshot. For route and visual parity, verify accepts only `target` and optional
+`includeInstall`. The engine prepares a temporary immutable-source copy and the
+target runtime, selects loopback ports, derives routes, captures fixed-viewport
+redirects, semantic DOM traces, console/page errors, and PNGs, applies fixed
+thresholds, and writes a snapshot-bound manifest under `.srijika/migrations/react/`.
+
+Typecheck, build, and test are always required and must pass when executed by
+the engine. Finalize rebuilds both isolated runtimes, reruns the gates,
+recaptures, and revalidates the new engine-owned manifest. Slice
+verification also rescans the immutable source baseline. Missing Playwright or
+Chromium blocks capture; arbitrary artifacts cannot substitute for it.
 
 ## Read tools
 

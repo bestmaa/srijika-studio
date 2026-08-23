@@ -222,6 +222,7 @@ The server is bounded to that project and exposes:
 - `srijika_get_code_project` — metadata and bounded canonical file inventory;
 - `srijika_check_code_project` — shared strict diagnostics;
 - `srijika_plan_code_structure` — exact no-write file and rewire plan;
+- `srijika_owner_tests` — framework-detected safe sync, full verification, or bounded owner evidence and AI repair scope;
 - `srijika_apply_code_structure` — atomic no-overwrite Feature/Slot/Part/Shared creation.
 
 Studio bridge tools appear in the same MCP server but remain optional. If Studio

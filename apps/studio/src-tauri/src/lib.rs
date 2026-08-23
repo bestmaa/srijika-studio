@@ -113,6 +113,13 @@ impl CommandFailure {
             message: message.into(),
         }
     }
+
+    fn owner_tests(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -142,6 +149,152 @@ struct ReactMigrationResponse {
 }
 
 const MAX_MIGRATION_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
+const MAX_OWNER_TEST_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum OwnerTestOperation {
+    Sync,
+    Verify,
+    Evidence,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum OwnerTestFramework {
+    Vite,
+    Next,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OwnerTestRequest {
+    operation: OwnerTestOperation,
+    project_path: String,
+    framework: Option<OwnerTestFramework>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct OwnerTestResponse {
+    operation: OwnerTestOperation,
+    project_path: String,
+    stdout: String,
+    stderr: String,
+    result: serde_json::Value,
+}
+
+fn owner_test_cli_arguments(
+    operation: OwnerTestOperation,
+    project_path: &str,
+    framework: Option<OwnerTestFramework>,
+) -> Result<Vec<String>, CommandFailure> {
+    let project = std::path::Path::new(project_path);
+    if project_path.trim().is_empty() || !project.is_absolute() {
+        return Err(CommandFailure::owner_tests(
+            "invalid_owner_test_request",
+            "owner-test project must be an absolute folder path",
+        ));
+    }
+    let mut arguments = vec![
+        "tests".to_owned(),
+        match operation {
+            OwnerTestOperation::Sync => "sync",
+            OwnerTestOperation::Verify => "verify",
+            OwnerTestOperation::Evidence => "evidence",
+        }
+        .to_owned(),
+        project_path.to_owned(),
+    ];
+    if let Some(framework) = framework {
+        arguments.extend([
+            "--framework".to_owned(),
+            match framework {
+                OwnerTestFramework::Vite => "vite",
+                OwnerTestFramework::Next => "next",
+            }
+            .to_owned(),
+        ]);
+    }
+    arguments.push("--json".to_owned());
+    Ok(arguments)
+}
+
+/// Synchronizes owner tests or reads their fail-closed evidence through the
+/// canonical CLI. Arguments are passed directly without a shell, and output
+/// is bounded before it crosses the desktop webview boundary.
+#[tauri::command]
+async fn run_owner_tests(request: OwnerTestRequest) -> Result<OwnerTestResponse, CommandFailure> {
+    let operation = request.operation;
+    let arguments = owner_test_cli_arguments(operation, &request.project_path, request.framework)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let output = Command::new("srijika")
+            .args(arguments)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|error| {
+                CommandFailure::owner_tests(
+                    if error.kind() == std::io::ErrorKind::NotFound {
+                        "srijika_cli_unavailable"
+                    } else {
+                        "owner_test_launch_failed"
+                    },
+                    if error.kind() == std::io::ErrorKind::NotFound {
+                        "the `srijika` CLI is unavailable on PATH; install @srijika/cli first"
+                            .to_owned()
+                    } else {
+                        format!("could not start the Srijika owner-test command: {error}")
+                    },
+                )
+            })?;
+        if output.stdout.len() > MAX_OWNER_TEST_OUTPUT_BYTES
+            || output.stderr.len() > MAX_OWNER_TEST_OUTPUT_BYTES
+        {
+            return Err(CommandFailure::owner_tests(
+                "owner_test_output_too_large",
+                "Srijika owner-test output exceeded the safe Studio display limit",
+            ));
+        }
+        let stdout = String::from_utf8(output.stdout).map_err(|_| {
+            CommandFailure::owner_tests(
+                "invalid_owner_test_output",
+                "Srijika owner-test output was not valid UTF-8",
+            )
+        })?;
+        let stderr = String::from_utf8(output.stderr).map_err(|_| {
+            CommandFailure::owner_tests(
+                "invalid_owner_test_output",
+                "Srijika owner-test error output was not valid UTF-8",
+            )
+        })?;
+        if !output.status.success() {
+            let reason = stderr.trim();
+            return Err(CommandFailure::owner_tests(
+                "owner_test_failed",
+                if reason.is_empty() {
+                    format!("Srijika owner-test command exited with {}", output.status)
+                } else {
+                    format!("Srijika owner-test command failed: {reason}")
+                },
+            ));
+        }
+        let result = parse_migration_json(&stdout).ok_or_else(|| {
+            CommandFailure::owner_tests(
+                "invalid_owner_test_output",
+                "Srijika owner-test command did not return a JSON result",
+            )
+        })?;
+        Ok(OwnerTestResponse {
+            operation,
+            project_path: request.project_path,
+            stdout,
+            stderr,
+            result,
+        })
+    })
+    .await
+    .map_err(CommandFailure::background_task)?
+}
 
 fn react_migration_cli_arguments(
     operation: ReactMigrationOperation,
@@ -773,6 +926,7 @@ pub fn run() {
             create_code_project_ui_source,
             scaffold_code_project_structure,
             run_react_migration,
+            run_owner_tests,
             open_code_project,
             load_tsx_source,
             save_tsx_source,
@@ -815,8 +969,9 @@ mod tests {
     #[cfg(target_os = "linux")]
     use super::wsl_windows_vscode_candidates;
     use super::{
-        CommandFailure, ReactMigrationOperation, launch_project_from_arguments,
-        parse_migration_json, react_migration_cli_arguments, vscode_arguments,
+        CommandFailure, OwnerTestFramework, OwnerTestOperation, ReactMigrationOperation,
+        launch_project_from_arguments, owner_test_cli_arguments, parse_migration_json,
+        react_migration_cli_arguments, vscode_arguments,
     };
 
     #[test]
@@ -828,6 +983,11 @@ mod tests {
                 "/tmp/srijika-app".to_owned(),
             ]),
             Some("/tmp/srijika-app".to_owned())
+        );
+        assert_eq!(
+            owner_test_cli_arguments(OwnerTestOperation::Verify, "/workspace/srijika app", None,)
+                .expect("verify arguments"),
+            ["tests", "verify", "/workspace/srijika app", "--json"]
         );
         assert_eq!(
             launch_project_from_arguments(["srijika-studio".to_owned(), "--project=".to_owned(),]),
@@ -917,6 +1077,45 @@ mod tests {
         .expect("pretty JSON");
         assert_eq!(parsed["phase"], "verified");
         assert_eq!(parsed["futureField"]["kept"], true);
+    }
+
+    #[test]
+    fn owner_test_arguments_match_the_canonical_cli_without_shell_parsing() {
+        assert_eq!(
+            owner_test_cli_arguments(
+                OwnerTestOperation::Sync,
+                "/workspace/srijika app",
+                Some(OwnerTestFramework::Next),
+            )
+            .expect("sync arguments"),
+            [
+                "tests",
+                "sync",
+                "/workspace/srijika app",
+                "--framework",
+                "next",
+                "--json",
+            ]
+        );
+        assert_eq!(
+            owner_test_cli_arguments(
+                OwnerTestOperation::Evidence,
+                "/workspace/srijika app",
+                Some(OwnerTestFramework::Vite),
+            )
+            .expect("evidence arguments"),
+            [
+                "tests",
+                "evidence",
+                "/workspace/srijika app",
+                "--framework",
+                "vite",
+                "--json",
+            ]
+        );
+        let error = owner_test_cli_arguments(OwnerTestOperation::Sync, "relative", None)
+            .expect_err("relative project must fail closed");
+        assert_eq!(error.code, "invalid_owner_test_request");
     }
 
     #[test]

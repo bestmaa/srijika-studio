@@ -61,10 +61,11 @@ describe('Srijika MCP server', () => {
         'srijika_check_code_project',
         'srijika_plan_code_structure',
         'srijika_apply_code_structure',
+        'srijika_owner_tests',
         ...Object.values(SRIJIKA_REACT_MIGRATION_TOOL_NAMES),
       ]),
     );
-    expect(listed.tools).toHaveLength(29);
+    expect(listed.tools).toHaveLength(33);
     expect(
       listed.tools.find(({ name }) => name === SRIJIKA_TOOL_NAMES.getProjectSummary)?.annotations,
     ).toMatchObject({ readOnlyHint: true, openWorldHint: false });
@@ -482,7 +483,7 @@ describe('Srijika MCP server', () => {
     if (!('text' in reactMigration.contents[0]!)) throw new Error('Expected text resource');
     const reactMigrationContract: unknown = JSON.parse(reactMigration.contents[0].text);
     expect(reactMigrationContract).toMatchObject({
-      contractId: 'srijika.react-migration-v1',
+      contractId: 'srijika.react-migration-native-v2',
       sourceContract: {
         immutable: true,
         finalBaselineMatchRequired: true,
@@ -494,34 +495,71 @@ describe('Srijika MCP server', () => {
         writesOutsideTargetAllowed: false,
       },
       verificationEvidence: {
+        commandExecution: {
+          executedBy: 'srijika-engine',
+          callerAuthoredStatusAccepted: false,
+          callerAuthoredReceiptAccepted: false,
+          receiptBoundToCurrentTargetSnapshot: true,
+        },
         sliceGate: {
           srijikaDiagnostics: 'zero',
           architecture: 'passed',
-          typecheck: 'passed',
-          productionBuild: 'passed',
+          typecheck: 'engine-executed-passed',
+          productionBuild: 'engine-executed-passed',
           advanceOnlyWhenAllPass: true,
         },
         alwaysRequired: ['typecheck', 'build', 'test'],
         routeFilesPresent: {
           name: 'routes',
-          requiredStatus: 'passed',
-          detailsRequired: true,
+          routesDerivedBy: 'srijika-engine',
+          browserCaptureRequired: true,
+          callerAuthoredRoutesAccepted: false,
         },
         semanticRoutesPresent: {
           name: 'routes',
-          requiredStatus: 'passed',
-          detailsRequired: true,
+          routesDerivedBy: 'srijika-engine',
+          concreteRouteDerivationRequired: true,
         },
         visualSourcesPresent: {
           categories: ['entry', 'component', 'style', 'asset'],
           name: 'visual',
-          requiredStatus: 'passed',
-          detailsRequired: true,
-          minimumReviewedViewports: 2,
-          acceptedDetailForms: ['mobile|tablet|desktop|wide', 'WxH-measurements'],
+          browserCaptureRequired: true,
+          captureOwnedBy: 'srijika-engine',
+          callerAuthoredEvidenceAccepted: false,
+          defaultViewports: ['mobile', 'tablet', 'desktop'],
+          minimumViewports: 2,
+          maximumViewports: 6,
+          acceptedViewports: ['mobile', 'tablet', 'desktop', 'wide'],
         },
-        duplicateOrOversizedEvidenceRejected: true,
+        browserParity: {
+          input: ['target', 'includeInstall?'],
+          sourceRuntime: 'engine-prepared-temporary-immutable-source-copy',
+          targetRuntime: 'engine-prepared-target-root',
+          loopbackPortsSelectedBy: 'srijika-engine',
+          routeDiscovery: 'engine-derived-from-immutable-source-session',
+          viewports: 'fixed-by-engine',
+          callerUrlsAccepted: false,
+          callerViewportsAccepted: false,
+          persistedManifest: '.srijika/migrations/react/browser-parity-latest.json',
+          playwrightRequired: true,
+        },
+        finalizeRerunsGatesAndRevalidatesEngineManifest: true,
         sliceVerificationAlsoChecksSourceBaseline: true,
+      },
+      nativeConversion: {
+        completionModes: ['native'],
+        compatibilityReviewOrApplyAllowed: false,
+        compatibilityMayFinalize: false,
+        genericRuntimeIgnoreAllowed: false,
+        zeroWriteRuntimeSliceAllowed: false,
+        applyInput: ['target', 'reviewToken'],
+      },
+      modelEfficiency: {
+        deterministicOwnershipPlan: true,
+        applyDoesNotRepeatReviewedPayload: true,
+        inventoryAndOwnershipPaged: true,
+        defaultPageSize: 50,
+        maximumPageSize: 200,
       },
     });
     const completionEvidence = (reactMigrationContract as { completionEvidence?: unknown })
@@ -530,6 +568,9 @@ describe('Srijika MCP server', () => {
       expect.arrayContaining([
         'source-unchanged',
         'complete-source-to-target-traceability',
+        'all-runtime-mappings-native',
+        'no-wrapper-or-runtime-fallback-findings',
+        'closed-target-import-and-dependency-graph',
         'zero-srijika-diagnostics',
         'strict-srijika-architecture',
         'build',
@@ -581,8 +622,20 @@ describe('Srijika MCP server', () => {
     const startMigration = vi.fn((request: Parameters<SrijikaReactMigrationCaller['start']>[0]) =>
       Promise.resolve({ phase: 'scaffold', request }),
     );
-    const migrationStatus = vi.fn((target: string) =>
-      Promise.resolve({ phase: 'slice-migration', target }),
+    const migrationStatus = vi.fn((request: { target: string }) =>
+      Promise.resolve({ phase: 'slice-migration', target: request.target }),
+    );
+    const migrationSliceContext = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['getSliceContext']>[0]) =>
+        Promise.resolve({ sliceId: request.sliceId, items: [] }),
+    );
+    const reviewMigrationOwnership = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['reviewOwnership']>[0]) =>
+        Promise.resolve({ planId: 'reviewed-plan', request }),
+    );
+    const reviewMigrationSlice = vi.fn(
+      (request: Parameters<SrijikaReactMigrationCaller['reviewSlice']>[0]) =>
+        Promise.resolve({ token: 'a'.repeat(64), request }),
     );
     const applyMigrationSlice = vi.fn(
       (request: Parameters<SrijikaReactMigrationCaller['applySlice']>[0]) =>
@@ -604,6 +657,9 @@ describe('Srijika MCP server', () => {
       plan: planMigration,
       start: startMigration,
       status: migrationStatus,
+      getSliceContext: migrationSliceContext,
+      reviewOwnership: reviewMigrationOwnership,
+      reviewSlice: reviewMigrationSlice,
       applySlice: applyMigrationSlice,
       verifySlice: verifyMigrationSlice,
       verify: verifyMigration,
@@ -643,30 +699,113 @@ describe('Srijika MCP server', () => {
     });
     expect(scanMigration).toHaveBeenCalledWith({ source, target });
     expect(planMigration).toHaveBeenCalledWith({ source, target });
-    expect(migrationStatus).toHaveBeenCalledWith(target);
+    expect(migrationStatus).toHaveBeenCalledWith({ target });
+    const legacyNumericCursor = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: { source, target, cursor: 1 },
+    });
+    expect(legacyNumericCursor.isError).toBe(true);
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getSliceContext,
+      arguments: {
+        target,
+        sliceId: 'home-route',
+        expectedPlanId: 'c'.repeat(24),
+        expectedSourceSnapshotSha256: 'd'.repeat(64),
+        expectedTargetSnapshotSha256: 'e'.repeat(64),
+        cursor: 'opaque-cursor',
+        limit: 4,
+        maxBytes: 65_536,
+      },
+    });
+    expect(migrationSliceContext).toHaveBeenCalledWith({
+      target,
+      sliceId: 'home-route',
+      expectedPlanId: 'c'.repeat(24),
+      expectedSourceSnapshotSha256: 'd'.repeat(64),
+      expectedTargetSnapshotSha256: 'e'.repeat(64),
+      cursor: 'opaque-cursor',
+      limit: 4,
+      maxBytes: 65_536,
+    });
+    const overrides = [
+      {
+        sourcePath: 'src/pages/Home.tsx',
+        ownerKind: 'feature' as const,
+        ownerName: 'home',
+        ownerPath: 'src/features/home',
+        role: 'route' as const,
+        rationale: 'The semantic home route belongs to the canonical Home feature.',
+      },
+    ];
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.reviewOwnership,
+      arguments: {
+        target,
+        expectedPlanId: 'c'.repeat(24),
+        expectedSourceSnapshotSha256: 'd'.repeat(64),
+        expectedTargetSnapshotSha256: 'e'.repeat(64),
+        overrides,
+      },
+    });
+    expect(reviewMigrationOwnership).toHaveBeenCalledWith({
+      target,
+      expectedPlanId: 'c'.repeat(24),
+      expectedSourceSnapshotSha256: 'd'.repeat(64),
+      expectedTargetSnapshotSha256: 'e'.repeat(64),
+      overrides,
+    });
 
     const slice = {
       id: 'home-route',
       title: 'Migrate home route',
       writes: [{ relativePath: 'src/features/home/Home.ui.tsx', content: 'export {};' }],
+      deletes: [
+        { relativePath: 'src/features/home/Starter.ui.tsx', expectedSha256: 'b'.repeat(64) },
+      ],
       mappings: [
         {
           sourcePath: 'src/pages/Home.tsx',
           targetPaths: ['src/features/home/Home.ui.tsx'],
           kind: 'migrated' as const,
+          mode: 'native' as const,
+          ownerId: 'feature:src/features/home',
+          role: 'ui' as const,
+          rationale: 'Home route UI belongs to the deterministic Home feature owner.',
         },
       ],
     };
-    await client.callTool({
-      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+    const compatibilityReview = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.reviewSlice,
+      arguments: {
+        target,
+        slice: {
+          ...slice,
+          mappings: [
+            {
+              ...slice.mappings[0],
+              kind: 'compatibility',
+              mode: 'compatibility',
+              legacyAdapter: 'react-router',
+            },
+          ],
+        },
+      },
+    });
+    expect(compatibilityReview.isError).toBe(true);
+    const reviewed = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.reviewSlice,
       arguments: { target, slice },
     });
-    const weakSliceVerification = await client.callTool({
-      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
-      arguments: { target, sliceId: slice.id },
+    expect(reviewed.structuredContent).toMatchObject({
+      ok: true,
+      result: { reviewToken: 'a'.repeat(64) },
     });
-    expect(weakSliceVerification.isError).toBe(true);
     await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+      arguments: { target, reviewToken: 'a'.repeat(64) },
+    });
+    const weakSliceVerification = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
       arguments: {
         target,
@@ -677,64 +816,102 @@ describe('Srijika MCP server', () => {
         ],
       },
     });
-    const commands = [
-      { name: 'typecheck' as const, status: 'passed' as const },
-      { name: 'build' as const, status: 'passed' as const },
-      { name: 'test' as const, status: 'passed' as const },
-      { name: 'routes' as const, status: 'passed' as const, details: 'Route matrix passed.' },
-      {
-        name: 'visual' as const,
-        status: 'passed' as const,
-        details: 'Mobile, tablet, desktop, and wide comparisons passed.',
-      },
-    ];
+    expect(weakSliceVerification.isError).toBe(true);
+    await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verifySlice,
+      arguments: { target, sliceId: slice.id },
+    });
     await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
-      arguments: { target, commands },
+      arguments: { target, includeInstall: true },
     });
     await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.finalize,
-      arguments: { target, commands },
+      arguments: { target },
     });
-    expect(applyMigrationSlice).toHaveBeenCalledWith({ target, slice });
+    expect(reviewMigrationSlice).toHaveBeenCalledWith({ target, slice });
+    expect(applyMigrationSlice).toHaveBeenCalledWith({
+      target,
+      reviewToken: 'a'.repeat(64),
+    });
     expect(verifyMigrationSlice).toHaveBeenCalledWith({
       target,
       sliceId: slice.id,
-      commands: [
-        { name: 'typecheck', status: 'passed' },
-        { name: 'build', status: 'passed' },
-      ],
     });
-    expect(verifyMigration).toHaveBeenCalledWith({ target, commands });
-    expect(finalizeMigration).toHaveBeenCalledWith({ target, commands });
+    expect(verifyMigration).toHaveBeenCalledWith({ target, includeInstall: true });
+    expect(finalizeMigration).toHaveBeenCalledWith({ target });
 
-    const skippedRequired = await client.callTool({
+    const authoredStatus = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
       arguments: {
         target,
         commands: [{ name: 'typecheck', status: 'skipped' }],
       },
     });
-    expect(skippedRequired.isError).toBe(true);
-    const unreviewedVisual = await client.callTool({
-      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.finalize,
-      arguments: {
-        target,
-        commands: [{ name: 'visual', status: 'passed', details: 'Looked good.' }],
-      },
-    });
-    expect(unreviewedVisual.isError).toBe(true);
-    const duplicateEvidence = await client.callTool({
+    expect(authoredStatus.isError).toBe(true);
+    const callerRoutes = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
       arguments: {
         target,
-        commands: [
-          { name: 'build', status: 'passed' },
-          { name: 'build', status: 'passed' },
-        ],
+        routes: {
+          coveredSourcePaths: ['src/pages/Home.tsx'],
+          sourceArtifacts: ['.srijika/migrations/react/evidence/routes/home-source.json'],
+          targetArtifacts: ['.srijika/migrations/react/evidence/routes/home-target.json'],
+        },
       },
     });
-    expect(duplicateEvidence.isError).toBe(true);
+    expect(callerRoutes.isError).toBe(true);
+    const callerArtifacts = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        coveredSourcePaths: ['src/pages/Home.tsx'],
+        sourceArtifacts: ['source.png'],
+        targetArtifacts: ['target.png'],
+      },
+    });
+    expect(callerArtifacts.isError).toBe(true);
+    const callerBrowserRuntime = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        browserParity: {
+          sourceBaseUrl: 'http://localhost:4173',
+          targetBaseUrl: 'http://localhost:5173',
+        },
+      },
+    });
+    expect(callerBrowserRuntime.isError).toBe(true);
+    const callerDetails = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        details: 'passed at mobile and desktop',
+      },
+    });
+    expect(callerDetails.isError).toBe(true);
+    const nestedCallerEvidence = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        browserParity: {
+          sourceBaseUrl: 'http://localhost:4173',
+          targetBaseUrl: 'http://localhost:5173',
+          sourceArtifacts: ['manual-source.png'],
+        },
+      },
+    });
+    expect(nestedCallerEvidence.isError).toBe(true);
+    const callerUrlsAndViewports = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.verify,
+      arguments: {
+        target,
+        sourceBaseUrl: 'http://localhost:4173',
+        targetBaseUrl: 'http://localhost:5173',
+        viewports: [{ name: 'desktop', width: 1440, height: 900 }],
+      },
+    });
+    expect(callerUrlsAndViewports.isError).toBe(true);
   });
 
   it('creates and reads a real migration session without modifying the React source', async () => {
@@ -779,27 +956,125 @@ describe('Srijika MCP server', () => {
 
     const scanned = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.scanSource,
-      arguments: { source, target },
+      arguments: { source, target, limit: 1 },
     });
     expect(scanned.structuredContent).toMatchObject({
       ok: true,
-      result: { sourceRoot: source, framework: 'vite' },
+      result: {
+        contractVersion: 2,
+        sourceRoot: source,
+        framework: 'vite',
+        files: {
+          cursor: null,
+          limit: 1,
+          total: 2,
+        },
+      },
     });
+    const scanCursor = (scanned.structuredContent as { result: { files: { nextCursor: string } } })
+      .result.files.nextCursor;
+    expect(typeof scanCursor).toBe('string');
+    const replayedScanCursor = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: { source, target, cursor: scanCursor, limit: 1 },
+    });
+    expect(replayedScanCursor.isError).toBe(true);
     const planned = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
       arguments: { source, target },
     });
     expect(planned.structuredContent).toMatchObject({
       ok: true,
-      result: { sourceRoot: source, targetRoot: target },
+      result: {
+        contractVersion: 2,
+        sourceRoot: source,
+        targetRoot: target,
+        ownership: { cursor: null, limit: 50, total: 2 },
+      },
     });
+    const plannedResult = (
+      planned.structuredContent as {
+        result: {
+          planId: string;
+          sourceSnapshotSha256: string;
+          targetBaselineSha256: string;
+          slices: readonly { id: string }[];
+        };
+      }
+    ).result;
+    const firstSliceId = plannedResult.slices[0]?.id;
+    expect(firstSliceId).toBeTruthy();
+    const boundedPlan = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: { source, target, limit: 1 },
+    });
+    const globalOwnershipCursor = (
+      boundedPlan.structuredContent as {
+        result: { ownership: { nextCursor: string } };
+      }
+    ).result.ownership.nextCursor;
+    expect(globalOwnershipCursor).toEqual(expect.any(String));
+    const switchedSliceCursor = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
+      arguments: {
+        source,
+        target,
+        sliceId: firstSliceId,
+        cursor: globalOwnershipCursor,
+        limit: 1,
+      },
+    });
+    expect(switchedSliceCursor.isError).toBe(true);
+    const context = await client.callTool({
+      name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getSliceContext,
+      arguments: {
+        target,
+        sliceId: firstSliceId,
+        expectedPlanId: plannedResult.planId,
+        expectedSourceSnapshotSha256: plannedResult.sourceSnapshotSha256,
+        expectedTargetSnapshotSha256: plannedResult.targetBaselineSha256,
+        limit: 1,
+        maxBytes: 65_536,
+      },
+    });
+    expect(context.structuredContent).toMatchObject({
+      ok: true,
+      result: {
+        sliceId: firstSliceId,
+      },
+    });
+    const contextResult = (
+      context.structuredContent as {
+        result: {
+          cursor: string;
+          items: readonly {
+            sha256: string;
+            imports: readonly unknown[];
+            exports: readonly unknown[];
+            ownership: { canonicalTargetPaths: readonly unknown[] };
+          }[];
+        };
+      }
+    ).result;
+    expect(typeof contextResult.cursor).toBe('string');
+    expect(contextResult.items).toHaveLength(1);
+    expect(contextResult.items[0]?.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(Array.isArray(contextResult.items[0]?.imports)).toBe(true);
+    expect(Array.isArray(contextResult.items[0]?.exports)).toBe(true);
+    expect(Array.isArray(contextResult.items[0]?.ownership.canonicalTargetPaths)).toBe(true);
     const status = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getStatus,
       arguments: { target },
     });
     expect(status.structuredContent).toMatchObject({
       ok: true,
-      result: { sourceRoot: source, targetRoot: target, phase: 'scaffolded' },
+      result: {
+        contractVersion: 2,
+        sourceRoot: source,
+        targetRoot: target,
+        phase: 'scaffolded',
+        nextAction: 'get-next-slice-plan',
+      },
     });
   });
 

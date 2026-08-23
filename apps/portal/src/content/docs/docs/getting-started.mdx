@@ -124,11 +124,8 @@ canonical [Development Setup](/reference/development/) reference.
 
 ```bash
 pnpm verify
-pnpm test:e2e:web
-cargo fmt --all -- --check
-cargo clippy --locked -p project-store -p studio-core -- -D warnings
-cargo test --locked -p project-store -p studio-core
 ```
 
-Full-workspace Rust checks include the Tauri shell and require the documented
-native dependencies.
+This includes the supported code-first browser lane and the two native core
+crates. Full-workspace Rust checks that include the Tauri shell still require
+the documented native dependencies.

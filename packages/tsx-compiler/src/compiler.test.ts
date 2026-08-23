@@ -527,6 +527,17 @@ export function PanelUI(props: PanelUIProps) {
     expect(validateUiDocument(result.document).valid).toBe(true);
   });
 
+  it('permits a direct string-value bridge for native text inputs', () => {
+    const source = `
+export interface SearchUIProps { query: string; onQueryChange: (value: string) => void; }
+export function SearchUI(props: SearchUIProps) {
+  return <input value={props.query} onChange={(event) => props.onQueryChange(event.target.value)} />;
+}`;
+    const result = compileSrijikaTsx('Search.ui.tsx', source);
+
+    expect(result.diagnostics).toEqual([]);
+  });
+
   it('offers Connector-safe fixes for inline event logic', () => {
     const source = `
 export interface PanelUIProps { onOpen: () => void; }

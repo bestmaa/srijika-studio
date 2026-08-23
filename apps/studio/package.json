@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
+    "verify:bundle": "node scripts/verify-bundle-budget.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --config vitest.config.ts",
     "tauri": "tauri"

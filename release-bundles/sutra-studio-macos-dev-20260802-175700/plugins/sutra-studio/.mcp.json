@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "sutra-studio": {
-      "command": "/bin/sh",
-      "args": ["scripts/run-mcp.sh"],
-      "cwd": "."
-    }
-  }
-}

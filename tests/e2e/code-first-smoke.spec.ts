@@ -2,6 +2,23 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 test.describe('Srijika code-first authoring', () => {
+  test('@visual keeps the code-first shell visually stable', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    await page.evaluate(() => window.localStorage.removeItem('srijika-studio:appearance.v1'));
+    await page.reload();
+    await page.getByRole('button', { name: 'Create Demo Project', exact: true }).click();
+
+    await expect(page.getByText('Srijika contract valid', { exact: true })).toBeVisible();
+    await expect(
+      page.frameLocator('iframe[title="Styled Srijika UI preview"]').getByRole('heading', {
+        name: 'Build React interfaces with a clear thread from code to canvas.',
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page).toHaveScreenshot('srijika-code-first-shell.png', { fullPage: false });
+  });
+
   test('applies Settings accent and Srijika dark colors across the code-first shell', async ({
     page,
   }) => {

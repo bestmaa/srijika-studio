@@ -42,7 +42,10 @@ export function describeReactMigrationResult(
   _operation: ReactMigrationOperation,
   session: ReactMigrationSession,
 ): string {
-  return `phase ${session.phase}, ${session.mappings.length} mapping(s)`;
+  const verifiedSlices = session.appliedSlices.filter((slice) => slice.verified).length;
+  const nativeMappings = session.mappings.filter((mapping) => mapping.mode === 'native').length;
+  const blockers = session.verification?.errors.length ?? session.plan.unsupported.length;
+  return `phase ${session.phase}; ${session.plan.ownership.length} native owner(s); ${session.appliedSlices.length}/${session.plan.slices.length} slice(s) applied, ${verifiedSlices} verified; ${nativeMappings} native mapping(s); ${blockers} blocker(s)`;
 }
 
 export async function runReactMigration(

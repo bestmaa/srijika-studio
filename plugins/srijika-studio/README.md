@@ -4,11 +4,17 @@ This package connects Codex to Srijika projects with or without the desktop app.
 
 It can also coordinate a resumable migration from an existing React project to
 a distinct new Srijika target. The source remains read-only. The engine captures
-a source baseline, inventories the application, persists a reviewed plan and
-source-to-target traceability, applies atomic target-only slices, and fails
+a source baseline, inventories every bounded source, builds a deterministic
+import/ownership graph, persists reviewed payloads and source-to-target
+traceability, applies them by bound review token, and fails
 closed when behavior is unsupported or verification evidence is incomplete.
 Codex performs semantic slice analysis; the plugin does not claim an arbitrary
 automatic rewrite or guaranteed zero-loss conversion.
+Compatibility and adapter findings are planning hints only and cannot be reviewed
+or applied. Native completion also
+rejects generic runtime ignores, bookkeeping-only mappings to starter files,
+copied legacy trees, wrappers/re-exports, iframe/webview fallbacks, source-root
+dependencies, open target graphs, and unowned target modules.
 
 The plugin MCP entry point requires Node.js `>=22.13.0` and is a self-contained
 bundle, including its TypeScript analysis runtime. It must start from an
@@ -78,8 +84,16 @@ removing the flat gateway; it never commits a partial migration.
 2. Start a new Codex task or reload plugins, then ask Codex to use `$srijika-studio`.
 3. Open a generated Srijika folder. Codex can immediately call `srijika_get_code_project`, `srijika_check_code_project`, and the reviewed plan/apply tools; Studio is not required.
 4. To convert an existing React app, ask Codex to create a migration from an
-   absolute source path to a separate new target path. Review the scan and plan,
-   then migrate and verify one slice at a time.
+   absolute source path to a separate new target path. Review the scan and fixed
+   ownership plan, read one byte-bounded immutable slice context, submit that
+   native slice for review, apply its returned token,
+   then let the engine execute verification before moving to the next slice.
+   If semantic context disproves an inferred owner, use the bounded canonical
+   ownership-review tool before the first slice review or apply.
+   Do not submit command status claims, URLs, routes, viewports, screenshots, or
+   artifact paths. For parity, call verify with `target` and optional
+   `includeInstall`; the engine prepares isolated source/target runtimes, selects
+   loopback ports, derives routes, and captures snapshot-bound DOM/PNG evidence.
 5. Start Srijika Studio only for visual-document editing, hierarchy/layout inspection, or preview capture. Its status bar reports `Codex connected` after the first bridge tool call.
 
 The Windows launcher supports a native Windows Studio process and a Studio process started inside WSL. WSL defaults are distribution `Ubuntu` and the Windows username. Override unusual installations with `SRIJIKA_STUDIO_WSL_DISTRO`, `SRIJIKA_STUDIO_WSL_USER`, or `SRIJIKA_STUDIO_WSL_DATA_HOME`.
@@ -97,6 +111,10 @@ pnpm test:mcp:tauri
 ```
 
 Run the plugin and skill validators before installation. After changing an already installed local plugin, use the plugin-creator cachebuster script and reinstall it so Codex does not retain an older cached copy.
+
+Browser parity additionally needs a Playwright runtime and Chromium on the
+plugin host. If either is unavailable the capture and finalization remain
+blocked; caller-provided screenshots are never accepted as verification.
 
 ## Security
 

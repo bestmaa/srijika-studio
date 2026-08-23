@@ -357,6 +357,37 @@ export interface ReactMigrationCommandResponse {
   result: Readonly<Record<string, unknown>> | null;
 }
 
+export type OwnerTestOperation = 'sync' | 'verify' | 'evidence';
+export type OwnerTestFramework = 'vite' | 'next';
+export type OwnerTestEvidenceStatus = 'passed' | 'failed' | 'uncovered' | 'not-run';
+
+export interface OwnerTestCommandResponse {
+  operation: OwnerTestOperation;
+  projectPath: string;
+  stdout: string;
+  stderr: string;
+  result: Readonly<Record<string, unknown>>;
+}
+
+export interface OwnerTestRequirementSummary {
+  requirementId: string;
+  status: OwnerTestEvidenceStatus;
+}
+
+export interface OwnerTestOwnerSummary {
+  ownerId: string;
+  status: OwnerTestEvidenceStatus;
+  requirements: readonly OwnerTestRequirementSummary[];
+  allowedRepairFiles: readonly string[];
+  failureMessages: readonly string[];
+}
+
+export interface OwnerTestEvidenceSummary {
+  framework: 'vite' | 'next-app-router';
+  status: OwnerTestEvidenceStatus;
+  owners: readonly OwnerTestOwnerSummary[];
+}
+
 export function isTauriDesktop(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
@@ -1078,6 +1109,114 @@ function reactMigrationCommandResponse(value: unknown): ReactMigrationCommandRes
   };
 }
 
+function ownerTestOperation(value: unknown): OwnerTestOperation {
+  if (value !== 'sync' && value !== 'verify' && value !== 'evidence') {
+    throw new Error('Desktop returned an invalid owner-test operation');
+  }
+  return value;
+}
+
+function ownerTestCommandResponse(value: unknown): OwnerTestCommandResponse {
+  if (!isRecord(value) || !isRecord(value['result'])) {
+    throw new Error('Desktop returned an invalid owner-test response');
+  }
+  return {
+    operation: ownerTestOperation(value['operation']),
+    projectPath: stringField(value, 'projectPath'),
+    stdout: stringField(value, 'stdout'),
+    stderr: stringField(value, 'stderr'),
+    result: value['result'],
+  };
+}
+
+function ownerTestEvidenceStatus(value: unknown): OwnerTestEvidenceStatus {
+  if (value !== 'passed' && value !== 'failed' && value !== 'uncovered' && value !== 'not-run') {
+    throw new Error('Desktop returned an invalid owner-test evidence status');
+  }
+  return value;
+}
+
+function stringArray(value: unknown, name: string): readonly string[] {
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string')) {
+    throw new Error(`Desktop returned invalid ${name}`);
+  }
+  return value as readonly string[];
+}
+
+export function ownerTestEvidenceSummary(
+  response: OwnerTestCommandResponse,
+): OwnerTestEvidenceSummary {
+  if (response.operation !== 'evidence' && response.operation !== 'verify') {
+    throw new Error('Owner-test evidence requires an evidence response');
+  }
+  const evidenceResult =
+    response.operation === 'verify' && isRecord(response.result['evidence'])
+      ? response.result['evidence']
+      : response.result;
+  const manifest = evidenceResult['manifest'];
+  if (
+    !isRecord(manifest) ||
+    (manifest['framework'] !== 'vite' && manifest['framework'] !== 'next-app-router') ||
+    !Array.isArray(manifest['owners'])
+  ) {
+    throw new Error('Desktop returned an invalid owner-test evidence manifest');
+  }
+  return {
+    framework: manifest['framework'],
+    status: ownerTestEvidenceStatus(manifest['status']),
+    owners: manifest['owners'].map((candidate): OwnerTestOwnerSummary => {
+      if (!isRecord(candidate) || !Array.isArray(candidate['requirements'])) {
+        throw new Error('Desktop returned an invalid owner-test owner');
+      }
+      const repair = candidate['repair'];
+      if (repair !== undefined && !isRecord(repair)) {
+        throw new Error('Desktop returned an invalid owner-test repair scope');
+      }
+      return {
+        ownerId: stringField(candidate, 'ownerId'),
+        status: ownerTestEvidenceStatus(candidate['status']),
+        requirements: candidate['requirements'].map((requirement) => {
+          if (!isRecord(requirement)) {
+            throw new Error('Desktop returned an invalid owner-test requirement');
+          }
+          return {
+            requirementId: stringField(requirement, 'requirementId'),
+            status: ownerTestEvidenceStatus(requirement['status']),
+          };
+        }),
+        allowedRepairFiles: repair
+          ? stringArray(repair['allowedSourceFiles'], 'owner-test repair files')
+          : [],
+        failureMessages: repair
+          ? stringArray(repair['failureMessages'], 'owner-test failure messages')
+          : [],
+      };
+    }),
+  };
+}
+
+export function describeOwnerTestCommand(response: OwnerTestCommandResponse): string {
+  if (response.operation === 'evidence' || response.operation === 'verify') {
+    const evidence = ownerTestEvidenceSummary(response);
+    const failed = evidence.owners.filter(({ status }) => status === 'failed').length;
+    const notPassed = evidence.owners.filter(({ status }) => status !== 'passed').length;
+    return `${response.operation === 'verify' ? 'Owner verification' : 'Owner-test evidence'} is ${evidence.status}: ${evidence.owners.length} owner(s), ${failed} failed, ${notPassed} not fully passed.`;
+  }
+  const adapter = response.result['adapter'];
+  const write = response.result['write'];
+  if (!isRecord(adapter) || !isRecord(write)) {
+    throw new Error('Desktop returned an invalid owner-test synchronization result');
+  }
+  const framework = adapter['framework'];
+  if (framework !== 'vite' && framework !== 'next-app-router') {
+    throw new Error('Desktop returned an invalid owner-test adapter');
+  }
+  const created = stringArray(write['created'], 'created owner-test files').length;
+  const updated = stringArray(write['updated'], 'updated owner-test files').length;
+  const preserved = stringArray(write['preserved'], 'preserved owner-test files').length;
+  return `Synchronized ${framework} owner tests: ${created} created, ${updated} updated, ${preserved} authored fixture(s) preserved.`;
+}
+
 export function describeReactMigrationCommand(response: ReactMigrationCommandResponse): string {
   const phase =
     typeof response.result?.['phase'] === 'string'
@@ -1085,8 +1224,18 @@ export function describeReactMigrationCommand(response: ReactMigrationCommandRes
       : typeof response.result?.['status'] === 'string'
         ? response.result['status']
         : null;
+  const plan = isRecord(response.result?.['plan']) ? response.result['plan'] : null;
+  const ownership = Array.isArray(plan?.['ownership']) ? plan['ownership'].length : null;
+  const slices = Array.isArray(plan?.['slices']) ? plan['slices'].length : null;
+  const applied = Array.isArray(response.result?.['appliedSlices'])
+    ? response.result['appliedSlices'].length
+    : null;
+  const progress =
+    ownership === null || slices === null || applied === null
+      ? ''
+      : ` ${ownership} native owner(s); ${applied}/${slices} slice(s) applied.`;
   return phase
-    ? `${response.operation === 'start' ? 'Migration' : response.operation === 'status' ? 'Status' : 'Verification'} phase: ${phase}.`
+    ? `${response.operation === 'start' ? 'Migration' : response.operation === 'status' ? 'Status' : 'Verification'} phase: ${phase}.${progress}`
     : `${response.operation === 'start' ? 'Migration' : response.operation === 'status' ? 'Status' : 'Verification'} completed for ${response.targetPath}.`;
 }
 
@@ -1208,6 +1357,24 @@ export async function chooseAndRunReactMigration(
         operation,
         targetPath,
         ...(sourcePath === undefined ? {} : { sourcePath }),
+      },
+    }),
+  );
+}
+
+export async function runOwnerTests(
+  projectPath: string,
+  operation: OwnerTestOperation,
+  framework?: OwnerTestFramework,
+): Promise<OwnerTestCommandResponse | null> {
+  if (!isTauriDesktop()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  return ownerTestCommandResponse(
+    await invoke<unknown>('run_owner_tests', {
+      request: {
+        projectPath,
+        operation,
+        ...(framework === undefined ? {} : { framework }),
       },
     }),
   );

@@ -22,6 +22,11 @@ export {
   classifySrijikaArchitecturePath,
   validateSrijikaArchitecture,
 } from './validator';
+export {
+  affectedSrijikaTestPlan,
+  buildSrijikaTestContract,
+  SRIJIKA_TEST_CONTRACT_VERSION,
+} from './testing';
 export type {
   ResolvedSrijikaArchitectureConfig,
   SrijikaArchitectureConfig,
@@ -37,5 +42,17 @@ export type {
   SrijikaProjectConfig,
   ValidateSrijikaArchitectureOptions,
 } from './types';
+export type {
+  SrijikaAffectedTestPlan,
+  SrijikaTestContract,
+  SrijikaTestFileDependency,
+  SrijikaTestFileRole,
+  SrijikaTestLayer,
+  SrijikaTestOwner,
+  SrijikaTestOwnerFile,
+  SrijikaTestOwnerKind,
+  SrijikaTestRequirement,
+  SrijikaTestRuntime,
+} from './testing';
 export type { SrijikaStructureCreationAction, SrijikaStructureOwnerContext } from './creation';
 export { SRIJIKA_ARCHITECTURE_PROFILE } from './types';

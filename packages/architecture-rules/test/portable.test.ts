@@ -1305,7 +1305,7 @@ describe('portable architecture validator', () => {
     expect(portableCodes.sort()).toEqual([...browserCodes].sort());
     expect(result.stderr).toContain('SRIJIKA-ARCH-SHARED-REVERSE-DEPENDENCY');
     expect(result.stderr).toContain('SRIJIKA-ARCH-SHARED-PRIVATE-IMPORT');
-    expect(result.stderr).toContain('SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY');
+    expect(result.stderr).not.toContain('SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY');
   });
 
   it('keeps promotion, split, Shared-cycle, freehand, and direct-UI rules in portable parity', async () => {

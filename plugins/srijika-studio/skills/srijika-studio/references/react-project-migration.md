@@ -15,53 +15,101 @@ Codex owns semantic analysis and the reviewed source-to-Srijika mapping.
   overwrite an unrelated or developer-modified project.
 - Fail closed on unsupported frameworks, dynamic behavior, incomplete scans,
   unsafe filesystem entries, stale session state, or missing evidence.
-- Preserve every migrated source item in traceability. An unresolved item is a
-  blocker or an explicitly reviewed exception, never silently dropped work.
+- Preserve every migrated source item in traceability. Only engine-classified
+  nonruntime evidence may be excluded; runtime-bearing source cannot be ignored.
+- Native completion rejects every compatibility mapping, copied legacy subtree,
+  wrapper/re-export, iframe/webview, source-root dependency, and runtime fallback.
 - Do not promise arbitrary automatic rewriting or guaranteed zero context loss.
   The acceptance contract is evidence-based equivalence for the supported
   source and declared behaviors.
 
 ## Phase flow
 
-1. **Create** — call `srijika_create_react_migration` with `sourceRoot` and
-   `targetRoot`. Review canonical paths, compatibility, source baseline, and the
+1. **Create** — call `srijika_create_react_migration` with `source` and
+   `target`. Review canonical paths, compatibility, source baseline, and the
    new session ID.
 2. **Scan** — call `srijika_scan_react_migration_source`. Inventory package
    scripts/dependencies, entry points, routes/layouts, UI, props/events, hooks,
    context/state, requests, authentication, styles, assets, forms, environment
-   access, loading/error states, responsive behavior, and tests.
-3. **Plan** — call `srijika_get_react_migration_plan`. Review every proposed
-   Feature, Slot, Part, Shared UI/Widget/Capability owner, dependency, blocker,
-   and verification gate. Do not apply an unreviewed plan.
-4. **Migrate slices** — for one coherent route or dependency slice, read the
-   referenced source files, perform semantic analysis, construct canonical
-   target files, and call `srijika_apply_react_migration_slice` with the target
-   root plus a slice containing its exact planned ID/title, target writes, and
-   traceability entries. The engine resolves the persisted session and reviewed
-   plan from the target. A slice write is atomic and cannot touch the source.
-5. **Verify each slice** — call `srijika_verify_react_migration_slice` with
-   passed `typecheck` and `build` evidence. The fixed gate is: zero Srijika
-   diagnostics → architecture pass → TypeScript pass → production build pass.
-   Stop and fix before moving to the next slice.
-6. **Verify the application** — call `srijika_verify_react_migration`. Require
+   access, loading/error states, responsive behavior, and tests. Read paged
+   results with an opaque query-bound `cursor` and `limit` instead of requesting
+   the full graph again. Reuse `nextCursor` unchanged only for the same query.
+3. **Ownership plan** — call `srijika_get_react_migration_plan`. Follow its
+   deterministic owner ID, owner kind/path, role, import graph, completion
+   obligation, bounded adapter planning hints, slice order, and blockers. Do not
+   invent a different owner from filenames or apply an unreviewed plan.
+4. **Correct ownership only when proven wrong** — before any slice review or
+   apply, call `srijika_review_react_migration_ownership` with 1–256 inventoried
+   source overrides. Each supplies canonical owner kind/name/path/role and a
+   concrete rationale plus the exact current plan ID/source/target snapshots. Re-read
+   the new plan ID and SCC-atomic slices. Never
+   submit a freehand target path or correct ownership after work starts.
+   Copy `planId`, `sourceSnapshotSha256`, and `targetBaselineSha256` from one
+   plan response into the matching `expected*` request fields; never combine
+   snapshots from separate reads.
+5. **Read slice context** — call `srijika_get_react_migration_slice_context`
+   with the target, exact slice ID, and current plan/source/target freshness
+   fields. Follow `nextCursor` with the same query;
+   read at most one bounded page at a time. Trust its hash-checked content,
+   imports, exports, ownership, and canonical target paths. Environment values
+   stay hidden and binary assets are hash-only.
+6. **Review a native slice** — for one coherent route or dependency slice,
+   perform semantic analysis on that bounded context, construct canonical
+   target files, and call `srijika_review_react_migration_slice` with the target
+   plus the exact planned ID/title, writes, canonical native owner/role mappings,
+   rationales, optional trace ranges, and expected-hash deletions for obsolete
+   generated starter files. Compatibility findings and bounded adapters are
+   planning hints only: slice review accepts native mappings and rejects every
+   compatibility kind, mode, adapter, wrapper, or copied legacy fallback.
+7. **Apply by token** — call `srijika_apply_react_migration_slice` with only the
+   target and returned `reviewToken`. Never resend or alter reviewed code. The
+   token binds plan, source snapshot, target snapshot, and canonical payload;
+   target writes are atomic and cannot touch the source.
+8. **Verify each slice** — call `srijika_verify_react_migration_slice` with only
+   the target and slice ID. The engine executes and snapshot-signs typecheck and
+   build. The fixed gate is: zero Srijika diagnostics → architecture pass →
+   TypeScript pass → production build pass. Never submit a command status or
+   receipt. Stop and fix before moving to the next slice.
+9. **Verify the application** — call `srijika_verify_react_migration`. Require
    the source baseline to match, all source items to be mapped or explicitly
-   blocked, strict architecture to pass, and build/typecheck/tests to pass. When
-   route files or `semanticRoutesPresent` exist, submit `routes: passed`
-   evidence from route parity checks, even when pathname/router behavior lives
-   in an entry file that the coarse filename classifier labels differently.
-   When entry, component, style, or asset sources exist, submit `visual: passed`
-   evidence from representative viewport comparisons. These conditional gates
-   cannot be skipped. Include nonempty `details` naming the checked routes and
-   representative viewport matrix; visual details must name at least two of
-   mobile, tablet, desktop, and wide, or provide at least two `WxH`
-   measurements. Duplicate or oversized evidence is rejected, and a bare
-   `passed` assertion is not evidence.
-7. **Finalize** — call `srijika_finalize_react_migration`. It must refuse to
-   complete unless all required evidence is current and passing.
+   blocked, strict architecture to pass, and engine-executed
+   build/typecheck/tests to pass. If the target has no declared `test` script,
+   add meaningful migrated tests; never substitute architecture validation.
+   When route or visual parity applies, call verify with `target` and optional
+   `includeInstall` only. The engine prepares an isolated temporary source copy
+   and the target runtime, selects loopback ports, derives concrete routes, and
+   captures fixed-viewport redirects, semantic DOM traces, console/page errors,
+   and PNGs. Caller URLs, routes, viewports, screenshots, artifact paths, status
+   claims, receipts, and free-form evidence prose are rejected.
+10. **Finalize** — call `srijika_finalize_react_migration` with only the target.
+    It rebuilds both isolated runtimes, reruns the gates, recaptures, and
+    revalidates the engine-owned manifest. It must
+    refuse to complete unless all required evidence is current and target-snapshot-bound,
+    every runtime mapping is native, the target graph is closed, and no wrapper,
+    fallback, compatibility, unowned module, or unsupported behavior remains.
 
 Use `srijika_get_react_migration_status` after any interruption. Resume from the
-first incomplete or stale phase; never recreate a session over existing target
-work.
+first incomplete or stale phase. If status reports a pending apply handle, pass
+that value unchanged as `reviewToken`. Never recreate a session over existing
+target work. Ownership cursors are bound to the current plan and optional
+`sliceId`; never replay them against another source, plan, or slice.
+
+Browser parity requires Playwright and Chromium on the MCP/plugin host. The
+published MCP package declares Playwright as optional; install Chromium with
+`npx playwright install chromium` when needed. If the runtime or browser is not
+available, verification and finalization fail closed rather than trusting a
+manual screenshot.
+
+Minimal verify input is:
+
+```json
+{
+  "target": "/absolute/path/new-srijika"
+}
+```
+
+Set `includeInstall: true` only when dependency downloads are explicitly
+permitted. Ports, routes, and viewport definitions stay engine-owned.
 
 ## A-to-Z inventory checklist
 
@@ -99,6 +147,15 @@ them from filenames alone.
 
 Trace every source file/export/route/asset/test to its target owner and public
 boundary. Avoid `index.ts` barrels and freehand Shared folders.
+
+## Minimal-prompt operation
+
+Follow the machine plan instead of restating architecture in each prompt. Read
+only the current slice's listed source files and paged ownership rows, submit
+one review payload, retain only its token, then apply by token. After any
+interruption, read compact status and continue from the first incomplete slice.
+Prefer counts, blockers, and `nextAction` over repeating the complete inventory
+or session.
 
 ## Subagent roles
 

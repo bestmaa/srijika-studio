@@ -6,7 +6,17 @@ import { promisify } from 'node:util';
 
 import { expect, it } from 'vitest';
 
-import { writeSrijikaProject } from '../src/index.js';
+import { buildSrijikaTestContract } from '@srijika/architecture-rules';
+
+import {
+  applySrijikaNextAppRouterPlan,
+  applySrijikaNextTestAdapterPlan,
+  applySrijikaViteTestAdapterPlan,
+  buildSrijikaNextAppRouterPlan,
+  buildSrijikaNextTestAdapterPlan,
+  buildSrijikaViteTestAdapterPlan,
+  writeSrijikaProject,
+} from '../src/index.js';
 
 const execFileAsync = promisify(execFile);
 const smoke = process.env['SRIJIKA_RUN_GENERATED_PROJECT_SMOKE'] === '1' ? it : it.skip;
@@ -63,6 +73,161 @@ for (const reactQuery of [false, true]) {
     180_000,
   );
 }
+
+smoke(
+  'generates and executes isolated Vite owner tests with Vitest and Playwright',
+  async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-generated-owner-tests-'));
+    const target = join(parent, 'app');
+    try {
+      await writeSrijikaProject(target, {
+        projectName: 'srijika-owner-test-app',
+        displayName: 'Srijika Owner Test App',
+      });
+      const contract = buildSrijikaTestContract([
+        {
+          fileName: 'src/features/home/Home.ui.tsx',
+          source: await readFile(join(target, 'src/features/home/Home.ui.tsx'), 'utf8'),
+        },
+        {
+          fileName: 'src/features/home/Home.connector.tsx',
+          source: await readFile(join(target, 'src/features/home/Home.connector.tsx'), 'utf8'),
+        },
+        {
+          fileName: 'src/features/home/home.store.ts',
+          source: await readFile(join(target, 'src/features/home/home.store.ts'), 'utf8'),
+        },
+        {
+          fileName: 'src/features/home/useHome.ts',
+          source: await readFile(join(target, 'src/features/home/useHome.ts'), 'utf8'),
+        },
+      ]);
+      const plan = buildSrijikaViteTestAdapterPlan(contract);
+      await applySrijikaViteTestAdapterPlan(target, plan);
+
+      const packagePath = join(target, 'package.json');
+      const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as {
+        scripts: Record<string, string>;
+        devDependencies: Record<string, string>;
+      };
+      Object.assign(packageJson.scripts, plan.scripts);
+      Object.assign(
+        packageJson.devDependencies,
+        Object.fromEntries(plan.devDependencies.map(({ name, version }) => [name, version])),
+      );
+      await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
+
+      await runPnpm(target, 'install', '--no-frozen-lockfile');
+      const component = await runPnpm(target, 'run', 'test:srijika:component');
+      await runPnpm(
+        target,
+        'exec',
+        'playwright',
+        'test',
+        '--config',
+        'tests/srijika/playwright.config.ts',
+        '--update-snapshots',
+      );
+      const browser = await runPnpm(target, 'run', 'test:srijika:browser');
+
+      expect(component).toContain('passed');
+      expect(browser).toContain('3 passed');
+      expect(await readFile(join(target, plan.evidence.vitestJson), 'utf8')).toContain(
+        'numPassedTests',
+      );
+      expect(await readFile(join(target, plan.evidence.playwrightJson), 'utf8')).toContain(
+        'expectedStatus',
+      );
+    } finally {
+      await rm(parent, { force: true, recursive: true });
+    }
+  },
+  180_000,
+);
+
+smoke(
+  'executes an async owner in the real Next App Router with Playwright',
+  async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-generated-next-owner-tests-'));
+    const target = join(parent, 'app');
+    try {
+      await mkdir(join(target, 'src/features/home'), { recursive: true });
+      const ownerSource = `export async function HomeUI() {
+  await Promise.resolve();
+  return <button type="button">Async Next owner</button>;
+}
+`;
+      const connectorSource = `import { HomeUI } from './Home.ui';
+export async function HomeConnector() { return <HomeUI />; }
+`;
+      await writeFile(join(target, 'src/features/home/Home.ui.tsx'), ownerSource, 'utf8');
+      await writeFile(
+        join(target, 'src/features/home/Home.connector.tsx'),
+        connectorSource,
+        'utf8',
+      );
+      const contract = buildSrijikaTestContract([
+        { fileName: 'src/features/home/Home.ui.tsx', source: ownerSource },
+        { fileName: 'src/features/home/Home.connector.tsx', source: connectorSource },
+      ]);
+      const plan = buildSrijikaNextTestAdapterPlan(contract);
+      await applySrijikaNextTestAdapterPlan(target, plan);
+      const routePlan = buildSrijikaNextAppRouterPlan(contract, {
+        routes: [{ pathname: '/', ownerId: 'feature:home' }],
+        sources: {
+          'src/features/home/Home.ui.tsx': ownerSource,
+          'src/features/home/Home.connector.tsx': connectorSource,
+        },
+      });
+      await applySrijikaNextAppRouterPlan(target, routePlan);
+
+      await writeFile(
+        join(target, 'package.json'),
+        `${JSON.stringify(
+          {
+            name: 'srijika-next-owner-test-app',
+            private: true,
+            scripts: plan.scripts,
+            dependencies: { next: '16.3.2', react: '19.2.8', 'react-dom': '19.2.8' },
+            devDependencies: {
+              ...Object.fromEntries(
+                plan.devDependencies.map(({ name, version }) => [name, version]),
+              ),
+              '@types/node': '26.1.2',
+              '@types/react': '19.2.14',
+              '@types/react-dom': '19.2.3',
+              typescript: '6.0.3',
+            },
+          },
+          null,
+          2,
+        )}\n`,
+        'utf8',
+      );
+
+      await runPnpm(target, 'install', '--no-frozen-lockfile');
+      const build = await runPnpm(target, 'exec', 'next', 'build');
+      await runPnpm(
+        target,
+        'exec',
+        'playwright',
+        'test',
+        '--config',
+        'tests/srijika-next/playwright.config.ts',
+        '--update-snapshots',
+      );
+      const browser = await runPnpm(target, 'run', 'test:srijika:next:browser');
+      expect(build).toContain('Compiled successfully');
+      expect(browser).toContain('3 passed');
+      expect(await readFile(join(target, plan.evidence.playwrightJson), 'utf8')).toContain(
+        'expectedStatus',
+      );
+    } finally {
+      await rm(parent, { force: true, recursive: true });
+    }
+  },
+  240_000,
+);
 
 smoke(
   'honors custom roots, entry, and UI/Connector suffixes in generated runtime modules',

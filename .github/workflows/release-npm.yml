@@ -61,6 +61,9 @@ jobs:
       - name: Install frozen workspace
         run: pnpm install --frozen-lockfile
 
+      - name: Reject production dependency advisories
+        run: pnpm audit --prod
+
       - name: Typecheck workspace
         run: pnpm typecheck
 
@@ -75,6 +78,16 @@ jobs:
         env:
           SRIJIKA_RUN_GENERATED_PROJECT_SMOKE: '1'
         run: pnpm --filter @srijika/project-scaffold test
+
+      - name: Install Chromium for generated owner verification
+        if: matrix.node == '24'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run generated Vite and Next.js owner verification
+        if: matrix.node == '24'
+        env:
+          SRIJIKA_RUN_OWNER_VERIFICATION_SMOKE: '1'
+        run: pnpm --filter @srijika/developer-engine exec vitest run --config vitest.config.ts test/owner-verification-smoke.test.ts
 
       - name: Build public packages
         run: pnpm release:build
@@ -115,6 +128,9 @@ jobs:
 
       - name: Install frozen workspace
         run: pnpm install --frozen-lockfile
+
+      - name: Reject production dependency advisories
+        run: pnpm audit --prod
 
       - name: Build and re-verify release artifacts
         run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test && pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify

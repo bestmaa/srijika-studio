@@ -31,6 +31,7 @@ export default tseslint.config(
       parserOptions: {
         projectService: {
           allowDefaultProject: [
+            'apps/studio/scripts/*.mjs',
             'packages/create-srijika/bin/*.mjs',
             'packages/create-srijika/test/*.mjs',
             'scripts/*.mjs',
@@ -60,7 +61,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['packages/create-srijika/**/*.mjs', 'scripts/*.mjs'],
+    files: ['apps/studio/scripts/*.mjs', 'packages/create-srijika/**/*.mjs', 'scripts/*.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',

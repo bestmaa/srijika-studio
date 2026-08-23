@@ -2666,7 +2666,7 @@ export function validateSrijikaArchitecture(
           (target.kind === 'shared-widget' && publicTargetCapability === 'connector') ||
           (target.kind === 'shared-capability' &&
             highestCapability !== undefined &&
-            publicTargetCapability === highestCapability);
+            (publicTargetCapability === highestCapability || publicTargetCapability === 'api'));
         if (!publicSharedBoundary) {
           diagnostics.push(
             diagnostic(
@@ -2678,7 +2678,7 @@ export function validateSrijikaArchitecture(
                 ? `Import only its canonical pure UI entry${targetCapabilities.has('types') ? ' or passive Types contract' : ''}.`
                 : target.kind === 'shared-widget'
                   ? `Import only its canonical Connector entry or passive Types contract.`
-                  : `Import the highest available capability gateway (${highestCapability ?? 'Hook, Store, Logic, or API'}) or its passive Types contract. Private helpers and lower runtime layers remain owner-private.`,
+                  : `Import the highest available capability gateway (${highestCapability ?? 'Hook, Store, Logic, or API'}), an explicit API boundary, or its passive Types contract. Private helpers and lower runtime layers remain owner-private.`,
               targetFileName,
             ),
           );
@@ -2996,7 +2996,9 @@ export function validateSrijikaArchitecture(
       const capabilities = key ? ownerCapabilities.get(key) : undefined;
       if (
         !capabilities ||
-        !(['hook', 'store', 'logic', 'api'] as const).some((role) => capabilities.has(role))
+        !(['hook', 'store', 'logic', 'api', 'types'] as const).some((role) =>
+          capabilities.has(role),
+        )
       ) {
         diagnostics.push(
           diagnostic(
@@ -3004,7 +3006,7 @@ export function validateSrijikaArchitecture(
             owner.anchorFile.fileName,
             owner.anchorSpan,
             `The ${name} shared headless capability has no public runtime gateway.`,
-            `Add at least one canonical Hook, Store, Logic, or API. Consumers enter through the highest available runtime layer; Types alone are passive and cannot expose behavior.`,
+            `Add at least one canonical Hook, Store, Logic, API, or passive Types contract. Types-only capabilities expose no runtime behavior and consumers must import them with import type.`,
           ),
         );
       }

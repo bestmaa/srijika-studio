@@ -30,6 +30,9 @@
   "dependencies": {
     "typescript": "6.0.3"
   },
+  "optionalDependencies": {
+    "playwright": "1.62.1"
+  },
   "scripts": {
     "build": "node ./scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json",
@@ -41,7 +44,7 @@
     "@srijika/developer-engine": "workspace:*",
     "@srijika/project-scaffold": "workspace:*",
     "@types/node": "26.1.2",
-    "esbuild": "0.25.12",
+    "esbuild": "0.28.2",
     "vitest": "4.1.10"
   }
 }

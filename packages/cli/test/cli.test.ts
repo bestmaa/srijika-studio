@@ -475,3 +475,50 @@ describe('add command', () => {
     );
   });
 });
+
+describe('owner test commands', () => {
+  it('syncs framework tests and reports fail-closed evidence without executed reports', async () => {
+    const root = await project();
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(runSrijikaCli(['tests', 'sync', root, '--json'])).resolves.toBe(0);
+      expect(await readFile(join(root, 'tests/srijika/contract.generated.json'), 'utf8')).toContain(
+        'srijika-test-contract-v1',
+      );
+      logs.length = 0;
+      await expect(runSrijikaCli(['tests', 'evidence', root, '--json'])).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        manifest: { framework: 'vite', status: 'not-run' },
+      });
+    } finally {
+      console.log = originalLog;
+    }
+  });
+
+  it('allows an explicit framework when synchronizing a hybrid Vite and Next.js project', async () => {
+    const root = await project();
+    const packagePath = join(root, 'package.json');
+    const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    packageJson.dependencies['next'] = '16.3.2';
+    await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
+
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(
+        runSrijikaCli(['tests', 'sync', root, '--framework', 'vite', '--dry-run', '--json']),
+      ).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        adapter: { framework: 'vite' },
+        write: null,
+      });
+    } finally {
+      console.log = originalLog;
+    }
+  });
+});

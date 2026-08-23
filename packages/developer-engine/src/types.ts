@@ -23,6 +23,7 @@ export interface SrijikaProjectMetadata {
   architecture?: Partial<SrijikaArchitectureConfig>;
   aliases?: Readonly<Record<string, string>>;
   viteProject: boolean;
+  nextProject: boolean;
   warnings: readonly string[];
 }
 

@@ -14,17 +14,44 @@ plugin does not depend on an ancestor repository `node_modules` directory.
 npx -y @srijika/mcp-server --project /absolute/path/to/project
 ```
 
-For migration, use the `srijika_create_react_migration` → scan → plan → reviewed
-slice apply/verify → global verify → finalize flow. The source is never written;
+For migration, use the `srijika_create_react_migration` → scan → deterministic
+ownership plan → bounded immutable slice context → slice review → token-only
+apply → slice verify → global verify → finalize flow. The source is never written;
 equal, nested, overlapping, or symlink-aliased roots fail closed. Every applied
-slice includes source-to-target traceability and writes atomically inside the
-target. Each slice advances only after zero Srijika diagnostics, architecture,
-TypeScript, and production build pass. Unsupported or ambiguous behavior remains blocking, and finalization
-requires current source-baseline, traceability, architecture, build, typecheck,
-and test evidence. The read-only `srijika://docs/react-migration` resource is the
+slice follows canonical owner/role obligations, includes source-to-target
+traceability, and writes atomically inside the target. Review persists the exact
+bounded payload and binds it to source, target, plan, and slice hashes; apply
+accepts only the returned token. Review also supports expected-hash removal of
+obsolete generated starter files. Scan, plan, and status use compact opaque,
+query-bound paging, and status returns pending apply handles for interruption-safe resume.
+Each slice advances only after zero Srijika diagnostics, architecture,
+and engine-executed TypeScript and production build pass. Global verification
+executes typecheck/build/test and snapshot-signs the results; caller-authored
+statuses, receipts, routes, screenshots, artifact paths, and pass details are
+rejected. For route/visual parity, the engine runs source and target apps at
+distinct loopback ports. It prepares an isolated temporary source
+copy and target runtime, derives routes, captures fixed-viewport DOM/redirect/error
+and PNG evidence, applies fixed thresholds, and persists a snapshot-bound
+manifest. Verify accepts only `target` and optional `includeInstall`; finalize
+rebuilds the runtimes, reruns gates, and recaptures.
+
+Browser parity requires Playwright and Chromium. This package declares
+Playwright as an optional dependency; run `npx playwright install chromium` if
+the engine reports a missing browser. Capture fails closed if either runtime is
+unavailable.
+Unsupported or ambiguous behavior remains blocking. Compatibility and adapter findings are planning hints only and cannot be reviewed or applied;
+generic runtime ignores, wrappers, copied legacy trees, source dependencies,
+open target graphs, and unowned target modules block completion. The read-only `srijika://docs/react-migration` resource is the
 machine-readable contract. The server does not claim arbitrary automatic
 rewriting or guaranteed zero context loss; Codex performs reviewed semantic
 slice analysis.
+
+If slice context proves an inferred owner wrong, the bounded ownership-review
+tool can correct canonical owner kind/name/path/role only before the first slice
+review or apply. It recomputes the plan ID and SCC-atomic slices; it never
+accepts caller-chosen target filenames.
+Ownership review and slice context bind the exact current plan ID plus source
+and target snapshots, so values from separate plan reads cannot be mixed.
 
 The code-project tools are bounded to `--project`, use the shared Srijika developer
 engine, refuse overwrite, and enforce the canonical Feature → Slot → Part contract.

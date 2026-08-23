@@ -142,6 +142,8 @@ export async function inspectSrijikaProject(projectRoot: string): Promise<Srijik
     aliases,
     viteProject:
       typeof dependencies['vite'] === 'string' || /^vite(?:\s|$)/.test(scripts['dev'] ?? ''),
+    nextProject:
+      typeof dependencies['next'] === 'string' || /^next(?:\s|$)/.test(scripts['dev'] ?? ''),
     warnings: Object.freeze(warnings),
   });
 }

@@ -17,3 +17,10 @@ apps/studio/src-tauri/target/
 *.srijika.tmp
 .srijika/cache/
 .srijika/generated/
+
+# Generated distributables belong in GitHub Releases, not source history.
+release-bundles/
+*.vsix
+
+# Empty launcher artifact occasionally created by Windows/WSL shell interop.
+/Main

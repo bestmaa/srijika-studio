@@ -17,17 +17,29 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   SrijikaArchitectureIndex,
   SrijikaProjectFileSystem,
+  collectSrijikaTestEvidence,
   findSrijikaProjectRoot,
   formatSrijikaCommand,
   inspectSrijikaProject,
+  inspectSrijikaTestContract,
+  planSrijikaNextApp,
+  planSrijikaNextTests,
   planSrijikaProjectCommand,
+  planSrijikaTestVerificationCommands,
+  planSrijikaViteTests,
   scaffoldSrijikaStructure,
   selectSrijikaRuntime,
+  synchronizeSrijikaViteTests,
+  synchronizeSrijikaNextApp,
+  synchronizeSrijikaNextTests,
 } from '../src/index.js';
 
 const temporaryRoots: string[] = [];
 
-async function createProject(options: { packageManager?: string; dev?: string } = {}) {
+async function createProject(
+  options: { packageManager?: string; dev?: string; framework?: 'vite' | 'next' } = {},
+) {
+  const framework = options.framework ?? 'vite';
   const root = await mkdtemp(join(tmpdir(), 'srijika-developer-engine-'));
   temporaryRoots.push(root);
   await mkdir(join(root, 'src/features/home'), { recursive: true });
@@ -38,11 +50,11 @@ async function createProject(options: { packageManager?: string; dev?: string } 
       private: true,
       packageManager: options.packageManager ?? 'pnpm@11.18.0',
       scripts: {
-        dev: options.dev ?? 'vite',
-        build: 'vite build',
+        dev: options.dev ?? framework,
+        build: framework === 'next' ? 'next build' : 'vite build',
         'validate:srijika': 'node scripts/srijika-validate.mjs',
       },
-      devDependencies: { vite: '8.2.0' },
+      devDependencies: framework === 'next' ? { next: '16.1.6' } : { vite: '8.2.0' },
       srijika: { sourceOfTruth: 'tsx' },
     }),
     'utf8',
@@ -147,6 +159,7 @@ describe('project inspection', () => {
       packageManagerVersion: '11.18.0',
       lockfile: 'pnpm-lock.yaml',
       viteProject: true,
+      nextProject: false,
     });
   });
 
@@ -437,12 +450,7 @@ describe('incremental architecture index', () => {
     const result = await new SrijikaArchitectureIndex().check(root);
 
     expect(result.checkedFiles).toBe(3);
-    expect(result.diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: 'SRIJIKA4115',
-        ruleId: 'SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY',
-      }),
-    );
+    expect(result.diagnostics).toEqual([]);
   });
 
   it('indexes configured no-src roots and JavaScript source files incrementally', async () => {
@@ -692,6 +700,191 @@ describe('incremental architecture index', () => {
     await rm(join(fileRoot, 'src/features/home/Home.ui.tsx'));
     await symlink(outsideFile, join(fileRoot, 'src/features/home/Home.ui.tsx'), 'file');
     await expect(new SrijikaArchitectureIndex().check(fileRoot)).rejects.toThrow(/symbolic link/);
+  });
+
+  it('inspects owner test requirements and expands an unowned file change to its consumers', async () => {
+    const root = await createProject();
+    await writeFile(join(root, 'src/theme.ts'), 'export const accent = "violet";\n', 'utf8');
+    await writeFile(
+      join(root, 'src/features/home/Home.ui.tsx'),
+      "import { accent } from '../../theme';\nexport function HomeUI() { return <main data-accent={accent}>Home</main>; }\n",
+      'utf8',
+    );
+
+    const inspected = await inspectSrijikaTestContract({
+      project: root,
+      changedFiles: ['src/theme.ts'],
+    });
+    expect(inspected.contract.owners).toHaveLength(1);
+    expect(inspected.contract.owners[0]).toMatchObject({
+      id: 'feature:home',
+      capabilities: ['connector', 'ui'],
+    });
+    expect(inspected.contract.owners[0]?.requirements.map(({ layer }) => layer)).toContain(
+      'browser',
+    );
+    expect(inspected.affected).toMatchObject({
+      directOwnerIds: [],
+      affectedOwnerIds: ['feature:home'],
+    });
+    const vitePlan = await planSrijikaViteTests({ project: root, port: 4_321 });
+    expect(vitePlan.adapter.files.map(({ relativePath }) => relativePath)).toContain(
+      'tests/srijika/owners/feature--home.spec.ts',
+    );
+    expect(vitePlan.adapter.uncoveredRequirementIds).toEqual([]);
+    expect(
+      vitePlan.adapter.files.find(({ relativePath }) =>
+        relativePath.endsWith('playwright.config.ts'),
+      )?.source,
+    ).toContain('?? 4321');
+    const synchronized = await synchronizeSrijikaViteTests({ project: root });
+    expect(synchronized.write?.created).toContain('tests/srijika/owners/feature--home.spec.ts');
+    expect(await readFile(join(root, 'tests/srijika/contract.generated.json'), 'utf8')).toContain(
+      'srijika-test-contract-v1',
+    );
+    expect(synchronized.packageWrite?.addedScripts).toContain('test:srijika:browser');
+    const synchronizedPackageJson = JSON.parse(
+      await readFile(join(root, 'package.json'), 'utf8'),
+    ) as unknown;
+    expect(synchronizedPackageJson).toMatchObject({
+      scripts: {
+        'test:srijika:browser': 'playwright test --config tests/srijika/playwright.config.ts',
+      },
+      devDependencies: {
+        '@axe-core/playwright': '4.12.1',
+        '@playwright/test': '1.62.1',
+        vitest: '4.1.10',
+      },
+    });
+    await expect(
+      inspectSrijikaTestContract({ project: root, changedFiles: ['../outside.ts'] }),
+    ).rejects.toThrow(/inside the Srijika project/);
+  });
+
+  it('detects Next.js and safely plans and synchronizes its real App Router tests', async () => {
+    const root = await createProject({ framework: 'next' });
+    const project = await inspectSrijikaProject(root);
+    expect(project).toMatchObject({ viteProject: false, nextProject: true });
+    await expect(planSrijikaViteTests({ project: root })).rejects.toThrow(
+      /requires a Vite project/,
+    );
+
+    const nextPlan = await planSrijikaNextTests({ project: root, port: 4_322 });
+    expect(nextPlan.adapter.framework).toBe('next-app-router');
+    expect(nextPlan.adapter.files.map(({ relativePath }) => relativePath)).toContain(
+      'tests/srijika-next/owners/feature--home.spec.ts',
+    );
+    expect(
+      nextPlan.adapter.files.find(({ relativePath }) =>
+        relativePath.endsWith('playwright.config.ts'),
+      )?.source,
+    ).toContain('?? 4322');
+
+    const synchronized = await synchronizeSrijikaNextTests({ project: root });
+    expect(synchronized.write?.created).toContain(
+      'tests/srijika-next/owners/feature--home.spec.ts',
+    );
+    expect(
+      await readFile(join(root, 'tests/srijika-next/contract.generated.json'), 'utf8'),
+    ).toContain('srijika-test-contract-v1');
+    expect(synchronized.packageWrite?.addedScripts).toContain('test:srijika:next:browser');
+    await mkdir(join(root, 'test-results/srijika-next'), { recursive: true });
+    await writeFile(
+      join(root, nextPlan.adapter.evidence.playwrightJson),
+      JSON.stringify({
+        suites: [
+          {
+            specs: [
+              {
+                file: 'tests/srijika-next/owners/feature--home.spec.ts',
+                tests: [{ results: [{ status: 'passed' }] }],
+              },
+            ],
+          },
+        ],
+      }),
+      'utf8',
+    );
+    const evidence = await collectSrijikaTestEvidence({
+      project: root,
+      architecturePassed: true,
+      typecheckPassed: true,
+    });
+    expect(evidence.manifest).toMatchObject({
+      framework: 'next-app-router',
+      status: 'passed',
+      owners: [{ ownerId: 'feature:home', status: 'passed' }],
+    });
+    const oldReportTime = new Date(Date.now() - 60_000);
+    await utimes(
+      join(root, nextPlan.adapter.evidence.playwrightJson),
+      oldReportTime,
+      oldReportTime,
+    );
+    const freshOnlyEvidence = await collectSrijikaTestEvidence({
+      project: root,
+      architecturePassed: true,
+      typecheckPassed: true,
+      minimumReportModifiedMillis: Date.now() - 1_000,
+    });
+    expect(freshOnlyEvidence.manifest.status).toBe('not-run');
+
+    const routePlan = await planSrijikaNextApp({
+      project: root,
+      routes: [{ pathname: '/', ownerId: 'feature:home' }],
+    });
+    expect(routePlan.adapter).toMatchObject({ ready: true, appRoot: 'src/app' });
+    const routeSync = await synchronizeSrijikaNextApp({
+      project: root,
+      routes: [{ pathname: '/', ownerId: 'feature:home' }],
+    });
+    expect(routeSync.write?.created).toContain('src/app/page.tsx');
+
+    await writeFile(
+      join(root, 'src/features/home/Home.connector.tsx'),
+      "import { useState } from 'react'; export function HomeConnector() { useState(0); return null; }\n",
+      'utf8',
+    );
+    const invalidRoute = await planSrijikaNextApp({
+      project: root,
+      routes: [{ pathname: '/', ownerId: 'feature:home' }],
+    });
+    expect(invalidRoute.adapter.ready).toBe(false);
+    await expect(
+      synchronizeSrijikaNextApp({
+        project: root,
+        routes: [{ pathname: '/', ownerId: 'feature:home' }],
+      }),
+    ).rejects.toThrow(/diagnostics/);
+  });
+
+  it('plans shell-free owner verification commands from project metadata', async () => {
+    const root = await createProject();
+    const project = await inspectSrijikaProject(root);
+    const commands = planSrijikaTestVerificationCommands(project, 'vite');
+
+    expect(commands.map(({ gate }) => gate)).toEqual([
+      'install',
+      'typecheck',
+      'vitest',
+      'playwright-browser',
+      'playwright',
+    ]);
+    expect(commands.find(({ gate }) => gate === 'vitest')).toMatchObject({
+      executable: process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+      args: ['exec', 'vitest', 'run', '--config', 'tests/srijika/vitest.config.ts'],
+      cwd: root,
+    });
+    expect(commands.find(({ gate }) => gate === 'playwright')).toMatchObject({
+      args: [
+        'exec',
+        'playwright',
+        'test',
+        '--config',
+        'tests/srijika/playwright.config.ts',
+        '--update-snapshots=missing',
+      ],
+    });
   });
 
   it('fails architecture checks and planning closed before oversized source reads', async () => {

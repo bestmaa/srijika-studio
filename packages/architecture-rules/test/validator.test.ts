@@ -1334,6 +1334,23 @@ describe('canonical Shared architecture', () => {
     );
   });
 
+  it('exposes an explicit Shared API boundary even when the capability also has Logic', () => {
+    const diagnostics = validate(
+      file('src/features/home/Home.ui.tsx'),
+      file(
+        'src/features/home/Home.connector.tsx',
+        "import { catalogApi } from '../../shared/capabilities/catalog/catalog.api'; export function HomeConnector() { void catalogApi; return <div />; }",
+      ),
+      file(
+        'src/shared/capabilities/catalog/catalog.logic.ts',
+        'export const normalizeCatalog = () => null;',
+      ),
+      file('src/shared/capabilities/catalog/catalog.api.ts', 'export const catalogApi = {};'),
+    );
+
+    expect(diagnostics).toEqual([]);
+  });
+
   it('applies Shared ownership rules to import type nodes', () => {
     const diagnostics = validate(
       file('src/features/home/Home.ui.tsx'),
@@ -1354,7 +1371,7 @@ describe('canonical Shared architecture', () => {
     );
   });
 
-  it('enforces pure Shared UI and a runtime gateway for headless capabilities', () => {
+  it('enforces pure Shared UI while allowing a passive Shared Types contract', () => {
     const diagnostics = validate(
       file(
         'src/shared/ui/action-button/ActionButton.ui.tsx',
@@ -1373,12 +1390,7 @@ describe('canonical Shared architecture', () => {
       ),
     ).toBe(true);
     expect(diagnostics.some(({ code }) => code === 'SRIJIKA4110')).toBe(true);
-    expect(diagnostics).toContainEqual(
-      expect.objectContaining({
-        code: 'SRIJIKA4115',
-        ruleId: 'SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY',
-      }),
-    );
+    expect(diagnostics.some(({ code }) => code === 'SRIJIKA4115')).toBe(false);
   });
 
   it('supports expanded Hooks and Stores behind one Shared owner gateway', () => {

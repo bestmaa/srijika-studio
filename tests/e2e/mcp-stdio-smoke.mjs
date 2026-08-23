@@ -169,7 +169,7 @@ const client = new Client({ name: 'srijika-stdio-smoke', version: '1.0.0' });
 try {
   await client.connect(transport);
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 29);
+  assert.equal(tools.tools.length, 33);
   assert(tools.tools.some(({ name }) => name === 'srijika_get_code_project'));
   assert(tools.tools.some(({ name }) => name === 'srijika_apply_code_structure'));
   assert(tools.tools.some(({ name }) => name === 'srijika_apply_operations'));
@@ -177,7 +177,11 @@ try {
   assert(tools.tools.some(({ name }) => name === 'srijika_get_generated_code'));
   assert(tools.tools.some(({ name }) => name === 'srijika_get_layout_snapshot'));
   assert(tools.tools.some(({ name }) => name === 'srijika_capture_preview'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_owner_tests'));
   assert(tools.tools.some(({ name }) => name === 'srijika_create_react_migration'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_review_react_migration_slice'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_get_react_migration_slice_context'));
+  assert(tools.tools.some(({ name }) => name === 'srijika_review_react_migration_ownership'));
   assert(tools.tools.some(({ name }) => name === 'srijika_apply_react_migration_slice'));
   assert(tools.tools.some(({ name }) => name === 'srijika_finalize_react_migration'));
   const resources = await client.listResources();

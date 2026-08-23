@@ -157,6 +157,36 @@ async function callCodeProject(operation: () => Promise<unknown>, message: strin
   }
 }
 
+async function callReactMigrationReview(operation: () => Promise<unknown>) {
+  try {
+    const result = await operation();
+    if (
+      typeof result !== 'object' ||
+      result === null ||
+      !('token' in result) ||
+      typeof result.token !== 'string'
+    ) {
+      return successResult(result, 'Native React migration slice reviewed.');
+    }
+    const { token, ...metadata } = result;
+    const safeMetadata = redactSensitive(metadata) as Record<string, unknown>;
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: 'Native React migration slice reviewed. Pass structuredContent.result.reviewToken unchanged to the apply tool.',
+        },
+      ],
+      structuredContent: {
+        ok: true,
+        result: { ...safeMetadata, reviewToken: token },
+      },
+    };
+  } catch (error) {
+    return errorResult(error);
+  }
+}
+
 export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): McpServer {
   const bridge = options.bridgeClient ?? new SrijikaBridgeClient();
   const codeProject = new SrijikaCodeProjectService(
@@ -168,7 +198,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     { name: 'srijika-studio', version: TOOL_VERSION },
     {
       instructions:
-        'For a CLI-first TSX project, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, strict Shared, and capability files; these tools work without Desktop Studio. For an existing React project, create a migration only to a distinct new target or a recognizable clean generated Srijika starter; source is immutable. Scan and review the complete source inventory and plan, let Codex perform semantic analysis one coherent slice at a time, apply only reviewed target writes with traceability, verify each slice, and finalize only with unchanged-source, complete-traceability, architecture, build, typecheck, and test evidence. Unsupported behavior blocks migration. Never claim arbitrary automatic rewriting or guaranteed zero context loss. Shared kinds are exactly shared-ui, shared-widget, and shared-capability. Only a matching Connector renders owner UI (except pure Shared UI Primitive composition); UI never owns Hooks, browser APIs, or external runtime behavior. Types remain passive import type/export type contracts. Logic remains framework-free and deterministic: React/query/router/state lifecycle belongs in Hook, Connector, or Store, while request transport belongs in API. Honor validated bounded custom roots/directories/suffixes. An absent architecture block uses defaults; an explicit block requires exact feature-slot-part-v1 and otherwise fails closed. Treat generated validation, configured-root watch, and exact-file/safe-move previews as resolved canonical-planner behavior, never hardcoded paths. Never bypass direct-child-UI, passive-Types, Logic-runtime-concern, path-containment, canonical-name, freehand-Shared, Shared-cycle, PROMOTE, or SPLIT diagnostics. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview.',
+        'For CLI-first TSX projects, inspect and validate the code project before planning or applying canonical Feature, Slot, Part, strict Shared, and capability files; no Studio required. For an existing React project, create a migration only to a distinct new target or a recognizable clean generated Srijika starter; source is immutable. Follow the paged deterministic ownership plan, implement one semantic slice, review its native owner/role mappings, apply only the bound review token, then verify. The engine executes target gates and snapshot-signs receipts; never submit a caller-authored command status or receipt. For route and visual parity the engine prepares an isolated temporary source copy plus the target runtime, chooses distinct loopback ports, derives routes, captures fixed-viewport DOM and PNG evidence, applies fixed thresholds, and persists a snapshot-bound manifest. Never accept caller URLs, routes, viewports, screenshots, evidence paths, details, or pass claims. Compatibility and adapter findings are planning hints only and cannot be reviewed or applied; runtime ignores, bookkeeping targets, copied legacy code, wrappers, fallbacks, open target graphs, and unowned target modules block completion. Never claim arbitrary rewrites or zero context loss. Shared kinds are exactly shared-ui, shared-widget, and shared-capability. Only a matching Connector renders owner UI (except pure Shared UI Primitive composition); UI never owns Hooks, browser APIs, or external runtime behavior. Types remain passive import type/export type contracts. Logic remains framework-free and deterministic: React/query/router/state lifecycle belongs in Hook, Connector, or Store, while request transport belongs in API. Honor validated bounded custom roots/directories/suffixes. An absent architecture block uses defaults; an explicit block requires exact feature-slot-part-v1 and otherwise fails closed. Treat generated validation, configured-root watch, and exact-file/safe-move previews as resolved canonical-planner behavior, never hardcoded paths. Never bypass direct-child-UI, passive-Types, Logic-runtime-concern, path-containment, canonical-name, freehand-Shared, Shared-cycle, PROMOTE, or SPLIT diagnostics. Use bridge tools only for a running Studio document, include expectedRevision on every document write, and validate before preview.',
     },
   );
   registerSrijikaDocumentation(server);
@@ -204,133 +234,179 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
   const migrationRootInput = {
     source: z.string().min(1).max(4_096),
     target: z.string().min(1).max(4_096).optional(),
+    cursor: z.string().min(1).max(512).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  };
+  const migrationPlanInput = {
+    ...migrationRootInput,
+    sliceId: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{0,79}$/)
+      .optional(),
   };
   const migrationTargetInput = {
     target: z.string().min(1).max(4_096),
   };
-  const responsiveVisualDetails = z
-    .string()
-    .min(1)
-    .max(8_192)
-    .refine((details) => {
-      const normalized = details.toLowerCase();
-      const named = ['mobile', 'tablet', 'desktop', 'wide'].filter((viewport) =>
-        normalized.includes(viewport),
-      );
-      const measured = normalized.match(/\b\d{2,5}\s*[x×]\s*\d{2,5}\b/gu) ?? [];
-      return named.length >= 2 || measured.length >= 2;
-    }, 'Visual evidence must name at least two viewports (mobile, tablet, desktop, or wide) or two WxH measurements.');
-  const migrationCommandEvidence = z.union([
-    z.object({
-      name: z.literal('install'),
-      status: z.enum(['passed', 'failed', 'skipped']),
-      details: z.string().max(8_192).optional(),
-    }),
-    z.object({
-      name: z.enum(['typecheck', 'build', 'test']),
-      status: z.enum(['passed', 'failed']),
-      details: z.string().max(8_192).optional(),
-    }),
-    z.object({
-      name: z.literal('routes'),
-      status: z.literal('passed'),
-      details: z.string().min(1).max(8_192),
-    }),
-    z.object({
-      name: z.literal('routes'),
-      status: z.literal('failed'),
-      details: z.string().max(8_192).optional(),
-    }),
-    z.object({
-      name: z.literal('visual'),
-      status: z.literal('passed'),
-      details: responsiveVisualDetails,
-    }),
-    z.object({
-      name: z.literal('visual'),
-      status: z.literal('failed'),
-      details: z.string().max(8_192).optional(),
-    }),
-  ]);
-  const migrationCommandEvidenceList = z
-    .array(migrationCommandEvidence)
-    .max(6)
-    .superRefine((commands, context) => {
-      const seen = new Set<string>();
-      for (const [index, command] of commands.entries()) {
-        if (seen.has(command.name)) {
-          context.addIssue({
-            code: 'custom',
-            message: `Duplicate migration evidence: ${command.name}`,
-            path: [index, 'name'],
-          });
-        }
-        seen.add(command.name);
-      }
-    });
+  const migrationStatusInput = {
+    ...migrationTargetInput,
+    cursor: z.string().min(1).max(512).optional(),
+    limit: z.number().int().min(1).max(200).optional(),
+  };
   const migrationVerifyInput = {
     ...migrationTargetInput,
-    commands: migrationCommandEvidenceList.optional(),
+    includeInstall: z.boolean().optional(),
+    commands: z.never().optional(),
+    receipts: z.never().optional(),
+    status: z.never().optional(),
+    details: z.never().optional(),
+    routes: z.never().optional(),
+    visual: z.never().optional(),
+    coveredSourcePaths: z.never().optional(),
+    sourceArtifacts: z.never().optional(),
+    targetArtifacts: z.never().optional(),
+    browserParity: z.never().optional(),
+    sourceBaseUrl: z.never().optional(),
+    targetBaseUrl: z.never().optional(),
+    viewports: z.never().optional(),
   };
-  const migrationSliceEvidence = z
-    .array(
-      z.object({
-        name: z.enum(['typecheck', 'build']),
-        status: z.literal('passed'),
-        details: z.string().max(8_192).optional(),
-      }),
-    )
-    .length(2)
-    .superRefine((commands, context) => {
-      const names = new Set(commands.map((command) => command.name));
-      for (const name of ['typecheck', 'build'] as const) {
-        if (!names.has(name)) {
-          context.addIssue({ code: 'custom', message: `Missing passed ${name} evidence.` });
-        }
+  const migrationMappingInput = z
+    .object({
+      sourcePath: z.string().min(1).max(1_024),
+      targetPaths: z.array(z.string().min(1).max(1_024)).min(1).max(64),
+      kind: z.enum(['migrated', 'asset', 'style']),
+      mode: z.literal('native'),
+      ownerId: z.string().min(1).max(1_024),
+      role: z.enum([
+        'shell',
+        'route',
+        'ui',
+        'hook',
+        'store',
+        'api',
+        'logic',
+        'types',
+        'style',
+        'asset',
+        'test',
+        'configuration',
+      ]),
+      rationale: z.string().min(8).max(8_192),
+      legacyAdapter: z.never().optional(),
+      mergeGroupId: z.string().min(1).max(160).optional(),
+      traceRanges: z
+        .array(
+          z.object({
+            sourceStartLine: z.number().int().min(1).max(10_000_000),
+            sourceEndLine: z.number().int().min(1).max(10_000_000),
+            targetStartLine: z.number().int().min(1).max(10_000_000),
+            targetEndLine: z.number().int().min(1).max(10_000_000),
+          }),
+        )
+        .max(2_048)
+        .optional(),
+      notes: z.string().max(8_192).optional(),
+    })
+    .strict();
+  const migrationSliceInput = z
+    .object({
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
+      title: z.string().min(1).max(320),
+      writes: z
+        .array(
+          z.object({
+            relativePath: z.string().min(1).max(1_024),
+            content: z.string().max(4 * 1_024 * 1_024),
+            encoding: z.enum(['utf8', 'base64']).optional(),
+            expectedSha256: z
+              .string()
+              .regex(/^[a-f0-9]{64}$/i)
+              .optional(),
+          }),
+        )
+        .max(512),
+      sourceArtifactCopies: z
+        .array(
+          z
+            .object({
+              sourcePath: z.string().min(1).max(1_024),
+              relativePath: z.string().min(1).max(1_024),
+              expectedSourceSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+              expectedSha256: z
+                .string()
+                .regex(/^[a-f0-9]{64}$/i)
+                .optional(),
+            })
+            .strict(),
+        )
+        .max(512)
+        .optional(),
+      sourcePackageDependencies: z
+        .array(
+          z
+            .object({
+              name: z.string().min(1).max(214),
+              version: z.string().min(1).max(512),
+              scope: z.enum([
+                'dependency',
+                'devDependency',
+                'peerDependency',
+                'optionalDependency',
+              ]),
+            })
+            .strict(),
+        )
+        .max(128)
+        .optional(),
+      sourcePackageScripts: z
+        .array(
+          z
+            .object({
+              name: z.string().regex(/^[a-z][a-z0-9:_-]{0,79}$/),
+              command: z.string().min(1).max(4_096),
+            })
+            .strict(),
+        )
+        .max(64)
+        .optional(),
+      deletes: z
+        .array(
+          z.object({
+            relativePath: z.string().min(1).max(1_024),
+            expectedSha256: z.string().regex(/^[a-f0-9]{64}$/),
+          }),
+        )
+        .max(512)
+        .optional(),
+      mappings: z.array(migrationMappingInput).max(2_048),
+      ignoredSources: z
+        .array(
+          z.object({
+            sourcePath: z.string().min(1).max(1_024),
+            reason: z.string().min(3).max(8_192),
+          }),
+        )
+        .max(2_048)
+        .optional(),
+    })
+    .superRefine((slice, context) => {
+      if (
+        slice.writes.length +
+          (slice.sourceArtifactCopies?.length ?? 0) +
+          (slice.deletes?.length ?? 0) >
+        512
+      ) {
+        context.addIssue({
+          code: 'custom',
+          message: 'A migration slice may write and delete at most 512 target paths.',
+        });
       }
     });
-  const migrationSliceInput = z.object({
-    id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
-    title: z.string().min(1).max(320),
-    writes: z
-      .array(
-        z.object({
-          relativePath: z.string().min(1).max(1_024),
-          content: z.string().max(4 * 1_024 * 1_024),
-          expectedSha256: z
-            .string()
-            .regex(/^[a-f0-9]{64}$/i)
-            .optional(),
-        }),
-      )
-      .max(512),
-    mappings: z
-      .array(
-        z.object({
-          sourcePath: z.string().min(1).max(1_024),
-          targetPaths: z.array(z.string().min(1).max(1_024)).min(1).max(64),
-          kind: z.enum(['migrated', 'compatibility', 'asset', 'style']),
-          notes: z.string().max(8_192).optional(),
-        }),
-      )
-      .max(2_048),
-    ignoredSources: z
-      .array(
-        z.object({
-          sourcePath: z.string().min(1).max(1_024),
-          reason: z.string().min(1).max(8_192),
-        }),
-      )
-      .max(2_048)
-      .optional(),
-  });
 
   server.registerTool(
     'srijika_get_code_project',
     {
       title: 'Inspect Srijika code project',
-      description:
-        'Read bounded metadata, architecture, scripts, and canonical files without Studio.',
+      description: 'Inspect bounded code-project metadata and files.',
       inputSchema: {},
       annotations: READ_ONLY,
     },
@@ -341,8 +417,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     'srijika_check_code_project',
     {
       title: 'Check Srijika code project',
-      description:
-        'Run the canonical project gate without Studio: zero Srijika UI diagnostics plus strict architecture validation.',
+      description: 'Run strict UI and architecture checks.',
       inputSchema: {},
       annotations: READ_ONLY,
     },
@@ -353,8 +428,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     'srijika_plan_code_structure',
     {
       title: 'Plan Srijika code structure',
-      description:
-        'Plan exact canonical Feature, Slot, Part, or strict Shared files and safe rewires without writing.',
+      description: 'Plan canonical owner files without writing.',
       inputSchema: structureInput,
       annotations: READ_ONLY,
     },
@@ -395,6 +469,36 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
   );
 
   server.registerTool(
+    'srijika_owner_tests',
+    {
+      description: 'Owner tests.',
+      inputSchema: {
+        action: z.enum(['sync', 'verify', 'evidence']),
+        dryRun: z.boolean().optional(),
+        port: z.number().int().min(1_024).max(65_535).optional(),
+        framework: z.enum(['vite', 'next-app-router']).optional(),
+        skipInstall: z.boolean().optional(),
+      },
+      annotations: MUTATING,
+    },
+    ({ action, dryRun, port, framework, skipInstall }) =>
+      action === 'sync'
+        ? callCodeProject(
+            () => codeProject.synchronizeTests({ dryRun, port, framework }),
+            'Srijika owner tests synchronized.',
+          )
+        : action === 'verify'
+          ? callCodeProject(
+              () => codeProject.verifyTests({ framework, port, skipInstall }),
+              'Srijika owner tests verified.',
+            )
+          : callCodeProject(
+              () => codeProject.testEvidence({ framework }),
+              'Srijika owner evidence collected.',
+            ),
+  );
+
+  server.registerTool(
     SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
     {
       title: 'Create React to Srijika migration',
@@ -431,13 +535,19 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Scan React migration source',
       description:
-        'Read a bounded React source inventory for Codex semantic analysis. This never writes source or target and fails closed on unsafe or unsupported entries.',
+        'Read a bounded immutable React inventory. It writes neither tree and rejects unsafe or unsupported entries.',
       inputSchema: migrationRootInput,
       annotations: READ_ONLY,
     },
-    ({ source, target }) =>
+    ({ source, target, cursor, limit }) =>
       callCodeProject(
-        () => reactMigration.scan({ source, ...(target === undefined ? {} : { target }) }),
+        () =>
+          reactMigration.scan({
+            source,
+            ...(target === undefined ? {} : { target }),
+            ...(cursor === undefined ? {} : { cursor }),
+            ...(limit === undefined ? {} : { limit }),
+          }),
         'React migration source inventory completed.',
       ),
   );
@@ -445,15 +555,22 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
   server.registerTool(
     SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getPlan,
     {
-      title: 'Get React migration plan',
+      title: 'Get React migration ownership plan',
       description:
-        'Read a deterministic target ownership plan, migration slices, mappings, blockers, and verification gates. Codex must review semantic behavior before any slice is applied.',
-      inputSchema: migrationRootInput,
+        'Read deterministic graph, owner/role decisions, native obligations, slices, adapter hints, and blockers. Codex implements this plan.',
+      inputSchema: migrationPlanInput,
       annotations: READ_ONLY,
     },
-    ({ source, target }) =>
+    ({ source, target, cursor, limit, sliceId }) =>
       callCodeProject(
-        () => reactMigration.plan({ source, ...(target === undefined ? {} : { target }) }),
+        () =>
+          reactMigration.plan({
+            source,
+            ...(target === undefined ? {} : { target }),
+            ...(cursor === undefined ? {} : { cursor }),
+            ...(limit === undefined ? {} : { limit }),
+            ...(sliceId === undefined ? {} : { sliceId }),
+          }),
         'React migration plan completed without writing.',
       ),
   );
@@ -463,20 +580,146 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Get React migration status',
       description:
-        'Read the persisted target session, reviewed slice progress, blockers, traceability, and current verification evidence for safe resume.',
-      inputSchema: migrationTargetInput,
+        'Read persisted progress, pending review handles, blockers, traceability, and verification for safe resume.',
+      inputSchema: migrationStatusInput,
       annotations: READ_ONLY,
     },
-    ({ target }) =>
-      callCodeProject(() => reactMigration.status(target), 'React migration status loaded.'),
+    ({ target, cursor, limit }) =>
+      callCodeProject(
+        () =>
+          reactMigration.status({
+            target,
+            ...(cursor === undefined ? {} : { cursor }),
+            ...(limit === undefined ? {} : { limit }),
+          }),
+        'React migration status loaded.',
+      ),
   );
 
   server.registerTool(
-    SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+    SRIJIKA_REACT_MIGRATION_TOOL_NAMES.reviewOwnership,
     {
-      title: 'Apply reviewed React migration slice',
+      title: 'Review React migration ownership',
       description:
-        'Atomically apply one Codex-reviewed semantic slice inside the target only. UI writes must have zero Srijika diagnostics before any target file is committed.',
+        'Before work starts, atomically correct bounded ownership using exact plan/source/target snapshots. Canonical names, paths, roles, and SCC slices are engine-validated; freehand targets fail.',
+      inputSchema: {
+        ...migrationTargetInput,
+        expectedPlanId: z.string().regex(/^[a-f0-9]{24}$/),
+        expectedSourceSnapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        expectedTargetSnapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        overrides: z
+          .array(
+            z.object({
+              sourcePath: z.string().min(1).max(1_024),
+              ownerKind: z.enum([
+                'application',
+                'feature',
+                'slot',
+                'part',
+                'shared-ui',
+                'shared-widget',
+                'shared-capability',
+                'project',
+              ]),
+              ownerName: z.string().regex(/^[a-z][a-z0-9-]{0,63}$/),
+              ownerPath: z.string().min(1).max(1_024),
+              role: z.enum([
+                'shell',
+                'route',
+                'ui',
+                'hook',
+                'store',
+                'api',
+                'logic',
+                'types',
+                'style',
+                'asset',
+                'test',
+                'configuration',
+              ]),
+              rationale: z.string().min(16).max(1_000),
+            }),
+          )
+          .min(1)
+          .max(256),
+      },
+      annotations: MUTATING,
+    },
+    ({
+      target,
+      expectedPlanId,
+      expectedSourceSnapshotSha256,
+      expectedTargetSnapshotSha256,
+      overrides,
+    }) =>
+      callCodeProject(
+        () =>
+          reactMigration.reviewOwnership({
+            target,
+            expectedPlanId,
+            expectedSourceSnapshotSha256,
+            expectedTargetSnapshotSha256,
+            overrides,
+          }),
+        'React migration ownership reviewed and the canonical plan recomputed.',
+      ),
+  );
+
+  server.registerTool(
+    SRIJIKA_REACT_MIGRATION_TOOL_NAMES.getSliceContext,
+    {
+      title: 'Get React migration slice context',
+      description:
+        'Read hash-checked content/imports/exports/ownership for one slice, bound to exact plan/source/target snapshots. Reuse its opaque cursor only with the same query.',
+      inputSchema: {
+        ...migrationTargetInput,
+        sliceId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
+        expectedPlanId: z.string().regex(/^[a-f0-9]{24}$/),
+        expectedSourceSnapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        expectedTargetSnapshotSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        cursor: z.string().min(1).max(2_048).optional(),
+        limit: z.number().int().min(1).max(32).optional(),
+        maxBytes: z
+          .number()
+          .int()
+          .min(1)
+          .max(2 * 1_024 * 1_024)
+          .optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    ({
+      target,
+      sliceId,
+      expectedPlanId,
+      expectedSourceSnapshotSha256,
+      expectedTargetSnapshotSha256,
+      cursor,
+      limit,
+      maxBytes,
+    }) =>
+      callCodeProject(
+        () =>
+          reactMigration.getSliceContext({
+            target,
+            sliceId,
+            expectedPlanId,
+            expectedSourceSnapshotSha256,
+            expectedTargetSnapshotSha256,
+            ...(cursor === undefined ? {} : { cursor }),
+            ...(limit === undefined ? {} : { limit }),
+            ...(maxBytes === undefined ? {} : { maxBytes }),
+          }),
+        'Immutable React migration slice context loaded.',
+      ),
+  );
+
+  server.registerTool(
+    SRIJIKA_REACT_MIGRATION_TOOL_NAMES.reviewSlice,
+    {
+      title: 'Review native React migration slice',
+      description:
+        'Persist one exact native slice and return a bound token. Compatibility, runtime ignores, bookkeeping targets, wrappers, unsafe writes, and stale state fail.',
       inputSchema: {
         ...migrationTargetInput,
         slice: migrationSliceInput,
@@ -484,29 +727,94 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
       annotations: MUTATING,
     },
     ({ target, slice }) =>
-      callCodeProject(
-        () =>
-          reactMigration.applySlice({
-            target,
-            slice: {
-              id: slice.id,
-              title: slice.title,
-              writes: slice.writes.map(({ relativePath, content, expectedSha256 }) => ({
-                relativePath,
-                content,
-                ...(expectedSha256 === undefined ? {} : { expectedSha256 }),
-              })),
-              mappings: slice.mappings.map(({ sourcePath, targetPaths, kind, notes }) => ({
+      callReactMigrationReview(() =>
+        reactMigration.reviewSlice({
+          target,
+          slice: {
+            id: slice.id,
+            title: slice.title,
+            writes: slice.writes.map(({ relativePath, content, encoding, expectedSha256 }) => ({
+              relativePath,
+              content,
+              ...(encoding === undefined ? {} : { encoding }),
+              ...(expectedSha256 === undefined ? {} : { expectedSha256 }),
+            })),
+            ...(slice.sourceArtifactCopies === undefined
+              ? {}
+              : {
+                  sourceArtifactCopies: slice.sourceArtifactCopies.map(
+                    ({ sourcePath, relativePath, expectedSourceSha256, expectedSha256 }) => ({
+                      sourcePath,
+                      relativePath,
+                      expectedSourceSha256,
+                      ...(expectedSha256 === undefined ? {} : { expectedSha256 }),
+                    }),
+                  ),
+                }),
+            ...(slice.sourcePackageDependencies === undefined
+              ? {}
+              : {
+                  sourcePackageDependencies: slice.sourcePackageDependencies.map(
+                    ({ name, version, scope }) => ({ name, version, scope }),
+                  ),
+                }),
+            ...(slice.sourcePackageScripts === undefined
+              ? {}
+              : {
+                  sourcePackageScripts: slice.sourcePackageScripts.map(({ name, command }) => ({
+                    name,
+                    command,
+                  })),
+                }),
+            ...(slice.deletes === undefined ? {} : { deletes: slice.deletes }),
+            mappings: slice.mappings.map(
+              ({
                 sourcePath,
                 targetPaths,
                 kind,
+                mode,
+                ownerId,
+                role,
+                rationale,
+                legacyAdapter,
+                mergeGroupId,
+                traceRanges,
+                notes,
+              }) => ({
+                sourcePath,
+                targetPaths,
+                kind,
+                mode,
+                ownerId,
+                role,
+                rationale,
+                ...(legacyAdapter === undefined ? {} : { legacyAdapter }),
+                ...(mergeGroupId === undefined ? {} : { mergeGroupId }),
+                ...(traceRanges === undefined ? {} : { traceRanges }),
                 ...(notes === undefined ? {} : { notes }),
-              })),
-              ...(slice.ignoredSources === undefined
-                ? {}
-                : { ignoredSources: slice.ignoredSources }),
-            },
-          }),
+              }),
+            ),
+            ...(slice.ignoredSources === undefined ? {} : { ignoredSources: slice.ignoredSources }),
+          },
+        }),
+      ),
+  );
+
+  server.registerTool(
+    SRIJIKA_REACT_MIGRATION_TOOL_NAMES.applySlice,
+    {
+      title: 'Apply reviewed React migration slice',
+      description:
+        'Atomically apply only the persisted payload selected by its token. Stale source, target, plan, or payload state fails.',
+      inputSchema: {
+        ...migrationTargetInput,
+        reviewToken: z.string().regex(/^[a-f0-9]{64}$/),
+      },
+      annotations: MUTATING,
+    },
+    ({ target, reviewToken }) =>
+      callCodeProject(
+        () => reactMigration.applySlice({ target, reviewToken }),
         'Reviewed React migration slice applied atomically to the target.',
       ),
   );
@@ -516,26 +824,19 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Verify React migration slice',
       description:
-        'Advance only after this fixed gate: zero Srijika diagnostics; architecture passed; TypeScript passed; production build passed.',
+        'Engine-run typecheck/build, diagnostics, and architecture must pass against the current snapshots. Caller statuses and receipts are rejected.',
       inputSchema: {
         ...migrationTargetInput,
         sliceId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
-        commands: migrationSliceEvidence,
+        commands: z.never().optional(),
+        receipts: z.never().optional(),
+        status: z.never().optional(),
       },
       annotations: MUTATING,
     },
-    ({ target, sliceId, commands }) =>
+    ({ target, sliceId }) =>
       callCodeProject(
-        () =>
-          reactMigration.verifySlice({
-            target,
-            sliceId,
-            commands: commands.map(({ name, status, details }) => ({
-              name,
-              status,
-              ...(details === undefined ? {} : { details }),
-            })),
-          }),
+        () => reactMigration.verifySlice({ target, sliceId }),
         'React migration slice verification completed.',
       ),
   );
@@ -545,24 +846,16 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Verify React migration',
       description:
-        'Run fail-closed session verification. Source must remain unchanged; traceability and architecture must pass; typecheck, build, and test evidence must be passed; routes must be passed with reviewed nonblank details when route files or semantic routes are present; visual must be passed with reviewed details naming at least two viewports or two WxH measurements when entry, component, style, or asset sources are present. Duplicate or oversized evidence is rejected.',
+        'With target and optional includeInstall only, let the engine prepare isolated source/target runtimes, select loopback ports, derive routes, capture fixed viewport DOM/PNG evidence, run target gates, and bind receipts/manifest to current snapshots. Caller URLs, routes, viewports, artifacts, details, statuses, and receipts are rejected.',
       inputSchema: migrationVerifyInput,
       annotations: MUTATING,
     },
-    ({ target, commands }) =>
+    ({ target, includeInstall }) =>
       callCodeProject(
         () =>
           reactMigration.verify({
             target,
-            ...(commands === undefined
-              ? {}
-              : {
-                  commands: commands.map(({ name, status, details }) => ({
-                    name,
-                    status,
-                    ...(details === undefined ? {} : { details }),
-                  })),
-                }),
+            ...(includeInstall === undefined ? {} : { includeInstall }),
           }),
         'React migration verification completed.',
       ),
@@ -573,25 +866,18 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
     {
       title: 'Finalize React migration',
       description:
-        'Finalize only when unchanged-source and complete-traceability checks pass, strict architecture passes, typecheck/build/test evidence is passed, routes evidence has reviewed nonblank details when required, and visual evidence names at least two reviewed viewports or two WxH measurements when required. Duplicate or oversized evidence is rejected. Unsupported or ambiguous behavior remains blocking; no zero-loss guarantee is implied.',
-      inputSchema: migrationVerifyInput,
+        'With target only, rebuild isolated browser runtimes, recapture engine-owned parity, rerun gates, and finalize only native traceability, a closed graph, architecture, real tests, and fresh snapshot-bound evidence.',
+      inputSchema: {
+        ...migrationTargetInput,
+        commands: z.never().optional(),
+        receipts: z.never().optional(),
+        status: z.never().optional(),
+      },
       annotations: MUTATING,
     },
-    ({ target, commands }) =>
+    ({ target }) =>
       callCodeProject(
-        () =>
-          reactMigration.finalize({
-            target,
-            ...(commands === undefined
-              ? {}
-              : {
-                  commands: commands.map(({ name, status, details }) => ({
-                    name,
-                    status,
-                    ...(details === undefined ? {} : { details }),
-                  })),
-                }),
-          }),
+        () => reactMigration.finalize({ target }),
         'React migration finalized with required evidence.',
       ),
   );

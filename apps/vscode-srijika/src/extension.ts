@@ -45,6 +45,7 @@ import {
 import { upgradedSrijikaPortableValidator } from './portable-validator-sync';
 import { SrijikaStructureTreeItem, SrijikaStructureTreeProvider } from './structure-view';
 import { SrijikaRuntimeController } from './runtime-controller';
+import { SrijikaTestingController } from './testing-controller';
 import {
   describeReactMigrationResult,
   runReactMigration,
@@ -167,6 +168,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.createDiagnosticCollection('srijika-architecture');
   const output = vscode.window.createOutputChannel('Srijika');
   const runtimeController = new SrijikaRuntimeController(output);
+  const testingController = new SrijikaTestingController(output);
   const compilations = new Map<string, CachedCompilation>();
   let cssClassNamesPromise: Promise<readonly string[]> | null = null;
   let architectureTimer: NodeJS.Timeout | undefined;
@@ -647,17 +649,17 @@ export function activate(context: vscode.ExtensionContext): void {
         [
           {
             label: 'Start or resume React import',
-            description: 'Create or continue a safe migration in a separate Srijika target',
+            description: 'Plan a source-immutable native Feature / Slot / Part / Shared conversion',
             operation: 'start' as const,
           },
           {
             label: 'Show migration status',
-            description: 'Read the target migration session without changing the source',
+            description: 'Read native ownership, slice progress, and blockers without writing',
             operation: 'status' as const,
           },
           {
             label: 'Verify converted project',
-            description: 'Run the canonical migration verification for an existing target',
+            description: 'Run engine-owned architecture and completion checks without finalizing',
             operation: 'verify' as const,
           },
         ],
@@ -1353,6 +1355,52 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     },
   );
+  const syncOwnerTests = vscode.commands.registerCommand(
+    'srijika.syncOwnerTests',
+    async (resource?: vscode.Uri) => {
+      try {
+        const summary = await testingController.synchronize(resource);
+        structureProvider.refresh();
+        void vscode.window.showInformationMessage(
+          `Srijika synchronized ${summary.artifacts} owner-test artifact(s): ${summary.created} created, ${summary.updated} updated.`,
+        );
+      } catch (error) {
+        void vscode.window.showErrorMessage(
+          `Srijika could not synchronize owner tests: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
+  const showTestEvidence = vscode.commands.registerCommand(
+    'srijika.showTestEvidence',
+    async (resource?: vscode.Uri) => {
+      try {
+        const result = await testingController.showEvidence(resource);
+        const message = `Srijika test evidence: ${result.manifest.status} (${result.manifest.owners.length} owner(s)).`;
+        if (result.manifest.status === 'passed') void vscode.window.showInformationMessage(message);
+        else void vscode.window.showWarningMessage(message);
+      } catch (error) {
+        void vscode.window.showErrorMessage(
+          `Srijika could not collect test evidence: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
+  const verifyOwnerTests = vscode.commands.registerCommand(
+    'srijika.verifyOwnerTests',
+    async (resource?: vscode.Uri) => {
+      try {
+        const result = await testingController.verify(resource);
+        const message = `Srijika owner verification: ${result.status} (${result.evidence.manifest.owners.length} owner(s)).`;
+        if (result.status === 'passed') void vscode.window.showInformationMessage(message);
+        else void vscode.window.showWarningMessage(message);
+      } catch (error) {
+        void vscode.window.showErrorMessage(
+          `Srijika owner verification failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    },
+  );
 
   const completions = vscode.languages.registerCompletionItemProvider(
     { language: 'typescriptreact', pattern: '**/*.tsx' },
@@ -1603,6 +1651,9 @@ export function activate(context: vscode.ExtensionContext): void {
     stopApp,
     installDependencies,
     runDoctor,
+    syncOwnerTests,
+    showTestEvidence,
+    verifyOwnerTests,
     runtimeController,
     completions,
     codeActions,

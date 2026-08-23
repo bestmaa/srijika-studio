@@ -1,11 +1,15 @@
 import { resolve } from 'node:path';
 
 import {
+  collectSrijikaTestEvidence,
   checkSrijikaArchitecture,
   checkSrijikaUiDiagnostics,
   findSrijikaProjectRoot,
   inspectSrijikaProject,
   scaffoldSrijikaStructure,
+  synchronizeSrijikaNextTests,
+  synchronizeSrijikaViteTests,
+  verifySrijikaOwnerTests,
   SrijikaProjectFileSystem,
   type SrijikaStructureKind,
 } from '@srijika/developer-engine';
@@ -60,6 +64,7 @@ export class SrijikaCodeProjectService {
       packageManager: project.packageManager,
       lockfile: project.lockfile,
       viteProject: project.viteProject,
+      nextProject: project.nextProject,
       architecture: project.architecture,
       ownershipRoots,
       scripts: project.scripts,
@@ -122,5 +127,54 @@ export class SrijikaCodeProjectService {
         to: move.toRelativePath,
       })),
     };
+  }
+
+  async synchronizeTests(
+    request: {
+      dryRun?: boolean | undefined;
+      port?: number | undefined;
+      framework?: 'vite' | 'next-app-router' | undefined;
+    } = {},
+  ) {
+    const root = await this.root();
+    const project = await inspectSrijikaProject(root);
+    const options = {
+      project: root,
+      ...(request.dryRun === undefined ? {} : { dryRun: request.dryRun }),
+      ...(request.port === undefined ? {} : { port: request.port }),
+    };
+    if (request.framework === 'next-app-router' || (project.nextProject && !project.viteProject)) {
+      return synchronizeSrijikaNextTests(options);
+    }
+    if (request.framework === 'vite' || (project.viteProject && !project.nextProject)) {
+      return synchronizeSrijikaViteTests(options);
+    }
+    throw new Error(
+      'The bounded project must select exactly one supported Vite or Next.js framework.',
+    );
+  }
+
+  async testEvidence(request: { framework?: 'vite' | 'next-app-router' | undefined } = {}) {
+    const root = await this.root();
+    return collectSrijikaTestEvidence({
+      project: root,
+      ...(request.framework === undefined ? {} : { framework: request.framework }),
+    });
+  }
+
+  async verifyTests(
+    request: {
+      framework?: 'vite' | 'next-app-router' | undefined;
+      port?: number | undefined;
+      skipInstall?: boolean | undefined;
+    } = {},
+  ) {
+    const root = await this.root();
+    return verifySrijikaOwnerTests({
+      project: root,
+      ...(request.framework === undefined ? {} : { framework: request.framework }),
+      ...(request.port === undefined ? {} : { port: request.port }),
+      ...(request.skipInstall === undefined ? {} : { skipInstall: request.skipInstall }),
+    });
   }
 }

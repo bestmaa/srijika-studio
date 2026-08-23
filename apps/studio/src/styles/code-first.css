@@ -3217,6 +3217,77 @@ span.code-first-ui-node-disclosure {
   opacity: 0.5;
 }
 
+.code-first-test-evidence-dialog {
+  width: min(760px, 100%);
+}
+
+.code-first-test-evidence-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.code-first-test-owner-list,
+.code-first-test-owner-list ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.code-first-test-owner-list > li {
+  padding: 10px;
+  border: 1px solid var(--code-first-border);
+  border-left: 3px solid #94a3b8;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-2, #1a2233) 65%, transparent);
+}
+
+.code-first-test-owner-list > li.is-passed {
+  border-left-color: #34d399;
+}
+
+.code-first-test-owner-list > li.is-failed {
+  border-left-color: #fb7185;
+}
+
+.code-first-test-owner-list > li.is-uncovered {
+  border-left-color: #fbbf24;
+}
+
+.code-first-test-owner-list > li > div,
+.code-first-test-owner-list li li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.code-first-test-owner-list > li > div strong,
+.code-first-test-owner-list li li span:last-child {
+  color: var(--code-first-muted);
+  font-size: 10px;
+}
+
+.code-first-test-owner-list > li > ul,
+.code-first-test-owner-list details {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid var(--code-first-border);
+  color: var(--code-first-muted);
+  font-size: 10px;
+}
+
+.code-first-test-owner-list details code {
+  display: block;
+  margin-top: 6px;
+}
+
+.code-first-test-owner-list details p {
+  margin: 6px 0 0;
+  color: #fecdd3;
+}
+
 /* Architecture guide ----------------------------------------------------- */
 
 .code-first-structure-backdrop {

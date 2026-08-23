@@ -10,9 +10,10 @@ may write only inside the target tree and records its session at:
 
 The migration engine is the single implementation used by CLI, MCP, VS Code,
 and Desktop Studio adapters. It owns canonical path checks, source inventory,
-the baseline, plan/session state, atomic target writes, traceability, and
-verification. Codex performs the semantic analysis required to turn a reviewed
-source slice into canonical Feature, Slot, Part, and Shared owners.
+the baseline, deterministic source/import/ownership graph, plan/session state,
+review-token-bound payloads, atomic target writes, traceability, native target
+graph inspection, and verification. Codex implements each fixed owner/role
+obligation with semantic React code; it does not invent ownership from scratch.
 
 ## Safety contract
 
@@ -21,7 +22,11 @@ source slice into canonical Feature, Slot, Part, and Shared owners.
 - The source is read-only and its baseline is checked again before completion.
 - The target must be new or a recognizable clean generated Srijika starter.
 - Unsupported or ambiguous behavior blocks the affected slice.
-- Every migrated source item is represented in source-to-target traceability.
+- Every runtime source item finishes in a canonical native owner. Compatibility
+  and adapter findings are planning hints only; review and apply reject them.
+- Generic runtime ignores, bookkeeping-only mappings to starter files, copied
+  legacy trees, wrapper/re-export/iframe fallbacks, source-root dependencies,
+  and unowned target modules are rejected.
 - Srijika does not claim arbitrary automatic rewriting or guaranteed zero
   context loss. Completion means the declared evidence passes for the supported
   React source, with no hidden unmapped item.
@@ -54,8 +59,13 @@ Resume or inspect an interrupted session:
 
 ```bash
 srijika migrate status --target ../new-app
+srijika migrate parity --target ../new-app
 srijika migrate verify --target ../new-app
+srijika migrate finalize --target ../new-app
 ```
+
+Parity launches engine-owned isolated source/target runtimes. Add `--include-install`
+only when dependency downloads are explicitly permitted.
 
 ## Codex and MCP
 
@@ -65,18 +75,49 @@ Use the tools in this order:
    baseline, create the target scaffold, and persist a session. It never writes
    to the source.
 2. `srijika_scan_react_migration_source` — read the bounded React inventory.
-3. `srijika_get_react_migration_plan` — inspect slices, mappings, blockers, and
-   required evidence.
-4. `srijika_apply_react_migration_slice` — apply one Codex-reviewed slice as an
-   atomic target-only change.
-5. `srijika_verify_react_migration_slice` — require zero Srijika diagnostics,
-   valid architecture, passed TypeScript evidence, and passed production-build
-   evidence before another slice is accepted.
-6. `srijika_get_react_migration_status` — resume from persisted session state.
-7. `srijika_verify_react_migration` — run session-wide source, traceability,
-   architecture, build, typecheck, and test gates.
-8. `srijika_finalize_react_migration` — complete only when all required current
-   evidence passes.
+   Large inventories are paged with an opaque query-bound `cursor` and `limit`
+   (50 by default, 200 maximum). Reuse `nextCursor` unchanged only with the
+   same source snapshot, plan, and optional slice filter.
+3. `srijika_get_react_migration_plan` — inspect deterministic owners, roles,
+   dependency graph, completion obligations, slices, adapters, and blockers.
+4. `srijika_review_react_migration_ownership` — only when semantic analysis
+   disproves an inferred owner, submit bounded canonical owner corrections
+   with the exact current plan ID, source snapshot, and target snapshot before any slice
+   review/application. The engine rechecks the source and
+   recomputes the plan ID and SCC-atomic slices; freehand target paths are not
+   accepted.
+   Bind `expectedPlanId` to `planId`, `expectedSourceSnapshotSha256` to
+   `sourceSnapshotSha256`, and `expectedTargetSnapshotSha256` to
+   `targetBaselineSha256` from that same plan response.
+5. `srijika_get_react_migration_slice_context` — read only the selected slice's
+   immutable source content in byte-bounded pages, binding the same three
+   expected plan/source/target fields. Each item carries its hash,
+   imports, exports, owner, and canonical target paths; environment values and
+   binary asset content are never returned.
+6. `srijika_review_react_migration_slice` — validate and persist one exact
+   native implementation payload, including expected-hash deletion of obsolete
+   starter files when planned, then return its bound review token.
+7. `srijika_apply_react_migration_slice` — apply using only `target` and the
+   review token; reviewed code is not repeated or changed at apply time.
+8. `srijika_verify_react_migration_slice` — require zero Srijika diagnostics,
+   valid architecture, and engine-executed TypeScript and production-build
+   gates before another slice is accepted. It accepts no caller-authored
+   command status or receipt.
+9. `srijika_get_react_migration_status` — resume from persisted session state.
+   If a reviewed slice was not applied before interruption, status returns a
+   pending apply handle; pass that value unchanged as `reviewToken` rather than
+   recreating the review.
+10. `srijika_verify_react_migration` — run session-wide source, traceability,
+    architecture, build, typecheck, and test gates. The engine executes and
+    snapshot-signs the command results itself. Its only optional input is
+    `includeInstall`. For parity the engine creates an isolated temporary source
+    copy, prepares both runtimes, selects loopback ports, derives routes, captures
+    fixed-viewport semantic DOM/redirect/error and PNG evidence, applies fixed
+    thresholds, and persists a snapshot-bound manifest. Caller URLs, routes,
+    viewports, screenshots, evidence paths, details, and pass claims are rejected.
+11. `srijika_finalize_react_migration` — rebuild the isolated runtimes, recapture
+    and revalidate engine-owned browser parity, rerun gates, and complete only when every runtime mapping is
+    native, the target graph is closed, and no unsupported finding remains.
 
 Codex must inventory routes/layouts, components and contracts, hooks/context and
 state, queries and API boundaries, authentication, CSS and assets, forms,
@@ -106,7 +147,9 @@ the source code, target code, and migration session remain authoritative.
 Finalization requires current evidence for:
 
 - source baseline unchanged;
-- complete source-to-target mapping or explicitly reviewed blocker/exception;
+- complete native source-to-target ownership and role obligations;
+- closed target import/dependency graph with no compatibility, wrapper,
+  raw-source copy, runtime fallback, or unowned source module;
 - strict Srijika architecture;
 - zero Srijika compiler diagnostics across every resolved UI source;
 - build, typecheck, and tests;
@@ -114,19 +157,36 @@ Finalization requires current evidence for:
 - representative responsive/visual comparison when visual behavior is in
   scope.
 
-Verification evidence uses the names `install`, `typecheck`, `build`, `test`,
-`routes`, and `visual`. Typecheck, build, and test are always required and must
-pass. When the
-inventory contains route files or reports `semanticRoutesPresent`, `routes` must
-be `passed`. Codex reviews and submits route parity for semantic routes inside
-entry or other files, even if the coarse filename classifier labels them
-differently. When the inventory
-contains an entry, component, style, or asset, `visual` must be `passed`; neither
-conditional parity gate can be skipped. Slice verification also confirms the
-source baseline is still unchanged. Route and visual entries require nonempty
-details. Visual details must name at least two reviewed viewports from mobile,
-tablet, desktop, and wide, or provide at least two `WxH` measurements. Duplicate
-or oversized evidence is rejected.
+The engine executes typecheck, build, and test in the target with bounded time
+and output, then signs each result to the current target snapshot. MCP inputs do
+not accept caller-authored statuses, receipts, routes, screenshots, evidence
+paths, or evidence prose. When the target has no declared `test` script,
+verification stays blocked; architecture validation is not treated as a
+substitute for meaningful migrated tests. For browser parity, the engine copies
+the immutable source to a temporary runtime, prepares the target runtime,
+selects separate loopback ports, derives up to 64 concrete routes, and compares
+redirects, semantic DOM traces, console/page errors, and PNG pixels. Routes,
+viewports, server commands, ports, and pass thresholds are engine-owned. The
+capture and manifest live under `.srijika/migrations/react/` and are bound to
+current source and target snapshots. Slice verification also confirms the source
+baseline is still unchanged.
+
+Browser capture needs a resolvable Playwright runtime and Chromium. A published
+MCP installation includes Playwright as an optional dependency, but Chromium
+may still require `npx playwright install chromium`. A bundled Codex plugin
+fails closed when the host cannot resolve Playwright or launch Chromium; the
+other project, planning, review, apply, and architecture tools remain usable.
+
+Minimal verification input:
+
+```json
+{
+  "target": "/absolute/path/new-srijika"
+}
+```
+
+Set `includeInstall: true` only when dependency downloads are explicitly
+permitted; URLs, ports, routes, and viewports are never model inputs.
 
 The final report records canonical source/target roots, session ID, mapped and
 blocked counts, target owner tree, commands and results, route/visual evidence,

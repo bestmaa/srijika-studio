@@ -182,8 +182,9 @@ export function ProjectWelcomeScreen({
                 <span className="code-first-welcome-action-kicker">SAFE REACT MIGRATION</span>
                 <h2>Import Existing React Project</h2>
                 <p>
-                  Select a read-only React source and a separate target. Studio runs the canonical
-                  migration engine; rerunning the same target resumes its saved session.
+                  Select a read-only React source and a separate target. Studio plans a native
+                  Feature / Slot / Part / Shared conversion; rerunning the target resumes its saved,
+                  dependency-ordered slices.
                 </p>
               </div>
               <button type="button" disabled={disabled} onClick={onImportReactProject}>
@@ -212,7 +213,10 @@ export function ProjectWelcomeScreen({
                   <ArrowRight size={15} aria-hidden="true" />
                 </button>
               )}
-              <small>Source and target must be separate, non-overlapping folders</small>
+              <small>
+                Source stays immutable; finalization remains blocked until native ownership and
+                verification are complete
+              </small>
             </article>
           )}
         </div>

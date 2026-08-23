@@ -40,6 +40,9 @@ for (const releasePackage of releasePackages) {
   if (manifest.publishConfig?.access !== 'public') {
     throw new Error(`${manifest.name} must publish with public access.`);
   }
+  if (manifest.license !== 'Apache-2.0') {
+    throw new Error(`${manifest.name} must declare the repository Apache-2.0 license.`);
+  }
   if (manifest.repository?.url !== repository) {
     throw new Error(`${manifest.name} repository URL must match the GitHub OIDC repository.`);
   }

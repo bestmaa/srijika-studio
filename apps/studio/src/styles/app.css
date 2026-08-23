@@ -12,6 +12,15 @@
   text-rendering: optimizeLegibility;
 }
 
+.app-loading-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: var(--appearance-app-background, #111116);
+  color: var(--appearance-text-primary, #f1f1f4);
+  font-size: 0.875rem;
+}
+
 /* Contextual page-prop promotion and precise hierarchy placement. */
 .tree-row.is-drop-before,
 .tree-row.is-drop-after,

@@ -2546,7 +2546,8 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
                 (target.kind === 'shared-widget' && publicTargetCapability === 'connector') ||
                 (target.kind === 'shared-capability' &&
                   highestCapability !== undefined &&
-                  publicTargetCapability === highestCapability);
+                  (publicTargetCapability === highestCapability ||
+                    publicTargetCapability === 'api'));
               if (!publicBoundary) {
                 report(
                   'SRIJIKA4114',
@@ -2557,7 +2558,7 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
                     ? `Import only its canonical pure UI entry or passive Types contract.`
                     : target.kind === 'shared-widget'
                       ? `Import only its canonical Connector entry or passive Types contract.`
-                      : `Import the highest available capability gateway (${highestCapability ?? 'Hook, Store, Logic, or API'}) or passive Types.`,
+                      : `Import the highest available capability gateway (${highestCapability ?? 'Hook, Store, Logic, or API'}), an explicit API boundary, or passive Types.`,
                   'error',
                   'SRIJIKA-ARCH-SHARED-PRIVATE-IMPORT',
                 );
@@ -2882,14 +2883,16 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
       const capabilities = key ? ownerCapabilities.get(key) : undefined;
       if (
         !capabilities ||
-        !(['hook', 'store', 'logic', 'api'] as const).some((role) => capabilities.has(role))
+        !(['hook', 'store', 'logic', 'api', 'types'] as const).some((role) =>
+          capabilities.has(role),
+        )
       ) {
         report(
           'SRIJIKA4115',
           record.fileName,
           record.span,
           `The ${name} shared headless capability has no public runtime gateway.`,
-          `Add at least one canonical Hook, Store, Logic, or API. Types alone cannot expose behavior.`,
+          `Add at least one canonical Hook, Store, Logic, API, or passive Types contract. Types-only capabilities expose no runtime behavior and consumers must import them with import type.`,
           'error',
           'SRIJIKA-ARCH-SHARED-MISSING-RUNTIME-GATEWAY',
         );

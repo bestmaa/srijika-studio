@@ -25,10 +25,12 @@ import {
   chooseAndOpenCodeProject,
   chooseAndRunReactMigration,
   createCodeProjectUiSource,
-  getLaunchProject,
+  describeOwnerTestCommand,
   describeReactMigrationCommand,
-  type CodeProjectPreviewAsset,
+  getLaunchProject,
   type CodeProjectEntry,
+  type CodeProjectPreviewAsset,
+  type CodeProjectPreviewStylesheet,
   getProjectRuntimeStatus,
   installProjectDependencies,
   isTauriDesktop,
@@ -40,8 +42,10 @@ import {
   openCodeProjectPreview,
   openInVsCode,
   openBrowserPreview,
+  ownerTestEvidenceSummary,
+  type OwnerTestEvidenceSummary,
   type ProjectRuntimeStatus,
-  type CodeProjectPreviewStylesheet,
+  runOwnerTests,
   saveTsxSource,
   scanCodeProject,
   scaffoldCodeProjectStructure,
@@ -84,6 +88,7 @@ import {
   type LivePreviewRuntimeState,
   type LivePreviewSourceLocation,
 } from './LiveCodeProjectFrame';
+import { OwnerTestEvidenceDialog } from './OwnerTestEvidenceDialog';
 import { codeProjectEntriesFromFileMap, ProjectExplorer } from './ProjectExplorer';
 import { ProjectWelcomeScreen } from './ProjectWelcomeScreen';
 import { StructureGuideDialog } from './StructureGuideDialog';
@@ -503,6 +508,8 @@ export function CodeFirstStudio() {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [structureGuideOpen, setStructureGuideOpen] = useState(false);
+  const [ownerTestsBusy, setOwnerTestsBusy] = useState(false);
+  const [ownerTestEvidence, setOwnerTestEvidence] = useState<OwnerTestEvidenceSummary | null>(null);
   const [architectureRoots, setArchitectureRoots] = useState<CodeProjectArchitectureConfig>(
     DEFAULT_ARCHITECTURE_ROOTS,
   );
@@ -1314,6 +1321,44 @@ export function CodeFirstStudio() {
       setMessage(`React migration failed: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleOwnerTests = async (operation: 'sync' | 'verify' | 'evidence'): Promise<void> => {
+    if (!projectRoot || !desktopMode) {
+      setMessage('Owner-test commands require an open desktop Srijika project.');
+      return;
+    }
+    if (ownerTestsBusy) return;
+    const actionRoot = projectRoot;
+    const generation = projectSessionGenerationRef.current;
+    setOwnerTestsBusy(true);
+    setMessage(
+      operation === 'sync'
+        ? 'Synchronizing owner Vitest and Playwright artifacts…'
+        : operation === 'verify'
+          ? 'Running architecture, typecheck, Vitest, and Playwright owner gates…'
+          : 'Reading engine-produced owner test evidence…',
+    );
+    try {
+      const response = await runOwnerTests(actionRoot, operation);
+      if (!response) throw new Error('Desktop did not return the owner-test result.');
+      if (!isProjectSessionCurrent(generation, actionRoot)) return;
+      if (operation === 'sync') {
+        await refreshProjectIndex();
+        if (!isProjectSessionCurrent(generation, actionRoot)) return;
+        setMessage(describeOwnerTestCommand(response));
+      } else {
+        const evidence = ownerTestEvidenceSummary(response);
+        setOwnerTestEvidence(evidence);
+        setMessage(describeOwnerTestCommand(response));
+      }
+    } catch (error) {
+      if (isProjectSessionCurrent(generation, actionRoot)) {
+        setMessage(`Owner-test command failed: ${errorMessage(error)}`);
+      }
+    } finally {
+      setOwnerTestsBusy(false);
     }
   };
 
@@ -2490,6 +2535,30 @@ export function CodeFirstStudio() {
         >
           Build App
         </button>
+        <button
+          type="button"
+          disabled={!projectRoot || !desktopMode || busy || ownerTestsBusy}
+          title="Create or safely update owner-scoped Vitest and Playwright artifacts"
+          onClick={() => void handleOwnerTests('sync')}
+        >
+          {ownerTestsBusy ? 'Owner tests…' : 'Sync Owner Tests'}
+        </button>
+        <button
+          type="button"
+          disabled={!projectRoot || !desktopMode || busy || ownerTestsBusy}
+          title="Synchronize and run architecture, typecheck, Vitest, and Playwright owner gates"
+          onClick={() => void handleOwnerTests('verify')}
+        >
+          Verify Owner Tests
+        </button>
+        <button
+          type="button"
+          disabled={!projectRoot || !desktopMode || busy || ownerTestsBusy}
+          title="Read owner-wise passed, failed, uncovered, and not-run evidence"
+          onClick={() => void handleOwnerTests('evidence')}
+        >
+          Test Evidence
+        </button>
       </section>
 
       <div
@@ -3075,6 +3144,12 @@ export function CodeFirstStudio() {
           existingRelativePaths={projectEntries.map((entry) => entry.relativePath)}
           onClose={() => setStructureDialogOwner(null)}
           onCreate={handleCreateStructure}
+        />
+      )}
+      {ownerTestEvidence && (
+        <OwnerTestEvidenceDialog
+          evidence={ownerTestEvidence}
+          onClose={() => setOwnerTestEvidence(null)}
         />
       )}
     </div>

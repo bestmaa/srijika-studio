@@ -1472,6 +1472,16 @@ class SrijikaTsxCompiler {
       return literal(null);
     }
     if (!initializer.expression) return literal(null);
+    if (
+      expected === 'event' &&
+      this.#isNormalizedInputValueBridge(attribute, unwrapExpression(initializer.expression))
+    ) {
+      // Native text inputs receive a ChangeEvent, while Srijika UI props expose
+      // a portable string value callback. This is the one permitted UI-side
+      // adapter: it forwards event.target.value directly to a typed prop and
+      // contains no state, branching, or other behavior.
+      return literal(null);
+    }
     if (expected === 'event' && !this.#referencePath(unwrapExpression(initializer.expression))) {
       this.#addDiagnostic(
         'SRIJIKA2003',
@@ -1491,6 +1501,31 @@ class SrijikaTsxCompiler {
       );
     }
     return expression;
+  }
+
+  #isNormalizedInputValueBridge(attribute: ts.JsxAttribute, expression: ts.Expression): boolean {
+    const name = attribute.name.getText(this.#sourceFile);
+    if (name !== 'onChange' && name !== 'onInput') return false;
+    if (!ts.isArrowFunction(expression) || expression.parameters.length !== 1) return false;
+    const parameter = expression.parameters[0];
+    if (!parameter || !ts.isIdentifier(parameter.name) || !ts.isCallExpression(expression.body))
+      return false;
+    if (expression.body.arguments.length !== 1) return false;
+    const callback = this.#referencePath(unwrapExpression(expression.body.expression));
+    // `#referencePath` returns segments *below* the props identifier, so a
+    // direct props callback has exactly one segment here.
+    if (!callback || callback.length !== 1) return false;
+    const argument = unwrapExpression(expression.body.arguments[0]!);
+    if (!ts.isPropertyAccessExpression(argument) || argument.name.text !== 'value') return false;
+    if (
+      !ts.isPropertyAccessExpression(argument.expression) ||
+      argument.expression.name.text !== 'target'
+    )
+      return false;
+    return (
+      ts.isIdentifier(argument.expression.expression) &&
+      argument.expression.expression.text === parameter.name.text
+    );
   }
 
   #eventAttributeQuickFixes(attribute: ts.JsxAttribute): readonly SrijikaQuickFix[] {

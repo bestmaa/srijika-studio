@@ -9,7 +9,10 @@ import {
   type SrijikaRuntimePreference,
 } from '@srijika/developer-engine';
 
-async function selectedWorkspaceFolder(resource?: vscode.Uri): Promise<vscode.WorkspaceFolder> {
+export async function selectedWorkspaceFolder(
+  resource?: vscode.Uri,
+  placeHolder = 'Choose the Srijika project to run',
+): Promise<vscode.WorkspaceFolder> {
   if (resource) {
     const folder = vscode.workspace.getWorkspaceFolder(resource);
     if (folder) return folder;
@@ -23,7 +26,7 @@ async function selectedWorkspaceFolder(resource?: vscode.Uri): Promise<vscode.Wo
   if (folders.length === 1 && folders[0]) return folders[0];
   if (folders.length === 0) throw new Error('Open a Srijika project folder first.');
   const selected = await vscode.window.showWorkspaceFolderPick({
-    placeHolder: 'Choose the Srijika project to run',
+    placeHolder,
   });
   if (!selected) throw new Error('No Srijika project was selected.');
   return selected;

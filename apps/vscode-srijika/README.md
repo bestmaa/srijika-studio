@@ -239,6 +239,16 @@ Code extension always enforce the same policy.
 - **Srijika: Stop App** (`srijika.stopApp`) terminates the managed VS Code task.
 - **Srijika: Run Doctor** (`srijika.doctor`) audits Node, Bun, package manager,
   lockfile, and project scripts through the shared developer engine.
+- **Srijika: Sync Owner Vitest / Playwright Tests** (`srijika.syncOwnerTests`)
+  safely creates or updates the generated Vite or Next.js owner-test harness,
+  while preserving authored fixtures and refusing unknown file collisions.
+- **Srijika: Show Owner Test Evidence** (`srijika.showTestEvidence`) reads the
+  generated Vitest and Playwright JSON reports and shows every owner as passed,
+  failed, uncovered, or not-run. Missing reports and verification gates never
+  appear green.
+- **Srijika: Verify All Owner Tests** (`srijika.verifyOwnerTests`) synchronizes
+  the adapter and package contract, installs the resolved test toolchain and
+  Chromium, then runs architecture, typecheck, Vitest, and Playwright gates.
 
 ## Development
 

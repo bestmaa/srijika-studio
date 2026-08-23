@@ -18,7 +18,8 @@ guessing DOM coordinates.
 - Existing React application to a new Srijika project: read
   [react-project-migration.md](references/react-project-migration.md), then use the
   migration session tools. Keep the source immutable, require a distinct new or
-  empty target, and apply only reviewed slices.
+  empty target, follow the deterministic ownership plan, review each native
+  slice, and apply only its bound token. Compatibility wrappers never complete.
 - Canvas nodes, visual document props/events/styles, layout snapshots, history, or
   clean preview capture: use the Studio bridge workflow below.
 - If the Studio bridge is unavailable during a code-project task, continue with
@@ -124,8 +125,10 @@ operations for a canonical TSX ownership change.
 
 Treat migration as a reviewable, resumable program rather than a bulk copy. Call
 `srijika_create_react_migration`, scan and inspect the plan, then let Codex
-analyze one source slice and submit only that reviewed slice to
-`srijika_apply_react_migration_slice`. Verify the slice before continuing.
+read the bounded immutable slice context. If that context disproves an inferred
+owner, use bounded canonical ownership review before any migration work. Then
+analyze one source slice, submit it to `srijika_review_react_migration_slice`,
+and apply only its returned review token. Verify the slice before continuing.
 
 Every slice has one fixed gate: **zero Srijika diagnostics → architecture pass
 → TypeScript pass → production build pass**. Stop and fix before continuing.
@@ -139,8 +142,13 @@ a blocker, not permission to guess.
 
 Before finalization, call `srijika_verify_react_migration` and require source
 immutability, complete source-to-target traceability, Srijika architecture,
-zero Srijika diagnostics, build, typecheck, and test evidence. Add route and visual evidence when the
-source exposes those surfaces. Do not describe migration as guaranteed
+zero Srijika diagnostics, and engine-executed build, typecheck, and test gates.
+Never submit caller-authored status or receipt claims, URLs, routes, viewports,
+screenshots, artifact paths, or pass details. When route or visual surfaces
+require parity, call verify with `target` and optional `includeInstall` only.
+The engine prepares an isolated immutable-source copy plus the target runtime,
+selects loopback ports, derives routes, captures fixed-viewport semantic
+DOM/redirect/error and PNG evidence, and applies fixed thresholds. Do not describe migration as guaranteed
 zero-loss; report every blocker and unmapped source item. Finalize only after
 the session reports all required gates passing.
 

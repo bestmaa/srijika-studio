@@ -1,11 +1,8 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import '@srijika/core-components/styles.css';
 
-import { PreviewApp } from './app/PreviewApp';
-import { AppearanceProvider } from './app/AppearanceProvider';
-import { StudioApp } from './app/StudioApp';
 import {
   applyAppearanceToElement,
   loadAppearancePreferences,
@@ -25,14 +22,26 @@ const initialScheme = resolveColorScheme(
 );
 applyAppearanceToElement(document.documentElement, initialAppearance, initialScheme);
 
+const RouteApp = window.location.pathname.startsWith('/preview')
+  ? lazy(async () => {
+      const module = await import('./app/PreviewApp');
+      return { default: module.PreviewApp };
+    })
+  : lazy(async () => {
+      const module = await import('./app/StudioApp');
+      return { default: module.StudioApp };
+    });
+
 createRoot(root).render(
   <StrictMode>
-    {window.location.pathname.startsWith('/preview') ? (
-      <AppearanceProvider>
-        <PreviewApp />
-      </AppearanceProvider>
-    ) : (
-      <StudioApp />
-    )}
+    <Suspense
+      fallback={
+        <main className="app-loading-shell" role="status" aria-live="polite">
+          Loading Srijika Studio…
+        </main>
+      }
+    >
+      <RouteApp />
+    </Suspense>
   </StrictMode>,
 );
