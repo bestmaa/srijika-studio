@@ -359,7 +359,7 @@ async function discoverProjects(root: string): Promise<SrijikaWorkspaceProject[]
     if (relativeRoot === '.') {
       throw new Error('A monorepo Srijika project must live below the workspace root.');
     }
-    const projectRoot = resolve(root, ...relativeRoot.split('/'));
+    const projectRoot = resolve(fileSystem.root, ...relativeRoot.split('/'));
     if (!(await fileSystem.isRegularFile(`${relativeRoot}/package.json`))) {
       throw new Error(`${relativeRoot} contains srijika.config.json but no package.json.`);
     }

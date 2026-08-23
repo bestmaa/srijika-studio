@@ -1,6 +1,6 @@
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -103,7 +103,10 @@ describe('architecture watch roots', () => {
         featuresRoot: 'application/modules',
         sharedRoot: 'application/common',
       }),
-    ).toEqual(['/workspace/app/application/modules', '/workspace/app/application/common']);
+    ).toEqual([
+      resolve('/workspace/app/application/modules'),
+      resolve('/workspace/app/application/common'),
+    ]);
   });
 
   it('reacts to authoritative inputs and future configured-root ancestors', () => {
@@ -331,7 +334,7 @@ describe('React migration command', () => {
         ]),
       ).resolves.toBe(0);
       const started = JSON.parse(logs.join('\n')) as { phase: string; sourceRoot: string };
-      expect(started).toMatchObject({ phase: 'scaffolded', sourceRoot: source });
+      expect(started).toMatchObject({ phase: 'scaffolded', sourceRoot: await realpath(source) });
       logs.length = 0;
       await expect(
         runSrijikaCli(['migrate', 'status', '--target', target, '--json']),
