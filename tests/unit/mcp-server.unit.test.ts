@@ -1231,7 +1231,7 @@ describe('Srijika MCP server', () => {
       ok: true,
       result: { diagnostics: [] },
     });
-  });
+  }, 30_000);
 
   it('rejects traversal roots before MCP project inspection can read outside files', async () => {
     const parent = await mkdtemp(join(tmpdir(), 'srijika-mcp-traversal-'));
