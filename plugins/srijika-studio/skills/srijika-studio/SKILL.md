@@ -15,6 +15,10 @@ guessing DOM coordinates.
 - Feature, Slot, Part, Connector, Hook, Store, Logic, API, Types, project setup,
   validation, or runtime: call `srijika_get_code_project`, then use the code-project
   check/plan/apply tools. These must work when Studio is closed or uninstalled.
+- Monorepo discovery, project selection, aggregate architecture, or owner-test
+  verification: read [monorepo-workflow.md](references/monorepo-workflow.md),
+  use the workspace CLI with an explicit project ID (or an intentional all-project
+  run), and route project writes through that project's bounded MCP server.
 - Existing React application to a new Srijika project: read
   [react-project-migration.md](references/react-project-migration.md), then use the
   migration session tools. Keep the source immutable, require a distinct new or
@@ -153,6 +157,13 @@ zero-loss; report every blocker and unmapped source item. Finalize only after
 the session reports all required gates passing.
 
 When a task asks to initialize, inspect, validate, run, build, or open a code-first project from the terminal or VS Code, read [cli-and-runtime.md](references/cli-and-runtime.md). Prefer the shared `srijika` CLI over recreating package-manager or scaffold decisions. Keep Node as the compatibility default, select Bun only when explicitly requested for a detected Vite project, and never change the lockfile or package manager merely because the runtime changed. The same machine-readable contract is available from `srijika://docs/cli-runtime`.
+
+For a repository containing multiple Srijika applications, never open the
+monorepo root as if it were one application. Read
+[monorepo-workflow.md](references/monorepo-workflow.md), validate
+`srijika.workspace.json`, select an exact project ID, and keep Studio/MCP writes
+inside that declared project root. Use workspace test synchronization and
+verification to aggregate the per-app Vite or Next.js owner evidence.
 
 ## Recreate a design image
 

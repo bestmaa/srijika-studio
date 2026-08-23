@@ -47,6 +47,36 @@ async function reactSource(): Promise<string> {
   return root;
 }
 
+async function workspace(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'srijika-cli-workspace-'));
+  roots.push(root);
+  await mkdir(join(root, 'apps'), { recursive: true });
+  await writeFile(
+    join(root, 'package.json'),
+    `${JSON.stringify({ name: 'cli-monorepo', private: true, packageManager: 'pnpm@11.0.0' }, null, 2)}\n`,
+  );
+  await writeFile(join(root, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
+  await writeSrijikaProject(join(root, 'apps', 'web'), {
+    projectName: 'web',
+    displayName: 'Web',
+  });
+  const webPackagePath = join(root, 'apps', 'web', 'package.json');
+  const webPackage = JSON.parse(await readFile(webPackagePath, 'utf8')) as {
+    scripts: Record<string, string>;
+    dependencies: Record<string, string>;
+    devDependencies: Record<string, string>;
+  };
+  webPackage.scripts['dev'] = 'next dev';
+  webPackage.dependencies['next'] = '16.3.2';
+  delete webPackage.devDependencies['vite'];
+  await writeFile(webPackagePath, `${JSON.stringify(webPackage, null, 2)}\n`);
+  await writeSrijikaProject(join(root, 'apps', 'admin'), {
+    projectName: 'admin',
+    displayName: 'Admin',
+  });
+  return root;
+}
+
 describe('argument parsing', () => {
   it('parses positional targets, valued options, and capability flags', () => {
     const parsed = parseSrijikaArguments([
@@ -222,6 +252,58 @@ describe('create command', () => {
     };
     expect(minimalPackage.dependencies).not.toHaveProperty('@tanstack/react-query');
     expect(queryPackage.dependencies).toHaveProperty('@tanstack/react-query');
+  });
+});
+
+describe('workspace commands', () => {
+  it('initializes, inspects, checks, and plans tests across a monorepo', async () => {
+    const root = await workspace();
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(runSrijikaCli(['workspace', 'init', root, '--json'])).resolves.toBe(0);
+      const initialized = JSON.parse(logs.join('\n')) as {
+        manifest: { projects: Array<{ id: string }> };
+      };
+      expect(initialized.manifest.projects.map(({ id }) => id)).toEqual(['admin', 'web']);
+
+      logs.length = 0;
+      await expect(runSrijikaCli(['workspace', 'inspect', root, '--json'])).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        packageManager: 'pnpm',
+        projects: [{ id: 'admin' }, { id: 'web' }],
+      });
+
+      logs.length = 0;
+      await expect(
+        runSrijikaCli(['workspace', 'check', root, '--project-id', 'web', '--json']),
+      ).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        status: 'passed',
+        projects: [{ id: 'web', errors: 0 }],
+      });
+
+      logs.length = 0;
+      await expect(
+        runSrijikaCli([
+          'workspace',
+          'tests',
+          'sync',
+          root,
+          '--project-id',
+          'admin',
+          '--dry-run',
+          '--json',
+        ]),
+      ).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        dryRun: true,
+        projects: [{ id: 'admin', framework: 'vite' }],
+      });
+    } finally {
+      console.log = originalLog;
+    }
   });
 });
 

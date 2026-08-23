@@ -76,7 +76,18 @@ srijika dev
 srijika dev --runtime bun
 srijika build
 srijika studio
+srijika workspace init .
+srijika workspace inspect .
+srijika workspace check .
+srijika workspace tests sync .
+srijika workspace tests verify . --skip-install
 ```
+
+`workspace` turns a root-lockfile monorepo into a bounded registry of independent
+Srijika Vite and Next.js applications. It generates a strict
+`srijika.workspace.json`, VS Code multi-root setup, and one explicitly scoped MCP
+server per app, then aggregates architecture and owner-test verification. See
+[Srijika in a monorepo](MONOREPO.md) for the complete contract and CI workflow.
 
 `create` is the recommended product entrypoint. It performs a complete setup:
 

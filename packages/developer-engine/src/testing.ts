@@ -58,6 +58,7 @@ export interface InspectSrijikaTestContractResult {
 
 export interface PlanSrijikaViteTestsRequest extends InspectSrijikaTestContractRequest {
   port?: number;
+  packageManager?: SrijikaPackageManager;
 }
 
 export interface PlanSrijikaViteTestsResult extends InspectSrijikaTestContractResult {
@@ -75,6 +76,7 @@ export interface SynchronizeSrijikaViteTestsResult extends PlanSrijikaViteTestsR
 
 export interface PlanSrijikaNextTestsRequest extends InspectSrijikaTestContractRequest {
   port?: number;
+  packageManager?: SrijikaPackageManager;
 }
 
 export interface PlanSrijikaNextTestsResult extends InspectSrijikaTestContractResult {
@@ -143,6 +145,7 @@ export interface VerifySrijikaOwnerTestsRequest extends InspectSrijikaTestContra
   framework?: 'vite' | 'next-app-router';
   port?: number;
   skipInstall?: boolean;
+  packageManager?: SrijikaPackageManager;
 }
 
 export interface VerifySrijikaOwnerTestsResult {
@@ -378,7 +381,7 @@ export async function planSrijikaViteTests(
     contract: inspected.contract,
     ...(inspected.affected ? { affected: inspected.affected } : {}),
     adapter: buildSrijikaViteTestAdapterPlan(inspected.contract, {
-      packageManager: inspected.project.packageManager,
+      packageManager: request.packageManager ?? inspected.project.packageManager,
       ...(request.port === undefined ? {} : { port: request.port }),
     }),
   };
@@ -408,7 +411,7 @@ export async function planSrijikaNextTests(
     contract: inspected.contract,
     ...(inspected.affected ? { affected: inspected.affected } : {}),
     adapter: buildSrijikaNextTestAdapterPlan(inspected.contract, {
-      packageManager: inspected.project.packageManager,
+      packageManager: request.packageManager ?? inspected.project.packageManager,
       ...(request.port === undefined ? {} : { port: request.port }),
     }),
   };
@@ -531,7 +534,10 @@ export async function collectSrijikaTestEvidence(
 export async function verifySrijikaOwnerTests(
   request: VerifySrijikaOwnerTestsRequest = {},
 ): Promise<VerifySrijikaOwnerTestsResult> {
-  const project = await inspectSrijikaProject(request.project ?? process.cwd());
+  const inspectedProject = await inspectSrijikaProject(request.project ?? process.cwd());
+  const project = request.packageManager
+    ? { ...inspectedProject, packageManager: request.packageManager }
+    : inspectedProject;
   const framework =
     request.framework ??
     (project.nextProject && !project.viteProject
@@ -550,11 +556,13 @@ export async function verifySrijikaOwnerTests(
     framework === 'vite'
       ? await synchronizeSrijikaViteTests({
           project: project.root,
+          ...(request.packageManager ? { packageManager: request.packageManager } : {}),
           ...(request.changedFiles ? { changedFiles: request.changedFiles } : {}),
           ...(request.port === undefined ? {} : { port: request.port }),
         })
       : await synchronizeSrijikaNextTests({
           project: project.root,
+          ...(request.packageManager ? { packageManager: request.packageManager } : {}),
           ...(request.changedFiles ? { changedFiles: request.changedFiles } : {}),
           ...(request.port === undefined ? {} : { port: request.port }),
         });

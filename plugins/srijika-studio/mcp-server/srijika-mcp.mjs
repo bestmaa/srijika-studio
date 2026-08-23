@@ -256856,7 +256856,7 @@ async function planSrijikaViteTests(request = {}) {
     contract: inspected.contract,
     ...inspected.affected ? { affected: inspected.affected } : {},
     adapter: buildSrijikaViteTestAdapterPlan(inspected.contract, {
-      packageManager: inspected.project.packageManager,
+      packageManager: request.packageManager ?? inspected.project.packageManager,
       ...request.port === void 0 ? {} : { port: request.port }
     })
   };
@@ -256880,7 +256880,7 @@ async function planSrijikaNextTests(request = {}) {
     contract: inspected.contract,
     ...inspected.affected ? { affected: inspected.affected } : {},
     adapter: buildSrijikaNextTestAdapterPlan(inspected.contract, {
-      packageManager: inspected.project.packageManager,
+      packageManager: request.packageManager ?? inspected.project.packageManager,
       ...request.port === void 0 ? {} : { port: request.port }
     })
   };
@@ -256947,7 +256947,8 @@ async function collectSrijikaTestEvidence(request = {}) {
   };
 }
 async function verifySrijikaOwnerTests(request = {}) {
-  const project = await inspectSrijikaProject(request.project ?? process.cwd());
+  const inspectedProject = await inspectSrijikaProject(request.project ?? process.cwd());
+  const project = request.packageManager ? { ...inspectedProject, packageManager: request.packageManager } : inspectedProject;
   const framework = request.framework ?? (project.nextProject && !project.viteProject ? "next-app-router" : project.viteProject && !project.nextProject ? "vite" : void 0);
   if (!framework) throw new Error("Select vite or next-app-router verification for this project.");
   if (framework === "vite" && !project.viteProject) {
@@ -256958,10 +256959,12 @@ async function verifySrijikaOwnerTests(request = {}) {
   }
   const synchronization = framework === "vite" ? await synchronizeSrijikaViteTests({
     project: project.root,
+    ...request.packageManager ? { packageManager: request.packageManager } : {},
     ...request.changedFiles ? { changedFiles: request.changedFiles } : {},
     ...request.port === void 0 ? {} : { port: request.port }
   }) : await synchronizeSrijikaNextTests({
     project: project.root,
+    ...request.packageManager ? { packageManager: request.packageManager } : {},
     ...request.changedFiles ? { changedFiles: request.changedFiles } : {},
     ...request.port === void 0 ? {} : { port: request.port }
   });
@@ -257082,6 +257085,19 @@ async function verifySrijikaOwnerTests(request = {}) {
     evidence
   };
 }
+
+// ../developer-engine/src/workspace.ts
+init_architecture();
+init_project();
+init_project_filesystem();
+init_ui_diagnostics();
+var MAX_WORKSPACE_BYTES = 256 * 1024;
+var lockfiles = Object.freeze({
+  pnpm: "pnpm-lock.yaml",
+  npm: "package-lock.json",
+  yarn: "yarn.lock",
+  bun: "bun.lock"
+});
 
 // ../developer-engine/src/index.ts
 init_ui_diagnostics();

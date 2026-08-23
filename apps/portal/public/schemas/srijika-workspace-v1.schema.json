@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://srijika.com/schemas/srijika-workspace-v1.schema.json",
+  "title": "Srijika workspace",
+  "description": "A bounded collection of independent Srijika Vite or Next.js applications inside one JavaScript monorepo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "packageManager", "projects", "sharedPackages"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "https://srijika.com/schemas/srijika-workspace-v1.schema.json"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "packageManager": {
+      "enum": ["pnpm", "npm", "yarn", "bun"]
+    },
+    "projects": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "root", "framework", "testPort"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+          },
+          "root": {
+            "$ref": "#/$defs/boundedRelativePath"
+          },
+          "framework": {
+            "enum": ["vite", "next"]
+          },
+          "testPort": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          }
+        }
+      }
+    },
+    "sharedPackages": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/boundedRelativePath"
+      }
+    }
+  },
+  "$defs": {
+    "boundedRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))[^/]+(?:/[^/]+)*$"
+    }
+  }
+}

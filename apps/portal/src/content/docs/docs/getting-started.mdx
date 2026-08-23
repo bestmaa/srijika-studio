@@ -36,6 +36,21 @@ npm create srijika@latest my-app -- --react-query
 
 <LinkButton href="/docs/cli-runtime/">Open the complete CLI guide</LinkButton>
 
+## Use Srijika in a monorepo
+
+Keep one root package manager and give each Vite or Next.js application its own
+Srijika project contract. Srijika can discover the apps, generate VS Code and
+MCP routing, and aggregate architecture plus owner-test verification:
+
+```bash
+npx @srijika/cli workspace init . --dry-run
+npx @srijika/cli workspace init .
+npx @srijika/cli workspace check .
+npx @srijika/cli workspace tests sync .
+```
+
+<LinkButton href="/docs/monorepo/">Open the monorepo guide</LinkButton>
+
 ## Choose your working surface
 
 All surfaces follow the same Feature → Slot → Part contract and use the same

@@ -14,6 +14,13 @@ plugin does not depend on an ancestor repository `node_modules` directory.
 npx -y @srijika/mcp-server --project /absolute/path/to/project
 ```
 
+In a monorepo, run one server per declared application root. The generated root
+`.mcp.json` names them `srijika-<project-id>` and passes a different explicit
+`--project` value to each process. Aggregate discovery, architecture, and
+Vite/Next owner-test verification use `srijika workspace` CLI commands; an MCP
+server never guesses between application packages or widens its filesystem
+boundary to the monorepo root.
+
 For migration, use the `srijika_create_react_migration` → scan → deterministic
 ownership plan → bounded immutable slice context → slice review → token-only
 apply → slice verify → global verify → finalize flow. The source is never written;

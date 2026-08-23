@@ -30,6 +30,15 @@ export {
   verifySrijikaOwnerTests,
 } from './testing.js';
 export {
+  checkSrijikaWorkspace,
+  findSrijikaWorkspaceRoot,
+  initializeSrijikaWorkspace,
+  inspectSrijikaWorkspace,
+  parseSrijikaWorkspaceManifest,
+  synchronizeSrijikaWorkspaceTests,
+  verifySrijikaWorkspaceTests,
+} from './workspace.js';
+export {
   assertSrijikaUiWritesValid,
   checkSrijikaUiDiagnostics,
   formatSrijikaUiDiagnostic,
@@ -146,6 +155,24 @@ export type {
   VerifySrijikaOwnerTestsRequest,
   VerifySrijikaOwnerTestsResult,
 } from './testing.js';
+export type {
+  CheckSrijikaWorkspaceRequest,
+  CheckSrijikaWorkspaceResult,
+  InitializeSrijikaWorkspaceRequest,
+  InitializeSrijikaWorkspaceResult,
+  SrijikaWorkspaceFramework,
+  SrijikaWorkspaceManifest,
+  SrijikaWorkspaceMetadata,
+  SrijikaWorkspaceProject,
+  SrijikaWorkspaceProjectCheck,
+  SrijikaWorkspaceProjectConfig,
+  SrijikaWorkspaceTestSynchronization,
+  SrijikaWorkspaceTestVerification,
+  SynchronizeSrijikaWorkspaceTestsRequest,
+  SynchronizeSrijikaWorkspaceTestsResult,
+  VerifySrijikaWorkspaceTestsRequest,
+  VerifySrijikaWorkspaceTestsResult,
+} from './workspace.js';
 export { planSrijikaTestVerificationCommands } from './testing.js';
 export type {
   SrijikaArchitectureCheckResult,

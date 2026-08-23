@@ -18,7 +18,9 @@ The repository currently implements:
 - a Srijika VS Code extension for the same compiler diagnostics and fixes; and
 - a shared Node-compatible CLI/developer engine for strict creation, incremental
   architecture checks, Vite HMR, toolchain doctoring, Desktop handoff, and optional
-  explicit Bun turbo mode; and
+  explicit Bun turbo mode;
+- first-class monorepo discovery with a validated workspace manifest, generated
+  VS Code/MCP routing, and aggregate Vite/Next owner-test verification; and
 - the existing schema, component registry, renderer, semantic analyzer, and preview channel as reusable lower layers.
 
 The old palette/drag/drop/Inspector mutation surfaces remain in the repository while migration tests are retained, but they are no longer active authoring entry points. A visual operation may return only when it can produce a bounded TSX source edit and pass through the normal compiler path. See [Code-first Srijika TSX](docs/CODE_FIRST_TSX.md).
@@ -52,6 +54,18 @@ pnpm srijika check /path/to/project
 pnpm srijika dev /path/to/project
 pnpm srijika dev /path/to/project --runtime bun
 ```
+
+For a monorepo containing multiple Srijika applications:
+
+```bash
+pnpm srijika workspace init /path/to/monorepo --dry-run
+pnpm srijika workspace init /path/to/monorepo
+pnpm srijika workspace check /path/to/monorepo
+pnpm srijika workspace tests sync /path/to/monorepo
+```
+
+See [Srijika in a monorepo](docs/MONOREPO.md) for the manifest, Vite/Next,
+Playwright, VS Code, MCP, Studio, CI, and shared-package contracts.
 
 Node remains the compatibility default. Bun is an optional explicit Vite runtime;
 dependency installation always follows the project's declared package manager and
@@ -100,6 +114,7 @@ Full-workspace Rust checks include the Tauri shell and therefore require the nat
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [CLI and fast runtime](docs/CLI_AND_FAST_RUNTIME.md)
+- [Monorepo setup and aggregate testing](docs/MONOREPO.md)
 - [Feature → Slot → Part ownership and structure rules](docs/FEATURE_SLOT_PART_ARCHITECTURE.md)
 - [Code-first Srijika TSX rules and project flow](docs/CODE_FIRST_TSX.md)
 - [UI document format](docs/UI_DOCUMENT_FORMAT.md)

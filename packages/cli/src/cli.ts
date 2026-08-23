@@ -18,6 +18,8 @@ import {
   formatSrijikaCommand,
   formatSrijikaUiDiagnostic,
   inspectSrijikaProject,
+  inspectSrijikaWorkspace,
+  initializeSrijikaWorkspace,
   planSrijikaProjectCommand,
   runSrijikaCommand,
   startReactMigration,
@@ -30,11 +32,14 @@ import {
   synchronizeReactMigrationTestHarness,
   synchronizeReactMigrationValidator,
   synchronizeSrijikaNextTests,
+  synchronizeSrijikaWorkspaceTests,
   synchronizeSrijikaViteTests,
   verifySrijikaOwnerTests,
+  verifySrijikaWorkspaceTests,
   verifyReactMigration,
   verifyReactMigrationSlice,
   SrijikaArchitectureIndex,
+  checkSrijikaWorkspace,
   type ReactMigrationCommandStatus,
   type ReactMigrationSession,
   type ReactMigrationSlice,
@@ -85,6 +90,11 @@ Usage:
   srijika tests sync [project] [--framework vite|next] [--dry-run] [--port 4174] [--json]
   srijika tests evidence [project] [--framework vite|next] [--json]
   srijika tests verify [project] [--framework vite|next] [--skip-install] [--port 4174] [--json]
+  srijika workspace init [root] [--dry-run] [--json]
+  srijika workspace inspect [root] [--json]
+  srijika workspace check [root] [--project-id <id>] [--json]
+  srijika workspace tests sync [root] [--project-id <id>] [--dry-run] [--json]
+  srijika workspace tests verify [root] [--project-id <id>] [--skip-install] [--json]
   srijika migrate react --source <existing-react> --target <new-srijika> [--dry-run] [--json]
   srijika migrate status --target <new-srijika> [--json]
   srijika migrate plan --target <new-srijika> [--json]
@@ -453,6 +463,111 @@ async function runTests(parsed: ParsedArguments): Promise<number> {
     (payload as Awaited<ReturnType<typeof verifySrijikaOwnerTests>>).status !== 'passed'
     ? 1
     : 0;
+}
+
+async function runWorkspace(parsed: ParsedArguments): Promise<number> {
+  const [operation, subOperation, positionalRoot, ...extra] = parsed.positionals;
+  const json = booleanOption(parsed, 'json');
+  if (!operation) throw new Error('workspace requires init, inspect, check, or tests.');
+  if (operation === 'init') {
+    assertKnownOptions(parsed, ['dry-run', 'json']);
+    if (positionalRoot || extra.length > 0) {
+      throw new Error('workspace init accepts at most one workspace root.');
+    }
+    const root = subOperation ?? process.cwd();
+    const result = await initializeSrijikaWorkspace({
+      workspace: root,
+      dryRun: booleanOption(parsed, 'dry-run'),
+    });
+    if (json) console.log(JSON.stringify(result, null, 2));
+    else {
+      console.log(
+        `${result.dryRun ? '→ Planned' : '✓ Initialized'} Srijika workspace with ${result.manifest.projects.length} project(s) at ${result.root}`,
+      );
+      for (const project of result.manifest.projects) {
+        console.log(
+          `· ${project.id}: ${project.root} (${project.framework}, Playwright port ${project.testPort})`,
+        );
+      }
+      for (const file of result.created) console.log(`✓ Created: ${file}`);
+      for (const file of result.preserved) console.log(`· Preserved existing: ${file}`);
+    }
+    return 0;
+  }
+  if (operation === 'inspect' || operation === 'check') {
+    assertKnownOptions(parsed, ['project-id', 'json']);
+    if (positionalRoot || extra.length > 0) {
+      throw new Error(`workspace ${operation} accepts at most one workspace root.`);
+    }
+    const root = subOperation ?? process.cwd();
+    const projectId = stringOption(parsed, 'project-id');
+    const result =
+      operation === 'inspect'
+        ? await inspectSrijikaWorkspace(root)
+        : await checkSrijikaWorkspace({ workspace: root, ...(projectId ? { projectId } : {}) });
+    if (json) console.log(JSON.stringify(result, null, 2));
+    else if (operation === 'inspect') {
+      const inspected = result as Awaited<ReturnType<typeof inspectSrijikaWorkspace>>;
+      console.log(
+        `✓ Srijika workspace: ${inspected.projects.length} project(s), ${inspected.packageManager}, ${inspected.lockfile}`,
+      );
+      for (const project of inspected.projects) {
+        console.log(`· ${project.id}: ${project.relativeRoot} (${project.framework})`);
+      }
+    } else {
+      const checked = result as Awaited<ReturnType<typeof checkSrijikaWorkspace>>;
+      console.log(
+        `${checked.status === 'passed' ? '✓' : '✗'} Workspace architecture: ${checked.status}`,
+      );
+      for (const project of checked.projects) {
+        console.log(
+          `· ${project.id}: ${project.errors} error(s), ${project.checkedFiles} architecture file(s), ${project.uiFiles} UI file(s)`,
+        );
+      }
+    }
+    return operation === 'check' && 'status' in result && result.status !== 'passed' ? 1 : 0;
+  }
+  if (operation === 'tests') {
+    assertKnownOptions(parsed, ['project-id', 'dry-run', 'skip-install', 'json']);
+    if ((subOperation !== 'sync' && subOperation !== 'verify') || extra.length > 0) {
+      throw new Error('workspace tests requires sync or verify and accepts at most one root.');
+    }
+    const root = positionalRoot ?? process.cwd();
+    const projectId = stringOption(parsed, 'project-id');
+    const request = { workspace: root, ...(projectId ? { projectId } : {}) };
+    const result =
+      subOperation === 'sync'
+        ? await synchronizeSrijikaWorkspaceTests({
+            ...request,
+            dryRun: booleanOption(parsed, 'dry-run'),
+          })
+        : await verifySrijikaWorkspaceTests({
+            ...request,
+            skipInstall: booleanOption(parsed, 'skip-install'),
+          });
+    if (json) console.log(JSON.stringify(result, null, 2));
+    else if (subOperation === 'sync') {
+      const synchronized = result as Awaited<ReturnType<typeof synchronizeSrijikaWorkspaceTests>>;
+      console.log(
+        `${synchronized.dryRun ? '→ Planned' : '✓ Synchronized'} owner tests for ${synchronized.projects.length} project(s).`,
+      );
+      for (const project of synchronized.projects) {
+        console.log(
+          `· ${project.id}: ${project.created.length} created, ${project.updated.length} updated, ${project.preserved.length} preserved`,
+        );
+      }
+    } else {
+      const verified = result as Awaited<ReturnType<typeof verifySrijikaWorkspaceTests>>;
+      console.log(
+        `${verified.status === 'passed' ? '✓' : '✗'} Workspace owner verification: ${verified.status}`,
+      );
+      for (const project of verified.projects) {
+        console.log(`· ${project.id}: ${project.status} (${project.evidenceStatus})`);
+      }
+    }
+    return subOperation === 'verify' && 'status' in result && result.status !== 'passed' ? 1 : 0;
+  }
+  throw new Error(`Unknown workspace operation: ${operation}.`);
 }
 
 export function resolveSrijikaWatchRoots(
@@ -981,6 +1096,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
       return runDoctor(parsed);
     case 'tests':
       return runTests(parsed);
+    case 'workspace':
+      return runWorkspace(parsed);
     case 'migrate':
       return runMigrate(parsed);
     case 'dev':

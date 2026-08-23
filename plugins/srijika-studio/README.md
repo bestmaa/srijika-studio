@@ -2,6 +2,13 @@
 
 This package connects Codex to Srijika projects with or without the desktop app. The bundled MCP server can inspect a code-first project, run the shared architecture validator, plan canonical Feature → Slot → Part files, and apply a reviewed one-time plan directly on disk. When Studio is running, the same server also reads and edits the canonical visual document through its authenticated loopback bridge.
 
+For monorepos, one installed plugin serves any number of declared Srijika
+applications without sharing their write boundary. `srijika workspace init`
+generates a strict root manifest, VS Code multi-root file, and one explicit MCP
+server per application. Aggregate CLI checks and Vite/Next owner-test evidence
+remain project-ID-addressed; Desktop Studio still opens one application at a
+time.
+
 It can also coordinate a resumable migration from an existing React project to
 a distinct new Srijika target. The source remains read-only. The engine captures
 a source baseline, inventories every bounded source, builds a deterministic

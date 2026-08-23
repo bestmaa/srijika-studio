@@ -1,0 +1,194 @@
+---
+title: Monorepo workflow
+description: Configure multiple Srijika Vite and Next.js applications with shared VS Code, MCP, Playwright, and CI orchestration.
+---
+
+## One installation, explicit application boundaries
+
+A Srijika monorepo is a bounded collection of independent applications. Install
+Srijika Studio once. Every UI application keeps its own `package.json`,
+`srijika.config.json`, `srijika.toolchain.json`, entry, architecture roots, and
+owner tests. Libraries and backend packages do not need a Srijika project
+contract.
+
+```text
+company-products/
+├── package.json
+├── pnpm-workspace.yaml
+├── pnpm-lock.yaml
+├── srijika.workspace.json
+├── srijika.code-workspace
+├── .mcp.json
+├── apps/
+│   ├── storefront/     # Next.js Srijika project
+│   └── admin/          # Vite Srijika project
+└── packages/
+    ├── design-system/
+    └── auth/
+```
+
+Desktop Studio opens one application root at a time. VS Code opens every
+declared app as a multi-root workspace. MCP starts one bounded server per app,
+so AI tools never infer the product they are allowed to change.
+
+## Initialize
+
+The root needs `package.json`, one supported lockfile, and at least one nested
+valid Srijika project. Preview discovery before writing:
+
+```bash
+npx @srijika/cli workspace init . --dry-run
+npx @srijika/cli workspace init .
+npx @srijika/cli workspace inspect .
+npx @srijika/cli workspace check .
+```
+
+Initialization creates three files without overwriting existing configuration:
+
+- `srijika.workspace.json` — project registry and test ports;
+- `srijika.code-workspace` — VS Code multi-root folders and extension
+  recommendation; and
+- `.mcp.json` — one pinned Srijika MCP server per app.
+
+Existing `.mcp.json` or `srijika.code-workspace` files are preserved. Use
+`workspace init --dry-run --json` to obtain the proposed content and merge it
+manually. An existing workspace manifest fails closed instead of being replaced.
+
+## Manifest
+
+```json
+{
+  "$schema": "https://srijika.com/schemas/srijika-workspace-v1.schema.json",
+  "version": 1,
+  "packageManager": "pnpm",
+  "projects": [
+    {
+      "id": "storefront",
+      "root": "apps/storefront",
+      "framework": "next",
+      "testPort": 4174
+    },
+    {
+      "id": "admin",
+      "root": "apps/admin",
+      "framework": "vite",
+      "testPort": 4175
+    }
+  ],
+  "sharedPackages": ["packages/design-system", "packages/auth"]
+}
+```
+
+The contract requires:
+
+- exact version `1` and package manager `pnpm`, `npm`, `yarn`, or `bun`;
+- a matching root lockfile;
+- unique lowercase kebab-case project IDs;
+- bounded, normalized, non-overlapping project and shared-package roots;
+- exactly one detected framework per project, Vite or Next.js;
+- unique Playwright ports between 1 and 65,535; and
+- a real `package.json` in every declared shared package.
+
+Unknown fields, traversal, absolute paths, backslashes, duplicate identities,
+overlap, symlinks, missing project contracts, framework mismatch, and lockfile
+mismatch fail before a project command runs. Discovery is bounded to 128
+projects and ignores vendor/build output.
+
+## Architecture and testing commands
+
+```bash
+# Every app
+npx @srijika/cli workspace check .
+npx @srijika/cli workspace tests sync .
+npx @srijika/cli workspace tests verify .
+
+# One declared app
+npx @srijika/cli workspace check . --project-id storefront
+npx @srijika/cli workspace tests sync . --project-id storefront --dry-run
+npx @srijika/cli workspace tests verify . --project-id storefront --skip-install
+```
+
+All commands support `--json`. Test synchronization delegates to the normal
+per-project adapter. Vite writes under `tests/srijika`; Next.js App Router writes
+under `tests/srijika-next`. Feature, Slot, Part, and supported Shared owners
+receive deterministic Vitest/Playwright artifacts while handwritten tests are
+preserved.
+
+Verification executes each selected application sequentially and returns one
+aggregate status covering install, architecture/UI diagnostics, TypeScript,
+Vitest, Chromium, Playwright, and evidence. Unique ports make results
+deterministic and leave room for bounded parallel execution later.
+
+Changed-file owner selection works inside an application. Workspace commands
+currently select an explicit `--project-id` or all apps; cross-package
+affected-project inference is not claimed until Srijika owns a complete
+dependency graph.
+
+## Vite and Next.js
+
+The workspace package manager overrides missing package-level lockfile metadata,
+so normal root-lockfile monorepos work without copying lockfiles into apps.
+Framework declarations are verified against dependencies and scripts.
+
+Vite projects receive Desktop authoring and live runtime after dependencies are
+installed. For a root-lockfile monorepo, install from the root first; Studio's
+own managed install still expects a project-local lockfile. Next.js projects
+receive architecture, CLI, VS Code, MCP, App Router adapter, Vitest, Playwright,
+and evidence support. Full Next.js Desktop live-preview parity and
+root-lockfile-aware Desktop installation remain separate work and are not
+implied by workspace registration.
+
+## VS Code and AI
+
+Open all application roots with:
+
+```bash
+code srijika.code-workspace
+```
+
+Srijika Language Support already keeps diagnostics, suffixes, Structure trees,
+and creation plans isolated by VS Code workspace folder. Add declared shared
+packages to the workspace file when ordinary TypeScript navigation should show
+them.
+
+Generated `.mcp.json` names servers `srijika-<project-id>` and passes an explicit
+`--project <root>`. An AI should choose the declared server, inspect before
+writing, use canonical creation operations, synchronize tests, and return
+evidence. One server is never allowed to guess between apps.
+
+## Desktop Studio
+
+```bash
+npx @srijika/cli studio apps/storefront
+npx @srijika/cli studio apps/admin
+```
+
+Studio continues to validate one project root. Switching products opens another
+declared root; the workspace manifest never grants cross-app filesystem or
+process authority. Run the root workspace install before Studio for apps that
+do not intentionally keep their own lockfile.
+
+## Shared packages
+
+`sharedPackages` records intentional workspace dependencies and editor folders.
+It does not make external package files part of an application's Feature → Slot
+→ Part graph. Keep stable package entrypoints, avoid deep imports into another
+app's private owners, and verify every consuming application. Cross-package
+policy and affected-project calculation are planned workspace-v2 work.
+
+## CI
+
+```yaml
+- run: pnpm install --frozen-lockfile
+- run: pnpm exec srijika workspace inspect .
+- run: pnpm exec srijika workspace check .
+- run: pnpm exec srijika workspace tests sync .
+- run: git diff --exit-code
+- run: pnpm exec srijika workspace tests verify . --skip-install
+```
+
+Commit generated owner contracts and tests. This makes the same boundaries and
+evidence available to maintainers, CI, Desktop Studio, VS Code, and AI agents.
+
+For the exhaustive safety limits, adoption checklist, and operational notes,
+see the repository reference **Srijika in a monorepo**.
