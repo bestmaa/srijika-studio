@@ -37,6 +37,42 @@ restriction. After reload, normal TSX support and Srijika diagnostics run togeth
 The generated project recommends `srijika.srijika-language-support` automatically.
 Run **Srijika: Open Setup and Language Support Guide** at any time for this guide.
 
+## React migration dashboard
+
+Open the **Srijika** Activity Bar container and expand **Migration**, or run
+**Srijika: Open React Migration Dashboard**. This is a real VS Code webview over
+the shared migration engine and the persisted target session; it does not keep
+an alternate plan in extension storage.
+
+1. Choose the existing React folder. It is treated as an immutable source.
+2. Keep **New target folder** to type or browse to a separate target. The
+   suggested sibling path ends in `-srijika`.
+3. Use **Current workspace target** only when the open workspace is an eligible
+   empty target or already contains the same resumable migration. A normal
+   populated project is rejected; this option never authorizes in-place
+   conversion or overwrite.
+4. Run **Start / Resume Migration**. The dashboard displays the bounded file
+   inventory, canonical Feature / Slot / Part / Shared owner tree, ordered
+   migration slices, applied/verified progress, and exact blockers.
+5. Use **Refresh status** after CLI, MCP, Studio, or another agent advances the
+   same session. Use **Run verification** for engine-owned project checks and
+   **Full session JSON** for the complete uncapped machine-readable plan, or
+   **Open target** to continue in a separate VS Code window.
+
+The readiness card inspects the current extension host for the OpenAI
+Codex/ChatGPT extension and checks the selected target for a readable Srijika
+entry in `.vscode/mcp.json` or `.mcp.json`. **Detected** and **Configured** mean
+the local pieces exist; the MCP client remains responsible for reporting its
+authenticated live connection. **Copy Codex handoff** copies a target- and
+session-aware instruction that tells Codex to resume through the fixed Srijika
+MCP review/apply/verify sequence.
+
+VS Code decides where an Activity Bar container is placed, so an extension
+cannot force itself onto the right edge. To keep Migration on the right, enable
+**View -> Appearance -> Secondary Side Bar**, then use the Migration view title
+menu and **Move View -> Secondary Side Bar**. The Structure tree can remain on
+the left while the migration dashboard stays on the right.
+
 ## Feature architecture and ownership
 
 Srijika validates the `feature-slot-part-v1` downward ownership model across the

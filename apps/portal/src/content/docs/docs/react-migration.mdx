@@ -113,11 +113,27 @@ Shared UI, Shared Widget, or Shared Headless Capability owners.
 
 ## VS Code workflow
 
-The VS Code migration surface is optional. It selects source/target folders,
-shows the shared inventory, plan, blockers, slice progress, traceability, and
-verification status, resumes the same session, and opens the converted target.
-Nothing important is stored only in the webview. Without the extension, run the
-CLI in the integrated terminal or use the generated MCP connection.
+Open **Srijika → Migration** in the Activity Bar, or run **Srijika: Open React
+Migration Dashboard**. Select the read-only source, then choose a new separate
+target or use the current workspace only when it is an eligible empty/resumable
+target. The engine rejects in-place conversion, overlap, symlinks, and unrelated
+files regardless of the selected UI mode.
+
+The dashboard shows the shared inventory, canonical owner tree and roles,
+ordered slices, applied/verified progress, blockers, and verification status.
+Refresh sees work performed through CLI, MCP, Studio, or another agent because
+nothing important is stored only in the webview. The connector card reports
+local Codex detection and Srijika MCP configuration separately from live MCP
+authentication, and **Copy Codex handoff** produces a safe session-aware resume
+instruction.
+
+Use **Full session JSON** to inspect the complete uncapped machine-readable
+inventory and plan behind the compact dashboard.
+
+To keep the view on the right, enable **View → Appearance → Secondary Side
+Bar**, then choose **Move View → Secondary Side Bar** from the Migration view
+menu. Without the extension, use the CLI in the integrated terminal or the
+generated MCP connection.
 
 ## Desktop Studio workflow
 

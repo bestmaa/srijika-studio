@@ -36,12 +36,27 @@ TypeScript, tasks, MCP, and ownership detection depend on workspace context.
 
 ## Migrate an existing React project
 
-Use the optional migration view to choose distinct source and target folders,
-review the shared inventory/ownership plan/blockers, review native slices, apply
-their bound tokens, run verification, and open the converted target. It reads
-the same persisted session as CLI and MCP;
-the webview is not a second source of truth. Without the extension, run the
-complete workflow from the integrated terminal. See
+Open the **Srijika** Activity Bar container and expand **Migration**, or run
+**Srijika: Open React Migration Dashboard**. Choose the immutable React source,
+then either type/browse a new separate target or select **Current workspace
+target** for an eligible empty/resumable target. Current-target mode does not
+permit in-place conversion of a populated app; the shared engine still rejects
+overlap and unknown files.
+
+Start/Resume shows the engine inventory, canonical owner architecture, ordered
+slices, progress, and blockers. Refresh observes the same persisted session
+after CLI, MCP, Studio, or another agent changes it. The readiness card reports
+whether Codex is detected and Srijika MCP files are configured, without
+mislabeling those local facts as an authenticated live connection. **Copy Codex
+handoff** prepares the safe one-slice-at-a-time MCP instruction.
+
+**Full session JSON** opens the complete uncapped machine-readable plan when the
+compact owner list is not enough.
+
+The webview is not a second source of truth. To place it on the right, enable
+**View → Appearance → Secondary Side Bar**, then use the Migration view menu and
+**Move View → Secondary Side Bar**. Without the extension, run the complete
+workflow from the integrated terminal. See
 [React migration](/docs/react-migration/).
 
 ## What the generated workspace includes

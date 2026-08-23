@@ -43,7 +43,8 @@
     "onCommand:srijika.syncOwnerTests",
     "onCommand:srijika.showTestEvidence",
     "onCommand:srijika.verifyOwnerTests",
-    "onView:srijika.structure"
+    "onView:srijika.structure",
+    "onView:srijika.migration"
   ],
   "contributes": {
     "commands": [
@@ -64,7 +65,8 @@
       },
       {
         "command": "srijika.importReactProject",
-        "title": "Srijika: Import Existing React Project",
+        "title": "Srijika: Open React Migration Dashboard",
+        "shortTitle": "Open Migration",
         "category": "Srijika",
         "icon": "$(repo-clone)"
       },
@@ -137,6 +139,11 @@
         {
           "id": "srijika.structure",
           "name": "Structure"
+        },
+        {
+          "id": "srijika.migration",
+          "name": "Migration",
+          "type": "webview"
         }
       ]
     },

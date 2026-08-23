@@ -128,12 +128,37 @@ incomplete inventory become blockers rather than guesses.
 
 ## VS Code
 
-Open the complete source and target folders only after the migration has
-accepted them as distinct roots. The Srijika migration view is an adapter over
-the same engine and session; it does not maintain a second plan. Use it to pick
-the roots, review inventory/plan/blockers, monitor slices, resume, run
-verification, and open the converted target. Terminal commands and MCP remain
-fully usable when the extension is absent.
+Open the Srijika Activity Bar container and expand **Migration**, or run
+**Srijika: Open React Migration Dashboard**. The view is an adapter over the
+same engine and target session; it does not maintain a second plan.
+
+The form has two guarded target modes:
+
+- **New target folder** accepts a new absolute sibling path or a selected empty
+  or resumable directory.
+- **Current workspace target** points at the first open workspace only. It is
+  useful for an empty target or to resume an accepted migration, not for
+  rewriting a populated application in place. The engine still rejects equal,
+  nested, unrelated populated, symlinked, or otherwise unsafe roots.
+
+After Start/Resume, the view renders file-category counts, canonical owners and
+roles, ordered dependency slices, applied and verified counts, and blockers
+from the persisted session. Refresh observes work performed by CLI, MCP,
+Studio, or another agent. Verify calls the engine-owned verification adapter;
+Full session JSON opens the complete uncapped persisted plan, and Open target
+creates a separate VS Code window.
+
+The readiness card detects whether an OpenAI Codex/ChatGPT extension is present
+in the current extension host and whether the target contains a readable
+Srijika entry in `.vscode/mcp.json` or `.mcp.json`. Those states deliberately
+say **detected/configured**, not **connected**: authenticated live MCP state is
+owned by the client. **Copy Codex handoff** produces a session-aware prompt
+that preserves the immutable-source and one-slice-at-a-time contract.
+
+VS Code owns view placement. Enable **View → Appearance → Secondary Side Bar**
+and choose **Move View → Secondary Side Bar** from the Migration view menu to
+keep the dashboard on the right while Structure remains on the left. Terminal
+commands and MCP remain fully usable when the extension is absent.
 
 ## Desktop Studio
 

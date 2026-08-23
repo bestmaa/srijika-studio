@@ -19,6 +19,7 @@ describe('VS Code Srijika Structure contribution', () => {
     expect(manifest.files).toContain('media');
     expect(manifest.activationEvents).toContain('workspaceContains:srijika.config.json');
     expect(manifest.activationEvents).toContain('onView:srijika.structure');
+    expect(manifest.activationEvents).toContain('onView:srijika.migration');
     expect(manifest.activationEvents).toContain('onCommand:srijika.importReactProject');
     expect(manifest.activationEvents).toContain('onCommand:srijika.syncOwnerTests');
     expect(manifest.activationEvents).toContain('onCommand:srijika.showTestEvidence');
@@ -33,7 +34,7 @@ describe('VS Code Srijika Structure contribution', () => {
         expect.objectContaining({ command: 'srijika.verifyOwnerTests' }),
         expect.objectContaining({
           command: 'srijika.importReactProject',
-          title: 'Srijika: Import Existing React Project',
+          title: 'Srijika: Open React Migration Dashboard',
         }),
       ]),
     );
@@ -47,6 +48,11 @@ describe('VS Code Srijika Structure contribution', () => {
     expect(manifest.contributes.views['srijika']).toContainEqual({
       id: 'srijika.structure',
       name: 'Structure',
+    });
+    expect(manifest.contributes.views['srijika']).toContainEqual({
+      id: 'srijika.migration',
+      name: 'Migration',
+      type: 'webview',
     });
     expect(manifest.contributes.menus['view/item/context']).toEqual(
       expect.arrayContaining([
