@@ -41,7 +41,9 @@ async function evidence(
 ): Promise<ReactMigrationCommandStatus[]> {
   if (!installedTargets.has(target)) {
     try {
-      await execFileAsync('pnpm', ['install', '--offline', '--ignore-scripts'], { cwd: target });
+      await execFileAsync('pnpm', ['install', '--frozen-lockfile', '--ignore-scripts'], {
+        cwd: target,
+      });
     } catch (error) {
       const localPnpm = process.env['HOME']
         ? join(process.env['HOME'], '.local', 'bin', 'pnpm')
@@ -49,7 +51,9 @@ async function evidence(
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT') || !localPnpm) {
         throw error;
       }
-      await execFileAsync(localPnpm, ['install', '--offline', '--ignore-scripts'], { cwd: target });
+      await execFileAsync(localPnpm, ['install', '--frozen-lockfile', '--ignore-scripts'], {
+        cwd: target,
+      });
     }
     installedTargets.add(target);
   }

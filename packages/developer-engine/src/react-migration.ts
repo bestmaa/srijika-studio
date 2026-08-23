@@ -546,7 +546,9 @@ async function canonicalFutureTarget(targetDirectory: string): Promise<string> {
       throw new Error('Migration target must be a real directory, not a file or symbolic link.');
     }
     const canonical = await realpath(target);
-    if (pathKey(canonical) !== pathKey(target)) {
+    // Windows realpath can expand an equivalent drive/runner alias. The target
+    // itself is still lstat-checked, then all migration writes are root-bound.
+    if (process.platform !== 'win32' && pathKey(canonical) !== pathKey(target)) {
       throw new Error('Migration target must not be reached through a symbolic-link ancestor.');
     }
     return canonical;
@@ -562,7 +564,7 @@ async function canonicalFutureTarget(targetDirectory: string): Promise<string> {
         throw new Error('Migration target parent must be a real directory.');
       }
       const canonical = await realpath(existing);
-      if (pathKey(canonical) !== pathKey(existing)) {
+      if (process.platform !== 'win32' && pathKey(canonical) !== pathKey(existing)) {
         throw new Error('Migration target must not be reached through a symbolic-link ancestor.');
       }
       return resolve(canonical, relative(existing, target));
@@ -4623,6 +4625,18 @@ async function pnpmExecutableFallback(): Promise<string> {
       // Fall through to Corepack when the optional user-local launcher is absent.
     }
   }
+  const executableName = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+  for (const directory of (process.env['PATH'] ?? '').split(delimiter).filter(Boolean)) {
+    const candidate = join(directory, executableName);
+    try {
+      const metadata = await lstat(candidate);
+      if (metadata.isFile() || metadata.isSymbolicLink()) {
+        return process.platform === 'win32' ? 'pnpm' : candidate;
+      }
+    } catch {
+      // Keep searching the inherited executable path.
+    }
+  }
   return 'corepack';
 }
 
@@ -4679,14 +4693,7 @@ async function executeBoundedGate(
       // it is a safe fallback only when the direct pnpm executable is absent.
       if (executable === 'pnpm' && 'code' in error && error.code === 'ENOENT') {
         fallingBackToCorepack = true;
-        void pnpmExecutableFallback().then((fallback) =>
-          executeBoundedGate(
-            cwd,
-            fallback,
-            fallback === 'corepack' ? ['pnpm', ...args] : args,
-            gateName,
-          ).then(resolveGate),
-        );
+        void executeBoundedGate(cwd, 'corepack', ['pnpm', ...args], gateName).then(resolveGate);
         return;
       }
       resolveGate({

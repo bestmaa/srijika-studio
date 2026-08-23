@@ -89,7 +89,10 @@ export class SrijikaProjectFileSystem {
       throw new Error('The Srijika project root must be a real directory, not a symbolic link.');
     }
     const canonicalRoot = await realpath(root);
-    if (pathKey(canonicalRoot) !== pathKey(root)) {
+    // Windows realpath can expand a runner/volume alias even when no project
+    // segment is linked. The root lstat above and per-segment lstat below still
+    // reject actual project-owned symbolic links on every platform.
+    if (process.platform !== 'win32' && pathKey(canonicalRoot) !== pathKey(root)) {
       throw new Error('The Srijika project root must not be reached through a symbolic link.');
     }
     return new SrijikaProjectFileSystem(canonicalRoot);
@@ -344,7 +347,7 @@ export class SrijikaProjectFileSystem {
     }
     const canonical = await realpath(target);
     assertContained(this.root, canonical, relativeOrAbsolutePath);
-    if (pathKey(canonical) !== pathKey(target)) {
+    if (process.platform !== 'win32' && pathKey(canonical) !== pathKey(target)) {
       throw new Error(
         `${relativePath.replaceAll('\\', '/') || 'project root'} must not be reached through a symbolic link.`,
       );

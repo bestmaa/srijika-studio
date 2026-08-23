@@ -68,7 +68,12 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
   const canonicalProjectRoot = await fs.realpath(lexicalProjectRoot);
   const comparable = (value: string): string =>
     process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
-  if (comparable(canonicalProjectRoot) !== comparable(lexicalProjectRoot)) {
+  // Windows realpath may expand an equivalent runner/volume alias. lstat still
+  // rejects a linked root, and every governed descendant is checked below.
+  if (
+    process.platform !== 'win32' &&
+    comparable(canonicalProjectRoot) !== comparable(lexicalProjectRoot)
+  ) {
     throw new Error('The Srijika project root must not be reached through a symbolic link.');
   }
   projectRoot = canonicalProjectRoot;

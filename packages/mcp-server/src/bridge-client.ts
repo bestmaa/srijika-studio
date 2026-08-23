@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
-import { join, resolve, win32 } from 'node:path';
+import { posix, resolve, win32 } from 'node:path';
 
 import { PROTOCOL_VERSION } from '@srijika/automation-protocol';
 
@@ -173,7 +173,7 @@ export function descriptorCandidates(options: SrijikaBridgeClientOptions = {}): 
   }
   if (currentPlatform === 'darwin') {
     return [
-      join(
+      posix.join(
         userHome,
         'Library',
         'Application Support',
@@ -183,8 +183,8 @@ export function descriptorCandidates(options: SrijikaBridgeClientOptions = {}): 
     ];
   }
 
-  const localData = environment['XDG_DATA_HOME'] ?? join(userHome, '.local', 'share');
-  return [join(localData, 'studio.srijika.desktop', DESCRIPTOR_FILE_NAME)];
+  const localData = environment['XDG_DATA_HOME'] ?? posix.join(userHome, '.local', 'share');
+  return [posix.join(localData, 'studio.srijika.desktop', DESCRIPTOR_FILE_NAME)];
 }
 
 async function readDescriptor(candidate: string): Promise<BridgeDescriptor | null> {
