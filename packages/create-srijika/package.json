@@ -25,6 +25,7 @@
   "homepage": "https://github.com/bestmaa/srijika-studio#readme",
   "bugs": "https://github.com/bestmaa/srijika-studio/issues",
   "scripts": {
+    "pretest": "pnpm --filter @srijika/cli build",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
