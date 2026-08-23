@@ -230421,7 +230421,7 @@ dist
           mcpServers: {
             "srijika-project": {
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.3.2", "--project", "."],
+              args: ["-y", "@srijika/mcp-server@0.4.0", "--project", "."],
               cwd: "."
             }
           }
@@ -230431,7 +230431,7 @@ dist
             "srijika-project": {
               type: "stdio",
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.3.2", "--project", "${workspaceFolder}"]
+              args: ["-y", "@srijika/mcp-server@0.4.0", "--project", "${workspaceFolder}"]
             }
           }
         }),
@@ -230650,7 +230650,7 @@ Studio later requires no migration: open this same project folder.
           scripts: {
             dev: "vite",
             "validate:srijika": "node scripts/srijika-validate.mjs",
-            "mcp:srijika": "npx -y @srijika/mcp-server@0.3.2 --project .",
+            "mcp:srijika": "npx -y @srijika/mcp-server@0.4.0 --project .",
             build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
             preview: "vite preview",
             typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"
@@ -240660,7 +240660,21 @@ async function inspectNativeTarget(session) {
     }
   }
   const allPaths = new Set(hashes.keys());
-  const targetAliases = (await inspectSrijikaProject(session.targetRoot)).aliases ?? {};
+  const targetProject = await inspectSrijikaProject(session.targetRoot);
+  const targetAliases = targetProject.aliases ?? {};
+  const targetArchitecture = resolveSrijikaArchitectureConfig(targetProject.architecture);
+  const inferredTargetRole = (relativePath) => {
+    if (relativePath === targetProject.entry) return "entry";
+    if (relativePath.endsWith(targetArchitecture.connectorSuffix)) return "connector";
+    if (relativePath.endsWith(targetArchitecture.uiSuffix)) return "ui";
+    if (relativePath.endsWith(targetArchitecture.storeSuffix)) return "store";
+    if (relativePath.endsWith(targetArchitecture.logicSuffix)) return "logic";
+    if (relativePath.endsWith(targetArchitecture.apiSuffix)) return "api";
+    if (relativePath.endsWith(targetArchitecture.typesSuffix)) return "types";
+    if (/\.(?:css|scss|sass|less)$/iu.test(relativePath)) return "style";
+    if (/\/(?:hooks\/)?use[A-Z][^/]*\.[cm]?[jt]sx?$/u.test(relativePath)) return "hook";
+    return "unknown";
+  };
   const packageSource = sources.get("package.json");
   const packageJson = packageSource ? JSON.parse(packageSource) : {};
   const dependencyEntries = [
@@ -240691,6 +240705,7 @@ async function inspectNativeTarget(session) {
   });
   const graphFindings = [];
   const targetGraph = /* @__PURE__ */ new Map();
+  const targetModules = [];
   const runtimeSourceHashes = new Map(
     session.inventory.files.filter(
       (file) => sourceExtension.test(file.relativePath) || /\.mdx?$/iu.test(file.relativePath)
@@ -240701,6 +240716,12 @@ async function inspectNativeTarget(session) {
   );
   const baselinePaths = new Set(Object.keys(createSrijikaProjectFileMap()));
   const unownedTargetPaths = [];
+  const mappingsByTarget = /* @__PURE__ */ new Map();
+  for (const mapping of session.mappings) {
+    for (const targetPath of mapping.targetPaths) {
+      mappingsByTarget.set(targetPath, [...mappingsByTarget.get(targetPath) ?? [], mapping]);
+    }
+  }
   for (const [relativePath, source] of sources) {
     const wrapper = wrapperFinding(relativePath, source, session.sourceRoot);
     if (wrapper) wrapperFindings.push(wrapper);
@@ -240717,6 +240738,7 @@ async function inspectNativeTarget(session) {
       }
     }
     if (!sourceExtension.test(relativePath) && !styleExtension.test(relativePath)) continue;
+    const moduleImports = [];
     for (const specifier of referencedSpecifiers(relativePath, source)) {
       if (specifier.startsWith(".") || Object.keys(targetAliases).some(
         (pattern) => pattern.endsWith("/") ? specifier.startsWith(pattern) : specifier === pattern
@@ -240731,18 +240753,40 @@ async function inspectNativeTarget(session) {
           graphFindings.push(
             `${relativePath} has unresolved or escaping local import ${specifier}.`
           );
+          moduleImports.push(Object.freeze({ specifier, kind: "unresolved" }));
         } else {
           const edges = targetGraph.get(relativePath) ?? /* @__PURE__ */ new Set();
           edges.add(resolvedDependency);
           targetGraph.set(relativePath, edges);
+          moduleImports.push(
+            Object.freeze({
+              specifier,
+              kind: "target",
+              resolvedTargetPath: resolvedDependency
+            })
+          );
         }
       } else {
         const packageName = packageNameForSpecifier(specifier);
         if (!declaredPackages.has(packageName) && !specifier.startsWith("node:")) {
           graphFindings.push(`${relativePath} imports undeclared package ${packageName}.`);
         }
+        moduleImports.push(Object.freeze({ specifier, kind: "package", packageName }));
       }
     }
+    const mapped = mappingsByTarget.get(relativePath) ?? [];
+    const inferredRole = inferredTargetRole(relativePath);
+    targetModules.push(
+      Object.freeze({
+        relativePath,
+        ownerIds: Object.freeze([...new Set(mapped.map(({ ownerId }) => ownerId))].sort()),
+        roles: Object.freeze(
+          [.../* @__PURE__ */ new Set([inferredRole, ...mapped.map(({ role }) => role)])].sort()
+        ),
+        imports: Object.freeze(moduleImports),
+        exports: exportedNames(relativePath, source)
+      })
+    );
   }
   const entryRoots = /* @__PURE__ */ new Set();
   const indexSource = sources.get("index.html") ?? "";
@@ -240798,7 +240842,10 @@ async function inspectNativeTarget(session) {
     targetSnapshotSha256: await projectSnapshotSha256(session.targetRoot),
     wrapperFindings: Object.freeze([...new Set(wrapperFindings)].sort()),
     unownedTargetPaths: Object.freeze([...new Set(unownedTargetPaths)].sort()),
-    graphFindings: Object.freeze([...new Set(graphFindings)].sort())
+    graphFindings: Object.freeze([...new Set(graphFindings)].sort()),
+    modules: Object.freeze(
+      targetModules.sort((left, right) => left.relativePath.localeCompare(right.relativePath))
+    )
   });
 }
 async function verifyReactMigration(request) {
@@ -240991,6 +241038,7 @@ var init_react_migration = __esm({
   "../developer-engine/src/react-migration.ts"() {
     "use strict";
     import_typescript6 = __toESM(require_typescript(), 1);
+    init_src2();
     init_portable();
     init_src3();
     init_architecture();

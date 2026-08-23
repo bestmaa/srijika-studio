@@ -25,7 +25,7 @@ const WORKSPACE_SCAN_FILES = 512;
 const WORKSPACE_SCAN_ENTRIES = 65_536;
 const WORKSPACE_SCAN_DIRECTORIES = 8_192;
 const WORKSPACE_SCAN_DEPTH = 12;
-const MCP_SERVER_VERSION = '0.3.2';
+const MCP_SERVER_VERSION = '0.4.0';
 
 export type SrijikaWorkspaceFramework = 'vite' | 'next';
 

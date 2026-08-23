@@ -18,7 +18,12 @@ language suggestions for `.css` files.
 
 ## Install in VS Code
 
-For a local Srijika Studio build:
+Install **Srijika Language Support** from the
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=srijika.srijika-language-support)
+or search for it in VS Code's Extensions view. The stable extension identifier
+is `srijika.srijika-language-support`.
+
+For a local Srijika Studio development build:
 
 1. From the Srijika Studio repository run
    `pnpm --filter srijika-language-support install:local`.

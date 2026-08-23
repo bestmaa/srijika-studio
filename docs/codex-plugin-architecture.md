@@ -23,7 +23,7 @@ flowchart LR
 ```
 
 Generated projects include `.mcp.json`, `.vscode/mcp.json`, and `AGENTS.md`.
-`npx -y @srijika/mcp-server@0.3.2 --project .` bounds all code-project tools to
+`npx -y @srijika/mcp-server@0.4.0 --project .` bounds all code-project tools to
 that project. The read tools publish metadata, canonical files, and diagnostics;
 the plan/apply pair uses the same atomic no-overwrite scaffold service as CLI and
 VS Code. A missing Studio descriptor affects only visual document/preview tools.

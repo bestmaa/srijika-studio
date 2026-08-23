@@ -315,7 +315,7 @@ importers:
   packages/create-srijika:
     dependencies:
       '@srijika/cli':
-        specifier: 0.3.2
+        specifier: 0.4.0
         version: link:../cli
 
   packages/developer-engine:

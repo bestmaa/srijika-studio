@@ -2,10 +2,19 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "publisher": "srijika",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bestmaa/srijika-studio.git"
+  },
+  "homepage": "https://srijika.com/docs/vscode/",
+  "bugs": {
+    "url": "https://github.com/bestmaa/srijika-studio/issues"
+  },
+  "icon": "media/srijika-icon.png",
   "type": "module",
   "engines": {
     "vscode": "^1.100.0"
@@ -24,7 +33,9 @@
   "files": [
     "dist",
     "media",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "activationEvents": [
     "workspaceContains:srijika.config.json",

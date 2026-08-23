@@ -94,21 +94,21 @@ operations with `npx @srijika/cli ...` from VS Code's integrated terminal.
 
 ## Install Srijika Language Support
 
-The public-alpha extension is currently distributed from the Srijika repository,
-not from the Visual Studio Marketplace. For a local repository checkout:
+Install the public-alpha extension from the
+[Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=srijika.srijika-language-support)
+or search for **Srijika Language Support** in VS Code's Extensions view. The
+stable extension identifier is `srijika.srijika-language-support`.
+
+For development against a local Srijika Studio checkout:
 
 ```bash
 pnpm --filter srijika-language-support install:local
 ```
 
 Then run **Developer: Reload Window** in VS Code. Generated projects recommend
-the stable extension identifier `srijika.srijika-language-support`; the CLI may
-attempt that identifier automatically and safely continues if a public extension
-registry cannot provide it.
-
-Until the Marketplace package ships, developers without the Studio repository
-can still use the complete CLI, generated tasks, TypeScript IntelliSense, and MCP
-workflow.
+the Marketplace extension automatically; the CLI safely continues with its
+complete tasks, TypeScript IntelliSense, and MCP workflow if an extension
+registry is temporarily unavailable.
 
 ## Use the Structure view
 
@@ -299,7 +299,7 @@ Changing runtime never changes the project's package manager or lockfile.
 ## Connect Codex or another MCP client
 
 Generated `.vscode/mcp.json` starts the pinned
-`@srijika/mcp-server@0.3.2` process with `${workspaceFolder}` as the project.
+`@srijika/mcp-server@0.4.0` process with `${workspaceFolder}` as the project.
 The MCP server can inspect, validate, preview scaffold plans, and atomically
 apply approved Feature/Slot/Part and shared-owner structure without Desktop
 Studio.

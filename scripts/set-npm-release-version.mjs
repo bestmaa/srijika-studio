@@ -33,6 +33,8 @@ const replacements = [
   ...[
     'packages/project-scaffold/src/templates.ts',
     'packages/project-scaffold/test/project-scaffold.test.ts',
+    'packages/developer-engine/src/workspace.ts',
+    'docs/MONOREPO.md',
     'docs/codex-plugin-architecture.md',
     'plugins/srijika-studio/skills/srijika-studio/references/cli-and-runtime.md',
     'apps/portal/src/content/docs/docs/vscode.mdx',
