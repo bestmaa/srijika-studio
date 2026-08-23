@@ -130,24 +130,27 @@ await writeFile(
   }),
 );
 
-const windowsPath = (path) => execFileSync('wslpath', ['-w', path], { encoding: 'utf8' }).trim();
+const windowsPath = (path) =>
+  process.platform === 'win32'
+    ? resolve(path)
+    : execFileSync('wslpath', ['-w', path], { encoding: 'utf8' }).trim();
 const windowsLauncherSource =
   process.env['SRIJIKA_STUDIO_MCP_WINDOWS_LAUNCHER'] ??
   join(workspace, 'plugins/srijika-studio/scripts/run-mcp.cmd');
-const windowsLauncher = useWindowsLauncher
-  ? windowsLauncherSource.startsWith('/')
-    ? windowsPath(windowsLauncherSource)
-    : windowsLauncherSource
-  : '';
+const windowsLauncher = useWindowsLauncher ? windowsPath(windowsLauncherSource) : '';
 const transport = new StdioClientTransport({
   command: useWindowsLauncher ? 'cmd.exe' : (isolatedLaunch?.command ?? process.execPath),
   args: useWindowsLauncher
     ? ['/d', '/s', '/c', windowsLauncher]
     : (isolatedLaunch?.args ?? [bundle]),
-  cwd: useWindowsLauncher ? '/mnt/c/Users/beste' : (isolatedLaunch?.cwd ?? workspace),
+  cwd: useWindowsLauncher
+    ? process.platform === 'win32'
+      ? workspace
+      : '/mnt/c'
+    : (isolatedLaunch?.cwd ?? workspace),
   env: {
     ...process.env,
-    ...(useWindowsLauncher
+    ...(useWindowsLauncher && process.platform !== 'win32'
       ? {
           WSLENV: [process.env.WSLENV, 'SRIJIKA_STUDIO_BRIDGE_DESCRIPTOR']
             .filter(Boolean)
