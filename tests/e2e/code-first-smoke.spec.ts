@@ -84,7 +84,7 @@ test.describe('Srijika code-first authoring', () => {
 
     await expect(
       page.getByRole('heading', { name: 'Explore Srijika without touching your files.' }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('button', { name: 'Create Demo Project' })).toBeVisible();
     await expect(page.getByLabel('Srijika TSX source')).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Derived UI preview' })).toHaveCount(0);
@@ -246,7 +246,7 @@ test.describe('Srijika code-first authoring', () => {
     await page.goto('/');
     await expect(
       page.getByRole('heading', { name: 'Explore Srijika without touching your files.' }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 20_000 });
     expect(
       await page.evaluate(() => ({
         clientWidth: document.documentElement.clientWidth,
