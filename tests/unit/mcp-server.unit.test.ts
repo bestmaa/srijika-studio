@@ -1,6 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -940,12 +940,14 @@ describe('Srijika MCP server', () => {
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
       arguments: { source, target },
     });
+    const canonicalSource = await realpath(source);
+    const canonicalTarget = await realpath(target);
     expect(created.isError).toBeUndefined();
     expect(created.structuredContent).toMatchObject({
       ok: true,
       result: {
-        sourceRoot: source,
-        targetRoot: target,
+        sourceRoot: canonicalSource,
+        targetRoot: canonicalTarget,
         phase: 'scaffolded',
       },
     });
