@@ -989,8 +989,8 @@ describe('Srijika MCP server', () => {
       ok: true,
       result: {
         contractVersion: 2,
-        sourceRoot: source,
-        targetRoot: target,
+        sourceRoot: canonicalSource,
+        targetRoot: canonicalTarget,
         ownership: { cursor: null, limit: 50, total: 2 },
       },
     });
@@ -1072,8 +1072,8 @@ describe('Srijika MCP server', () => {
       ok: true,
       result: {
         contractVersion: 2,
-        sourceRoot: source,
-        targetRoot: target,
+        sourceRoot: canonicalSource,
+        targetRoot: canonicalTarget,
         phase: 'scaffolded',
         nextAction: 'get-next-slice-plan',
       },
