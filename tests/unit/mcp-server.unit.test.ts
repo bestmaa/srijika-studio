@@ -964,7 +964,7 @@ describe('Srijika MCP server', () => {
       ok: true,
       result: {
         contractVersion: 2,
-        sourceRoot: source,
+        sourceRoot: canonicalSource,
         framework: 'vite',
         files: {
           cursor: null,

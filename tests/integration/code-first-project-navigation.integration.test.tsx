@@ -1422,7 +1422,7 @@ export function Home(props: HomeProps) {
       }),
     ).toBeEnabled();
     const openApp = within(runtime).getByRole('button', { name: 'Open App' });
-    expect(openApp).toBeEnabled();
+    await waitFor(() => expect(openApp).toBeEnabled());
     fireEvent.click(openApp);
     await waitFor(() => expect(serviceMocks.openCodeProjectApp).toHaveBeenCalledWith(PROJECT_ROOT));
 
