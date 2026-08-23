@@ -69,7 +69,7 @@ import {
   SRIJIKA_VSCODE_EXTENSION_ID,
 } from './vscode.js';
 
-export const SRIJIKA_CLI_VERSION = '0.4.1';
+export const SRIJIKA_CLI_VERSION = '0.5.0';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 

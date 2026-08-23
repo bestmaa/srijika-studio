@@ -2,6 +2,19 @@
 
 All notable changes to Srijika Language Support are documented here.
 
+## 0.5.0 — 2026-08-23
+
+- Added an always-available current-project Structure Graph independent of a
+  migration session.
+- Added bounded monorepo package discovery and project switching for every
+  package containing its own `srijika.config.json`.
+- Added App → Feature → Slot → Part / Shared ownership nodes with exact
+  UI/Connector/Hook/Store/Logic/API/Types file capabilities.
+- Added TypeScript import/export discovery, directional same-owner/Shared/
+  cross-owner edges, unresolved-import evidence, and direct source opening.
+- Mapped strict architecture diagnostics to red graph nodes and forbidden
+  import edges with exact rule guidance.
+
 ## 0.4.1 — 2026-08-23
 
 - Made generated TSX compilation and repository-boundary tests portable on

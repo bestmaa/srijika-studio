@@ -42,6 +42,35 @@ restriction. After reload, normal TSX support and Srijika diagnostics run togeth
 The generated project recommends `srijika.srijika-language-support` automatically.
 Run **Srijika: Open Setup and Language Support Guide** at any time for this guide.
 
+## Current project Structure Graph
+
+Open the **Srijika** Activity Bar and use the hierarchy icon in the **Structure**
+view, or run **Srijika: Open Current Project Structure Graph**. Unlike the
+migration graph, this panel does not require a migration session. It scans the
+currently selected configured project and renders its live source architecture:
+
+```text
+App
+|-- Features -> Feature -> Slot -> Part
+`-- Shared -> UI / Widget / Headless Capability
+                    |
+        UI -> Connector -> Hook / Store / Logic / API / Types
+```
+
+Click an owner to expand its exact files. Click a file to see incoming and
+outgoing imports, named exports, capability, package dependencies, unresolved
+imports, and strict-rule findings, then open the source directly. Blue edges
+stay inside one owner, green edges consume Shared, dashed amber edges cross
+owners, and red edges/nodes come only from matching validator evidence. Search,
+violations-only filtering, dependency visibility, collapse, zoom, refresh, and
+saved panel state are built in.
+
+The scanner uses the same bounded file/byte limits, symlink rejection,
+configuration, aliases, and architecture validator as the editor diagnostics.
+In a monorepo it discovers each bounded package with its own
+`srijika.config.json`; **Switch project** changes the graph without granting one
+package access to another package's source.
+
 ## React migration dashboard
 
 Open the **Srijika** Activity Bar container and expand **Migration**, or run
@@ -305,6 +334,9 @@ Code extension always enforce the same policy.
 - **Srijika: Open Migration Architecture Graph**
   (`srijika.openMigrationArchitecture`) opens the session-backed interactive
   ownership, import/export, Shared dependency, and violation graph.
+- **Srijika: Open Current Project Structure Graph**
+  (`srijika.openProjectArchitecture`) opens the live configured-project graph
+  without requiring a migration session, including monorepo package selection.
 - **Srijika: Add Strict Feature / Shared Owner...**
   (`srijika.addOwnershipCapability`) opens the strict visual scaffold form from
   the Structure `+` action or Explorer folder context menu.

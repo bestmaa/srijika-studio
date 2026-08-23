@@ -42,6 +42,7 @@ import {
   type SrijikaOwnershipCreationPlan,
 } from './ownership-creation';
 import { upgradedSrijikaPortableValidator } from './portable-validator-sync';
+import { SrijikaProjectArchitecturePanel } from './project-architecture-panel';
 import { SrijikaStructureTreeItem, SrijikaStructureTreeProvider } from './structure-view';
 import { SrijikaMigrationViewProvider } from './migration-view';
 import { SrijikaRuntimeController } from './runtime-controller';
@@ -175,6 +176,7 @@ export function activate(context: vscode.ExtensionContext): void {
     showCollapseAll: true,
   });
   const migrationProvider = new SrijikaMigrationViewProvider(output);
+  const projectArchitecturePanel = new SrijikaProjectArchitecturePanel(output);
   const migrationView = vscode.window.registerWebviewViewProvider(
     'srijika.migration',
     migrationProvider,
@@ -648,6 +650,10 @@ export function activate(context: vscode.ExtensionContext): void {
   const openMigrationArchitecture = vscode.commands.registerCommand(
     'srijika.openMigrationArchitecture',
     () => migrationProvider.openArchitectureGraph(),
+  );
+  const openProjectArchitecture = vscode.commands.registerCommand(
+    'srijika.openProjectArchitecture',
+    () => projectArchitecturePanel.show(),
   );
 
   const architectureForCreation = async (workspaceFolder: vscode.WorkspaceFolder) => {
@@ -1531,11 +1537,13 @@ export function activate(context: vscode.ExtensionContext): void {
     structureView,
     migrationView,
     migrationProvider,
+    projectArchitecturePanel,
     checkCurrentFile,
     checkArchitecture,
     showSetup,
     importExistingReactProject,
     openMigrationArchitecture,
+    openProjectArchitecture,
     addOwnershipCapability,
     refreshStructure,
     runApp,

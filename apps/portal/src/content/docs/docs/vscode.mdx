@@ -34,6 +34,29 @@ code my-app
 Always open the **complete project folder**, not a loose `.ui.tsx` file. React,
 TypeScript, tasks, MCP, and ownership detection depend on workspace context.
 
+## Inspect the current project Structure Graph
+
+Use the hierarchy icon in the **Structure** view or run **Srijika: Open Current
+Project Structure Graph**. This graph is always available for a configured
+project; it does not require a React migration session.
+
+The full editor panel starts with App → Features / Shared → Feature → Slot →
+Part. Expanding an owner reveals its exact UI, Connector, Hook, Store, Logic,
+API, and Types files. Selecting a file shows directional incoming/outgoing
+imports, named exports, package dependencies, unresolved imports, capability,
+and strict architecture findings, with a safe **Open file** action.
+
+Blue edges remain inside one owner, green edges consume Shared, dashed amber
+edges cross owners, and red edges/nodes are backed by the shared architecture
+validator. Search, violations-only filtering, import visibility, collapse,
+zoom, refresh, and saved panel state are included. The scan uses the same
+bounded file/byte limits, alias contract, symlink rejection, and diagnostics as
+the normal architecture check.
+
+For a monorepo, the extension discovers bounded packages that contain their own
+`srijika.config.json`. **Switch project** changes the graph to one package at a
+time; active-editor context automatically selects the deepest matching package.
+
 ## Migrate an existing React project
 
 Open the **Srijika** Activity Bar container and expand **Migration**, or run
@@ -299,7 +322,7 @@ Changing runtime never changes the project's package manager or lockfile.
 ## Connect Codex or another MCP client
 
 Generated `.vscode/mcp.json` starts the pinned
-`@srijika/mcp-server@0.4.1` process with `${workspaceFolder}` as the project.
+`@srijika/mcp-server@0.5.0` process with `${workspaceFolder}` as the project.
 The MCP server can inspect, validate, preview scaffold plans, and atomically
 apply approved Feature/Slot/Part and shared-owner structure without Desktop
 Studio.

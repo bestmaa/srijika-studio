@@ -15,7 +15,9 @@ The repository currently implements:
 - safe native resolved-UI-suffix reads, optimistic hash-checked atomic saves, and explicit non-overwriting project creation;
 - direct project/file/node navigation into VS Code plus a managed frozen-lockfile install, run, open, stop, and build lifecycle;
 - a polished interactive one-page Srijika starter that demonstrates pure UI, connector state, typed events, slots, responsive styling, and the pinned project toolchain;
-- a Srijika VS Code extension for the same compiler diagnostics and fixes; and
+- a Srijika VS Code extension for the same compiler diagnostics and fixes,
+  including a bounded live App → Feature → Slot → Part / Shared import-export
+  Structure Graph for individual projects and monorepo packages; and
 - a shared Node-compatible CLI/developer engine for strict creation, incremental
   architecture checks, Vite HMR, toolchain doctoring, Desktop handoff, and optional
   explicit Bun turbo mode;

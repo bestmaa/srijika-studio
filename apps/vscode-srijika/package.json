@@ -2,7 +2,7 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": true,
   "publisher": "srijika",
   "license": "Apache-2.0",
@@ -46,6 +46,7 @@
     "onCommand:srijika.showSetup",
     "onCommand:srijika.importReactProject",
     "onCommand:srijika.openMigrationArchitecture",
+    "onCommand:srijika.openProjectArchitecture",
     "onCommand:srijika.addOwnershipCapability",
     "onCommand:srijika.refreshStructure",
     "onCommand:srijika.runApp",
@@ -88,6 +89,13 @@
         "shortTitle": "Open Architecture Graph",
         "category": "Srijika",
         "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "srijika.openProjectArchitecture",
+        "title": "Srijika: Open Current Project Structure Graph",
+        "shortTitle": "Open Structure Graph",
+        "category": "Srijika",
+        "icon": "$(type-hierarchy-sub)"
       },
       {
         "command": "srijika.addOwnershipCapability",
@@ -198,6 +206,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "srijika.openProjectArchitecture",
+          "when": "view == srijika.structure",
+          "group": "navigation@1"
+        },
         {
           "command": "srijika.openMigrationArchitecture",
           "when": "view == srijika.migration",

@@ -1,6 +1,6 @@
 {
   "name": "@srijika/cli",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Fast, ownership-aware Srijika project CLI with Vite HMR and optional Bun turbo mode.",
   "license": "Apache-2.0",
   "type": "module",

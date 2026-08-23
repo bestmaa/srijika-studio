@@ -21,6 +21,7 @@ describe('VS Code Srijika Structure contribution', () => {
     expect(manifest.activationEvents).toContain('onView:srijika.structure');
     expect(manifest.activationEvents).toContain('onView:srijika.migration');
     expect(manifest.activationEvents).toContain('onCommand:srijika.openMigrationArchitecture');
+    expect(manifest.activationEvents).toContain('onCommand:srijika.openProjectArchitecture');
     expect(manifest.activationEvents).toContain('onCommand:srijika.importReactProject');
     expect(manifest.activationEvents).toContain('onCommand:srijika.syncOwnerTests');
     expect(manifest.activationEvents).toContain('onCommand:srijika.showTestEvidence');
@@ -40,6 +41,10 @@ describe('VS Code Srijika Structure contribution', () => {
         expect.objectContaining({
           command: 'srijika.openMigrationArchitecture',
           title: 'Srijika: Open Migration Architecture Graph',
+        }),
+        expect.objectContaining({
+          command: 'srijika.openProjectArchitecture',
+          title: 'Srijika: Open Current Project Structure Graph',
         }),
       ]),
     );
@@ -72,6 +77,10 @@ describe('VS Code Srijika Structure contribution', () => {
         expect.objectContaining({
           command: 'srijika.openMigrationArchitecture',
           when: 'view == srijika.migration',
+        }),
+        expect.objectContaining({
+          command: 'srijika.openProjectArchitecture',
+          when: 'view == srijika.structure',
         }),
       ]),
     );

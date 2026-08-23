@@ -42,13 +42,13 @@ for a private source repository, so the publish command must not force the
 Prepare and commit the coordinated version:
 
 ```bash
-pnpm release:version 0.4.1
+pnpm release:version 0.5.0
 pnpm install --lockfile-only
 pnpm release:build
 pnpm release:verify
 ```
 
-Merge that change, create tag `v0.4.1`, and publish a GitHub Release from the tag.
+Merge that change, create tag `v0.5.0`, and publish a GitHub Release from the tag.
 The workflow verifies the tag against all three package versions, runs the complete
 quality gate, builds exact tarballs, skips versions already present after a partial
 retry, and publishes with npm Trusted Publishing. Public packages built from this

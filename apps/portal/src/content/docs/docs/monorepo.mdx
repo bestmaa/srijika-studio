@@ -151,6 +151,12 @@ and creation plans isolated by VS Code workspace folder. Add declared shared
 packages to the workspace file when ordinary TypeScript navigation should show
 them.
 
+**Srijika: Open Current Project Structure Graph** discovers each configured
+application package, automatically follows the active editor when possible,
+and otherwise offers an explicit project picker. Its App → Feature → Slot →
+Part / Shared graph, import/export directions, Connector/Hook/Store/UI
+capabilities, and validator violations remain scoped to the selected package.
+
 Generated `.mcp.json` names servers `srijika-<project-id>` and passes an explicit
 `--project <root>`. An AI should choose the declared server, inspect before
 writing, use canonical creation operations, synchronize tests, and return
