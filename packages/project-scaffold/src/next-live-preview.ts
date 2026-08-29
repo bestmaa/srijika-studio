@@ -55,6 +55,8 @@ module.exports = function srijikaNextPreviewLoader(source) {
 `),
     [instrumentationPath]: sourceFile(String.raw`
 // @srijika-next-live-preview-v1
+declare const process: { readonly env: { readonly NODE_ENV?: string } };
+
 const SOURCE_ATTRIBUTE = 'data-srijika-source';
 const SELECT_MESSAGE = 'srijika:preview-select';
 const SELECTED_MESSAGE = 'srijika:preview-selected-source';
