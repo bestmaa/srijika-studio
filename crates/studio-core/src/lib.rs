@@ -12176,7 +12176,21 @@ if (ready) /import\('\.\/old'\)/.test(value);
             })
             .expect_err("case-only sibling collision must be portable");
         assert_eq!(portable_collision.code(), "project_file_exists");
-        assert!(!project.join("src/pages/Portable.ui.tsx").exists());
+        let exact_page_names = || {
+            fs::read_dir(project.join("src/pages"))
+                .expect("read page directory")
+                .map(|entry| entry.expect("read page entry").file_name())
+                .collect::<Vec<_>>()
+        };
+        assert!(
+            !exact_page_names()
+                .iter()
+                .any(|name| name.to_string_lossy() == "Portable.ui.tsx")
+        );
+        assert_eq!(
+            fs::read_to_string(project.join("src/pages/PORTABLE.UI.TSX")).unwrap(),
+            "keep portable"
+        );
         assert!(!project.join("src/pages/Portable.connector.tsx").exists());
 
         fs::write(
@@ -12194,8 +12208,21 @@ if (ready) /import\('\.\/old'\)/.test(value);
             })
             .expect_err("case-only connector collision must be portable");
         assert_eq!(portable_connector_collision.code(), "project_file_exists");
-        assert!(!project.join("src/pages/Toolbar.ui.tsx").exists());
-        assert!(!project.join("src/pages/Toolbar.connector.tsx").exists());
+        let page_names = exact_page_names();
+        assert!(
+            !page_names
+                .iter()
+                .any(|name| name.to_string_lossy() == "Toolbar.ui.tsx")
+        );
+        assert!(
+            !page_names
+                .iter()
+                .any(|name| name.to_string_lossy() == "Toolbar.connector.tsx")
+        );
+        assert_eq!(
+            fs::read_to_string(project.join("src/pages/TOOLBAR.CONNECTOR.TSX")).unwrap(),
+            "keep portable connector"
+        );
     }
 
     #[test]
