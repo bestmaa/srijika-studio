@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { adoptSrijikaNextProject, planSrijikaNextAdoption } from '../src/next-adoption.js';
+import {
+  adoptSrijikaNextProject,
+  planSrijikaNextAdoption,
+  resolveSrijikaNextAdoptionProcess,
+} from '../src/next-adoption.js';
 
 const roots: string[] = [];
 
@@ -81,6 +85,28 @@ async function nextProject(
 }
 
 describe('Next.js App Router brownfield adoption', () => {
+  it('invokes Windows package-manager shims through a validated command shell', () => {
+    const command = {
+      name: 'typecheck' as const,
+      executable: 'npm.cmd',
+      args: ['run', 'typecheck'],
+      cwd: 'C:\\project',
+      timeoutMillis: 120_000,
+    };
+
+    expect(resolveSrijikaNextAdoptionProcess(command, 'win32', 'cmd.exe')).toEqual({
+      executable: 'cmd.exe',
+      args: ['/d', '/s', '/c', 'npm.cmd run typecheck'],
+    });
+    expect(() =>
+      resolveSrijikaNextAdoptionProcess(
+        { ...command, args: ['run', 'typecheck&unexpected'] },
+        'win32',
+        'cmd.exe',
+      ),
+    ).toThrow(/unsafe token/);
+  });
+
   it('produces a deterministic no-write plan with framework and server boundaries', async () => {
     const root = await nextProject();
     const beforePackage = await readFile(join(root, 'package.json'), 'utf8');

@@ -105,6 +105,11 @@ export interface SrijikaNextAdoptionCommand {
   timeoutMillis: number;
 }
 
+export interface SrijikaNextAdoptionProcess {
+  executable: string;
+  args: readonly string[];
+}
+
 export interface SrijikaNextAdoptionPlan {
   version: typeof SRIJIKA_NEXT_ADOPTION_VERSION;
   framework: 'next-app-router';
@@ -185,6 +190,27 @@ function packageExecArguments(
   if (manager === 'npm') return ['exec', '--', binary, ...args];
   if (manager === 'bun') return ['x', binary, ...args];
   return ['exec', binary, ...args];
+}
+
+const WINDOWS_COMMAND_TOKEN = /^[A-Za-z0-9_./:@=-]+$/u;
+
+export function resolveSrijikaNextAdoptionProcess(
+  command: SrijikaNextAdoptionCommand,
+  platform: NodeJS.Platform = process.platform,
+  commandShell: string | undefined = process.env['ComSpec'],
+): SrijikaNextAdoptionProcess {
+  if (platform !== 'win32') {
+    return Object.freeze({ executable: command.executable, args: command.args });
+  }
+  const tokens = [command.executable, ...command.args];
+  const unsafe = tokens.find((token) => !WINDOWS_COMMAND_TOKEN.test(token));
+  if (unsafe !== undefined) {
+    throw new Error(`Windows adoption command contains an unsafe token: ${unsafe}`);
+  }
+  return Object.freeze({
+    executable: commandShell?.trim() || 'cmd.exe',
+    args: Object.freeze(['/d', '/s', '/c', tokens.join(' ')]),
+  });
 }
 
 function declaredPackageManager(value: unknown): SrijikaPackageManager | null {
@@ -734,11 +760,12 @@ async function runAdoptionCommand(
   command: SrijikaNextAdoptionCommand,
 ): Promise<SrijikaNextAdoptionVerificationGate> {
   const started = performance.now();
+  const processCommand = resolveSrijikaNextAdoptionProcess(command);
   return new Promise((resolveGate) => {
     let output = '';
     let timedOut = false;
     let completed = false;
-    const child = spawn(command.executable, [...command.args], {
+    const child = spawn(processCommand.executable, [...processCommand.args], {
       cwd: command.cwd,
       env: process.env,
       shell: false,
