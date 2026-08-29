@@ -86,6 +86,9 @@ See [Adopt an existing Next.js App Router project](docs/NEXT_ADOPTION.md) for
 the no-overwrite transaction, server/framework classifications, merge
 instructions, and verification gates.
 
+For Payload CMS 3 projects, see the
+[Payload CMS + Next.js integration profile](docs/PAYLOAD_NEXT_INTEGRATION.md).
+
 Node remains the compatibility default. Bun is an optional explicit Vite runtime;
 dependency installation always follows the project's declared package manager and
 lockfile.
@@ -135,6 +138,7 @@ Full-workspace Rust checks include the Tauri shell and therefore require the nat
 - [CLI and fast runtime](docs/CLI_AND_FAST_RUNTIME.md)
 - [Monorepo setup and aggregate testing](docs/MONOREPO.md)
 - [Existing Next.js App Router adoption](docs/NEXT_ADOPTION.md)
+- [Payload CMS + Next.js integration](docs/PAYLOAD_NEXT_INTEGRATION.md)
 - [Feature → Slot → Part ownership and structure rules](docs/FEATURE_SLOT_PART_ARCHITECTURE.md)
 - [Code-first Srijika TSX rules and project flow](docs/CODE_FIRST_TSX.md)
 - [UI document format](docs/UI_DOCUMENT_FORMAT.md)

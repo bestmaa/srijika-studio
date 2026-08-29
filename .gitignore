@@ -1,6 +1,8 @@
 node_modules/
 .pnpm-store/
 dist/
+.next/
+*.tsbuildinfo
 coverage/
 playwright-report/
 test-results/
@@ -14,6 +16,7 @@ test-results/
 target/
 apps/studio/src-tauri/gen/
 apps/studio/src-tauri/target/
+apps/payload-next-reference/media/
 *.srijika.tmp
 .srijika/cache/
 .srijika/generated/

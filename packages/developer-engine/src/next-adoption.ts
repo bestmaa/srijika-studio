@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 
 import {
+  analyzeSrijikaPayloadNextProfile,
   buildSrijikaTestContract,
   resolveSrijikaArchitectureConfig,
+  type SrijikaPayloadNextProfile,
 } from '@srijika/architecture-rules';
 import {
   applySrijikaOwnershipCreationPlan,
@@ -123,6 +125,7 @@ export interface SrijikaNextAdoptionPlan {
   nextTypeScriptPlugin: boolean;
   routes: readonly SrijikaNextAdoptionRouteFile[];
   protectedServerFiles: readonly string[];
+  payload: SrijikaPayloadNextProfile | null;
   baseline: readonly SrijikaNextAdoptionBaselineFile[];
   files: readonly SrijikaNextAdoptionFile[];
   unchanged: readonly string[];
@@ -537,6 +540,11 @@ export async function planSrijikaNextAdoption(
   const packageSource = (await fileSystem.readText('package.json', MAX_PACKAGE_BYTES)).source;
   const packageJson = record(JSON.parse(packageSource) as unknown, 'package.json');
   const scripts = stringRecord(packageJson['scripts'], 'package.json scripts');
+  const dependencies = {
+    ...stringRecord(packageJson['dependencies'], 'package.json dependencies'),
+    ...stringRecord(packageJson['devDependencies'], 'package.json devDependencies'),
+    ...stringRecord(packageJson['optionalDependencies'], 'package.json optionalDependencies'),
+  };
   const nextVersion = nextVersionFromPackage(packageJson);
   const lock = await selectedLockfile(fileSystem, packageJson);
   const appRoots = (
@@ -610,10 +618,24 @@ export async function planSrijikaNextAdoption(
       kind: routeKind(relativePath.split('/').at(-1)!),
       classification: 'framework-owned-server-surface',
     }));
-  const protectedServerFiles = sourceFiles
-    .filter(({ relativePath }) => isServerOnlySource(relativePath, sources[relativePath]!, appRoot))
-    .map(({ relativePath }) => relativePath)
-    .sort();
+  const payload = analyzeSrijikaPayloadNextProfile({
+    dependencies,
+    appRoot,
+    files: sourceFiles.map(({ relativePath }) => ({
+      relativePath,
+      source: sources[relativePath]!,
+    })),
+  });
+  const protectedServerFiles = [
+    ...new Set([
+      ...sourceFiles
+        .filter(({ relativePath }) =>
+          isServerOnlySource(relativePath, sources[relativePath]!, appRoot),
+        )
+        .map(({ relativePath }) => relativePath),
+      ...(payload.detected ? payload.protectedServerFiles : []),
+    ]),
+  ].sort();
   const architecture = resolveSrijikaArchitectureConfig();
   const contract = buildSrijikaTestContract(
     sourceFiles.map(({ relativePath }) => ({
@@ -715,6 +737,7 @@ export async function planSrijikaNextAdoption(
       nextTypeScriptPlugin: hasNextTypeScriptPlugin(tsconfigSource),
       routes,
       protectedServerFiles,
+      payload: payload.detected ? payload : null,
       sourceBaseline: baseline,
       mergeInstructions,
     }),
@@ -744,6 +767,7 @@ export async function planSrijikaNextAdoption(
     nextTypeScriptPlugin: hasNextTypeScriptPlugin(tsconfigSource),
     routes: Object.freeze(routes),
     protectedServerFiles: Object.freeze(protectedServerFiles),
+    payload: payload.detected ? payload : null,
     baseline: Object.freeze(baseline),
     files: Object.freeze(
       files.sort((left, right) => left.relativePath.localeCompare(right.relativePath)),

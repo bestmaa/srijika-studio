@@ -8,4 +8,5 @@ pnpm-lock.yaml
 apps/studio/src-tauri/gen
 apps/portal/.astro
 apps/portal/src/content/docs/reference
+apps/payload-next-reference/next-env.d.ts
 plugins/srijika-studio/mcp-server

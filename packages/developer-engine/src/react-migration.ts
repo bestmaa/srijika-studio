@@ -17,8 +17,10 @@ import {
 import ts from 'typescript';
 
 import {
+  analyzeSrijikaPayloadNextProfile,
   resolveSrijikaArchitectureConfig,
   type SrijikaArchitectureConfig,
+  type SrijikaPayloadNextProfile,
 } from '@srijika/architecture-rules';
 import { createSrijikaArchitectureValidatorScript } from '@srijika/architecture-rules/portable';
 
@@ -203,6 +205,7 @@ export interface ReactMigrationNextAppRouterInventory {
   middleware: readonly string[];
   publicAssets: readonly string[];
   configPaths: readonly string[];
+  payload: SrijikaPayloadNextProfile | null;
 }
 
 export type ReactMigrationPackageDependencyScope =
@@ -1516,6 +1519,13 @@ export async function scanReactMigrationSource(
       ? (packageJson['devDependencies'] as Record<string, unknown>)
       : {}),
   };
+  const dependencyVersions = Object.freeze(
+    Object.fromEntries(
+      Object.entries(dependencies).filter(
+        (entry): entry is [string, string] => typeof entry[1] === 'string',
+      ),
+    ),
+  );
   if (typeof dependencies['react'] !== 'string') {
     throw new Error('Phase 1 accepts React projects only; package.json must declare react.');
   }
@@ -1646,17 +1656,31 @@ export async function scanReactMigrationSource(
         return route ? [route] : [];
       })
     : [];
+  const payloadProfile = nextAppRoot
+    ? analyzeSrijikaPayloadNextProfile({
+        dependencies: dependencyVersions,
+        appRoot: nextAppRoot,
+        files: inventory.map((file) => ({
+          relativePath: file.relativePath,
+          source: sourceTexts.get(file.relativePath) ?? '',
+        })),
+      })
+    : null;
   const nextProtectedServerFiles = nextAppRoot
-    ? inventory
-        .filter((file) =>
-          isNextProtectedServerFile(
-            file.relativePath,
-            sourceTexts.get(file.relativePath) ?? '',
-            nextAppRoot,
-          ),
-        )
-        .map((file) => file.relativePath)
-        .sort()
+    ? [
+        ...new Set([
+          ...inventory
+            .filter((file) =>
+              isNextProtectedServerFile(
+                file.relativePath,
+                sourceTexts.get(file.relativePath) ?? '',
+                nextAppRoot,
+              ),
+            )
+            .map((file) => file.relativePath),
+          ...(payloadProfile?.detected ? payloadProfile.protectedServerFiles : []),
+        ]),
+      ].sort()
     : [];
   const nextAppRouter: ReactMigrationNextAppRouterInventory | undefined = nextAppRoot
     ? Object.freeze({
@@ -1688,6 +1712,7 @@ export async function scanReactMigrationSource(
             .map((file) => file.relativePath)
             .sort(),
         ),
+        payload: payloadProfile?.detected ? payloadProfile : null,
       })
     : undefined;
   const exactFrameworkSources = new Set([

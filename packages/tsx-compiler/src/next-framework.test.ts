@@ -242,4 +242,35 @@ export function ClientPanel() {
 
     expect(result).toMatchObject({ boundary: 'client', diagnostics: [] });
   });
+
+  it('rejects Payload Local API and database runtime imports from UI and client boundaries', () => {
+    const ui = compileSrijikaTsx(
+      'Post.ui.tsx',
+      `import type { Post } from '../payload-types';
+import { getPayload } from 'payload';
+export function PostUI(props: { post: Post }) { return <article>{props.post.title}</article>; }`,
+      {
+        resolvedTypeModules: [
+          {
+            specifier: '../payload-types',
+            fileName: 'src/payload-types.ts',
+            source: 'export interface Post { title: string }',
+          },
+        ],
+      },
+    );
+    const client = analyzeSrijikaNextBoundary(
+      'src/features/posts/Posts.connector.tsx',
+      `'use client';
+import postgres from 'postgres';
+export function PostsConnector() { return <button>Save</button>; }`,
+    );
+
+    expect(ui.diagnostics.find(({ code }) => code === 'SRIJIKA5006')?.message).toContain(
+      'serializable props',
+    );
+    expect(client.diagnostics.find(({ code }) => code === 'SRIJIKA5006')?.message).toContain(
+      'REST or GraphQL',
+    );
+  });
 });
