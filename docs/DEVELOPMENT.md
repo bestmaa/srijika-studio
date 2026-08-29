@@ -79,13 +79,12 @@ Studio. General source files are still created in VS Code.
 
 Browser demos and detached sources use Studio's bundled compiler/renderer and do
 not need a project's `node_modules`. An attached desktop project instead shows an
-explicit **Start App** state, then embeds only the real managed Vite runtime. UI
+explicit **Start App** state, then embeds only the real managed Vite or Next.js runtime. UI
 Source selection asks that runtime to render the matching required Connector, so
 Provider, Hook, Store, Logic, API, CSS, and HMR behavior remain observable. Full
-application tasks currently resolve the fixed `pnpm` command from the host
-environment. Generated projects pin
-`packageManager` and include `pnpm-lock.yaml`; install always uses
-`pnpm install --frozen-lockfile`.
+application tasks resolve the declared npm, pnpm, Yarn, or Bun executable from the host
+environment. The nearest matching project-local or monorepo-root lockfile is authoritative,
+and installation always uses that manager's immutable mode.
 
 To check or build the entire Rust workspace after native setup:
 

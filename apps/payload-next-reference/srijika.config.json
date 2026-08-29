@@ -1,0 +1,9 @@
+{
+  "sourceOfTruth": "tsx",
+  "entry": "src/features/posts/Posts.ui.tsx",
+  "architecture": {
+    "profile": "feature-slot-part-v1",
+    "featuresRoot": "src/features",
+    "sharedRoot": "src/shared"
+  }
+}

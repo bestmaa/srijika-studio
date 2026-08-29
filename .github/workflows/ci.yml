@@ -93,3 +93,29 @@ jobs:
 
       - name: Verify Windows MCP transport
         run: pnpm release:build && pnpm test:mcp:windows
+
+  macos-runtime:
+    name: macOS managed preview contracts
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22.13.0'
+          package-manager-cache: false
+
+      - name: Install frozen workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify framework and scaffold contracts
+        run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/project-scaffold test
+
+      - name: Verify native runtime contracts
+        run: cargo test --locked -p studio-core

@@ -349,6 +349,19 @@ describe('runtime planning', () => {
     expect(formatSrijikaCommand(dev)).toContain('pnpm run dev');
   });
 
+  it('uses the declared Next dev script with loopback-only App Router arguments', async () => {
+    const project = await inspectSrijikaProject(await createProject({ framework: 'next' }));
+    const dev = planSrijikaProjectCommand(project, 'dev', { port: 4_318 });
+
+    expect(dev).toMatchObject({ runtime: 'node', packageManager: 'pnpm' });
+    expect(dev.args).toEqual(['run', 'dev', '--hostname', '127.0.0.1', '--port', '4318']);
+    expect(dev.description).toContain('Next.js HMR');
+    expect(() => planSrijikaProjectCommand(project, 'dev', { host: '0.0.0.0' })).toThrow(
+      /loopback/,
+    );
+    expect(() => planSrijikaProjectCommand(project, 'dev', { port: 80 })).toThrow(/1024/);
+  });
+
   it('keeps Node as automatic compatibility mode', async () => {
     const project = await inspectSrijikaProject(await createProject());
 

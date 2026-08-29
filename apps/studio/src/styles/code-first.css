@@ -118,6 +118,23 @@
   opacity: 0.42;
 }
 
+.code-first-next-route-controls select,
+.code-first-next-route-controls input {
+  width: auto;
+  max-width: 180px;
+  min-height: 24px;
+  border: 1px solid var(--code-first-border);
+  border-radius: 5px;
+  padding: 0 7px;
+  color: var(--text-primary, #eef2ff);
+  background: var(--surface-2, #1a2233);
+  font: inherit;
+}
+
+.code-first-next-route-controls input {
+  max-width: 130px;
+}
+
 .code-first-runtimebar .is-ok {
   color: #86efac;
 }
@@ -1467,6 +1484,14 @@ span.code-first-ui-node-disclosure {
 .code-first-live-preview-empty button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.code-first-live-preview-fallback {
+  border-bottom: 1px solid color-mix(in srgb, #fda4af 45%, var(--code-first-border));
+  padding: 8px 12px;
+  color: #fecdd3;
+  background: color-mix(in srgb, #881337 28%, var(--code-first-panel));
+  font-size: 11px;
 }
 
 .code-first-inspector-scroll {

@@ -369,6 +369,16 @@ describe('createSrijikaNextProjectFileMap', () => {
     expect(files['src/app/page.tsx']).toContain("from '../features/home/Home.connector'");
     expect(files['src/features/home/Home.connector.tsx']).toMatch(/^'use client';/u);
     expect(files['next.config.ts']).toContain('NextConfig');
+    expect(files['next.config.ts']).toContain('next-preview-loader.cjs');
+    expect(files['next.config.ts']).toContain('turbopack');
+    expect(files['src/srijika/next-preview-loader.cjs']).toContain(
+      "process.env.NODE_ENV !== 'development'",
+    );
+    expect(files['src/srijika/next-preview-loader.cjs']).toContain('data-srijika-source');
+    expect(files['src/instrumentation-client.ts']).toContain('srijika:preview-runtime-state');
+    expect(files['src/instrumentation-client.ts']).toContain(
+      "process.env.NODE_ENV === 'development'",
+    );
     expect(files['next-env.d.ts']).toContain('next/image-types/global');
     expect(files['vite.config.ts']).toBeUndefined();
     expect(files['src/main.tsx']).toBeUndefined();

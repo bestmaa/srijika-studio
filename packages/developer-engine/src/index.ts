@@ -23,6 +23,10 @@ export {
   runSrijikaCommand,
   selectSrijikaRuntime,
 } from './runtime.js';
+export {
+  inspectSrijikaNextLivePreview,
+  resolveSrijikaNextPreviewPath,
+} from './next-live-preview.js';
 export { scaffoldSrijikaStructure } from './structure.js';
 export {
   collectSrijikaTestEvidence,
@@ -61,6 +65,12 @@ export type {
   SrijikaNextAdoptionRouteFile,
   SrijikaNextAdoptionVerificationGate,
 } from './next-adoption.js';
+export type {
+  SrijikaNextLivePreviewManifest,
+  SrijikaNextPreviewBoundaryKind,
+  SrijikaNextPreviewParameter,
+  SrijikaNextPreviewRoute,
+} from './next-live-preview.js';
 export type {
   SrijikaProspectiveUiWrite,
   SrijikaUiDiagnosticCheckResult,

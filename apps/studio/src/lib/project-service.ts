@@ -335,6 +335,9 @@ export interface DevServerStatus {
 
 export interface ProjectRuntimeStatus {
   path: string;
+  framework: 'vite' | 'next-app-router';
+  packageManager: 'pnpm' | 'npm' | 'yarn' | 'bun';
+  lockfileRoot: string | null;
   lockfilePresent: boolean;
   dependenciesInstalled: boolean;
   dependenciesReady: boolean;
@@ -1072,8 +1075,24 @@ function projectRuntimeStatus(value: unknown): ProjectRuntimeStatus {
   ) {
     throw new Error('Desktop returned an invalid dependency state');
   }
+  const framework = value['framework'];
+  if (framework !== 'vite' && framework !== 'next-app-router') {
+    throw new Error('Desktop returned an invalid managed project framework');
+  }
+  const packageManager = value['packageManager'];
+  if (
+    packageManager !== 'pnpm' &&
+    packageManager !== 'npm' &&
+    packageManager !== 'yarn' &&
+    packageManager !== 'bun'
+  ) {
+    throw new Error('Desktop returned an invalid managed package manager');
+  }
   return {
     path: stringField(value, 'path'),
+    framework,
+    packageManager,
+    lockfileRoot: nullableString(value['lockfileRoot'], 'lockfile root'),
     lockfilePresent: booleanField(value, 'lockfilePresent'),
     dependenciesInstalled: booleanField(value, 'dependenciesInstalled'),
     dependenciesReady: booleanField(value, 'dependenciesReady'),
@@ -1457,21 +1476,27 @@ export async function openInVsCode(
 
 export async function openCodeProjectApp(
   path: string,
+  route?: string,
 ): Promise<OpenedCodeProjectAppResponse | null> {
   if (!isTauriDesktop()) return null;
   const { invoke } = await import('@tauri-apps/api/core');
   return openedCodeProjectAppResponse(
-    await invoke<unknown>('open_code_project_app', { request: { path } }),
+    await invoke<unknown>('open_code_project_app', {
+      request: { path, ...(route === undefined ? {} : { route }) },
+    }),
   );
 }
 
 export async function openCodeProjectPreview(
   path: string,
+  route?: string,
 ): Promise<OpenedCodeProjectAppResponse | null> {
   if (!isTauriDesktop()) return null;
   const { invoke } = await import('@tauri-apps/api/core');
   return openedCodeProjectAppResponse(
-    await invoke<unknown>('open_code_project_preview', { request: { path } }),
+    await invoke<unknown>('open_code_project_preview', {
+      request: { path, ...(route === undefined ? {} : { route }) },
+    }),
   );
 }
 

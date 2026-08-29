@@ -715,6 +715,9 @@ describe('desktop code project services', () => {
   it('parses runtime status and invokes install, run, stop, and build at the project root', async () => {
     const stoppedStatus = {
       path: '/projects/demo',
+      framework: 'vite',
+      packageManager: 'pnpm',
+      lockfileRoot: '/projects/demo',
       lockfilePresent: true,
       dependenciesInstalled: true,
       dependenciesReady: true,
@@ -822,14 +825,14 @@ describe('desktop code project services', () => {
       projectPath: '/projects/demo',
       url: 'http://127.0.0.1:5178',
     });
-    await expect(openCodeProjectApp('/projects/demo')).resolves.toEqual({
+    await expect(openCodeProjectApp('/projects/demo', '/auth/github')).resolves.toEqual({
       projectPath: '/projects/demo',
       url: 'http://127.0.0.1:5178',
     });
     expect(invokeMock).toHaveBeenLastCalledWith(
       'open_code_project_app',
       {
-        request: { path: '/projects/demo' },
+        request: { path: '/projects/demo', route: '/auth/github' },
       },
       undefined,
     );
@@ -838,14 +841,14 @@ describe('desktop code project services', () => {
       projectPath: '/projects/demo',
       url: 'http://127.0.0.1:5178',
     });
-    await expect(openCodeProjectPreview('/projects/demo')).resolves.toEqual({
+    await expect(openCodeProjectPreview('/projects/demo', '/auth/github')).resolves.toEqual({
       projectPath: '/projects/demo',
       url: 'http://127.0.0.1:5178',
     });
     expect(invokeMock).toHaveBeenLastCalledWith(
       'open_code_project_preview',
       {
-        request: { path: '/projects/demo' },
+        request: { path: '/projects/demo', route: '/auth/github' },
       },
       undefined,
     );

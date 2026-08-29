@@ -165,6 +165,31 @@ export function LiveCodeProjectFrame({
     );
   }, [origin, selectedSource, selectedUiSourcePath]);
 
+  const handleFrameLoad = useCallback((): void => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    try {
+      if (frame.contentWindow?.location.origin !== origin) {
+        onRuntimeState({
+          state: 'error',
+          uiSource: selectedUiSourcePath,
+          error: 'Preview navigation left the tracked project origin and was reset.',
+        });
+        frame.src = url;
+        return;
+      }
+    } catch {
+      onRuntimeState({
+        state: 'error',
+        uiSource: selectedUiSourcePath,
+        error: 'Cross-origin preview navigation was blocked and reset.',
+      });
+      frame.src = url;
+      return;
+    }
+    publishSelection();
+  }, [onRuntimeState, origin, publishSelection, selectedUiSourcePath, url]);
+
   useLayoutEffect(() => {
     const receiveSelection = (event: MessageEvent): void => {
       if (event.source !== iframeRef.current?.contentWindow || event.origin !== origin) return;
@@ -225,7 +250,7 @@ export function LiveCodeProjectFrame({
         title="Live Srijika project preview"
         src={url}
         sandbox="allow-forms allow-modals allow-popups allow-same-origin allow-scripts"
-        onLoad={publishSelection}
+        onLoad={handleFrameLoad}
       />
       {dragActive && onDropComponent && (
         <div

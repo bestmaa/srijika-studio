@@ -97,9 +97,16 @@ function deferred<T>() {
   return { promise, reject, resolve };
 }
 
-function runtimeStatus(running = false, dependencyState: ProjectDependencyState = 'ready') {
+function runtimeStatus(
+  running = false,
+  dependencyState: ProjectDependencyState = 'ready',
+  framework: 'vite' | 'next-app-router' = 'vite',
+) {
   return {
     path: PROJECT_ROOT,
+    framework,
+    packageManager: 'pnpm' as const,
+    lockfileRoot: PROJECT_ROOT,
     lockfilePresent: dependencyState !== 'missingLockfile',
     dependenciesInstalled: dependencyState === 'ready' || dependencyState === 'outdated',
     dependenciesReady: dependencyState === 'ready',
@@ -1452,6 +1459,57 @@ export function Home(props: HomeProps) {
     await waitFor(() => expect(serviceMocks.buildCodeProject).toHaveBeenCalledWith(PROJECT_ROOT));
   });
 
+  it('selects bounded Next routes and resolves dynamic preview parameters on the tracked origin', async () => {
+    const nextEntries = [
+      UI_ENTRY,
+      entryForProject('src/app/page.tsx', 'file'),
+      entryForProject('src/app/loading.tsx', 'file'),
+      entryForProject('src/app/error.tsx', 'file'),
+      entryForProject('src/app/(account)/auth/[provider]/page.tsx', 'file'),
+    ];
+    act(() => {
+      useProjectSessionStore.getState().attachProject({
+        rootPath: PROJECT_ROOT,
+        displayName: 'srijika-demo',
+        entries: nextEntries,
+        activeUiSourcePath: SOURCE_PATH,
+      });
+    });
+    serviceMocks.getProjectRuntimeStatus.mockResolvedValue(
+      runtimeStatus(true, 'ready', 'next-app-router'),
+    );
+    serviceMocks.scanCodeProject.mockResolvedValue({
+      path: PROJECT_ROOT,
+      entrySourcePath: SOURCE_PATH,
+      entries: nextEntries,
+      truncated: false,
+    });
+
+    render(<CodeFirstStudio />);
+
+    const route = await screen.findByRole('combobox', { name: 'Next preview route' });
+    expect(
+      within(route).getByRole('option', { name: /auth\/\[provider\].*error\/loading/ }),
+    ).toBeVisible();
+    fireEvent.change(route, {
+      target: { value: 'src/app/(account)/auth/[provider]/page.tsx' },
+    });
+    const parameter = screen.getByRole('textbox', { name: 'Next route parameter provider' });
+    expect(screen.getByText('Complete the selected Next route')).toBeVisible();
+    fireEvent.change(parameter, { target: { value: 'github' } });
+
+    await waitFor(() =>
+      expect(screen.getByTitle('Live Srijika project preview')).toHaveAttribute(
+        'src',
+        'http://127.0.0.1:5173/auth/github',
+      ),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open App' }));
+    await waitFor(() =>
+      expect(serviceMocks.openCodeProjectApp).toHaveBeenCalledWith(PROJECT_ROOT, '/auth/github'),
+    );
+  });
+
   it('keeps project choices usable by stopping a running Full App before transition', async () => {
     serviceMocks.getProjectRuntimeStatus.mockResolvedValue(runtimeStatus(true));
     render(<CodeFirstStudio />);
@@ -1505,6 +1563,10 @@ export function Home(props: HomeProps) {
       ),
     ).toHaveClass('is-error');
     expect(within(runtime).queryByText('[object Object]')).not.toBeInTheDocument();
+    expect(document.querySelector('[data-preview-runtime="last-good-derived"]')).toBeTruthy();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Showing the last valid derived UI: Home.connector.tsx is missing a required UI prop.',
+    );
   });
 
   it('starts the managed project and waits for readiness before opening Browser preview', async () => {

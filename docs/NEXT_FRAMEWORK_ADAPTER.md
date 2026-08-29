@@ -90,3 +90,20 @@ source selection remain stable across surfaces.
 
 Fix the source or add an explicit safe project manifest; do not suppress these
 diagnostics by loading arbitrary runtime modules into preview.
+
+## Managed live preview
+
+Next scaffolds include a development-only UI source loader and
+`instrumentation-client.ts`. Studio discovers App Router pages, displays route
+groups plus inherited loading/error states, and requests explicit values for
+dynamic or catch-all segments. The resolved path is accepted only on the
+native-tracked loopback origin. Server Components, providers, CSS, `Link`,
+`Image`, public assets, and client Connectors continue to execute in the real
+Next runtime with Fast Refresh. The loader is a no-op for production builds, so
+source markers do not enter production compilation.
+
+For an adopted project with a custom `next.config.*`, merge the generated
+`turbopack.rules` development rule deliberately; do not replace
+framework or application-owned configuration. Until that merge is present,
+Studio can still run and route the real application, but labels source
+selection as unavailable instead of claiming synchronized selection.

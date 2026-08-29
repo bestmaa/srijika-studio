@@ -4,6 +4,14 @@ import type { NextConfig } from 'next';
 const config: NextConfig = {
   output: 'standalone',
   typedRoutes: true,
+  turbopack: {
+    rules: {
+      '**/*.ui.tsx': {
+        loaders: ['./src/srijika/next-preview-loader.cjs'],
+        as: '*.tsx',
+      },
+    },
+  },
 };
 
 export default withPayload(config);
