@@ -98,6 +98,10 @@ jobs:
     name: macOS managed preview contracts
     runs-on: macos-latest
     timeout-minutes: 30
+    env:
+      # macOS exposes its default temporary directory through a system path alias.
+      # Use the canonical directory so project symlink checks still fail closed.
+      TMPDIR: /private/tmp
     steps:
       - name: Checkout source
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -115,10 +119,6 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify framework and scaffold contracts
-        env:
-          # macOS exposes its default temporary directory through a system path alias.
-          # Use the canonical directory so project symlink checks still fail closed.
-          TMPDIR: /private/tmp
         run: pnpm --filter @srijika/developer-engine exec vitest run --config vitest.config.ts test/developer-engine.test.ts test/next-live-preview.test.ts && pnpm --filter @srijika/project-scaffold exec vitest run --config vitest.config.ts test/project-scaffold.test.ts
 
       - name: Verify native runtime contracts
