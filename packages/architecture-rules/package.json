@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./creation": "./src/creation.ts",
+    "./payload-next": "./src/payload-next.ts",
     "./portable": "./src/portable.ts"
   },
   "files": [

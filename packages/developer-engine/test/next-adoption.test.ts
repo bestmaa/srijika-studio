@@ -17,7 +17,7 @@ afterEach(async () => {
 });
 
 async function nextProject(
-  options: { failingTypecheck?: boolean; packageManager?: string } = {},
+  options: { failingTypecheck?: boolean; packageManager?: string; payload?: boolean } = {},
 ): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'srijika-next-adoption-'));
   roots.push(root);
@@ -35,7 +35,18 @@ async function nextProject(
           build: 'node -e "process.exit(0)"',
           typecheck: `node -e "process.exit(${options.failingTypecheck ? '1' : '0'})"`,
         },
-        dependencies: { next: '16.3.2', react: '19.2.0', 'react-dom': '19.2.0' },
+        dependencies: {
+          next: '16.3.2',
+          react: '19.2.0',
+          'react-dom': '19.2.0',
+          ...(options.payload
+            ? {
+                payload: '3.88.0',
+                '@payloadcms/next': '3.88.0',
+                '@payloadcms/db-postgres': '3.88.0',
+              }
+            : {}),
+        },
       },
       null,
       2,
@@ -81,6 +92,26 @@ async function nextProject(
     join(root, 'src/app/api/items/route.ts'),
     "import 'server-only';\nexport function GET() { return Response.json([]); }\n",
   );
+  if (options.payload) {
+    await mkdir(join(root, 'src/collections'), { recursive: true });
+    await mkdir(join(root, 'src/app/(payload)/admin'), { recursive: true });
+    await writeFile(
+      join(root, 'src/payload.config.ts'),
+      "import { buildConfig } from 'payload';\nexport default buildConfig({ collections: [] });\n",
+    );
+    await writeFile(
+      join(root, 'src/collections/Posts.ts'),
+      "import type { CollectionConfig } from 'payload';\nexport const Posts: CollectionConfig = { slug: 'posts', fields: [] };\n",
+    );
+    await writeFile(
+      join(root, 'src/app/(payload)/admin/importMap.ts'),
+      'export const importMap = {};\n',
+    );
+    await writeFile(
+      join(root, 'src/payload-types.ts'),
+      'export interface Post { id: string; title: string }\n',
+    );
+  }
   return root;
 }
 
@@ -137,6 +168,34 @@ describe('Next.js App Router brownfield adoption', () => {
     ]);
     await expect(access(join(root, 'srijika.config.json'))).rejects.toThrow();
     expect(await readFile(join(root, 'package.json'), 'utf8')).toBe(beforePackage);
+  });
+
+  it('detects Payload and protects its server-owned surfaces during adoption', async () => {
+    const root = await nextProject({ payload: true });
+    const plan = await planSrijikaNextAdoption({ project: root, dryRun: true });
+
+    expect(plan.payload).toMatchObject({
+      detected: true,
+      payloadVersion: '3.88.0',
+      nextAdapterVersion: '3.88.0',
+      databaseAdapters: ['@payloadcms/db-postgres'],
+      configPaths: ['src/payload.config.ts'],
+      collections: ['src/collections/Posts.ts'],
+      generatedTypes: ['src/payload-types.ts'],
+      generatedImportMaps: ['src/app/(payload)/admin/importMap.ts'],
+    });
+    expect(plan.protectedServerFiles).toEqual(
+      expect.arrayContaining([
+        'src/app/(payload)/admin/importMap.ts',
+        'src/collections/Posts.ts',
+        'src/payload-types.ts',
+        'src/payload.config.ts',
+      ]),
+    );
+    const manifest = plan.files.find(
+      ({ relativePath }) => relativePath === '.srijika/adoption/next-app-router.json',
+    );
+    expect(manifest?.source).toContain('srijika-payload-next-v1');
   });
 
   it('runs authoritative gates, adds only missing contracts, and preserves populated source', async () => {

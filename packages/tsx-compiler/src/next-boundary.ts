@@ -1,4 +1,5 @@
 import * as ts from 'typescript';
+import { classifySrijikaPayloadServerModule } from '@srijika/architecture-rules';
 
 import type {
   AnalyzeSrijikaNextBoundaryOptions,
@@ -183,6 +184,20 @@ export function analyzeSrijikaNextBoundary(
     const moduleSpecifier = statement.moduleSpecifier.text;
     const clause = statement.importClause;
     if (!clause || clause.isTypeOnly) continue;
+    const hasRuntimeBinding =
+      Boolean(clause.name) ||
+      (clause.namedBindings !== undefined &&
+        (ts.isNamespaceImport(clause.namedBindings) ||
+          clause.namedBindings.elements.some((element) => !element.isTypeOnly)));
+    const serverModule = classifySrijikaPayloadServerModule(moduleSpecifier);
+    if (boundary === 'client' && serverModule && hasRuntimeBinding) {
+      const concern = serverModule === 'payload' ? 'Payload Local API' : 'database access';
+      add(
+        'SRIJIKA5006',
+        `${moduleSpecifier} exposes ${concern}, which is server-only. Keep it in a Server Component or route; use an authenticated REST or GraphQL Connector/API for client mutations.`,
+        statement.moduleSpecifier,
+      );
+    }
     if (moduleSpecifier === 'react' && clause.name) {
       reactNamespaceBindings.add(clause.name.text);
     }

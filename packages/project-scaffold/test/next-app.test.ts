@@ -78,4 +78,27 @@ describe('Srijika Next App Router ownership adapter', () => {
       }),
     ).toThrow(/unique/);
   });
+
+  it('keeps Payload Local API behind a server owner boundary', () => {
+    const sources = {
+      'src/features/posts/Posts.ui.tsx': 'export function PostsUI() { return <main>Posts</main>; }',
+      'src/features/posts/Posts.connector.tsx':
+        "'use client'; import { getPayload } from 'payload'; import { PostsUI } from './Posts.ui'; export function PostsConnector() { void getPayload; return <PostsUI />; }",
+    };
+    const contract = buildSrijikaTestContract(
+      Object.entries(sources).map(([fileName, source]) => ({ fileName, source })),
+    );
+    const plan = buildSrijikaNextAppRouterPlan(contract, {
+      routes: [{ pathname: '/posts', ownerId: 'feature:posts' }],
+      sources,
+    });
+
+    expect(plan.ready).toBe(false);
+    expect(plan.boundaries[0]?.serverEvidence).toContain(
+      'src/features/posts/Posts.connector.tsx:import:payload',
+    );
+    expect(plan.diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'SRIJIKA-NEXT-MIXED-SERVER-CLIENT-BOUNDARY' }),
+    );
+  });
 });

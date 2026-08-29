@@ -59,6 +59,9 @@ jobs:
           SRIJIKA_RUN_OWNER_VERIFICATION_SMOKE: '1'
         run: pnpm --filter @srijika/developer-engine exec vitest run --config vitest.config.ts test/owner-verification-smoke.test.ts
 
+      - name: Verify Payload and Next.js reference in Chromium
+        run: pnpm --filter @srijika/payload-next-reference test:browser
+
       - name: Build workspace and release artifacts
         run: pnpm build && pnpm --filter @srijika/studio verify:bundle && pnpm release:build && pnpm release:verify
 

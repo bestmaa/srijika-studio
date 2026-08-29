@@ -1,4 +1,8 @@
-import type { SrijikaTestContract, SrijikaTestOwner } from '@srijika/architecture-rules';
+import {
+  classifySrijikaPayloadServerModule,
+  type SrijikaTestContract,
+  type SrijikaTestOwner,
+} from '@srijika/architecture-rules';
 import ts from 'typescript';
 
 export const SRIJIKA_NEXT_APP_ADAPTER_VERSION = 'srijika-next-app-v1' as const;
@@ -129,7 +133,11 @@ function sourceFacts(fileName: string, source: string) {
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
       const moduleName = node.moduleSpecifier.text;
-      if (moduleName === 'server-only' || moduleName === 'next/headers') {
+      if (
+        moduleName === 'server-only' ||
+        moduleName === 'next/headers' ||
+        classifySrijikaPayloadServerModule(moduleName) !== null
+      ) {
         server.add(`${fileName}:import:${moduleName}`);
       }
       if (moduleName === 'react') {

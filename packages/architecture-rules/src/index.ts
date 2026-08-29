@@ -81,3 +81,15 @@ export {
   SRIJIKA_NEXT_FRAMEWORK_PROFILE,
 } from './types';
 export { planSrijikaBrownfieldAdoption, SRIJIKA_BROWNFIELD_PLAN_VERSION } from './adoption';
+export {
+  analyzeSrijikaPayloadNextProfile,
+  classifySrijikaPayloadServerModule,
+  srijikaRuntimeServerImports,
+  SRIJIKA_PAYLOAD_NEXT_PROFILE_VERSION,
+} from './payload-next';
+export type {
+  AnalyzeSrijikaPayloadNextProfileOptions,
+  SrijikaPayloadNextProfile,
+  SrijikaPayloadNextSourceFile,
+  SrijikaPayloadServerModuleKind,
+} from './payload-next';

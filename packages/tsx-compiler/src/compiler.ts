@@ -22,6 +22,7 @@ import {
   type FrameworkComponentPropSpec,
   type FrameworkComponentRegistry,
 } from '@srijika/component-registry';
+import { classifySrijikaPayloadServerModule } from '@srijika/architecture-rules';
 import * as ts from 'typescript';
 
 import type {
@@ -514,6 +515,22 @@ class SrijikaTsxCompiler {
       const registeredModule = registeredModules.has(moduleSpecifier);
       const nextModule = moduleSpecifier === 'next' || moduleSpecifier.startsWith('next/');
       const clause = statement.importClause;
+      const serverModule = classifySrijikaPayloadServerModule(moduleSpecifier);
+      const hasRuntimeBinding =
+        !clause ||
+        (!clause.isTypeOnly &&
+          (Boolean(clause.name) ||
+            (clause.namedBindings !== undefined &&
+              (ts.isNamespaceImport(clause.namedBindings) ||
+                clause.namedBindings.elements.some((element) => !element.isTypeOnly)))));
+      if (serverModule && hasRuntimeBinding) {
+        const concern = serverModule === 'payload' ? 'Payload Local API' : 'database access';
+        this.#addDiagnostic(
+          'SRIJIKA5006',
+          `${moduleSpecifier} exposes ${concern}, which is server-only and cannot run inside a .ui.tsx owner. Load data in a Server Component or route and pass serializable props; send client mutations through an authenticated REST or GraphQL Connector/API boundary.`,
+          statement.moduleSpecifier,
+        );
+      }
       if (!clause || clause.isTypeOnly) {
         if (!clause && registeredModule) {
           this.#addDiagnostic(

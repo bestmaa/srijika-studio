@@ -24,6 +24,10 @@ non-executing adapter. Built-in `Link`/`Image` support, project-local component
 registration, safe preview projection, and `SRIJIKA5001`–`SRIJIKA5005` are
 defined in `NEXT_FRAMEWORK_ADAPTER.md`.
 
+Payload CMS projects use the additional source-only profile described in
+`PAYLOAD_NEXT_INTEGRATION.md`. Payload configuration, schema, routes, Local API,
+storage, migrations, and generated contracts remain server-owned surfaces.
+
 ## Repository and dependency direction
 
 ```text

@@ -64,7 +64,8 @@ export type SrijikaDiagnosticCode =
   | 'SRIJIKA5002'
   | 'SRIJIKA5003'
   | 'SRIJIKA5004'
-  | 'SRIJIKA5005';
+  | 'SRIJIKA5005'
+  | 'SRIJIKA5006';
 
 export interface SrijikaDiagnostic {
   code: SrijikaDiagnosticCode;

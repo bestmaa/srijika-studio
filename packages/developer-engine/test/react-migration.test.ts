@@ -286,11 +286,69 @@ async function nextAppRouterFixture(): Promise<string> {
   return root;
 }
 
+async function payloadNextFixture(): Promise<string> {
+  const root = await nextAppRouterFixture();
+  const packagePath = join(root, 'package.json');
+  const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as {
+    dependencies: Record<string, string>;
+  };
+  Object.assign(packageJson.dependencies, {
+    payload: '3.88.0',
+    '@payloadcms/next': '3.88.0',
+    '@payloadcms/db-postgres': '3.88.0',
+  });
+  await writeFile(packagePath, `${JSON.stringify(packageJson)}\n`);
+  await mkdir(join(root, 'collections'), { recursive: true });
+  await mkdir(join(root, 'migrations'), { recursive: true });
+  await mkdir(join(root, 'app/(payload)/admin'), { recursive: true });
+  await writeFile(
+    join(root, 'payload.config.ts'),
+    "import { buildConfig } from 'payload';\nexport default buildConfig({ collections: [] });\n",
+  );
+  await writeFile(
+    join(root, 'collections/Posts.ts'),
+    "import type { CollectionConfig } from 'payload';\nexport const Posts: CollectionConfig = { slug: 'posts', fields: [] };\n",
+  );
+  await writeFile(join(root, 'migrations/20260829.ts'), 'export async function up() {}\n');
+  await writeFile(join(root, 'payload-types.ts'), 'export interface Post { id: string }\n');
+  await writeFile(join(root, 'app/(payload)/admin/importMap.ts'), 'export const importMap = {};\n');
+  return root;
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
 describe('React migration engine', () => {
+  it('keeps Payload server surfaces immutable in Next migration inventory', async () => {
+    const source = await payloadNextFixture();
+    const inventory = await scanReactMigrationSource(source);
+
+    expect(inventory.nextAppRouter?.payload).toMatchObject({
+      detected: true,
+      databaseAdapters: ['@payloadcms/db-postgres'],
+      configPaths: ['payload.config.ts'],
+      collections: ['collections/Posts.ts'],
+      migrations: ['migrations/20260829.ts'],
+      generatedTypes: ['payload-types.ts'],
+      generatedImportMaps: ['app/(payload)/admin/importMap.ts'],
+    });
+    expect(inventory.nextAppRouter?.protectedServerFiles).toEqual(
+      expect.arrayContaining([
+        'app/(payload)/admin/importMap.ts',
+        'collections/Posts.ts',
+        'migrations/20260829.ts',
+        'payload-types.ts',
+        'payload.config.ts',
+      ]),
+    );
+    for (const sourcePath of inventory.nextAppRouter?.payload?.protectedServerFiles ?? []) {
+      expect(inventory.ownership.find((owner) => owner.sourcePath === sourcePath)?.role).not.toBe(
+        'ui',
+      );
+    }
+  });
+
   it('inventories and scaffolds an immutable Next App Router migration session', async () => {
     const source = await nextAppRouterFixture();
     const beforePackage = await readFile(join(source, 'package.json'), 'utf8');
