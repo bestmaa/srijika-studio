@@ -18,6 +18,7 @@ import {
   SrijikaArchitectureIndex,
   SrijikaProjectFileSystem,
   collectSrijikaTestEvidence,
+  checkSrijikaUiDiagnostics,
   findSrijikaProjectRoot,
   formatSrijikaCommand,
   inspectSrijikaProject,
@@ -968,6 +969,105 @@ describe('incremental architecture index', () => {
         routes: [{ pathname: '/', ownerId: 'feature:home' }],
       }),
     ).rejects.toThrow(/diagnostics/);
+  });
+
+  it('returns shared Next primitive and server boundary diagnostics from project checks', async () => {
+    const root = await createProject({ framework: 'next' });
+    await mkdir(join(root, 'src/app'), { recursive: true });
+    await writeFile(
+      join(root, 'src/features/home/Home.ui.tsx'),
+      `import Link from 'next/link';
+interface HomeProps { title: string; }
+export function HomeUI(props: HomeProps) {
+  return <main><Link href="/docs">{props.title}</Link></main>;
+}
+`,
+      'utf8',
+    );
+    await writeFile(
+      join(root, 'src/app/page.tsx'),
+      `import { useState } from 'react';
+import { HomeUI } from '../features/home/Home.ui';
+export default function Page() {
+  useState(false);
+  return <HomeUI title="Home" />;
+}
+`,
+      'utf8',
+    );
+
+    const invalid = await checkSrijikaUiDiagnostics(root);
+    expect(invalid.checkedFiles).toBe(2);
+    expect(invalid.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: 'SRIJIKA5004',
+        fileName: 'src/app/page.tsx',
+      }),
+    );
+    expect(invalid.diagnostics.some(({ code }) => code === 'SRIJIKA2001')).toBe(false);
+
+    await writeFile(
+      join(root, 'src/app/page.tsx'),
+      `import { HomeUI } from '@/features/home/Home.ui';
+export default function Page() { return <HomeUI title="Home" unknown={() => undefined} />; }
+`,
+      'utf8',
+    );
+    await writeFile(
+      join(root, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '@/*': ['src/*'] } } }),
+      'utf8',
+    );
+    await expect(checkSrijikaUiDiagnostics(root)).resolves.toMatchObject({
+      checkedFiles: 2,
+      diagnostics: [expect.objectContaining({ code: 'SRIJIKA5005' })],
+    });
+    await writeFile(
+      join(root, 'src/app/page.tsx'),
+      `import { HomeUI } from '@/features/home/Home.ui';
+export default function Page() { return <HomeUI title="Home" />; }
+`,
+      'utf8',
+    );
+    await expect(checkSrijikaUiDiagnostics(root)).resolves.toMatchObject({
+      checkedFiles: 2,
+      diagnostics: [],
+    });
+
+    await writeFile(
+      join(root, 'srijika.config.json'),
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        architecture: { profile: 'feature-slot-part-v1', featuresRoot: 'src/features' },
+        framework: {
+          version: 1,
+          profile: 'next-app-router-v1',
+          components: [
+            {
+              id: 'project.shared.card',
+              version: 1,
+              moduleSpecifier: './Card',
+              exportName: 'Card',
+              displayName: 'Shared Card',
+              props: { title: { type: 'string', required: true, previewProp: 'ariaLabel' } },
+              children: 'optional',
+              preview: { kind: 'container', element: 'section' },
+            },
+          ],
+        },
+      }),
+      'utf8',
+    );
+    await writeFile(
+      join(root, 'src/features/home/Home.ui.tsx'),
+      `import { Card } from './Card';
+interface HomeProps { title: string; }
+export function HomeUI(props: HomeProps) { return <Card title={props.title}>Home</Card>; }
+`,
+      'utf8',
+    );
+    await expect(checkSrijikaUiDiagnostics(root)).resolves.toMatchObject({ diagnostics: [] });
   });
 
   it('plans shell-free owner verification commands from project metadata', async () => {

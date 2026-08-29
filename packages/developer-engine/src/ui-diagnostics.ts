@@ -1,12 +1,17 @@
 import { createHash } from 'node:crypto';
 import { posix, relative } from 'node:path';
+import ts from 'typescript';
 
 import { resolveSrijikaArchitectureConfig } from '@srijika/architecture-rules';
 import {
+  analyzeSrijikaNextBoundary,
   compileSrijikaTsx,
   srijikaTypeOnlyModuleSpecifiers,
+  type CompileSrijikaTsxResult,
+  type CompileSrijikaTsxOptions,
   type SrijikaDiagnostic,
   type SrijikaResolvedTypeModule,
+  type SrijikaResolvedUiComponent,
 } from '@srijika/tsx-compiler';
 
 import { inspectSrijikaProject } from './project.js';
@@ -90,7 +95,8 @@ async function compileUi(
   uiSuffix: string,
   typesSuffix: string,
   readSource: (relativePath: string) => Promise<string | undefined>,
-): Promise<readonly SrijikaDiagnostic[]> {
+  projectComponents?: CompileSrijikaTsxOptions['projectComponents'],
+): Promise<CompileSrijikaTsxResult> {
   return compileSrijikaTsx(fileName, source, {
     documentKind: 'component',
     resolvedTypeModules: await resolvedTypeModules(
@@ -100,7 +106,97 @@ async function compileUi(
       typesSuffix,
       readSource,
     ),
-  }).diagnostics;
+    ...(projectComponents ? { projectComponents } : {}),
+  });
+}
+
+function isNextBoundaryPath(fileName: string): boolean {
+  return /(?:^|\/)(?:page|layout|route)\.[cm]?[jt]sx?$/i.test(fileName);
+}
+
+function pathContains(parent: string, child: string): boolean {
+  const normalizedParent = parent.toLowerCase();
+  const normalizedChild = child.toLowerCase();
+  return normalizedParent === normalizedChild || normalizedChild.startsWith(`${normalizedParent}/`);
+}
+
+function compactRoots(roots: readonly string[]): readonly string[] {
+  return [...new Set(roots)]
+    .sort((left, right) => left.length - right.length || left.localeCompare(right))
+    .filter(
+      (root, index, ordered) =>
+        !ordered.slice(0, index).some((parent) => pathContains(parent, root)),
+    );
+}
+
+function resolvedRouteUiComponents(
+  routePath: string,
+  source: string,
+  compiledByPath: ReadonlyMap<string, CompileSrijikaTsxResult>,
+  aliases: Readonly<Record<string, string>> = {},
+): readonly SrijikaResolvedUiComponent[] {
+  const sourceFile = ts.createSourceFile(
+    routePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const output: SrijikaResolvedUiComponent[] = [];
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.importClause ||
+      statement.importClause.isTypeOnly
+    ) {
+      continue;
+    }
+    const specifier = statement.moduleSpecifier.text;
+    let unresolved: string | undefined;
+    if (/^\.\.?\//.test(specifier)) {
+      unresolved = posix.normalize(posix.join(posix.dirname(routePath), specifier));
+    } else {
+      const alias = Object.entries(aliases)
+        .sort(([left], [right]) => right.length - left.length || left.localeCompare(right))
+        .find(([prefix]) =>
+          prefix.endsWith('/') ? specifier.startsWith(prefix) : specifier === prefix,
+        );
+      if (alias) {
+        const [prefix, target] = alias;
+        unresolved = prefix.endsWith('/')
+          ? posix.normalize(posix.join(target, specifier.slice(prefix.length)))
+          : posix.normalize(target);
+      }
+    }
+    if (!unresolved || unresolved === '..' || unresolved.startsWith('../')) continue;
+    const candidates = /\.[cm]?[jt]sx?$/i.test(unresolved)
+      ? [unresolved]
+      : [`${unresolved}.tsx`, `${unresolved}.ts`, posix.join(unresolved, 'index.tsx')];
+    const match = candidates.find((candidate) => compiledByPath.has(candidate));
+    if (!match) continue;
+    const compiled = compiledByPath.get(match)!;
+    const componentName = compiled.document?.name;
+    if (!componentName) continue;
+    if (statement.importClause.name) {
+      output.push({
+        specifier,
+        exportName: 'default',
+        componentName,
+        contract: compiled.componentContract,
+      });
+    }
+    const bindings = statement.importClause.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if (element.isTypeOnly) continue;
+        const exportName = element.propertyName?.text ?? element.name.text;
+        if (exportName !== componentName) continue;
+        output.push({ specifier, exportName, componentName, contract: compiled.componentContract });
+      }
+    }
+  }
+  return Object.freeze(output);
 }
 
 export async function assertSrijikaUiWritesValid(
@@ -128,7 +224,8 @@ export async function assertSrijikaUiWritesValid(
             architecture.uiSuffix,
             architecture.typesSuffix,
             readSource,
-          ),
+            project.framework?.components,
+          ).then((result) => result.diagnostics),
         ),
     )
   ).flat();
@@ -148,24 +245,29 @@ export async function checkSrijikaUiDiagnostics(
   const project = await inspectSrijikaProject(projectRoot);
   const architecture = resolveSrijikaArchitectureConfig(project.architecture);
   const fileSystem = await SrijikaProjectFileSystem.open(project.root);
-  const discovered = await fileSystem.walkFiles(
-    project.adoption
-      ? project.adoption.managedRoots
-      : [architecture.featuresRoot, architecture.sharedRoot],
-    {
-      maximumFiles: MAX_UI_FILES,
-      maximumEntries: MAX_SCAN_ENTRIES,
-      maximumDirectories: MAX_SCAN_DIRECTORIES,
-      maximumDepth: MAX_SCAN_DEPTH,
-      ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
-      allowIgnoredDirectorySymlinks: false,
-      acceptFile: (fileName) => isUiPath(fileName, architecture.uiSuffix),
-    },
-  );
-  const paths = [
+  const configuredRoots = project.adoption
+    ? project.adoption.managedRoots
+    : [architecture.featuresRoot, architecture.sharedRoot];
+  const scanRoots = compactRoots([
+    ...configuredRoots,
+    ...(project.nextProject ? ['app', 'src/app'] : []),
+  ]);
+  const discovered = await fileSystem.walkFiles(scanRoots, {
+    maximumFiles: MAX_UI_FILES,
+    maximumEntries: MAX_SCAN_ENTRIES,
+    maximumDirectories: MAX_SCAN_DIRECTORIES,
+    maximumDepth: MAX_SCAN_DEPTH,
+    ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+    allowIgnoredDirectorySymlinks: false,
+    acceptFile: (fileName) =>
+      isUiPath(fileName, architecture.uiSuffix) ||
+      (project.nextProject && isNextBoundaryPath(fileName)),
+  });
+  const uiPaths = [
     ...new Set(
       discovered
         .map((file) => file.relativePath)
+        .filter((path) => isUiPath(path, architecture.uiSuffix))
         .filter(
           (path) =>
             !project.adoption ||
@@ -173,9 +275,20 @@ export async function checkSrijikaUiDiagnostics(
         ),
     ),
   ];
-  if (isUiPath(project.entry, architecture.uiSuffix) && !paths.includes(project.entry)) {
-    paths.push(project.entry);
+  if (isUiPath(project.entry, architecture.uiSuffix) && !uiPaths.includes(project.entry)) {
+    uiPaths.push(project.entry);
   }
+  const boundaryPaths = project.nextProject
+    ? discovered
+        .map((file) => file.relativePath)
+        .filter(isNextBoundaryPath)
+        .filter(
+          (path) =>
+            !project.adoption ||
+            project.adoption.adoptedOwners.some((owner) => belongsToOwner(path, owner)),
+        )
+    : [];
+  const paths = [...new Set([...uiPaths, ...boundaryPaths])];
   if (paths.length > MAX_UI_FILES) {
     throw new Error(`Srijika UI diagnostics exceed the ${MAX_UI_FILES}-file safety limit.`);
   }
@@ -200,18 +313,34 @@ export async function checkSrijikaUiDiagnostics(
     return chargeSource(path, read.source, read.size);
   };
   const diagnostics: SrijikaDiagnostic[] = [];
-  for (const path of paths) {
+  const compiledByPath = new Map<string, CompileSrijikaTsxResult>();
+  for (const path of uiPaths.sort((left, right) => left.localeCompare(right))) {
     const read = await fileSystem.readText(path, MAX_UI_BYTES);
     const source = chargeSource(path, read.source, read.size);
     const displayPath = relative(project.root, fileSystem.resolve(path)).replaceAll('\\', '/');
+    const compiled = await compileUi(
+      displayPath,
+      source,
+      architecture.uiSuffix,
+      architecture.typesSuffix,
+      readSource,
+      project.framework?.components,
+    );
+    compiledByPath.set(displayPath, compiled);
+    diagnostics.push(...compiled.diagnostics);
+  }
+  for (const path of boundaryPaths.sort((left, right) => left.localeCompare(right))) {
+    const read = await fileSystem.readText(path, MAX_UI_BYTES);
+    const source = chargeSource(path, read.source, read.size);
     diagnostics.push(
-      ...(await compileUi(
-        displayPath,
-        source,
-        architecture.uiSuffix,
-        architecture.typesSuffix,
-        readSource,
-      )),
+      ...analyzeSrijikaNextBoundary(path, source, {
+        resolvedUiComponents: resolvedRouteUiComponents(
+          path,
+          source,
+          compiledByPath,
+          project.aliases,
+        ),
+      }).diagnostics,
     );
   }
   return Object.freeze({

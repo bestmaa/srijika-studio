@@ -343,4 +343,38 @@ export function HomeUI(props: HomeUIProps) { return <main>{props.title}</main>; 
       ],
     });
   });
+
+  it('recompiles the Studio preview from an explicit project component manifest', () => {
+    const source = `import { Card } from './Card';
+export function HomeUI() { return <Card title="Account">Overview</Card>; }`;
+    useCodeProjectStore.getState().setProjectComponents([]);
+    useCodeProjectStore.getState().loadSource({ fileName: 'Home.ui.tsx', source });
+    expect(useCodeProjectStore.getState().diagnostics).toContainEqual(
+      expect.objectContaining({ code: 'SRIJIKA2001' }),
+    );
+
+    useCodeProjectStore.getState().setProjectComponents([
+      {
+        id: 'project.shared.card',
+        version: 1,
+        moduleSpecifier: './Card',
+        exportName: 'Card',
+        displayName: 'Shared Card',
+        props: { title: { type: 'string', required: true, previewProp: 'ariaLabel' } },
+        children: 'optional',
+        preview: { kind: 'container', element: 'section' },
+        source: 'project',
+      },
+    ]);
+
+    expect(useCodeProjectStore.getState()).toMatchObject({
+      compileStatus: 'valid',
+      diagnostics: [],
+      previewStale: false,
+    });
+    expect(Object.values(useCodeProjectStore.getState().lastValidDocument!.nodes)).toContainEqual(
+      expect.objectContaining({ name: 'Shared Card' }),
+    );
+    useCodeProjectStore.getState().setProjectComponents([]);
+  });
 });

@@ -387,4 +387,90 @@ describe('Srijika architecture config safety', () => {
       }),
     ).toThrow(/distinct/);
   });
+
+  it('parses a versioned bounded project component registry', () => {
+    const config = parseSrijikaProjectConfig(
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        framework: {
+          version: 1,
+          profile: 'next-app-router-v1',
+          components: [
+            {
+              id: 'project.shared.card',
+              version: 1,
+              moduleSpecifier: '@/shared/Card',
+              exportName: 'Card',
+              displayName: 'Shared Card',
+              props: {
+                title: { type: 'string', required: true, previewProp: 'ariaLabel' },
+              },
+              children: 'optional',
+              preview: { kind: 'container', element: 'section' },
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(config.framework).toMatchObject({
+      version: 1,
+      profile: 'next-app-router-v1',
+      components: [
+        {
+          id: 'project.shared.card',
+          moduleSpecifier: '@/shared/Card',
+          source: 'project',
+        },
+      ],
+    });
+  });
+
+  it('fails closed for unsafe or ambiguous project component registrations', () => {
+    const project = (component: Readonly<Record<string, unknown>>) =>
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        framework: {
+          version: 1,
+          profile: 'next-app-router-v1',
+          components: [component],
+        },
+      });
+    const valid = {
+      id: 'project.shared.card',
+      version: 1,
+      moduleSpecifier: './Card',
+      exportName: 'Card',
+      displayName: 'Shared Card',
+      props: {},
+      children: 'optional',
+      preview: { kind: 'container', element: 'section' },
+    };
+
+    expect(() =>
+      parseSrijikaProjectConfig(project({ ...valid, moduleSpecifier: '../Card' })),
+    ).toThrow(/bounded project-local specifier/);
+    expect(() =>
+      parseSrijikaProjectConfig(project({ ...valid, preview: { kind: 'script' } })),
+    ).toThrow(/preview\.kind/);
+    expect(() => parseSrijikaProjectConfig(project({ ...valid, execute: true }))).toThrow(
+      /execute is not supported/,
+    );
+    expect(() =>
+      parseSrijikaProjectConfig(
+        project({
+          ...valid,
+          props: {
+            content: {
+              type: 'object',
+              required: true,
+              previewProp: 'dangerouslySetInnerHTML',
+            },
+          },
+        }),
+      ),
+    ).toThrow(/unsafe preview attribute/);
+  });
 });

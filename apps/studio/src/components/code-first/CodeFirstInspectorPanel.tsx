@@ -11,6 +11,8 @@ import type {
   InsertSrijikaContractMemberInput,
   SrijikaComponentContractEntry,
   SrijikaContractTypeNode,
+  SrijikaFrameworkCompileMetadata,
+  SrijikaFrameworkPrimitiveUse,
   SrijikaSourceMap,
   SrijikaSourceSpan,
 } from '@srijika/tsx-compiler';
@@ -66,6 +68,7 @@ export interface CodeFirstInspectorPanelProps {
   sourceMap: SrijikaSourceMap | null;
   /** Full source contract, including declared ReactNode slots that are not rendered. */
   componentContract?: readonly SrijikaComponentContractEntry[] | undefined;
+  framework?: SrijikaFrameworkCompileMetadata | undefined;
   /** Extra AST-safe actions, such as Reveal or a dedicated text editor. */
   selectedNodeActions?: ReactNode;
   isLiteralPropEditable?: (
@@ -984,6 +987,7 @@ function SelectionSummary({
   fileName,
   span,
   actions,
+  frameworkPrimitive,
   onRevealSource,
 }: {
   document: UiDocument;
@@ -992,6 +996,7 @@ function SelectionSummary({
   fileName: string;
   span: SrijikaSourceSpan | undefined;
   actions: ReactNode;
+  frameworkPrimitive: SrijikaFrameworkPrimitiveUse | undefined;
   onRevealSource: CodeFirstInspectorPanelProps['onRevealSource'];
 }) {
   const root = node.id === document.rootNodeId;
@@ -1027,6 +1032,15 @@ function SelectionSummary({
           <dd>
             <code>{node.id}</code>
           </dd>
+          {frameworkPrimitive && (
+            <div className="code-first-inspector-fact-row">
+              <dt>Safe adapter</dt>
+              <dd>
+                {frameworkPrimitive.adapterId} v{frameworkPrimitive.adapterVersion} ·{' '}
+                {frameworkPrimitive.moduleSpecifier}
+              </dd>
+            </div>
+          )}
           {structureRows(document, node).map(([label, value]) => (
             <div className="code-first-inspector-fact-row" key={label}>
               <dt>{label}</dt>
@@ -1045,6 +1059,7 @@ export function CodeFirstInspectorPanel({
   fileName,
   sourceMap,
   componentContract,
+  framework,
   selectedNodeActions,
   isLiteralPropEditable,
   onApplyLiteralProp,
@@ -1076,6 +1091,9 @@ export function CodeFirstInspectorPanel({
   }
 
   const selectedNode = selectedNodeId ? document.nodes[selectedNodeId] : undefined;
+  const selectedFrameworkPrimitive = selectedNodeId
+    ? framework?.primitives.find((primitive) => primitive.nodeIds.includes(selectedNodeId))
+    : undefined;
   const publicProps = Object.values(document.publicProps).sort((left, right) =>
     left.name.localeCompare(right.name),
   );
@@ -1171,6 +1189,7 @@ export function CodeFirstInspectorPanel({
             fileName={fileName}
             span={sourceMap?.nodes[selectedNode.id]}
             actions={selectedNodeActions}
+            frameworkPrimitive={selectedFrameworkPrimitive}
             onRevealSource={onRevealSource}
           />
 

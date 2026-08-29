@@ -77,6 +77,14 @@ The same project contract is then available to the CLI, VS Code extension, MCP
 server, generated validator, and Desktop Studio. A later enforcement change must
 be reviewed separately; adoption itself does not silently restructure owners.
 
+## UI primitives and component boundaries
+
+The versioned Next.js adapter supports exact default imports from `next/link`
+and `next/image` without executing framework modules in preview. It also checks
+App Router server/client boundaries and supports explicitly registered pure
+project components. See [`NEXT_FRAMEWORK_ADAPTER.md`](NEXT_FRAMEWORK_ADAPTER.md)
+for the manifest schema, preview limits, and stable diagnostics.
+
 ## Package-manager and alias boundaries
 
 Root `packageManager` selects npm, pnpm, yarn, or Bun when multiple lockfiles are

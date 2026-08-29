@@ -9,8 +9,9 @@ import {
   type SrijikaStructureCreationAction,
   type SrijikaStructureOwnerContext,
   type ResolvedSrijikaBrownfieldAdoptionConfig,
+  type SrijikaProjectFrameworkComponentConfig,
 } from '@srijika/architecture-rules';
-import type { SrijikaComponentContractEntry, SrijikaDiagnostic } from '@srijika/tsx-compiler';
+import { type SrijikaComponentContractEntry, type SrijikaDiagnostic } from '@srijika/tsx-compiler';
 
 import {
   architectureDiagnosticToEditorDiagnostic,
@@ -23,7 +24,7 @@ import {
   selectArchitectureScanBudget,
   SRIJIKA_ARCHITECTURE_SCAN_LIMITS,
 } from './architecture-scan-budget';
-import { compileUiSource } from './compiler-adapter';
+import { analyzeNextSource, compileUiSource } from './compiler-adapter';
 import { extractCssClassNames, srijikaJsxCompletions } from './completion-model';
 import { SRIJIKA_CREATION_ACTION_LABELS } from './creation-presentation';
 import {
@@ -75,6 +76,13 @@ interface CachedCompilation {
 function isSrijikaUiDocument(document: vscode.TextDocument, uiSuffix = UI_FILE_SUFFIX): boolean {
   return (
     document.languageId === 'typescriptreact' && isSrijikaUiSourcePath(document.fileName, uiSuffix)
+  );
+}
+
+function isNextBoundaryDocument(document: vscode.TextDocument): boolean {
+  return (
+    (document.languageId === 'typescript' || document.languageId === 'typescriptreact') &&
+    /(?:^|[\\/])(?:page|layout|route)\.[cm]?[jt]sx?$/i.test(document.fileName)
   );
 }
 
@@ -172,6 +180,10 @@ export function activate(context: vscode.ExtensionContext): void {
   const typesSuffixByWorkspace = new Map<string, string>();
   const sourceByFileNameByWorkspace = new Map<string, ReadonlyMap<string, string>>();
   const adoptionByWorkspace = new Map<string, ResolvedSrijikaBrownfieldAdoptionConfig>();
+  const frameworkComponentsByWorkspace = new Map<
+    string,
+    readonly SrijikaProjectFrameworkComponentConfig[]
+  >();
   const entryByWorkspace = new Map<string, string>();
   const structureProvider = new SrijikaStructureTreeProvider();
   const structureView = vscode.window.createTreeView('srijika.structure', {
@@ -206,6 +218,20 @@ export function activate(context: vscode.ExtensionContext): void {
       })
     );
   };
+  const isConfiguredNextBoundaryDocument = (document: vscode.TextDocument): boolean => {
+    if (!isNextBoundaryDocument(document)) return false;
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const workspaceKey = workspaceFolder?.uri.toString();
+    if (!workspaceFolder || !workspaceKey || !uiSuffixByWorkspace.has(workspaceKey)) return false;
+    const adoption = adoptionByWorkspace.get(workspaceKey);
+    if (!adoption) return true;
+    const relativePath = vscode.workspace.asRelativePath(document.uri, false).replaceAll('\\', '/');
+    const relativeKey = relativePath.toLowerCase();
+    return adoption.adoptedOwners.some((owner) => {
+      const ownerKey = owner.toLowerCase();
+      return relativeKey === ownerKey || relativeKey.startsWith(`${ownerKey}/`);
+    });
+  };
 
   const runArchitectureCheck = async (run: number, showSummary = false): Promise<void> => {
     if (run !== architectureRun) return;
@@ -232,6 +258,7 @@ export function activate(context: vscode.ExtensionContext): void {
       let architecture;
       let authoritativeEntry: string | undefined;
       let adoption: ResolvedSrijikaBrownfieldAdoptionConfig | undefined;
+      let frameworkComponents: readonly SrijikaProjectFrameworkComponentConfig[] | undefined;
       let aliases: Readonly<Record<string, string>> = {};
       let fileSystem: Awaited<ReturnType<typeof openSafeSrijikaWorkspace>>;
       try {
@@ -245,6 +272,7 @@ export function activate(context: vscode.ExtensionContext): void {
         architecture = projectConfig.architecture;
         authoritativeEntry = projectConfig.entry;
         adoption = projectConfig.adoption;
+        frameworkComponents = projectConfig.framework?.components;
         await fileSystem.readText(
           authoritativeEntry,
           SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile,
@@ -276,6 +304,11 @@ export function activate(context: vscode.ExtensionContext): void {
       entryByWorkspace.set(folder.uri.toString(), authoritativeEntry);
       if (adoption) adoptionByWorkspace.set(folder.uri.toString(), adoption);
       else adoptionByWorkspace.delete(folder.uri.toString());
+      if (frameworkComponents) {
+        frameworkComponentsByWorkspace.set(folder.uri.toString(), frameworkComponents);
+      } else {
+        frameworkComponentsByWorkspace.delete(folder.uri.toString());
+      }
       configuredWorkspaces += 1;
 
       let uris: readonly vscode.Uri[];
@@ -484,6 +517,7 @@ export function activate(context: vscode.ExtensionContext): void {
             uiSuffix: architecture.uiSuffix,
             typesSuffix: architecture.typesSuffix,
             sourceByFileName,
+            ...(frameworkComponents ? { projectComponents: frameworkComponents } : {}),
           },
         );
         issueCount += compiled.diagnostics.length;
@@ -596,7 +630,9 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const compileDocument = (document: vscode.TextDocument): CachedCompilation | undefined => {
-    if (!isConfiguredSrijikaUiDocument(document)) {
+    const uiDocument = isConfiguredSrijikaUiDocument(document);
+    const nextBoundaryDocument = isConfiguredNextBoundaryDocument(document);
+    if (!uiDocument && !nextBoundaryDocument) {
       collection.delete(document.uri);
       compilations.delete(document.uri.toString());
       return undefined;
@@ -606,22 +642,27 @@ export function activate(context: vscode.ExtensionContext): void {
       const source = document.getText();
       const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
       const workspaceKey = workspaceFolder?.uri.toString();
-      const result = compileUiSource(
-        { fileName: document.fileName, source },
-        workspaceKey
-          ? {
-              ...(uiSuffixByWorkspace.get(workspaceKey)
-                ? { uiSuffix: uiSuffixByWorkspace.get(workspaceKey)! }
-                : {}),
-              ...(typesSuffixByWorkspace.get(workspaceKey)
-                ? { typesSuffix: typesSuffixByWorkspace.get(workspaceKey)! }
-                : {}),
-              ...(sourceByFileNameByWorkspace.get(workspaceKey)
-                ? { sourceByFileName: sourceByFileNameByWorkspace.get(workspaceKey)! }
-                : {}),
-            }
-          : {},
-      );
+      const result = uiDocument
+        ? compileUiSource(
+            { fileName: document.fileName, source },
+            workspaceKey
+              ? {
+                  ...(uiSuffixByWorkspace.get(workspaceKey)
+                    ? { uiSuffix: uiSuffixByWorkspace.get(workspaceKey)! }
+                    : {}),
+                  ...(typesSuffixByWorkspace.get(workspaceKey)
+                    ? { typesSuffix: typesSuffixByWorkspace.get(workspaceKey)! }
+                    : {}),
+                  ...(sourceByFileNameByWorkspace.get(workspaceKey)
+                    ? { sourceByFileName: sourceByFileNameByWorkspace.get(workspaceKey)! }
+                    : {}),
+                  ...(frameworkComponentsByWorkspace.get(workspaceKey)
+                    ? { projectComponents: frameworkComponentsByWorkspace.get(workspaceKey)! }
+                    : {}),
+                }
+              : {},
+          )
+        : analyzeNextSource({ fileName: document.fileName, source });
       const resolvePosition = positionResolverFor(document);
       const diagnostics = result.diagnostics.map((compilerDiagnostic) => {
         const model = diagnosticToEditorDiagnostic(source, compilerDiagnostic, resolvePosition);
@@ -639,7 +680,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const compilation = {
         documentVersion: document.version,
         diagnostics: result.diagnostics,
-        componentContract: result.componentContract,
+        componentContract: 'componentContract' in result ? result.componentContract : [],
       };
       compilations.set(document.uri.toString(), compilation);
       return compilation;
@@ -666,9 +707,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const checkCurrentFile = vscode.commands.registerCommand('srijika.checkCurrentFile', () => {
     const document = vscode.window.activeTextEditor?.document;
-    if (!document || !isConfiguredSrijikaUiDocument(document)) {
+    if (
+      !document ||
+      (!isConfiguredSrijikaUiDocument(document) && !isConfiguredNextBoundaryDocument(document))
+    ) {
       void vscode.window.showWarningMessage(
-        'Open the configured Srijika UI source file to run validation.',
+        'Open a configured Srijika UI source or Next.js page/layout/route file to run validation.',
       );
       return;
     }

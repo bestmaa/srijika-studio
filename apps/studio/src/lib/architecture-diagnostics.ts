@@ -13,6 +13,7 @@ import {
   type ResolvedSrijikaBrownfieldAdoptionConfig,
   type SrijikaBrownfieldAdoptionPlan,
   type SrijikaProjectConfig,
+  type SrijikaProjectFrameworkComponentConfig,
 } from '@srijika/architecture-rules';
 
 export type CodeProjectArchitectureConfig = ResolvedSrijikaArchitectureConfig;
@@ -75,6 +76,12 @@ function projectConfigFromFileMap(
     ([path]) => normalizePath(path) === 'srijika.config.json',
   );
   return configEntry ? parseSrijikaProjectConfig(configEntry[1]) : undefined;
+}
+
+export function frameworkComponentsFromFileMap(
+  files: Readonly<Record<string, string>>,
+): readonly SrijikaProjectFrameworkComponentConfig[] {
+  return projectConfigFromFileMap(files)?.framework?.components ?? [];
 }
 
 function architectureAliasesFromProject(

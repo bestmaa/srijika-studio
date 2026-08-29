@@ -2,8 +2,11 @@ import { createHash } from 'node:crypto';
 import { dirname, normalize, resolve } from 'node:path';
 
 import {
+  analyzeSrijikaNextBoundary,
   compileSrijikaTsx,
   srijikaTypeOnlyModuleSpecifiers,
+  type AnalyzeSrijikaNextBoundaryResult,
+  type CompileSrijikaTsxOptions,
   type CompileSrijikaTsxResult,
   type SrijikaResolvedTypeModule,
 } from '@srijika/tsx-compiler';
@@ -17,6 +20,7 @@ export interface SrijikaUiCompileContext {
   uiSuffix?: string;
   typesSuffix?: string;
   sourceByFileName?: ReadonlyMap<string, string>;
+  projectComponents?: CompileSrijikaTsxOptions['projectComponents'];
 }
 
 function normalizedKey(fileName: string): string {
@@ -64,5 +68,10 @@ export function compileUiSource(
   return compileSrijikaTsx(input.fileName, input.source, {
     documentKind: 'component',
     resolvedTypeModules: resolvedUiTypeModules(input, context),
+    ...(context.projectComponents ? { projectComponents: context.projectComponents } : {}),
   });
+}
+
+export function analyzeNextSource(input: SrijikaUiSource): AnalyzeSrijikaNextBoundaryResult {
+  return analyzeSrijikaNextBoundary(input.fileName, input.source);
 }

@@ -140,6 +140,7 @@ export async function inspectSrijikaProject(projectRoot: string): Promise<Srijik
     scripts: Object.freeze(scripts),
     architecture: projectConfig.architecture,
     ...(projectConfig.adoption ? { adoption: projectConfig.adoption } : {}),
+    ...(projectConfig.framework ? { framework: projectConfig.framework } : {}),
     aliases,
     viteProject:
       typeof dependencies['vite'] === 'string' || /^vite(?:\s|$)/.test(scripts['dev'] ?? ''),

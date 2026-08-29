@@ -107,5 +107,11 @@ managed/include/exclude paths, recognized legacy UI/Connector/Hook directories,
 and explicit adopted owners. MCP inspection and checks return the same immutable
 coverage/move/rewire plan as the CLI; `strictPassed` covers adopted owners,
 while `passed` becomes true only for honest full-project adoption.
+The same inspection and check path exposes source-only framework adapter
+metadata for exact `next/link`, `next/image`, and explicitly registered local
+presentation components. It never loads their implementations. App Router
+server/client and serialization failures use stable `SRIJIKA5001`–`SRIJIKA5005`
+diagnostics documented in
+[`docs/NEXT_FRAMEWORK_ADAPTER.md`](../../docs/NEXT_FRAMEWORK_ADAPTER.md).
 When Srijika Studio is running, the same server also exposes its authenticated
 document, layout, preview, and history bridge tools.

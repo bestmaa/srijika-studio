@@ -19,6 +19,11 @@ surface consumes the same resolved `srijika.config.json` planner. See
 `FEATURE_SLOT_PART_ARCHITECTURE.md` for the complete naming, import, config,
 scan-budget, diagnostic, and creation contract.
 
+Next.js primitives and server/client boundaries use an explicit, versioned,
+non-executing adapter. Built-in `Link`/`Image` support, project-local component
+registration, safe preview projection, and `SRIJIKA5001`–`SRIJIKA5005` are
+defined in `NEXT_FRAMEWORK_ADAPTER.md`.
+
 ## Repository and dependency direction
 
 ```text

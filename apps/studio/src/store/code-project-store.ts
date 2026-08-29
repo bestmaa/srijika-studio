@@ -10,6 +10,8 @@ import {
   type SrijikaSourceEdit,
   type SrijikaSourceMap,
   type SrijikaResolvedTypeModule,
+  type CompileSrijikaTsxOptions,
+  type SrijikaFrameworkCompileMetadata,
 } from '@srijika/tsx-compiler';
 
 import type { CodeProjectArchitectureAnalysis } from '../lib/architecture-diagnostics';
@@ -35,7 +37,9 @@ export interface CompileCodeProjectSourceInput {
   sourcePath?: string | null;
   lastValidDocument?: UiDocument | null;
   lastValidComponentContract?: readonly SrijikaComponentContractEntry[];
+  lastValidFramework?: SrijikaFrameworkCompileMetadata;
   resolvedTypeModules?: readonly SrijikaResolvedTypeModule[];
+  projectComponents?: CompileSrijikaTsxOptions['projectComponents'];
 }
 
 export interface CompileCodeProjectSourceResult {
@@ -44,6 +48,7 @@ export interface CompileCodeProjectSourceResult {
   sourceMap: SrijikaSourceMap;
   lastValidDocument: UiDocument | null;
   componentContract: readonly SrijikaComponentContractEntry[];
+  framework: SrijikaFrameworkCompileMetadata;
   previewStale: boolean;
 }
 
@@ -59,6 +64,7 @@ export interface CodeProjectState {
   sourceMap: SrijikaSourceMap | null;
   lastValidDocument: UiDocument | null;
   componentContract: readonly SrijikaComponentContractEntry[];
+  framework: SrijikaFrameworkCompileMetadata;
   previewStale: boolean;
   selectedDiagnosticIndex: number | null;
   architectureDiagnostics: CodeProjectArchitectureAnalysis['diagnostics'];
@@ -66,6 +72,7 @@ export interface CodeProjectState {
   architectureCheckedFileCount: number;
   selectedArchitectureDiagnosticIndex: number | null;
   resolvedTypeModules: readonly SrijikaResolvedTypeModule[];
+  projectComponents: NonNullable<CompileSrijikaTsxOptions['projectComponents']>;
   loadSource: (input: LoadCodeProjectSourceInput) => void;
   clearSource: () => void;
   updateSource: (source: string) => void;
@@ -75,6 +82,9 @@ export interface CodeProjectState {
   clearArchitectureAnalysis: () => void;
   selectArchitectureDiagnostic: (index: number | null) => void;
   setResolvedTypeModules: (modules: readonly SrijikaResolvedTypeModule[]) => void;
+  setProjectComponents: (
+    components: NonNullable<CompileSrijikaTsxOptions['projectComponents']>,
+  ) => void;
   applyQuickFix: (fix: SrijikaQuickFix) => boolean;
 }
 
@@ -92,6 +102,12 @@ export const DEFAULT_CODE_PROJECT_SOURCE = `export function Welcome() {
   );
 }
 `;
+
+const EMPTY_FRAMEWORK_METADATA: SrijikaFrameworkCompileMetadata = Object.freeze({
+  boundary: 'server',
+  directives: Object.freeze([]),
+  primitives: Object.freeze([]),
+});
 
 function compilerFileName(fileName: string, sourcePath: string | null | undefined): string {
   return sourcePath?.trim() || fileName;
@@ -168,10 +184,12 @@ export function compileCodeProjectSource(
       documentKind: 'page',
       revision: studio.document.revision + 1,
       ...(input.resolvedTypeModules ? { resolvedTypeModules: input.resolvedTypeModules } : {}),
+      ...(input.projectComponents ? { projectComponents: input.projectComponents } : {}),
     },
   );
   const previousDocument = input.lastValidDocument ?? null;
   const previousContract = input.lastValidComponentContract ?? [];
+  const previousFramework = input.lastValidFramework ?? EMPTY_FRAMEWORK_METADATA;
 
   if (!result.document || hasErrors(result.diagnostics)) {
     return {
@@ -180,6 +198,7 @@ export function compileCodeProjectSource(
       sourceMap: result.sourceMap,
       lastValidDocument: previousDocument,
       componentContract: previousContract,
+      framework: previousFramework,
       previewStale: true,
     };
   }
@@ -202,6 +221,7 @@ export function compileCodeProjectSource(
       sourceMap: result.sourceMap,
       lastValidDocument: previousDocument,
       componentContract: previousContract,
+      framework: previousFramework,
       previewStale: true,
     };
   }
@@ -219,6 +239,7 @@ export function compileCodeProjectSource(
     sourceMap: result.sourceMap,
     lastValidDocument: useStudioStore.getState().document,
     componentContract: result.componentContract,
+    framework: result.framework,
     previewStale: false,
   };
 }
@@ -272,6 +293,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
   sourceMap: null,
   lastValidDocument: null,
   componentContract: [],
+  framework: EMPTY_FRAMEWORK_METADATA,
   previewStale: false,
   selectedDiagnosticIndex: null,
   architectureDiagnostics: [],
@@ -279,6 +301,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
   architectureCheckedFileCount: 0,
   selectedArchitectureDiagnosticIndex: null,
   resolvedTypeModules: [],
+  projectComponents: [],
 
   loadSource: (input) => {
     const current = get();
@@ -292,7 +315,9 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourcePath,
       lastValidDocument: isSameSource ? current.lastValidDocument : null,
       lastValidComponentContract: isSameSource ? current.componentContract : [],
+      lastValidFramework: isSameSource ? current.framework : EMPTY_FRAMEWORK_METADATA,
       resolvedTypeModules: isSameSource ? current.resolvedTypeModules : [],
+      projectComponents: current.projectComponents,
     });
     set({
       hasLoadedSource: true,
@@ -319,6 +344,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourceMap: null,
       lastValidDocument: null,
       componentContract: [],
+      framework: EMPTY_FRAMEWORK_METADATA,
       previewStale: false,
       selectedDiagnosticIndex: null,
       architectureDiagnostics: [],
@@ -326,6 +352,7 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       architectureCheckedFileCount: 0,
       selectedArchitectureDiagnosticIndex: null,
       resolvedTypeModules: [],
+      projectComponents: [],
     }),
 
   updateSource: (source) => {
@@ -337,7 +364,9 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourcePath: current.sourcePath,
       lastValidDocument: current.lastValidDocument,
       lastValidComponentContract: current.componentContract,
+      lastValidFramework: current.framework,
       resolvedTypeModules: current.resolvedTypeModules,
+      projectComponents: current.projectComponents,
     });
     set({
       hasLoadedSource: true,
@@ -380,9 +409,31 @@ export const useCodeProjectStore = create<CodeProjectState>((set, get) => ({
       sourcePath: current.sourcePath,
       lastValidDocument: current.lastValidDocument,
       lastValidComponentContract: current.componentContract,
+      lastValidFramework: current.framework,
       resolvedTypeModules,
+      projectComponents: current.projectComponents,
     });
     set({ resolvedTypeModules, ...compilation, selectedDiagnosticIndex: null });
+  },
+
+  setProjectComponents: (components) => {
+    const current = get();
+    const projectComponents = Object.freeze([...components]);
+    if (!current.hasLoadedSource) {
+      set({ projectComponents });
+      return;
+    }
+    const compilation = compileCodeProjectSource({
+      fileName: current.fileName,
+      source: current.source,
+      sourcePath: current.sourcePath,
+      lastValidDocument: current.lastValidDocument,
+      lastValidComponentContract: current.componentContract,
+      lastValidFramework: current.framework,
+      resolvedTypeModules: current.resolvedTypeModules,
+      projectComponents,
+    });
+    set({ projectComponents, ...compilation, selectedDiagnosticIndex: null });
   },
 
   setArchitectureAnalysis: (analysis) =>

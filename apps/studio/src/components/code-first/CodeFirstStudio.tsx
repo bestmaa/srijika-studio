@@ -55,6 +55,7 @@ import {
 import {
   analyzeCodeProjectFileMap,
   architectureConfigFromFileMap,
+  frameworkComponentsFromFileMap,
   type CodeProjectArchitectureConfig,
   type CodeProjectArchitectureDiagnostic,
 } from '../../lib/architecture-diagnostics';
@@ -433,6 +434,7 @@ export function CodeFirstStudio() {
   const sourceMap = useCodeProjectStore((state) => state.sourceMap);
   const document = useCodeProjectStore((state) => state.lastValidDocument);
   const componentContract = useCodeProjectStore((state) => state.componentContract);
+  const framework = useCodeProjectStore((state) => state.framework);
   const previewStale = useCodeProjectStore((state) => state.previewStale);
   const selectedDiagnosticIndex = useCodeProjectStore((state) => state.selectedDiagnosticIndex);
   const architectureDiagnostics = useCodeProjectStore((state) => state.architectureDiagnostics);
@@ -456,6 +458,7 @@ export function CodeFirstStudio() {
   );
   const applyQuickFix = useCodeProjectStore((state) => state.applyQuickFix);
   const setResolvedTypeModules = useCodeProjectStore((state) => state.setResolvedTypeModules);
+  const setProjectComponents = useCodeProjectStore((state) => state.setProjectComponents);
 
   const projectRoot = useProjectSessionStore((state) => state.rootPath);
   const projectDisplay = useProjectSessionStore((state) => state.displayName);
@@ -720,6 +723,7 @@ export function CodeFirstStudio() {
     if (!currentFiles) {
       clearArchitectureAnalysis();
       setArchitectureRoots(DEFAULT_ARCHITECTURE_ROOTS);
+      setProjectComponents([]);
       return;
     }
     const activeEntry = projectEntryForPath(projectEntries, activeUiSourcePath);
@@ -733,6 +737,7 @@ export function CodeFirstStudio() {
     const resolvedArchitecture = architectureConfigFromFileMap(nextFiles);
     setArchitectureRoots(resolvedArchitecture);
     setArchitectureAnalysis(analyzeCodeProjectFileMap(nextFiles));
+    setProjectComponents(frameworkComponentsFromFileMap(nextFiles));
     setResolvedTypeModules(
       resolvedCodeProjectTypeModules({
         fileName,
@@ -751,6 +756,7 @@ export function CodeFirstStudio() {
     projectEntries,
     projectRoot,
     setArchitectureAnalysis,
+    setProjectComponents,
     setResolvedTypeModules,
     source,
   ]);
@@ -913,6 +919,7 @@ export function CodeFirstStudio() {
             setArchitectureAnalysis(
               analyzeCodeProjectFileMap(architectureFiles, loadedArchitecture.path),
             );
+            setProjectComponents(frameworkComponentsFromFileMap(architectureFiles));
             const resolvedArchitecture = architectureConfigFromFileMap(architectureFiles);
             setArchitectureRoots(resolvedArchitecture);
             if (latest.sourcePath) {
@@ -968,6 +975,7 @@ export function CodeFirstStudio() {
       replaceProjectIndex,
       setArchitectureAnalysis,
       setResolvedTypeModules,
+      setProjectComponents,
       setProjectIndexError,
       setProjectIndexLoading,
     ],
@@ -2983,6 +2991,7 @@ export function CodeFirstStudio() {
             <CodeFirstInspectorPanel
               document={document}
               componentContract={componentContract}
+              framework={framework}
               selectedNodeId={componentFunctionSelected ? null : selectedNodeId}
               fileName={fileName}
               sourceMap={sourceMap}

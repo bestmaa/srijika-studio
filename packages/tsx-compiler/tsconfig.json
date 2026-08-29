@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "paths": {
+      "@srijika/component-registry": ["../component-registry/src/index.ts"],
       "@srijika/contracts": ["../contracts/src/index.ts"]
     }
   },
