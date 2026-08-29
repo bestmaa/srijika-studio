@@ -37,6 +37,12 @@ function isUiPath(fileName: string, uiSuffix: string): boolean {
   return fileName.toLowerCase().endsWith(uiSuffix.toLowerCase());
 }
 
+function belongsToOwner(fileName: string, owner: string): boolean {
+  const fileKey = fileName.toLowerCase();
+  const ownerKey = owner.toLowerCase();
+  return fileKey === ownerKey || fileKey.startsWith(`${ownerKey}/`);
+}
+
 function diagnosticSummary(diagnostic: SrijikaDiagnostic): string {
   return `${diagnostic.fileName}:${diagnostic.span.line}:${diagnostic.span.column} ${diagnostic.code} ${diagnostic.message}`;
 }
@@ -143,7 +149,9 @@ export async function checkSrijikaUiDiagnostics(
   const architecture = resolveSrijikaArchitectureConfig(project.architecture);
   const fileSystem = await SrijikaProjectFileSystem.open(project.root);
   const discovered = await fileSystem.walkFiles(
-    [architecture.featuresRoot, architecture.sharedRoot],
+    project.adoption
+      ? project.adoption.managedRoots
+      : [architecture.featuresRoot, architecture.sharedRoot],
     {
       maximumFiles: MAX_UI_FILES,
       maximumEntries: MAX_SCAN_ENTRIES,
@@ -154,7 +162,17 @@ export async function checkSrijikaUiDiagnostics(
       acceptFile: (fileName) => isUiPath(fileName, architecture.uiSuffix),
     },
   );
-  const paths = [...new Set(discovered.map((file) => file.relativePath))];
+  const paths = [
+    ...new Set(
+      discovered
+        .map((file) => file.relativePath)
+        .filter(
+          (path) =>
+            !project.adoption ||
+            project.adoption.adoptedOwners.some((owner) => belongsToOwner(path, owner)),
+        ),
+    ),
+  ];
   if (isUiPath(project.entry, architecture.uiSuffix) && !paths.includes(project.entry)) {
     paths.push(project.entry);
   }

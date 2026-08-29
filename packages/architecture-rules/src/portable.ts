@@ -360,7 +360,221 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
       typesSuffix,
     };
   }
+  type PortableAdoption = {
+    managedRoots: readonly string[];
+    include: readonly string[];
+    exclude: readonly { path: string; category: 'server' | 'service' | 'domain' | 'test' }[];
+    adoptedOwners: readonly string[];
+    directories: {
+      ui: readonly string[];
+      connectors: readonly string[];
+      hooks: readonly string[];
+    };
+  };
+  function containsRelative(parent: string, child: string): boolean {
+    const parentKey = parent.toLowerCase();
+    const childKey = child.toLowerCase();
+    return parentKey === childKey || childKey.startsWith(`${parentKey}/`);
+  }
+  function overlapsRelative(left: string, right: string): boolean {
+    return containsRelative(left, right) || containsRelative(right, left);
+  }
+  function portablePathArray(value: unknown, field: string, allowEmpty = false): readonly string[] {
+    if (!Array.isArray(value) || (!allowEmpty && value.length === 0) || value.length > 128) {
+      throw new Error(`${field} must be ${allowEmpty ? 'an' : 'a nonempty'} bounded path array.`);
+    }
+    const output = value.map((entry, index) =>
+      validatedRelativePath(entry, `${field}[${index}]`, 32),
+    );
+    assertDistinct(output, field);
+    return output.sort((left, right) => left.localeCompare(right));
+  }
+  function portableDirectoryArray(
+    value: unknown,
+    field: string,
+    fallback: readonly string[],
+  ): readonly string[] {
+    if (value === undefined) return [...fallback];
+    if (!Array.isArray(value) || value.length === 0 || value.length > 8) {
+      throw new Error(`${field} must be a nonempty bounded directory-name array.`);
+    }
+    const output = value.map((entry, index) =>
+      validatedRelativePath(entry, `${field}[${index}]`, 1),
+    );
+    assertDistinct(output, field);
+    return output.sort((left, right) => left.localeCompare(right));
+  }
+  function resolveRuntimeAdoption(value: unknown): PortableAdoption | undefined {
+    if (value === undefined) return undefined;
+    const adoption = record(value);
+    if (!adoption) throw new Error('srijika.config.json adoption must be an object.');
+    const adoptionFields = new Set(['version', 'framework', 'enforcement', 'ownership']);
+    const unknownAdoptionField = Object.keys(adoption).find((field) => !adoptionFields.has(field));
+    if (unknownAdoptionField) {
+      throw new Error(`srijika.config.json adoption.${unknownAdoptionField} is not supported.`);
+    }
+    if (adoption['ownership'] === undefined) return undefined;
+    const ownership = record(adoption['ownership']);
+    if (!ownership) {
+      throw new Error('srijika.config.json adoption.ownership must be an object.');
+    }
+    const ownershipFields = new Set([
+      'version',
+      'profile',
+      'managedRoots',
+      'include',
+      'exclude',
+      'adoptedOwners',
+      'directories',
+    ]);
+    const unknownOwnershipField = Object.keys(ownership).find(
+      (field) => !ownershipFields.has(field),
+    );
+    if (unknownOwnershipField) {
+      throw new Error(
+        `srijika.config.json adoption.ownership.${unknownOwnershipField} is not supported.`,
+      );
+    }
+    if (ownership['version'] !== 1) {
+      throw new Error('srijika.config.json adoption.ownership.version must be 1.');
+    }
+    if (ownership['profile'] !== 'brownfield-ownership-v1') {
+      throw new Error(
+        'srijika.config.json adoption.ownership.profile must be "brownfield-ownership-v1".',
+      );
+    }
+    const managedRoots = portablePathArray(
+      ownership['managedRoots'],
+      'srijika.config.json adoption.ownership.managedRoots',
+    );
+    const include = portablePathArray(
+      ownership['include'],
+      'srijika.config.json adoption.ownership.include',
+    );
+    const adoptedOwners = portablePathArray(
+      ownership['adoptedOwners'],
+      'srijika.config.json adoption.ownership.adoptedOwners',
+      true,
+    );
+    for (let index = 0; index < managedRoots.length; index += 1) {
+      for (let other = index + 1; other < managedRoots.length; other += 1) {
+        if (overlapsRelative(managedRoots[index]!, managedRoots[other]!)) {
+          throw new Error('adoption.ownership.managedRoots must not overlap.');
+        }
+      }
+    }
+    for (const candidate of [...include, ...adoptedOwners]) {
+      if (!managedRoots.some((root) => containsRelative(root, candidate))) {
+        throw new Error(`${candidate} must remain inside adoption.ownership.managedRoots.`);
+      }
+    }
+    for (const owner of adoptedOwners) {
+      if (!include.some((included) => containsRelative(included, owner))) {
+        throw new Error(`${owner} must remain inside adoption.ownership.include.`);
+      }
+    }
+    for (let index = 0; index < adoptedOwners.length; index += 1) {
+      for (let other = index + 1; other < adoptedOwners.length; other += 1) {
+        if (overlapsRelative(adoptedOwners[index]!, adoptedOwners[other]!)) {
+          throw new Error('adoption.ownership.adoptedOwners must not overlap.');
+        }
+      }
+    }
+    const excludeValue = ownership['exclude'];
+    if (excludeValue !== undefined && !Array.isArray(excludeValue)) {
+      throw new Error('srijika.config.json adoption.ownership.exclude must be an array.');
+    }
+    if ((excludeValue?.length ?? 0) > 128) {
+      throw new Error('adoption.ownership.exclude supports at most 128 entries.');
+    }
+    const exclude = (excludeValue ?? []).map((entry, index) => {
+      const exclusion = record(entry);
+      if (!exclusion || typeof exclusion['path'] !== 'string') {
+        throw new Error(`adoption.ownership.exclude[${index}] must contain a path.`);
+      }
+      const unknownExclusionField = Object.keys(exclusion).find(
+        (field) => field !== 'path' && field !== 'category',
+      );
+      if (unknownExclusionField) {
+        throw new Error(
+          `adoption.ownership.exclude[${index}].${unknownExclusionField} is not supported.`,
+        );
+      }
+      const exclusionPath = validatedRelativePath(
+        exclusion['path'],
+        `adoption.ownership.exclude[${index}].path`,
+        32,
+      );
+      const category = exclusion['category'];
+      if (
+        category !== 'server' &&
+        category !== 'service' &&
+        category !== 'domain' &&
+        category !== 'test'
+      ) {
+        throw new Error(
+          `adoption.ownership.exclude[${index}].category must be server, service, domain, or test.`,
+        );
+      }
+      if (!managedRoots.some((root) => containsRelative(root, exclusionPath))) {
+        throw new Error(`${exclusionPath} must remain inside adoption.ownership.managedRoots.`);
+      }
+      if (adoptedOwners.some((owner) => overlapsRelative(owner, exclusionPath))) {
+        throw new Error(`${exclusionPath} cannot exclude files inside an adopted owner.`);
+      }
+      const resolvedCategory: PortableAdoption['exclude'][number]['category'] = category;
+      return {
+        path: exclusionPath,
+        category: resolvedCategory,
+      };
+    });
+    assertDistinct(
+      exclude.map(({ path: exclusionPath }) => exclusionPath),
+      'adoption.ownership.exclude paths',
+    );
+    for (let index = 0; index < exclude.length; index += 1) {
+      for (let other = index + 1; other < exclude.length; other += 1) {
+        if (overlapsRelative(exclude[index]!.path, exclude[other]!.path)) {
+          throw new Error('adoption.ownership.exclude paths must not overlap.');
+        }
+      }
+    }
+    const directoryValue = ownership['directories'];
+    const directories = directoryValue === undefined ? {} : record(directoryValue);
+    if (!directories) {
+      throw new Error('srijika.config.json adoption.ownership.directories must be an object.');
+    }
+    const unknownDirectoryField = Object.keys(directories).find(
+      (field) => field !== 'ui' && field !== 'connectors' && field !== 'hooks',
+    );
+    if (unknownDirectoryField) {
+      throw new Error(`adoption.ownership.directories.${unknownDirectoryField} is not supported.`);
+    }
+    const resolvedDirectories = {
+      ui: portableDirectoryArray(directories['ui'], 'adoption.ownership.directories.ui', ['ui']),
+      connectors: portableDirectoryArray(
+        directories['connectors'],
+        'adoption.ownership.directories.connectors',
+        ['connectors'],
+      ),
+      hooks: portableDirectoryArray(directories['hooks'], 'adoption.ownership.directories.hooks', [
+        'hooks',
+      ]),
+    };
+    assertDistinct(
+      [...resolvedDirectories.ui, ...resolvedDirectories.connectors, ...resolvedDirectories.hooks],
+      'adoption.ownership recognized directory names',
+    );
+    return {
+      managedRoots,
+      include,
+      exclude: exclude.sort((left, right) => left.path.localeCompare(right.path)),
+      adoptedOwners,
+      directories: resolvedDirectories,
+    };
+  }
   let config: typeof rawConfig = rawConfig;
+  let adoption: PortableAdoption | undefined;
   let entrySource: string | undefined;
   try {
     const source = await readBoundedText(
@@ -372,6 +586,7 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
     config = Object.prototype.hasOwnProperty.call(projectConfig, 'architecture')
       ? resolveRuntimeConfig(projectConfig['architecture'])
       : defaultConfig;
+    adoption = resolveRuntimeAdoption(projectConfig['adoption']);
     if (projectConfig['sourceOfTruth'] !== 'tsx') {
       throw new Error('srijika.config.json sourceOfTruth must be "tsx".');
     }
@@ -517,9 +732,9 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
     if (!missingPath(error)) throw error;
   }
   const normalizedProjectRoot = projectRoot.replaceAll('\\', '/').replace(/\/$/, '');
-  const sourceRoots = [...new Set([config.featuresRoot, config.sharedRoot])].map((root) =>
-    path.resolve(projectRoot, ...root.split('/')),
-  );
+  const sourceRoots = [
+    ...new Set(adoption?.managedRoots ?? [config.featuresRoot, config.sharedRoot]),
+  ].map((root) => path.resolve(projectRoot, ...root.split('/')));
   const ignored = new Set([
     '.git',
     '.next',
@@ -1120,6 +1335,13 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
     stableId?: string,
   ): void {
     const relative = clean(path.relative(projectRoot, fileName));
+    if (
+      adoption &&
+      relative !== entrySource &&
+      !adoption.adoptedOwners.some((owner) => containsRelative(owner, relative))
+    ) {
+      return;
+    }
     process.stderr.write(
       `${relative}:${span.line}:${span.column} - ${severity} ${code}${stableId ? ` [${stableId}]` : ''}: ${message}\n  ${guidance}\n`,
     );
@@ -2937,8 +3159,31 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
     }
   }
 
-  if (!process.exitCode)
+  if (adoption) {
+    let governed = 0;
+    let pending = 0;
+    let excluded = 0;
+    for (const file of files) {
+      const relative = clean(path.relative(projectRoot, file.fileName));
+      if (!adoption.include.some((included) => containsRelative(included, relative))) continue;
+      if (adoption.adoptedOwners.some((owner) => containsRelative(owner, relative))) governed += 1;
+      else if (
+        adoption.exclude.some(({ path: excludedPath }) => containsRelative(excludedPath, relative))
+      ) {
+        excluded += 1;
+      } else pending += 1;
+    }
+    const status = process.exitCode
+      ? 'blocked'
+      : pending > 0 || excluded > 0
+        ? 'partial'
+        : 'complete';
+    process.stdout.write(
+      `Srijika strict architecture check ${process.exitCode ? 'failed' : 'passed'} (${files.length} source files); brownfield ownership ${status}: ${governed} governed, ${pending} pending, ${excluded} excluded.\n`,
+    );
+  } else if (!process.exitCode) {
     process.stdout.write(`Srijika architecture check passed (${files.length} source files).\n`);
+  }
 };
 
 /** Creates the deterministic validator emitted into standalone Srijika projects. */

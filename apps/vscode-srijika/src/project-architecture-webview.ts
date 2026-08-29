@@ -16,6 +16,9 @@ export function renderSrijikaProjectArchitectureWebview(
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#39;');
+  const adoptionSummary = model.graph.adoption
+    ? `<span class="stat">adoption ${escapeHtml(model.graph.adoption.status)}</span><span class="stat">${model.graph.adoption.summary.governed} governed</span><span class="stat">${model.graph.adoption.summary.pending} pending</span><span class="stat">${model.graph.adoption.summary.blocked} blocked</span><span class="stat">${model.graph.adoption.summary.excluded} excluded</span>`
+    : '';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -100,7 +103,7 @@ export function renderSrijikaProjectArchitectureWebview(
     <label><input id="violations-only" type="checkbox" /> Violations only</label>
     <button id="collapse" class="secondary">Collapse files</button>
     <button id="zoom-out" class="secondary">−</button><span id="zoom-label" class="zoom">100%</span><button id="zoom-in" class="secondary">+</button>
-    <div class="stats"><span class="stat">${model.graph.stats.owners} owners</span><span class="stat">${model.graph.stats.files} files</span><span class="stat">${model.graph.stats.imports} imports</span><span class="stat">${model.graph.stats.unresolvedImports} unresolved</span><span class="stat">${model.graph.stats.violations} violations</span></div>
+    <div class="stats">${adoptionSummary}<span class="stat">${model.graph.stats.owners} owners</span><span class="stat">${model.graph.stats.files} files</span><span class="stat">${model.graph.stats.imports} imports</span><span class="stat">${model.graph.stats.unresolvedImports} unresolved</span><span class="stat">${model.graph.stats.violations} violations</span></div>
   </div>
   <main class="workspace">
     <section class="canvas-shell">

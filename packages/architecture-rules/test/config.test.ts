@@ -38,6 +38,106 @@ describe('Srijika architecture config safety', () => {
     ).toThrow(/\.view\.tsx/);
   });
 
+  it('resolves a bounded versioned brownfield ownership contract', () => {
+    expect(
+      parseSrijikaProjectConfig(
+        JSON.stringify({
+          sourceOfTruth: 'tsx',
+          entry: 'src/features/auth/Auth.ui.tsx',
+          adoption: {
+            ownership: {
+              version: 1,
+              profile: 'brownfield-ownership-v1',
+              managedRoots: ['src/features'],
+              include: ['src/features'],
+              exclude: [
+                { path: 'src/features/catalog/server', category: 'server' },
+                { path: 'src/features/catalog/tests', category: 'test' },
+              ],
+              adoptedOwners: ['src/features/auth'],
+              directories: {
+                ui: ['presentation'],
+                connectors: ['connectors'],
+                hooks: ['hooks'],
+              },
+            },
+          },
+        }),
+      ).adoption,
+    ).toEqual({
+      version: 1,
+      profile: 'brownfield-ownership-v1',
+      managedRoots: ['src/features'],
+      include: ['src/features'],
+      exclude: [
+        { path: 'src/features/catalog/server', category: 'server' },
+        { path: 'src/features/catalog/tests', category: 'test' },
+      ],
+      adoptedOwners: ['src/features/auth'],
+      directories: {
+        ui: ['presentation'],
+        connectors: ['connectors'],
+        hooks: ['hooks'],
+      },
+    });
+  });
+
+  it('rejects traversal, unknown profiles, and exclusions that overlap adopted owners', () => {
+    const source = (ownership: Record<string, unknown>) =>
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/auth/Auth.ui.tsx',
+        adoption: { ownership },
+      });
+    const base = {
+      version: 1,
+      profile: 'brownfield-ownership-v1',
+      managedRoots: ['src/features'],
+      include: ['src/features'],
+      adoptedOwners: ['src/features/auth'],
+    };
+    expect(() => parseSrijikaProjectConfig(source({ ...base, profile: 'brownfield-v2' }))).toThrow(
+      /brownfield-ownership-v1/,
+    );
+    expect(() => parseSrijikaProjectConfig(source({ ...base, include: ['../outside'] }))).toThrow(
+      /project-relative|traversal/,
+    );
+    expect(() =>
+      parseSrijikaProjectConfig(
+        source({
+          ...base,
+          exclude: [{ path: 'src/features/auth/server', category: 'server' }],
+        }),
+      ),
+    ).toThrow(/cannot exclude files inside an adopted owner/);
+    expect(() =>
+      parseSrijikaProjectConfig(
+        source({
+          ...base,
+          adoptedOwners: ['src/features/outside'],
+          include: ['src/features/auth'],
+        }),
+      ),
+    ).toThrow(/adoption\.ownership\.include/);
+    expect(() => parseSrijikaProjectConfig(source({ ...base, mode: 'loose' }))).toThrow(
+      /mode is not supported/,
+    );
+    expect(() =>
+      parseSrijikaProjectConfig(source({ ...base, managedRoots: ['src', 'src/features'] })),
+    ).toThrow(/managedRoots must not overlap/);
+    expect(() =>
+      parseSrijikaProjectConfig(
+        source({
+          ...base,
+          exclude: [
+            { path: 'src/features/catalog', category: 'domain' },
+            { path: 'src/features/catalog/server', category: 'server' },
+          ],
+        }),
+      ),
+    ).toThrow(/exclude paths must not overlap/);
+  });
+
   it('parses deterministic JSONC TypeScript path aliases inside the project', () => {
     expect(
       parseSrijikaTypeScriptPathAliases(`{

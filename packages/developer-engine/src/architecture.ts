@@ -1,7 +1,8 @@
-import { relative } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 import {
+  planSrijikaBrownfieldAdoption,
   resolveSrijikaArchitectureConfig,
   validateSrijikaArchitecture,
   type SrijikaArchitectureSourceFile,
@@ -39,19 +40,19 @@ export class SrijikaArchitectureIndex {
     const project = await inspectSrijikaProject(projectRoot);
     const fileSystem = await SrijikaProjectFileSystem.open(project.root);
     const architecture = resolveSrijikaArchitectureConfig(project.architecture);
-    const discoveredFiles = await fileSystem.walkFiles(
-      [architecture.featuresRoot, architecture.sharedRoot],
-      {
-        maximumFiles: MAX_SOURCE_FILES,
-        maximumEntries: MAX_SCAN_ENTRIES,
-        maximumDirectories: MAX_SCAN_DIRECTORIES,
-        maximumDepth: MAX_SCAN_DEPTH,
-        ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
-        acceptFile: (fileName) =>
-          SOURCE_PATTERN.test(fileName.toLowerCase()) &&
-          !/\.d\.(?:ts|tsx|mts|cts)$/.test(fileName.toLowerCase()),
-      },
-    );
+    const scanRoots = project.adoption
+      ? project.adoption.managedRoots
+      : [architecture.featuresRoot, architecture.sharedRoot];
+    const discoveredFiles = await fileSystem.walkFiles(scanRoots, {
+      maximumFiles: MAX_SOURCE_FILES,
+      maximumEntries: MAX_SCAN_ENTRIES,
+      maximumDirectories: MAX_SCAN_DIRECTORIES,
+      maximumDepth: MAX_SCAN_DEPTH,
+      ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+      acceptFile: (fileName) =>
+        SOURCE_PATTERN.test(fileName.toLowerCase()) &&
+        !/\.d\.(?:ts|tsx|mts|cts)$/.test(fileName.toLowerCase()),
+    });
     const absoluteFiles = [...new Set(discoveredFiles.map(({ absolutePath }) => absolutePath))];
     const entryPath = fileSystem.resolve(project.entry);
     if (!absoluteFiles.includes(entryPath)) absoluteFiles.push(entryPath);
@@ -109,18 +110,45 @@ export class SrijikaArchitectureIndex {
       }
       files.push({ fileName: path, source });
     }
+    const adoption = project.adoption
+      ? planSrijikaBrownfieldAdoption(files, project.adoption, {
+          projectRoot: project.root,
+          architecture,
+          ...(project.aliases ? { aliases: project.aliases } : {}),
+        })
+      : undefined;
     const result = validateSrijikaArchitecture(files, {
       projectRoot: project.root,
       architecture,
       ...(project.aliases ? { aliases: project.aliases } : {}),
     });
+    const strictPaths = adoption
+      ? new Set([
+          entryPath,
+          ...adoption.strictFiles.map((fileName) => resolve(project.root, fileName)),
+        ])
+      : undefined;
+    const diagnostics = strictPaths
+      ? result.diagnostics.filter(({ fileName }) => strictPaths.has(resolve(fileName)))
+      : result.diagnostics;
+    const recommendations = strictPaths
+      ? result.recommendations.filter((recommendation) =>
+          diagnostics.some(({ recommendation: diagnosticRecommendation }) =>
+            diagnosticRecommendation
+              ? diagnosticRecommendation.id === recommendation.id &&
+                diagnosticRecommendation.owner === recommendation.owner
+              : false,
+          ),
+        )
+      : result.recommendations;
     return Object.freeze({
       root: project.root,
       checkedFiles: files.length,
       reusedFiles,
       durationMillis: Math.max(0, Math.round((performance.now() - startedAt) * 10) / 10),
-      diagnostics: result.diagnostics,
-      recommendations: result.recommendations,
+      diagnostics: Object.freeze(diagnostics),
+      recommendations: Object.freeze(recommendations),
+      ...(adoption ? { adoption } : {}),
     });
   }
 }

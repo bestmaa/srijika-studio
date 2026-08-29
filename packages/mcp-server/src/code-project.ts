@@ -48,7 +48,9 @@ export class SrijikaCodeProjectService {
     const project = await inspectSrijikaProject(root);
     const featuresRoot = project.architecture?.featuresRoot ?? 'src/features';
     const sharedRoot = project.architecture?.sharedRoot ?? 'src/shared';
-    const ownershipRoots = [...new Set([featuresRoot, sharedRoot])];
+    const ownershipRoots = [
+      ...new Set(project.adoption?.managedRoots ?? [featuresRoot, sharedRoot]),
+    ];
     const fileSystem = await SrijikaProjectFileSystem.open(root);
     const discovered = await fileSystem.walkFiles(ownershipRoots, {
       maximumFiles: MAX_PROJECT_FILES,
@@ -57,6 +59,9 @@ export class SrijikaCodeProjectService {
       maximumDepth: MAX_PROJECT_DEPTH,
     });
     const files = discovered.map(({ relativePath }) => relativePath);
+    const adoptionPlan = project.adoption
+      ? (await checkSrijikaArchitecture(root)).adoption
+      : undefined;
     return {
       contractId: 'srijika.cli-first-code-project',
       root,
@@ -66,6 +71,8 @@ export class SrijikaCodeProjectService {
       viteProject: project.viteProject,
       nextProject: project.nextProject,
       architecture: project.architecture,
+      adoption: project.adoption,
+      adoptionPlan,
       ownershipRoots,
       scripts: project.scripts,
       files,
@@ -85,12 +92,17 @@ export class SrijikaCodeProjectService {
       checkSrijikaArchitecture(root),
       checkSrijikaUiDiagnostics(root),
     ]);
+    const strictPassed =
+      srijikaUi.diagnostics.length === 0 &&
+      !architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error') &&
+      architecture.adoption?.status !== 'blocked';
     return {
       ...architecture,
       srijikaUi,
+      strictPassed,
       passed:
-        srijikaUi.diagnostics.length === 0 &&
-        !architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
+        strictPassed &&
+        (!architecture.adoption || architecture.adoption.summary.fullProjectSuccess),
     };
   }
 

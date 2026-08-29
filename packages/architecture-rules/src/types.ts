@@ -1,4 +1,42 @@
 export const SRIJIKA_ARCHITECTURE_PROFILE = 'feature-slot-part-v1' as const;
+export const SRIJIKA_BROWNFIELD_ADOPTION_PROFILE = 'brownfield-ownership-v1' as const;
+
+export type SrijikaBrownfieldExclusionCategory = 'server' | 'service' | 'domain' | 'test';
+
+export interface SrijikaBrownfieldExclusionConfig {
+  path: string;
+  category: SrijikaBrownfieldExclusionCategory;
+}
+
+export interface SrijikaBrownfieldDirectoryConfig {
+  ui?: readonly string[];
+  connectors?: readonly string[];
+  hooks?: readonly string[];
+}
+
+export interface SrijikaBrownfieldAdoptionConfig {
+  version: 1;
+  profile: typeof SRIJIKA_BROWNFIELD_ADOPTION_PROFILE;
+  managedRoots: readonly string[];
+  include: readonly string[];
+  exclude?: readonly SrijikaBrownfieldExclusionConfig[];
+  adoptedOwners: readonly string[];
+  directories?: SrijikaBrownfieldDirectoryConfig;
+}
+
+export interface ResolvedSrijikaBrownfieldAdoptionConfig {
+  version: 1;
+  profile: typeof SRIJIKA_BROWNFIELD_ADOPTION_PROFILE;
+  managedRoots: readonly string[];
+  include: readonly string[];
+  exclude: readonly SrijikaBrownfieldExclusionConfig[];
+  adoptedOwners: readonly string[];
+  directories: {
+    ui: readonly string[];
+    connectors: readonly string[];
+    hooks: readonly string[];
+  };
+}
 
 export interface SrijikaArchitectureConfig {
   profile: typeof SRIJIKA_ARCHITECTURE_PROFILE;
@@ -38,6 +76,7 @@ export interface SrijikaProjectConfig {
   sourceOfTruth: 'tsx';
   entry: string;
   architecture: ResolvedSrijikaArchitectureConfig;
+  adoption?: ResolvedSrijikaBrownfieldAdoptionConfig;
 }
 
 export interface SrijikaArchitectureSourceFile {

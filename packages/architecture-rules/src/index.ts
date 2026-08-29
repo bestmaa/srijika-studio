@@ -28,7 +28,22 @@ export {
   SRIJIKA_TEST_CONTRACT_VERSION,
 } from './testing';
 export type {
+  PlanSrijikaBrownfieldAdoptionOptions,
+  SrijikaBrownfieldAdoptionPlan,
+  SrijikaBrownfieldCoverageEntry,
+  SrijikaBrownfieldCoverageStatus,
+  SrijikaBrownfieldCoverageSummary,
+  SrijikaBrownfieldFileCategory,
+  SrijikaBrownfieldMove,
+  SrijikaBrownfieldRewire,
+} from './adoption';
+export type {
+  ResolvedSrijikaBrownfieldAdoptionConfig,
   ResolvedSrijikaArchitectureConfig,
+  SrijikaBrownfieldAdoptionConfig,
+  SrijikaBrownfieldDirectoryConfig,
+  SrijikaBrownfieldExclusionCategory,
+  SrijikaBrownfieldExclusionConfig,
   SrijikaArchitectureConfig,
   SrijikaArchitectureCapability,
   SrijikaArchitectureDiagnostic,
@@ -55,4 +70,5 @@ export type {
   SrijikaTestRuntime,
 } from './testing';
 export type { SrijikaStructureCreationAction, SrijikaStructureOwnerContext } from './creation';
-export { SRIJIKA_ARCHITECTURE_PROFILE } from './types';
+export { SRIJIKA_ARCHITECTURE_PROFILE, SRIJIKA_BROWNFIELD_ADOPTION_PROFILE } from './types';
+export { planSrijikaBrownfieldAdoption, SRIJIKA_BROWNFIELD_PLAN_VERSION } from './adoption';

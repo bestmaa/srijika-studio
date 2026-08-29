@@ -767,6 +767,13 @@ graph.
 CLI, VS Code, Studio, and MCP resolve this same validated configuration before
 classifying, reading, planning, or writing architecture files.
 
+Mature repositories can opt into the separate, versioned
+`brownfield-ownership-v1` transition contract and adopt one owner at a time
+without weakening these canonical rules. See
+[Staged brownfield ownership adoption](./BROWNFIELD_ADOPTION.md) for the exact
+configuration, honest coverage states, no-write moves, and strict promotion
+workflow.
+
 Configuration remains live rather than generated-time metadata:
 
 - generated `scripts/srijika-validate.mjs` reads the current

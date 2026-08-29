@@ -141,4 +141,41 @@ describe('Srijika workspace contract', () => {
       projects: [{ id: 'admin', framework: 'vite', created: [] }],
     });
   });
+
+  it('reports partial brownfield adoption without claiming workspace success', async () => {
+    const root = await monorepo();
+    await initializeSrijikaWorkspace({ workspace: root });
+    const projectRoot = join(root, 'apps', 'admin');
+    const configPath = join(projectRoot, 'srijika.config.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8')) as Record<string, unknown>;
+    config['adoption'] = {
+      ownership: {
+        version: 1,
+        profile: 'brownfield-ownership-v1',
+        managedRoots: ['src/features'],
+        include: ['src/features'],
+        adoptedOwners: ['src/features/home'],
+      },
+    };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    await mkdir(join(projectRoot, 'src/features/catalog'), { recursive: true });
+    await writeFile(
+      join(projectRoot, 'src/features/catalog/Catalog.ui.tsx'),
+      "export function CatalogUI() { fetch('/pending'); return <main />; }\n",
+    );
+
+    await expect(
+      checkSrijikaWorkspace({ workspace: root, projectId: 'admin' }),
+    ).resolves.toMatchObject({
+      status: 'partial',
+      projects: [
+        {
+          id: 'admin',
+          status: 'partial',
+          errors: 0,
+          adoption: { status: 'partial', summary: { fullProjectSuccess: false } },
+        },
+      ],
+    });
+  });
 });

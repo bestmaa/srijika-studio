@@ -8,13 +8,14 @@ import {
   resolveSrijikaStructureOwner,
   type SrijikaStructureCreationAction,
   type SrijikaStructureOwnerContext,
+  type ResolvedSrijikaBrownfieldAdoptionConfig,
 } from '@srijika/architecture-rules';
 import type { SrijikaComponentContractEntry, SrijikaDiagnostic } from '@srijika/tsx-compiler';
 
 import {
   architectureDiagnosticToEditorDiagnostic,
+  checkArchitectureWorkspace,
   parseSrijikaCodeProjectConfig,
-  validateArchitectureWorkspace,
 } from './architecture-adapter';
 import { isSrijikaUiSourcePath, srijikaArchitectureWatchPatterns } from './architecture-discovery';
 import {
@@ -170,6 +171,8 @@ export function activate(context: vscode.ExtensionContext): void {
   const uiSuffixByWorkspace = new Map<string, string>();
   const typesSuffixByWorkspace = new Map<string, string>();
   const sourceByFileNameByWorkspace = new Map<string, ReadonlyMap<string, string>>();
+  const adoptionByWorkspace = new Map<string, ResolvedSrijikaBrownfieldAdoptionConfig>();
+  const entryByWorkspace = new Map<string, string>();
   const structureProvider = new SrijikaStructureTreeProvider();
   const structureView = vscode.window.createTreeView('srijika.structure', {
     treeDataProvider: structureProvider,
@@ -184,10 +187,24 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const isConfiguredSrijikaUiDocument = (document: vscode.TextDocument): boolean => {
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const workspaceKey = workspaceFolder?.uri.toString();
     const uiSuffix = workspaceFolder
-      ? (uiSuffixByWorkspace.get(workspaceFolder.uri.toString()) ?? UI_FILE_SUFFIX)
+      ? (uiSuffixByWorkspace.get(workspaceKey!) ?? UI_FILE_SUFFIX)
       : UI_FILE_SUFFIX;
-    return isSrijikaUiDocument(document, uiSuffix);
+    if (!isSrijikaUiDocument(document, uiSuffix) || !workspaceFolder || !workspaceKey) {
+      return isSrijikaUiDocument(document, uiSuffix);
+    }
+    const adoption = adoptionByWorkspace.get(workspaceKey);
+    if (!adoption) return true;
+    const relativePath = vscode.workspace.asRelativePath(document.uri, false).replaceAll('\\', '/');
+    const relativeKey = relativePath.toLowerCase();
+    return (
+      entryByWorkspace.get(workspaceKey)?.toLowerCase() === relativeKey ||
+      adoption.adoptedOwners.some((owner) => {
+        const ownerKey = owner.toLowerCase();
+        return relativeKey === ownerKey || relativeKey.startsWith(`${ownerKey}/`);
+      })
+    );
   };
 
   const runArchitectureCheck = async (run: number, showSummary = false): Promise<void> => {
@@ -207,11 +224,14 @@ export function activate(context: vscode.ExtensionContext): void {
     let skippedOversized = 0;
     let skippedByTotalLimit = 0;
     let skippedUnreadable = 0;
+    let partialWorkspaces = 0;
+    let blockedWorkspaces = 0;
 
     for (const folder of workspaceFolders) {
       if (run !== architectureRun) return;
       let architecture;
       let authoritativeEntry: string | undefined;
+      let adoption: ResolvedSrijikaBrownfieldAdoptionConfig | undefined;
       let aliases: Readonly<Record<string, string>> = {};
       let fileSystem: Awaited<ReturnType<typeof openSafeSrijikaWorkspace>>;
       try {
@@ -224,6 +244,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const projectConfig = parseSrijikaCodeProjectConfig(config.source);
         architecture = projectConfig.architecture;
         authoritativeEntry = projectConfig.entry;
+        adoption = projectConfig.adoption;
         await fileSystem.readText(
           authoritativeEntry,
           SRIJIKA_ARCHITECTURE_SCAN_LIMITS.maxBytesPerFile,
@@ -252,11 +273,14 @@ export function activate(context: vscode.ExtensionContext): void {
       architecture = resolveSrijikaArchitectureConfig(architecture);
       uiSuffixByWorkspace.set(folder.uri.toString(), architecture.uiSuffix);
       typesSuffixByWorkspace.set(folder.uri.toString(), architecture.typesSuffix);
+      entryByWorkspace.set(folder.uri.toString(), authoritativeEntry);
+      if (adoption) adoptionByWorkspace.set(folder.uri.toString(), adoption);
+      else adoptionByWorkspace.delete(folder.uri.toString());
       configuredWorkspaces += 1;
 
       let uris: readonly vscode.Uri[];
       try {
-        const discovered = await discoverSafeSrijikaSources(fileSystem, architecture);
+        const discovered = await discoverSafeSrijikaSources(fileSystem, architecture, adoption);
         uris = discovered.map(({ relativePath }) =>
           vscode.Uri.joinPath(folder.uri, ...relativePath.split('/')),
         );
@@ -398,12 +422,23 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       }
 
-      const diagnostics = validateArchitectureWorkspace({
+      const architectureResult = checkArchitectureWorkspace({
         projectRoot: folder.uri.fsPath,
         files,
         architecture,
         aliases,
+        entry: authoritativeEntry,
+        ...(adoption ? { adoption } : {}),
       });
+      const diagnostics = architectureResult.diagnostics;
+      if (architectureResult.adoption) {
+        const { summary, status } = architectureResult.adoption;
+        if (status === 'blocked') blockedWorkspaces += 1;
+        else if (!summary.fullProjectSuccess) partialWorkspaces += 1;
+        statusLines.push(
+          `${folder.name}: brownfield ownership ${status}; ${summary.governed} governed, ${summary.pending} pending, ${summary.blocked} blocked, ${summary.excluded} excluded.`,
+        );
+      }
       issueCount += diagnostics.length;
       const filesByName = new Map(files.map((file) => [file.fileName.replaceAll('\\', '/'), file]));
       for (const architectureDiagnostic of diagnostics) {
@@ -431,6 +466,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       for (const sourceFile of files) {
         if (!isSrijikaUiSourcePath(sourceFile.fileName, architecture.uiSuffix)) continue;
+        if (
+          architectureResult.adoption &&
+          !architectureResult.adoption.strictFiles.some(
+            (relativePath) =>
+              vscode.Uri.joinPath(folder.uri, ...relativePath.split('/')).fsPath ===
+              sourceFile.fileName,
+          ) &&
+          vscode.Uri.joinPath(folder.uri, ...authoritativeEntry.split('/')).fsPath !==
+            sourceFile.fileName
+        ) {
+          continue;
+        }
         const compiled = compileUiSource(
           { fileName: sourceFile.fileName, source: sourceFile.source },
           {
@@ -481,7 +528,7 @@ export function activate(context: vscode.ExtensionContext): void {
       skippedUnreadable > 0 ? `${skippedUnreadable} unreadable source file(s) omitted` : undefined,
     ].filter((note): note is string => Boolean(note));
     output.appendLine(
-      `Architecture: ${issueCount} issue(s) across ${checkedFiles} source file(s) in ${configuredWorkspaces} configured workspace(s); ${skippedWorkspaces} workspace(s) skipped.${coverageNotes.length > 0 ? ` Limited coverage: ${coverageNotes.join('; ')}.` : ''}`,
+      `Architecture: ${issueCount} issue(s) across ${checkedFiles} source file(s) in ${configuredWorkspaces} configured workspace(s); ${partialWorkspaces} partial adoption workspace(s), ${blockedWorkspaces} blocked adoption workspace(s), ${skippedWorkspaces} workspace(s) skipped.${coverageNotes.length > 0 ? ` Limited coverage: ${coverageNotes.join('; ')}.` : ''}`,
     );
     if (showSummary) {
       if (skippedWorkspaces > 0) {
@@ -493,6 +540,15 @@ export function activate(context: vscode.ExtensionContext): void {
         output.show(true);
         void vscode.window.showInformationMessage(
           'Srijika architecture check skipped. Add a supported architecture block to srijika.config.json.',
+        );
+      } else if (blockedWorkspaces > 0) {
+        output.show(true);
+        void vscode.window.showWarningMessage(
+          'Srijika brownfield ownership is blocked. See the Srijika output for the resolved move plan coverage.',
+        );
+      } else if (partialWorkspaces > 0) {
+        void vscode.window.showInformationMessage(
+          'Srijika strict adopted-owner checks passed; brownfield ownership remains partial.',
         );
       } else if (issueCount === 0) {
         void vscode.window.showInformationMessage('Srijika architecture check passed.');
@@ -1452,6 +1508,7 @@ export function activate(context: vscode.ExtensionContext): void {
       for (const pattern of srijikaArchitectureWatchPatterns(
         projectConfig.architecture,
         projectConfig.entry,
+        projectConfig.adoption,
       )) {
         const watcher = vscode.workspace.createFileSystemWatcher(
           new vscode.RelativePattern(folder, pattern),

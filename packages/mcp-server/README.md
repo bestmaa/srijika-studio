@@ -102,5 +102,10 @@ Studio live preview also follows the configured entry, UI suffix, and Connector
 suffix. CLI watch uses one filtered recursive project-root watcher, reloads
 config, observes config/tsconfig/entry/resolved roots and future-root ancestors,
 and stays alive through temporarily invalid configuration until recovery.
+The optional versioned `adoption.ownership` block adds bounded brownfield
+managed/include/exclude paths, recognized legacy UI/Connector/Hook directories,
+and explicit adopted owners. MCP inspection and checks return the same immutable
+coverage/move/rewire plan as the CLI; `strictPassed` covers adopted owners,
+while `passed` becomes true only for honest full-project adoption.
 When Srijika Studio is running, the same server also exposes its authenticated
 document, layout, preview, and history bridge tools.

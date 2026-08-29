@@ -1,6 +1,7 @@
 import {
   parseSrijikaProjectConfig,
   parseSrijikaTypeScriptPathAliases,
+  planSrijikaBrownfieldAdoption,
   resolveSrijikaArchitectureConfig,
   SRIJIKA_ARCHITECTURE_PROFILE,
   validateSrijikaArchitecture,
@@ -9,6 +10,9 @@ import {
   type SrijikaArchitectureRecommendation,
   type SrijikaArchitectureSourceFile,
   type ResolvedSrijikaArchitectureConfig,
+  type ResolvedSrijikaBrownfieldAdoptionConfig,
+  type SrijikaBrownfieldAdoptionPlan,
+  type SrijikaProjectConfig,
 } from '@srijika/architecture-rules';
 
 export type CodeProjectArchitectureConfig = ResolvedSrijikaArchitectureConfig;
@@ -26,6 +30,7 @@ export interface CodeProjectArchitectureAnalysis {
   diagnostics: readonly CodeProjectArchitectureDiagnostic[];
   recommendations: readonly SrijikaArchitectureRecommendation[];
   checkedFileCount: number;
+  adoption?: SrijikaBrownfieldAdoptionPlan;
 }
 
 export interface CodeProjectArchitectureSource {
@@ -61,6 +66,15 @@ function architectureConfigFromProject(
   );
   if (!configEntry) return { profile: SRIJIKA_ARCHITECTURE_PROFILE };
   return parseSrijikaProjectConfig(configEntry[1]).architecture;
+}
+
+function projectConfigFromFileMap(
+  sourceByPath: Readonly<Record<string, string>>,
+): SrijikaProjectConfig | undefined {
+  const configEntry = Object.entries(sourceByPath).find(
+    ([path]) => normalizePath(path) === 'srijika.config.json',
+  );
+  return configEntry ? parseSrijikaProjectConfig(configEntry[1]) : undefined;
 }
 
 function architectureAliasesFromProject(
@@ -112,6 +126,8 @@ export function analyzeCodeProjectArchitecture(
     projectRoot?: string;
     architecture?: Partial<SrijikaArchitectureConfig>;
     aliases?: Readonly<Record<string, string>>;
+    entry?: string;
+    adoption?: ResolvedSrijikaBrownfieldAdoptionConfig;
   } = {},
 ): CodeProjectArchitectureAnalysis {
   const sourceFiles: readonly SrijikaArchitectureSourceFile[] = files
@@ -122,13 +138,48 @@ export function analyzeCodeProjectArchitecture(
     architecture: options.architecture ?? { profile: SRIJIKA_ARCHITECTURE_PROFILE },
     ...(options.aliases ? { aliases: options.aliases } : {}),
   });
+  const adoption = options.adoption
+    ? planSrijikaBrownfieldAdoption(sourceFiles, options.adoption, {
+        ...(options.projectRoot ? { projectRoot: normalizePath(options.projectRoot) } : {}),
+        architecture: options.architecture ?? { profile: SRIJIKA_ARCHITECTURE_PROFILE },
+        ...(options.aliases ? { aliases: options.aliases } : {}),
+      })
+    : undefined;
+  const strictFiles = adoption
+    ? new Set([
+        ...adoption.strictFiles.map((fileName) => normalizePath(fileName).toLowerCase()),
+        ...(options.entry ? [normalizePath(options.entry).toLowerCase()] : []),
+      ])
+    : undefined;
+  const projectRoot = options.projectRoot
+    ? normalizePath(options.projectRoot).replace(/\/$/u, '').toLowerCase()
+    : undefined;
+  const diagnostics = strictFiles
+    ? validation.diagnostics.filter(({ fileName }) => {
+        const normalized = normalizePath(fileName);
+        const relative =
+          projectRoot && normalized.toLowerCase().startsWith(`${projectRoot}/`)
+            ? normalized.slice(projectRoot.length + 1)
+            : normalized;
+        return strictFiles.has(relative.toLowerCase());
+      })
+    : validation.diagnostics;
   return {
     checkedFileCount: sourceFiles.length,
-    recommendations: validation.recommendations,
-    diagnostics: validation.diagnostics.map((diagnostic) => ({
+    recommendations: validation.recommendations.filter(
+      (recommendation) =>
+        !strictFiles ||
+        diagnostics.some(
+          ({ recommendation: diagnosticRecommendation }) =>
+            diagnosticRecommendation?.id === recommendation.id &&
+            diagnosticRecommendation.owner === recommendation.owner,
+        ),
+    ),
+    diagnostics: diagnostics.map((diagnostic) => ({
       ...diagnostic,
       origin: 'architecture' as const,
     })),
+    ...(adoption ? { adoption } : {}),
   };
 }
 
@@ -136,9 +187,12 @@ export function analyzeCodeProjectFileMap(
   files: Readonly<Record<string, string>>,
   projectRoot?: string,
 ): CodeProjectArchitectureAnalysis {
+  const projectConfig = projectConfigFromFileMap(files);
   return analyzeCodeProjectArchitecture(architectureSourcesFromFileMap(files, projectRoot), {
     ...(projectRoot ? { projectRoot } : {}),
-    architecture: architectureConfigFromProject(files),
+    architecture: projectConfig?.architecture ?? architectureConfigFromProject(files),
     aliases: architectureAliasesFromProject(files),
+    ...(projectConfig ? { entry: projectConfig.entry } : {}),
+    ...(projectConfig?.adoption ? { adoption: projectConfig.adoption } : {}),
   });
 }

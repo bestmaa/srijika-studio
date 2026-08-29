@@ -1,7 +1,9 @@
 import type {
+  ResolvedSrijikaBrownfieldAdoptionConfig,
   SrijikaArchitectureConfig,
   SrijikaArchitectureDiagnostic,
   SrijikaArchitectureRecommendation,
+  SrijikaBrownfieldAdoptionPlan,
 } from '@srijika/architecture-rules';
 
 export type SrijikaPackageManager = 'pnpm' | 'npm' | 'yarn' | 'bun';
@@ -21,6 +23,7 @@ export interface SrijikaProjectMetadata {
   lockfile: string | null;
   scripts: Readonly<Record<string, string>>;
   architecture?: Partial<SrijikaArchitectureConfig>;
+  adoption?: ResolvedSrijikaBrownfieldAdoptionConfig;
   aliases?: Readonly<Record<string, string>>;
   viteProject: boolean;
   nextProject: boolean;
@@ -45,6 +48,7 @@ export interface SrijikaArchitectureCheckResult {
   durationMillis: number;
   diagnostics: readonly SrijikaArchitectureDiagnostic[];
   recommendations: readonly SrijikaArchitectureRecommendation[];
+  adoption?: SrijikaBrownfieldAdoptionPlan;
 }
 
 export interface SrijikaToolAvailability {
