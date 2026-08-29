@@ -8,10 +8,7 @@ import {
   type SrijikaArchitectureSourceFile,
 } from '@srijika/architecture-rules';
 
-import {
-  parseSrijikaCodeProjectConfig,
-  validateArchitectureWorkspace,
-} from './architecture-adapter';
+import { checkArchitectureWorkspace, parseSrijikaCodeProjectConfig } from './architecture-adapter';
 import {
   assertCompleteArchitectureScanBudget,
   selectArchitectureScanBudget,
@@ -254,7 +251,11 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
         (await fileSystem.readText('tsconfig.json', 1024 * 1024)).source,
       );
     }
-    const discovered = await discoverSafeSrijikaSources(fileSystem, config.architecture);
+    const discovered = await discoverSafeSrijikaSources(
+      fileSystem,
+      config.architecture,
+      config.adoption,
+    );
     const byPath = new Map(discovered.map((file) => [file.relativePath, file]));
     if (!byPath.has(config.entry)) {
       await fileSystem.inspectRegularFile(config.entry);
@@ -287,11 +288,13 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
       }
       files.push({ fileName: candidate.value.absolutePath, source: read.source });
     }
-    const diagnostics = validateArchitectureWorkspace({
+    const architectureResult = checkArchitectureWorkspace({
       projectRoot: project.projectRoot,
       files,
       architecture: config.architecture,
       aliases,
+      entry: config.entry,
+      ...(config.adoption ? { adoption: config.adoption } : {}),
     });
     let projectName = basename(project.projectRoot);
     try {
@@ -310,7 +313,8 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
       architecture: config.architecture,
       aliases,
       files,
-      diagnostics,
+      diagnostics: architectureResult.diagnostics,
+      ...(architectureResult.adoption ? { adoption: architectureResult.adoption } : {}),
     });
   }
 

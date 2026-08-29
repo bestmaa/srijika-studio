@@ -1,4 +1,7 @@
-import type { ResolvedSrijikaArchitectureConfig } from '@srijika/architecture-rules';
+import type {
+  ResolvedSrijikaArchitectureConfig,
+  ResolvedSrijikaBrownfieldAdoptionConfig,
+} from '@srijika/architecture-rules';
 import {
   SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
   SrijikaProjectFileSystem,
@@ -23,12 +26,16 @@ export async function openSafeSrijikaWorkspace(
 export async function discoverSafeSrijikaSources(
   fileSystem: SrijikaProjectFileSystem,
   architecture: ResolvedSrijikaArchitectureConfig,
+  adoption?: ResolvedSrijikaBrownfieldAdoptionConfig,
 ): Promise<readonly SrijikaSafeProjectFile[]> {
-  return fileSystem.walkFiles([architecture.featuresRoot, architecture.sharedRoot], {
-    ...SRIJIKA_WORKSPACE_DISCOVERY_LIMITS,
-    ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
-    acceptFile: isSrijikaArchitectureSourcePath,
-  });
+  return fileSystem.walkFiles(
+    adoption?.managedRoots ?? [architecture.featuresRoot, architecture.sharedRoot],
+    {
+      ...SRIJIKA_WORKSPACE_DISCOVERY_LIMITS,
+      ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+      acceptFile: isSrijikaArchitectureSourcePath,
+    },
+  );
 }
 
 /**

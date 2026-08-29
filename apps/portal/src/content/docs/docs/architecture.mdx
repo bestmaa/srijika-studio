@@ -62,6 +62,17 @@ fails closed everywhere. Generated validation reloads the current config.
 after temporarily invalid edits. VS Code/Studio path previews are canonical
 planner output rather than hardcoded UI strings.
 
+### Adopt an existing repository in stages
+
+Add the versioned `adoption.ownership` contract to bound existing feature
+roots, recognize `ui/`, `connectors/`, and `hooks/`, explicitly categorize
+server/service/domain/test code, and mark complete owners as adopted. Srijika
+strictly validates adopted owners while reporting all remaining source as
+pending or excluded. The resolved no-write plan includes deterministic
+no-overwrite canonical moves and exact static import rewires; partial coverage
+never counts as full-project success. Run `srijika adoption plan --json` to
+inspect the plan before changing source.
+
 The complete project contract requires `sourceOfTruth: "tsx"` and a normalized
 project-relative `entry` ending in the resolved UI suffix. The entry remains a
 strict, counted UI even outside both ownership roots. The architecture

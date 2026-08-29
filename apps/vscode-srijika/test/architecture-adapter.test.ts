@@ -2,12 +2,59 @@ import { describe, expect, it } from 'vitest';
 
 import {
   architectureDiagnosticToEditorDiagnostic,
+  checkArchitectureWorkspace,
   parseSrijikaCodeProjectConfig,
   parseSrijikaArchitectureConfig,
   validateArchitectureWorkspace,
 } from '../src/architecture-adapter';
 
 describe('VS Code architecture adapter', () => {
+  it('uses the resolved adoption plan for strict and report-only files', () => {
+    const root = '/project';
+    const project = parseSrijikaCodeProjectConfig(
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        adoption: {
+          ownership: {
+            version: 1,
+            profile: 'brownfield-ownership-v1',
+            managedRoots: ['src/features'],
+            include: ['src/features'],
+            adoptedOwners: ['src/features/home'],
+          },
+        },
+      }),
+    );
+    if (!project.adoption) throw new Error('Expected resolved brownfield adoption config.');
+    const result = checkArchitectureWorkspace({
+      projectRoot: root,
+      architecture: project.architecture,
+      adoption: project.adoption,
+      entry: project.entry,
+      files: [
+        {
+          fileName: `${root}/src/features/home/Home.ui.tsx`,
+          source: 'export function HomeUI() { return <main />; }',
+        },
+        {
+          fileName: `${root}/src/features/home/Home.connector.tsx`,
+          source: 'export function HomeConnector() { return null; }',
+        },
+        {
+          fileName: `${root}/src/features/catalog/Catalog.ui.tsx`,
+          source: "export function CatalogUI() { fetch('/pending'); return <main />; }",
+        },
+      ],
+    });
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.adoption).toMatchObject({
+      status: 'partial',
+      summary: { governed: 2, pending: 1, fullProjectSuccess: false },
+    });
+  });
+
   it('passes authoritative project aliases into the shared validator', () => {
     const root = '/project';
     const files = [

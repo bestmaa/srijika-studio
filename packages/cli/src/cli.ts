@@ -50,6 +50,7 @@ import {
 } from '@srijika/developer-engine';
 import {
   resolveSrijikaArchitectureConfig,
+  type ResolvedSrijikaBrownfieldAdoptionConfig,
   type SrijikaArchitectureConfig,
 } from '@srijika/architecture-rules';
 import { writeSrijikaProject } from '@srijika/project-scaffold';
@@ -88,6 +89,7 @@ Usage:
   srijika add behavior-hook <Behavior> --in <owner-folder>
   srijika add store-slice <Concern> --in <owner-folder>
   srijika check [project] [--watch] [--json]
+  srijika adoption plan [project] [--json]
   srijika tests sync [project] [--framework vite|next] [--dry-run] [--port 4174] [--json]
   srijika tests evidence [project] [--framework vite|next] [--json]
   srijika tests verify [project] [--framework vite|next] [--skip-install] [--port 4174] [--json]
@@ -519,7 +521,7 @@ async function runWorkspace(parsed: ParsedArguments): Promise<number> {
     } else {
       const checked = result as Awaited<ReturnType<typeof checkSrijikaWorkspace>>;
       console.log(
-        `${checked.status === 'passed' ? '✓' : '✗'} Workspace architecture: ${checked.status}`,
+        `${checked.status === 'passed' ? '✓' : checked.status === 'partial' ? '·' : '✗'} Workspace architecture: ${checked.status}`,
       );
       for (const project of checked.projects) {
         console.log(
@@ -527,7 +529,7 @@ async function runWorkspace(parsed: ParsedArguments): Promise<number> {
         );
       }
     }
-    return operation === 'check' && 'status' in result && result.status !== 'passed' ? 1 : 0;
+    return operation === 'check' && 'status' in result && result.status === 'failed' ? 1 : 0;
   }
   if (operation === 'tests') {
     assertKnownOptions(parsed, ['project-id', 'dry-run', 'skip-install', 'json']);
@@ -610,12 +612,17 @@ async function runAdopt(parsed: ParsedArguments): Promise<number> {
 export function resolveSrijikaWatchRoots(
   projectRoot: string,
   architecture: Partial<SrijikaArchitectureConfig> = {},
+  adoption?: ResolvedSrijikaBrownfieldAdoptionConfig,
 ): readonly string[] {
   const resolvedArchitecture = resolveSrijikaArchitectureConfig(architecture);
   return Object.freeze(
-    [...new Set([resolvedArchitecture.featuresRoot, resolvedArchitecture.sharedRoot])].map(
-      (relativeRoot) => resolve(projectRoot, ...relativeRoot.split('/')),
-    ),
+    [
+      ...new Set(
+        adoption
+          ? adoption.managedRoots
+          : [resolvedArchitecture.featuresRoot, resolvedArchitecture.sharedRoot],
+      ),
+    ].map((relativeRoot) => resolve(projectRoot, ...relativeRoot.split('/'))),
   );
 }
 
@@ -636,6 +643,7 @@ export function isSrijikaArchitectureWatchPath(
   relativePath: string | undefined,
   architecture: Partial<SrijikaArchitectureConfig> | undefined,
   entry: string,
+  adoption?: ResolvedSrijikaBrownfieldAdoptionConfig,
 ): boolean {
   if (!relativePath) return true;
   const normalized = relativePath.replaceAll('\\', '/').replace(/^\.\//, '');
@@ -643,7 +651,8 @@ export function isSrijikaArchitectureWatchPath(
   if (normalizedKey === 'srijika.config.json' || normalizedKey === 'tsconfig.json') return true;
   if (normalizedKey === entry.toLowerCase()) return true;
   const resolved = resolveSrijikaArchitectureConfig(architecture ?? {});
-  return [resolved.featuresRoot, resolved.sharedRoot].some((root) => {
+  const roots = adoption?.managedRoots ?? [resolved.featuresRoot, resolved.sharedRoot];
+  return roots.some((root) => {
     const rootKey = root.toLowerCase();
     if (normalizedKey === rootKey || rootKey.startsWith(`${normalizedKey}/`)) return true;
     if (!normalizedKey.startsWith(`${rootKey}/`)) return false;
@@ -683,15 +692,25 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
         `${diagnostic.severity === 'error' ? '✗' : '!'} ${diagnostic.fileName}:${diagnostic.span.line}:${diagnostic.span.column} ${diagnostic.ruleId ?? diagnostic.code} ${diagnostic.message}`,
       );
     }
+    const errors =
+      result.ui.diagnostics.length +
+      result.architecture.diagnostics.filter(({ severity }) => severity === 'error').length;
+    if (result.architecture.adoption) {
+      const { summary, status } = result.architecture.adoption;
+      console.log(
+        `${status === 'blocked' ? '✗' : status === 'partial' ? '·' : '✓'} Brownfield ownership: ${status}; ${summary.governed} governed, ${summary.pending} pending, ${summary.blocked} blocked, ${summary.excluded} excluded.`,
+      );
+    }
     console.log(
-      `✓ Zero Srijika diagnostics across ${result.ui.checkedFiles} UI files; checked ${result.architecture.checkedFiles} architecture files in ${result.architecture.durationMillis} ms (${result.architecture.recommendations.length} recommendations).`,
+      `${errors === 0 ? '✓ Zero' : `✗ ${errors}`} Srijika error diagnostics across ${result.ui.checkedFiles} strictly checked UI files; scanned ${result.architecture.checkedFiles} architecture files in ${result.architecture.durationMillis} ms (${result.architecture.recommendations.length} recommendations).`,
     );
   };
   if (!booleanOption(parsed, 'watch')) {
     const result = await checkProject();
     printResult(result);
     return result.ui.diagnostics.length > 0 ||
-      result.architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error')
+      result.architecture.diagnostics.some((diagnostic) => diagnostic.severity === 'error') ||
+      result.architecture.adoption?.status === 'blocked'
       ? 1
       : 0;
   }
@@ -711,7 +730,12 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
       const relativePath = fileName?.toString();
       if (
         !watchAllUntilProjectIsValid &&
-        !isSrijikaArchitectureWatchPath(relativePath, project.architecture, project.entry)
+        !isSrijikaArchitectureWatchPath(
+          relativePath,
+          project.architecture,
+          project.entry,
+          project.adoption,
+        )
       ) {
         return;
       }
@@ -764,6 +788,41 @@ async function runCheck(parsed: ParsedArguments): Promise<number> {
     process.once('SIGTERM', stop);
   });
   return 0;
+}
+
+async function runAdoption(parsed: ParsedArguments): Promise<number> {
+  assertKnownOptions(parsed, ['project', 'json']);
+  const [operation, positionalProject, ...extra] = parsed.positionals;
+  if (operation !== 'plan' || extra.length > 0) {
+    throw new Error('adoption requires `plan` and accepts at most one project path.');
+  }
+  const project = positionalProject ?? stringOption(parsed, 'project') ?? process.cwd();
+  const result = await checkSrijikaArchitecture(project);
+  if (!result.adoption) {
+    throw new Error('Project does not declare adoption.ownership in srijika.config.json.');
+  }
+  if (booleanOption(parsed, 'json')) {
+    console.log(JSON.stringify(result.adoption, null, 2));
+  } else {
+    const { summary } = result.adoption;
+    console.log(
+      `${result.adoption.status === 'blocked' ? '✗' : result.adoption.status === 'partial' ? '·' : '✓'} Brownfield ownership plan: ${result.adoption.status}`,
+    );
+    console.log(
+      `· Coverage: ${summary.governed} governed, ${summary.pending} pending, ${summary.blocked} blocked, ${summary.excluded} excluded`,
+    );
+    for (const move of result.adoption.moves) {
+      console.log(
+        `${move.status === 'ready' ? '→' : '✗'} ${move.fromRelativePath} -> ${move.toRelativePath}`,
+      );
+    }
+    for (const rewire of result.adoption.rewires) {
+      console.log(
+        `→ Rewire ${rewire.sourceAfterMove}: ${rewire.fromSpecifier} -> ${rewire.toSpecifier}`,
+      );
+    }
+  }
+  return result.adoption.status === 'blocked' ? 1 : 0;
 }
 
 async function runDoctor(parsed: ParsedArguments): Promise<number> {
@@ -1129,6 +1188,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
       return runAdd(parsed);
     case 'check':
       return runCheck(parsed);
+    case 'adoption':
+      return runAdoption(parsed);
     case 'doctor':
       return runDoctor(parsed);
     case 'tests':

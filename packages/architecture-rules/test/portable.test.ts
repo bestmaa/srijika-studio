@@ -45,6 +45,65 @@ afterEach(async () => {
 });
 
 describe('portable architecture validator', () => {
+  it('keeps staged brownfield validation strict only for adopted owners', async () => {
+    const project = await mkdtemp(path.join(tmpdir(), 'srijika-portable-brownfield-'));
+    temporaryDirectories.push(project);
+    const sources = {
+      'src/features/home/Home.ui.tsx': 'export function HomeUI() { return <main>Home</main>; }\n',
+      'src/features/home/Home.connector.tsx':
+        "import { HomeUI } from './Home.ui'; export function HomeConnector() { return <HomeUI />; }\n",
+      'src/features/catalog/Catalog.ui.tsx':
+        "export function CatalogUI() { fetch('/pending'); return <main />; }\n",
+      'src/features/catalog/server/load.ts': "export const load = () => fetch('/server');\n",
+    };
+    for (const [relativePath, source] of Object.entries(sources)) {
+      const destination = path.join(project, relativePath);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFile(destination, source);
+    }
+    await writeFile(
+      path.join(project, 'srijika.config.json'),
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        adoption: {
+          ownership: {
+            version: 1,
+            profile: 'brownfield-ownership-v1',
+            managedRoots: ['src/features'],
+            include: ['src/features'],
+            exclude: [{ path: 'src/features/catalog/server', category: 'server' }],
+            adoptedOwners: ['src/features/home'],
+          },
+        },
+      }),
+    );
+    const script = path.join(project, 'srijika-validate.mjs');
+    await writeFile(script, await portableValidatorSource(project));
+    await mkdir(path.join(project, 'node_modules'), { recursive: true });
+    await symlink(
+      path.resolve('node_modules/typescript'),
+      path.join(project, 'node_modules/typescript'),
+      'dir',
+    );
+
+    const partial = spawnSync(process.execPath, [script], { cwd: project, encoding: 'utf8' });
+
+    expect(partial.status).toBe(0);
+    expect(partial.stderr).not.toContain('SRIJIKA4101');
+    expect(partial.stdout).toContain('brownfield ownership partial');
+    expect(partial.stdout).toContain('2 governed, 1 pending, 1 excluded');
+
+    await writeFile(
+      path.join(project, 'src/features/home/Home.ui.tsx'),
+      "export function HomeUI() { fetch('/strict'); return <main />; }\n",
+    );
+    const strict = spawnSync(process.execPath, [script], { cwd: project, encoding: 'utf8' });
+    expect(strict.status).toBe(1);
+    expect(strict.stderr).toContain('SRIJIKA4101');
+    expect(strict.stdout).toContain('brownfield ownership blocked');
+  });
+
   it('creates a standalone project script that fails on an ownership violation', async () => {
     const project = await mkdtemp(path.join(tmpdir(), 'srijika-architecture-'));
     temporaryDirectories.push(project);

@@ -227,6 +227,35 @@ describe('project inspection', () => {
     });
   });
 
+  it('returns the resolved brownfield ownership contract', async () => {
+    const root = await createProject();
+    await writeFile(
+      join(root, 'srijika.config.json'),
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        architecture: { profile: 'feature-slot-part-v1' },
+        adoption: {
+          ownership: {
+            version: 1,
+            profile: 'brownfield-ownership-v1',
+            managedRoots: ['src/features'],
+            include: ['src/features'],
+            adoptedOwners: ['src/features/home'],
+          },
+        },
+      }),
+    );
+
+    await expect(inspectSrijikaProject(root)).resolves.toMatchObject({
+      adoption: {
+        version: 1,
+        profile: 'brownfield-ownership-v1',
+        adoptedOwners: ['src/features/home'],
+      },
+    });
+  });
+
   it('fails closed when the authoritative entry is missing, unsafe, oversized, or non-UTF-8', async () => {
     const missing = await createProject();
     await rm(join(missing, 'src/features/home/Home.ui.tsx'));
@@ -329,6 +358,89 @@ describe('runtime planning', () => {
 });
 
 describe('incremental architecture index', () => {
+  it('strictly checks adopted owners while reporting pending and excluded coverage', async () => {
+    const root = await createProject();
+    await mkdir(join(root, 'src/features/catalog/server'), { recursive: true });
+    await writeFile(
+      join(root, 'src/features/catalog/Catalog.ui.tsx'),
+      "export function CatalogUI() { fetch('/pending'); return <main />; }\n",
+    );
+    await writeFile(
+      join(root, 'src/features/catalog/server/load.ts'),
+      "export const load = () => fetch('/server');\n",
+    );
+    await writeFile(
+      join(root, 'srijika.config.json'),
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        architecture: { profile: 'feature-slot-part-v1' },
+        adoption: {
+          ownership: {
+            version: 1,
+            profile: 'brownfield-ownership-v1',
+            managedRoots: ['src/features'],
+            include: ['src/features'],
+            exclude: [{ path: 'src/features/catalog/server', category: 'server' }],
+            adoptedOwners: ['src/features/home'],
+          },
+        },
+      }),
+    );
+
+    const result = await new SrijikaArchitectureIndex().check(root);
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.adoption).toMatchObject({
+      status: 'partial',
+      summary: { governed: 2, pending: 1, excluded: 1, fullProjectSuccess: false },
+      strictFiles: ['src/features/home/Home.connector.tsx', 'src/features/home/Home.ui.tsx'],
+    });
+  });
+
+  it('fails strict validation and plans canonical moves for an adopted owner', async () => {
+    const root = await createProject();
+    await writeFile(
+      join(root, 'src/features/home/Home.ui.tsx'),
+      "export function HomeUI() { fetch('/strict'); return <main />; }\n",
+    );
+    await mkdir(join(root, 'src/features/home/ui'), { recursive: true });
+    await writeFile(
+      join(root, 'src/features/home/ui/Hero.ui.tsx'),
+      'export function HeroUI() { return <aside />; }\n',
+    );
+    await writeFile(
+      join(root, 'srijika.config.json'),
+      JSON.stringify({
+        sourceOfTruth: 'tsx',
+        entry: 'src/features/home/Home.ui.tsx',
+        architecture: { profile: 'feature-slot-part-v1' },
+        adoption: {
+          ownership: {
+            version: 1,
+            profile: 'brownfield-ownership-v1',
+            managedRoots: ['src/features'],
+            include: ['src/features'],
+            adoptedOwners: ['src/features/home'],
+            directories: { ui: ['ui'] },
+          },
+        },
+      }),
+    );
+
+    const result = await new SrijikaArchitectureIndex().check(root);
+
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'SRIJIKA4101' }));
+    expect(result.adoption).toMatchObject({ status: 'blocked', summary: { blocked: 1 } });
+    expect(result.adoption?.moves).toContainEqual(
+      expect.objectContaining({
+        fromRelativePath: 'src/features/home/ui/Hero.ui.tsx',
+        toRelativePath: 'src/features/home/slots/hero/Hero.ui.tsx',
+        status: 'ready',
+      }),
+    );
+  });
+
   it('counts an outside-root authoritative entry inside the source-file safety limit', async () => {
     const root = await createProject();
     await mkdir(join(root, 'application'), { recursive: true });

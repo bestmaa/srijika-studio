@@ -65,4 +65,23 @@ describe('VS Code architecture discovery', () => {
       'application/screens/App.ui.tsx',
     ]);
   });
+
+  it('uses brownfield managed roots for source and watch discovery', () => {
+    const adoption = {
+      version: 1 as const,
+      profile: 'brownfield-ownership-v1' as const,
+      managedRoots: ['application/features'],
+      include: ['application/features'],
+      exclude: [],
+      adoptedOwners: ['application/features/auth'],
+      directories: { ui: ['ui'], connectors: ['connectors'], hooks: ['hooks'] },
+    };
+    expect(srijikaArchitectureSourcePatterns({}, adoption)).toEqual([
+      'application/features/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
+    ]);
+    expect(srijikaArchitectureWatchPatterns({}, 'app/App.ui.tsx', adoption)).toEqual([
+      'application/features/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}',
+      'app/App.ui.tsx',
+    ]);
+  });
 });

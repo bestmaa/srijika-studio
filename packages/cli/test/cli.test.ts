@@ -191,6 +191,84 @@ describe('architecture watch roots', () => {
       false,
     );
   });
+
+  it('watches brownfield managed roots instead of canonical defaults', () => {
+    const adoption = {
+      version: 1 as const,
+      profile: 'brownfield-ownership-v1' as const,
+      managedRoots: ['application/features'],
+      include: ['application/features'],
+      exclude: [],
+      adoptedOwners: ['application/features/auth'],
+      directories: { ui: ['ui'], connectors: ['connectors'], hooks: ['hooks'] },
+    };
+    expect(resolveSrijikaWatchRoots('/workspace/app', {}, adoption)).toEqual([
+      resolve('/workspace/app/application/features'),
+    ]);
+    expect(
+      isSrijikaArchitectureWatchPath(
+        'application/features/auth/Auth.ui.tsx',
+        {},
+        'app/App.ui.tsx',
+        adoption,
+      ),
+    ).toBe(true);
+    expect(
+      isSrijikaArchitectureWatchPath(
+        'src/features/home/Home.ui.tsx',
+        {},
+        'app/App.ui.tsx',
+        adoption,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('brownfield adoption commands', () => {
+  it('reports partial coverage without failing strict adopted-owner checks', async () => {
+    const root = await project();
+    const configPath = join(root, 'srijika.config.json');
+    const config = JSON.parse(await readFile(configPath, 'utf8')) as Record<string, unknown>;
+    config['adoption'] = {
+      ownership: {
+        version: 1,
+        profile: 'brownfield-ownership-v1',
+        managedRoots: ['src/features'],
+        include: ['src/features'],
+        adoptedOwners: ['src/features/home'],
+      },
+    };
+    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+    await mkdir(join(root, 'src/features/catalog'), { recursive: true });
+    await writeFile(
+      join(root, 'src/features/catalog/Catalog.ui.tsx'),
+      "export function CatalogUI() { fetch('/pending'); return <main />; }\n",
+    );
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(runSrijikaCli(['check', root, '--json'])).resolves.toBe(0);
+      const checked = JSON.parse(logs.join('\n')) as {
+        architecture: { adoption: { status: string; summary: { pending: number } } };
+        ui: { checkedFiles: number };
+      };
+      expect(checked.architecture.adoption).toMatchObject({
+        status: 'partial',
+        summary: { pending: 1 },
+      });
+      expect(checked.ui.checkedFiles).toBe(2);
+
+      logs.length = 0;
+      await expect(runSrijikaCli(['adoption', 'plan', root, '--json'])).resolves.toBe(0);
+      expect(JSON.parse(logs.join('\n'))).toMatchObject({
+        status: 'partial',
+        summary: { fullProjectSuccess: false },
+      });
+    } finally {
+      console.log = originalLog;
+    }
+  });
 });
 
 describe('Desktop handoff', () => {

@@ -247,6 +247,13 @@ receives `SRIJIKA4119` computed-module, `SRIJIKA4120` unresolved-alias, and
 symlinks or partial results and are capped at 4,096 sources, 32,768 entries,
 4,096 directories, depth 32, 4 MiB per source, and 24 MiB total.
 
+For an existing application, the versioned `adoption.ownership` block can
+select managed roots and mark complete owners as adopted. VS Code uses the same
+resolved plan as the CLI: adopted owners receive strict architecture and UI
+diagnostics, pending owners stay report-only, and the Structure Graph displays
+governed/pending/blocked/excluded coverage without claiming partial adoption is
+complete. See [`docs/BROWNFIELD_ADOPTION.md`](../../docs/BROWNFIELD_ADOPTION.md).
+
 Every UI rejects identifier/property Hooks, browser/runtime globals, local or
 external state/router/request/query behavior, and callable utilities. Only
 type-only imports, safe React JSX support, JSX-only presentational bindings,

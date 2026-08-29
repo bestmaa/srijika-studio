@@ -8,6 +8,7 @@ import {
   type SrijikaArchitectureDiagnostic,
   type SrijikaArchitectureOwnership,
   type SrijikaArchitectureSourceFile,
+  type SrijikaBrownfieldAdoptionPlan,
 } from '@srijika/architecture-rules';
 
 export type SrijikaProjectGraphNodeKind = 'app' | 'group' | 'owner' | 'file';
@@ -62,6 +63,7 @@ export interface SrijikaProjectArchitectureGraphModel {
   nodes: readonly SrijikaProjectGraphNode[];
   edges: readonly SrijikaProjectGraphEdge[];
   violations: readonly SrijikaProjectGraphViolation[];
+  adoption?: SrijikaBrownfieldAdoptionPlan;
   stats: {
     owners: number;
     files: number;
@@ -80,6 +82,7 @@ export interface SrijikaProjectArchitectureGraphInput {
   aliases?: Readonly<Record<string, string>>;
   files: readonly SrijikaArchitectureSourceFile[];
   diagnostics: readonly SrijikaArchitectureDiagnostic[];
+  adoption?: SrijikaBrownfieldAdoptionPlan;
 }
 
 interface ParsedModule {
@@ -578,6 +581,7 @@ export function buildSrijikaProjectArchitectureGraph(
     nodes: Object.freeze(finalizedNodes),
     edges: Object.freeze(edges),
     violations: Object.freeze(violations),
+    ...(input.adoption ? { adoption: input.adoption } : {}),
     stats: {
       owners: owners.size,
       files: files.length,

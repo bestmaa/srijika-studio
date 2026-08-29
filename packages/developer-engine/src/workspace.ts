@@ -87,11 +87,13 @@ export interface SrijikaWorkspaceProjectCheck {
   uiFiles: number;
   errors: number;
   recommendations: number;
+  status: 'passed' | 'partial' | 'failed';
+  adoption?: NonNullable<Awaited<ReturnType<typeof checkSrijikaArchitecture>>['adoption']>;
 }
 
 export interface CheckSrijikaWorkspaceResult {
   root: string;
-  status: 'passed' | 'failed';
+  status: 'passed' | 'partial' | 'failed';
   projects: readonly SrijikaWorkspaceProjectCheck[];
 }
 
@@ -572,21 +574,34 @@ export async function checkSrijikaWorkspace(
       checkSrijikaArchitecture(selected.project.root),
       checkSrijikaUiDiagnostics(selected.project.root),
     ]);
+    const errors =
+      architecture.diagnostics.filter(({ severity }) => severity === 'error').length +
+      ui.diagnostics.length;
+    const status =
+      errors > 0 || architecture.adoption?.status === 'blocked'
+        ? 'failed'
+        : architecture.adoption && !architecture.adoption.summary.fullProjectSuccess
+          ? 'partial'
+          : 'passed';
     results.push({
       id: selected.id,
       root: selected.project.root,
       framework: selected.framework,
       checkedFiles: architecture.checkedFiles,
       uiFiles: ui.checkedFiles,
-      errors:
-        architecture.diagnostics.filter(({ severity }) => severity === 'error').length +
-        ui.diagnostics.length,
+      errors,
       recommendations: architecture.recommendations.length,
+      status,
+      ...(architecture.adoption ? { adoption: architecture.adoption } : {}),
     });
   }
   return {
     root: workspace.root,
-    status: results.every(({ errors }) => errors === 0) ? 'passed' : 'failed',
+    status: results.some(({ status }) => status === 'failed')
+      ? 'failed'
+      : results.some(({ status }) => status === 'partial')
+        ? 'partial'
+        : 'passed',
     projects: Object.freeze(results),
   };
 }

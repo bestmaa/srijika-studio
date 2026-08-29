@@ -139,6 +139,7 @@ export async function inspectSrijikaProject(projectRoot: string): Promise<Srijik
     lockfile: selectedLockfile?.fileName ?? null,
     scripts: Object.freeze(scripts),
     architecture: projectConfig.architecture,
+    ...(projectConfig.adoption ? { adoption: projectConfig.adoption } : {}),
     aliases,
     viteProject:
       typeof dependencies['vite'] === 'string' || /^vite(?:\s|$)/.test(scripts['dev'] ?? ''),

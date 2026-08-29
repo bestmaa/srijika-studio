@@ -1537,8 +1537,8 @@ var require_dataType = __commonJS({
       return types;
     }
     exports.getSchemaTypes = getSchemaTypes;
-    function getJSONTypes(ts11) {
-      const types = Array.isArray(ts11) ? ts11 : ts11 ? [ts11] : [];
+    function getJSONTypes(ts12) {
+      const types = Array.isArray(ts12) ? ts12 : ts12 ? [ts12] : [];
       if (types.every(rules_1.isJSONType))
         return types;
       throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
@@ -2580,18 +2580,18 @@ var require_validate = __commonJS({
       });
       narrowSchemaTypes(it, types);
     }
-    function checkMultipleTypes(it, ts11) {
-      if (ts11.length > 1 && !(ts11.length === 2 && ts11.includes("null"))) {
+    function checkMultipleTypes(it, ts12) {
+      if (ts12.length > 1 && !(ts12.length === 2 && ts12.includes("null"))) {
         strictTypesError(it, "use allowUnionTypes to allow union type keyword");
       }
     }
-    function checkKeywordTypes(it, ts11) {
+    function checkKeywordTypes(it, ts12) {
       const rules = it.self.RULES.all;
       for (const keyword in rules) {
         const rule = rules[keyword];
         if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
           const { type } = rule.definition;
-          if (type.length && !type.some((t) => hasApplicableType(ts11, t))) {
+          if (type.length && !type.some((t) => hasApplicableType(ts12, t))) {
             strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
           }
         }
@@ -2600,18 +2600,18 @@ var require_validate = __commonJS({
     function hasApplicableType(schTs, kwdT) {
       return schTs.includes(kwdT) || kwdT === "number" && schTs.includes("integer");
     }
-    function includesType(ts11, t) {
-      return ts11.includes(t) || t === "integer" && ts11.includes("number");
+    function includesType(ts12, t) {
+      return ts12.includes(t) || t === "integer" && ts12.includes("number");
     }
     function narrowSchemaTypes(it, withTypes) {
-      const ts11 = [];
+      const ts12 = [];
       for (const t of it.dataTypes) {
         if (includesType(withTypes, t))
-          ts11.push(t);
+          ts12.push(t);
         else if (withTypes.includes("integer") && t === "number")
-          ts11.push("integer");
+          ts12.push("integer");
       }
-      it.dataTypes = ts11;
+      it.dataTypes = ts12;
     }
     function strictTypesError(it, msg) {
       const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
@@ -3004,7 +3004,7 @@ var require_compile = __commonJS({
       const schOrFunc = root.refs[ref];
       if (schOrFunc)
         return schOrFunc;
-      let _sch = resolve13.call(this, root, ref);
+      let _sch = resolve14.call(this, root, ref);
       if (_sch === void 0) {
         const schema = (_a3 = root.localRefs) === null || _a3 === void 0 ? void 0 : _a3[ref];
         const { schemaId } = this.opts;
@@ -3031,7 +3031,7 @@ var require_compile = __commonJS({
     function sameSchemaEnv(s1, s2) {
       return s1.schema === s2.schema && s1.root === s2.root && s1.baseId === s2.baseId;
     }
-    function resolve13(root, ref) {
+    function resolve14(root, ref) {
       let sch;
       while (typeof (sch = this.refs[ref]) == "string")
         ref = sch;
@@ -3662,7 +3662,7 @@ var require_fast_uri = __commonJS({
       }
       return uri;
     }
-    function resolve13(baseURI, relativeURI, options) {
+    function resolve14(baseURI, relativeURI, options) {
       const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
       const { parsed: baseParsed, malformedAuthorityOrPort: baseMalformed } = parseWithStatus(baseURI, schemelessOptions);
       const { parsed: relativeParsed, malformedAuthorityOrPort: relativeMalformed } = parseWithStatus(relativeURI, schemelessOptions);
@@ -3946,7 +3946,7 @@ var require_fast_uri = __commonJS({
     var fastUri = {
       SCHEMES,
       normalize,
-      resolve: resolve13,
+      resolve: resolve14,
       resolveComponent,
       equal,
       serialize,
@@ -11978,7 +11978,7 @@ var init_src = __esm({
 // ../../node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/typescript.js
 var require_typescript = __commonJS({
   "../../node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/typescript.js"(exports, module) {
-    var ts11 = {};
+    var ts12 = {};
     ((module2) => {
       "use strict";
       var __defProp2 = Object.defineProperty;
@@ -12299,7 +12299,7 @@ var require_typescript = __commonJS({
         containsIgnoredPath: () => containsIgnoredPath,
         containsObjectRestOrSpread: () => containsObjectRestOrSpread,
         containsParseError: () => containsParseError,
-        containsPath: () => containsPath,
+        containsPath: () => containsPath2,
         convertCompilerOptionsForTelemetry: () => convertCompilerOptionsForTelemetry,
         convertCompilerOptionsFromJson: () => convertCompilerOptionsFromJson,
         convertJsonOption: () => convertJsonOption,
@@ -19791,9 +19791,9 @@ ${lanes.join("\n")}
           const watcher = fsWatch(
             dirName,
             1,
-            (eventName, relativeFileName) => {
-              if (!isString(relativeFileName)) return;
-              const fileName = getNormalizedAbsolutePath(relativeFileName, dirName);
+            (eventName, relativeFileName2) => {
+              if (!isString(relativeFileName2)) return;
+              const fileName = getNormalizedAbsolutePath(relativeFileName2, dirName);
               const filePath = toCanonicalName(fileName);
               const callbacks = fileName && fileWatcherCallbacks.get(filePath);
               if (callbacks) {
@@ -20164,10 +20164,10 @@ ${lanes.join("\n")}
         return ((options == null ? void 0 : options.excludeDirectories) || (options == null ? void 0 : options.excludeFiles)) && (matchesExclude(pathToCheck, options == null ? void 0 : options.excludeFiles, useCaseSensitiveFileNames2, getCurrentDirectory()) || matchesExclude(pathToCheck, options == null ? void 0 : options.excludeDirectories, useCaseSensitiveFileNames2, getCurrentDirectory()));
       }
       function createFsWatchCallbackForDirectoryWatcherCallback(directoryName2, callback, options, useCaseSensitiveFileNames2, getCurrentDirectory) {
-        return (eventName, relativeFileName) => {
+        return (eventName, relativeFileName2) => {
           if (eventName === "rename") {
-            const fileName = !relativeFileName ? directoryName2 : normalizePath3(combinePaths(directoryName2, relativeFileName));
-            if (!relativeFileName || !isIgnoredByWatchOptions(fileName, options, useCaseSensitiveFileNames2, getCurrentDirectory)) {
+            const fileName = !relativeFileName2 ? directoryName2 : normalizePath3(combinePaths(directoryName2, relativeFileName2));
+            if (!relativeFileName2 || !isIgnoredByWatchOptions(fileName, options, useCaseSensitiveFileNames2, getCurrentDirectory)) {
               callback(fileName);
             }
           }
@@ -20505,13 +20505,13 @@ ${lanes.join("\n")}
         }
         function fsWatchWorkerHandlingTimestamp(fileOrDirectory, recursive, callback) {
           let modifiedTime = getModifiedTime3(fileOrDirectory) || missingFileModifiedTime;
-          return fsWatchWorker(fileOrDirectory, recursive, (eventName, relativeFileName, currentModifiedTime) => {
+          return fsWatchWorker(fileOrDirectory, recursive, (eventName, relativeFileName2, currentModifiedTime) => {
             if (eventName === "change") {
               currentModifiedTime || (currentModifiedTime = getModifiedTime3(fileOrDirectory) || missingFileModifiedTime);
               if (currentModifiedTime.getTime() === modifiedTime.getTime()) return;
             }
             modifiedTime = currentModifiedTime || getModifiedTime3(fileOrDirectory) || missingFileModifiedTime;
-            callback(eventName, relativeFileName, modifiedTime);
+            callback(eventName, relativeFileName2, modifiedTime);
           });
         }
       }
@@ -20705,7 +20705,7 @@ ${lanes.join("\n")}
             for (const node of profile.nodes) {
               if (node.callFrame.url) {
                 const url = normalizeSlashes(node.callFrame.url);
-                if (containsPath(fileUrlRoot, url, useCaseSensitiveFileNames2)) {
+                if (containsPath2(fileUrlRoot, url, useCaseSensitiveFileNames2)) {
                   node.callFrame.url = getRelativePathToDirectoryOrUrl(
                     fileUrlRoot,
                     url,
@@ -21336,7 +21336,7 @@ ${lanes.join("\n")}
         }
         return comparePathsWorker(a, b, getStringComparer(ignoreCase));
       }
-      function containsPath(parent2, child, currentDirectory, ignoreCase) {
+      function containsPath2(parent2, child, currentDirectory, ignoreCase) {
         if (typeof currentDirectory === "string") {
           parent2 = combinePaths(currentDirectory, parent2);
           child = combinePaths(currentDirectory, child);
@@ -35113,7 +35113,7 @@ ${lanes.join("\n")}
           }
           includeBasePaths.sort(getStringComparer(!useCaseSensitiveFileNames2));
           for (const includeBasePath of includeBasePaths) {
-            if (every(basePaths, (basePath) => !containsPath(basePath, includeBasePath, path, !useCaseSensitiveFileNames2))) {
+            if (every(basePaths, (basePath) => !containsPath2(basePath, includeBasePath, path, !useCaseSensitiveFileNames2))) {
               basePaths.push(includeBasePath);
             }
           }
@@ -59178,7 +59178,7 @@ ${lanes.join("\n")}
             if (hasProperty(wildcardDirectories, path)) {
               for (const recursiveKey of recursiveKeys) {
                 const key = toCanonicalKey(path, useCaseSensitiveFileNames2);
-                if (key !== recursiveKey && containsPath(recursiveKey, key, basePath, !useCaseSensitiveFileNames2)) {
+                if (key !== recursiveKey && containsPath2(recursiveKey, key, basePath, !useCaseSensitiveFileNames2)) {
                   delete wildcardDirectories[path];
                 }
               }
@@ -61138,7 +61138,7 @@ ${lanes.join("\n")}
         const onlyRecordFailuresForPackageFile = packageFile ? !directoryProbablyExists(getDirectoryPath(packageFile), state.host) : void 0;
         const onlyRecordFailuresForIndex = onlyRecordFailures || !directoryProbablyExists(candidate, state.host);
         const indexPath = combinePaths(candidate, state.isConfigLookup ? "tsconfig" : "index");
-        if (versionPaths && (!packageFile || containsPath(candidate, packageFile))) {
+        if (versionPaths && (!packageFile || containsPath2(candidate, packageFile))) {
           const moduleName = getRelativePathFromDirectory(
             candidate,
             packageFile || indexPath,
@@ -61539,7 +61539,7 @@ ${lanes.join("\n")}
           }
           function tryLoadInputFileForPath(finalPath, entry, packagePath, isImports2) {
             var _a22, _b2, _c, _d;
-            if (!state.isConfigLookup && (state.compilerOptions.declarationDir || state.compilerOptions.outDir) && !finalPath.includes("/node_modules/") && (state.compilerOptions.configFile ? containsPath(scope.packageDirectory, toAbsolutePath(state.compilerOptions.configFile.fileName), !useCaseSensitiveFileNames(state)) : true)) {
+            if (!state.isConfigLookup && (state.compilerOptions.declarationDir || state.compilerOptions.outDir) && !finalPath.includes("/node_modules/") && (state.compilerOptions.configFile ? containsPath2(scope.packageDirectory, toAbsolutePath(state.compilerOptions.configFile.fileName), !useCaseSensitiveFileNames(state)) : true)) {
               const getCanonicalFileName = hostGetCanonicalFileName({ useCaseSensitiveFileNames: () => useCaseSensitiveFileNames(state) });
               const commonSourceDirGuesses = [];
               if (state.compilerOptions.rootDir || state.compilerOptions.configFilePath) {
@@ -61569,7 +61569,7 @@ ${lanes.join("\n")}
               for (const commonSourceDirGuess of commonSourceDirGuesses) {
                 const candidateDirectories = getOutputDirectoriesForBaseDirectory(commonSourceDirGuess);
                 for (const candidateDir of candidateDirectories) {
-                  if (containsPath(candidateDir, finalPath, !useCaseSensitiveFileNames(state))) {
+                  if (containsPath2(candidateDir, finalPath, !useCaseSensitiveFileNames(state))) {
                     const pathFragment = finalPath.slice(candidateDir.length + 1);
                     const possibleInputBase = combinePaths(commonSourceDirGuess, pathFragment);
                     const jsAndDtsExtensions = [
@@ -66118,7 +66118,7 @@ ${lanes.join("\n")}
               }
               break;
             case 1:
-              if (canTryTsExtension && containsPath(targetFilePath, pathOrPattern, ignoreCase)) {
+              if (canTryTsExtension && containsPath2(targetFilePath, pathOrPattern, ignoreCase)) {
                 const fragment = getRelativePathFromDirectory(
                   pathOrPattern,
                   targetFilePath,
@@ -66131,7 +66131,7 @@ ${lanes.join("\n")}
                   void 0
                 ) };
               }
-              if (extensionSwappedTarget && containsPath(pathOrPattern, extensionSwappedTarget, ignoreCase)) {
+              if (extensionSwappedTarget && containsPath2(pathOrPattern, extensionSwappedTarget, ignoreCase)) {
                 const fragment = getRelativePathFromDirectory(
                   pathOrPattern,
                   extensionSwappedTarget,
@@ -66144,7 +66144,7 @@ ${lanes.join("\n")}
                   void 0
                 ) };
               }
-              if (!canTryTsExtension && containsPath(pathOrPattern, targetFilePath, ignoreCase)) {
+              if (!canTryTsExtension && containsPath2(pathOrPattern, targetFilePath, ignoreCase)) {
                 const fragment = getRelativePathFromDirectory(
                   pathOrPattern,
                   targetFilePath,
@@ -66157,7 +66157,7 @@ ${lanes.join("\n")}
                   void 0
                 ) };
               }
-              if (outputFile && containsPath(pathOrPattern, outputFile, ignoreCase)) {
+              if (outputFile && containsPath2(pathOrPattern, outputFile, ignoreCase)) {
                 const fragment = getRelativePathFromDirectory(
                   pathOrPattern,
                   outputFile,
@@ -66166,7 +66166,7 @@ ${lanes.join("\n")}
                 );
                 return { moduleFileToTry: combinePaths(packageName, fragment) };
               }
-              if (declarationFile && containsPath(pathOrPattern, declarationFile, ignoreCase)) {
+              if (declarationFile && containsPath2(pathOrPattern, declarationFile, ignoreCase)) {
                 const fragment = changeFullExtension(getRelativePathFromDirectory(
                   pathOrPattern,
                   declarationFile,
@@ -136267,7 +136267,7 @@ ${lanes.join("\n")}
           }
         }
         function createImportCallExpressionAMD(arg, containsLexicalThis) {
-          const resolve13 = factory2.createUniqueName("resolve");
+          const resolve14 = factory2.createUniqueName("resolve");
           const reject = factory2.createUniqueName("reject");
           const parameters = [
             factory2.createParameterDeclaration(
@@ -136276,7 +136276,7 @@ ${lanes.join("\n")}
               /*dotDotDotToken*/
               void 0,
               /*name*/
-              resolve13
+              resolve14
             ),
             factory2.createParameterDeclaration(
               /*modifiers*/
@@ -136293,7 +136293,7 @@ ${lanes.join("\n")}
                 factory2.createIdentifier("require"),
                 /*typeArguments*/
                 void 0,
-                [factory2.createArrayLiteralExpression([arg || factory2.createOmittedExpression()]), resolve13, reject]
+                [factory2.createArrayLiteralExpression([arg || factory2.createOmittedExpression()]), resolve14, reject]
               )
             )
           ]);
@@ -148044,8 +148044,8 @@ ${lanes.join("\n")}
         if (diagnostic2.file) {
           const { line, character } = getLineAndCharacterOfPosition(diagnostic2.file, diagnostic2.start);
           const fileName = diagnostic2.file.fileName;
-          const relativeFileName = convertToRelativePath(fileName, host.getCurrentDirectory(), (fileName2) => host.getCanonicalFileName(fileName2));
-          return `${relativeFileName}(${line + 1},${character + 1}): ` + errorMessage;
+          const relativeFileName2 = convertToRelativePath(fileName, host.getCurrentDirectory(), (fileName2) => host.getCanonicalFileName(fileName2));
+          return `${relativeFileName2}(${line + 1},${character + 1}): ` + errorMessage;
         }
         return errorMessage;
       }
@@ -148118,10 +148118,10 @@ ${lanes.join("\n")}
       }
       function formatLocation(file, start, host, color = formatColorAndReset) {
         const { line: firstLine, character: firstLineChar } = getLineAndCharacterOfPosition(file, start);
-        const relativeFileName = host ? convertToRelativePath(file.fileName, host.getCurrentDirectory(), (fileName) => host.getCanonicalFileName(fileName)) : file.fileName;
+        const relativeFileName2 = host ? convertToRelativePath(file.fileName, host.getCurrentDirectory(), (fileName) => host.getCanonicalFileName(fileName)) : file.fileName;
         let output = "";
         output += color(
-          relativeFileName,
+          relativeFileName2,
           "\x1B[96m"
           /* Cyan */
         );
@@ -149098,7 +149098,7 @@ ${lanes.join("\n")}
           return compareValues(getDefaultLibFilePriority(a), getDefaultLibFilePriority(b));
         }
         function getDefaultLibFilePriority(a) {
-          if (containsPath(
+          if (containsPath2(
             defaultLibraryPath,
             a.fileName,
             /*ignoreCase*/
@@ -151447,11 +151447,11 @@ ${lanes.join("\n")}
               /* Dts */
             );
           }
-          if (options.declarationDir && containsPath(options.declarationDir, filePath, currentDirectory, !host.useCaseSensitiveFileNames())) {
+          if (options.declarationDir && containsPath2(options.declarationDir, filePath, currentDirectory, !host.useCaseSensitiveFileNames())) {
             return true;
           }
           if (options.outDir) {
-            return containsPath(options.outDir, filePath, currentDirectory, !host.useCaseSensitiveFileNames());
+            return containsPath2(options.outDir, filePath, currentDirectory, !host.useCaseSensitiveFileNames());
           }
           if (fileExtensionIsOneOf(filePath, supportedJSExtensionsFlat) || isDeclarationFileName(filePath)) {
             const filePathWithoutExtension = removeFileExtension(filePath);
@@ -155340,11 +155340,11 @@ ${lanes.join("\n")}
       function explainFiles(program, write) {
         var _a3, _b;
         const reasons = program.getFileIncludeReasons();
-        const relativeFileName = (fileName) => convertToRelativePath(fileName, program.getCurrentDirectory(), program.getCanonicalFileName);
+        const relativeFileName2 = (fileName) => convertToRelativePath(fileName, program.getCurrentDirectory(), program.getCanonicalFileName);
         for (const file of program.getSourceFiles()) {
-          write(`${toFileName(file, relativeFileName)}`);
-          (_a3 = reasons.get(file.path)) == null ? void 0 : _a3.forEach((reason) => write(`  ${fileIncludeReasonToDiagnostics(program, reason, relativeFileName).messageText}`));
-          (_b = explainIfFileIsRedirectAndImpliedFormat(file, program.getCompilerOptionsForFile(file), relativeFileName)) == null ? void 0 : _b.forEach((d) => write(`  ${d.messageText}`));
+          write(`${toFileName(file, relativeFileName2)}`);
+          (_a3 = reasons.get(file.path)) == null ? void 0 : _a3.forEach((reason) => write(`  ${fileIncludeReasonToDiagnostics(program, reason, relativeFileName2).messageText}`));
+          (_b = explainIfFileIsRedirectAndImpliedFormat(file, program.getCompilerOptionsForFile(file), relativeFileName2)) == null ? void 0 : _b.forEach((d) => write(`  ${d.messageText}`));
         }
       }
       function explainIfFileIsRedirectAndImpliedFormat(file, options, fileNameConvertor) {
@@ -169241,9 +169241,9 @@ interface Symbol {
           }
           changes.replaceNode(sourceFile2, propertyAccessOrQualifiedName, factory.createIdentifier(importName));
         }
-        const importSpecifiers = [];
+        const importSpecifiers2 = [];
         exportNameToImportName.forEach((name, propertyName2) => {
-          importSpecifiers.push(factory.createImportSpecifier(
+          importSpecifiers2.push(factory.createImportSpecifier(
             /*isTypeOnly*/
             false,
             name === propertyName2 ? void 0 : factory.createIdentifier(propertyName2),
@@ -169256,11 +169256,11 @@ interface Symbol {
             importDecl,
             /*defaultImportName*/
             void 0,
-            importSpecifiers
+            importSpecifiers2
           ));
         } else {
           const defaultImportName = usedAsNamespaceOrDefault ? factory.createIdentifier(toConvert.name.text) : void 0;
-          changes.replaceNode(sourceFile2, toConvert.parent, createImportClause(defaultImportName, importSpecifiers));
+          changes.replaceNode(sourceFile2, toConvert.parent, createImportClause(defaultImportName, importSpecifiers2));
         }
       }
       function getRightOfPropertyAccessOrQualifiedName(propertyAccessOrQualifiedName) {
@@ -180341,12 +180341,12 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
       function convertSingleImport(name, moduleSpecifier, checker, identifiers, target, quotePreference) {
         switch (name.kind) {
           case 207: {
-            const importSpecifiers = mapAllOrFail(name.elements, (e) => e.dotDotDotToken || e.initializer || e.propertyName && !isIdentifier3(e.propertyName) || !isIdentifier3(e.name) ? void 0 : makeImportSpecifier2(e.propertyName && e.propertyName.text, e.name.text));
-            if (importSpecifiers) {
+            const importSpecifiers2 = mapAllOrFail(name.elements, (e) => e.dotDotDotToken || e.initializer || e.propertyName && !isIdentifier3(e.propertyName) || !isIdentifier3(e.name) ? void 0 : makeImportSpecifier2(e.propertyName && e.propertyName.text, e.name.text));
+            if (importSpecifiers2) {
               return convertedImports([makeImport(
                 /*defaultImport*/
                 void 0,
-                importSpecifiers,
+                importSpecifiers2,
                 moduleSpecifier,
                 quotePreference
               )]);
@@ -189330,20 +189330,20 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
         }
       }
       function tryCreateNamedImportsFromObjectBindingPattern(node) {
-        const importSpecifiers = [];
+        const importSpecifiers2 = [];
         for (const element of node.elements) {
           if (!isIdentifier3(element.name) || element.initializer) {
             return void 0;
           }
-          importSpecifiers.push(factory.createImportSpecifier(
+          importSpecifiers2.push(factory.createImportSpecifier(
             /*isTypeOnly*/
             false,
             tryCast(element.propertyName, isIdentifier3),
             element.name
           ));
         }
-        if (importSpecifiers.length) {
-          return factory.createNamedImports(importSpecifiers);
+        if (importSpecifiers2.length) {
+          return factory.createNamedImports(importSpecifiers2);
         }
       }
       var fixId44 = "useDefaultImport";
@@ -194581,7 +194581,7 @@ ${newComment.split("\n").map((c) => ` * ${c}`).join("\n")}
       }
       function getBaseDirectoriesFromRootDirs(rootDirs, basePath, scriptDirectory, ignoreCase) {
         rootDirs = rootDirs.map((rootDirectory) => ensureTrailingDirectorySeparator(normalizePath3(isRootedDiskPath(rootDirectory) ? rootDirectory : combinePaths(basePath, rootDirectory))));
-        const relativeDirectory = firstDefined(rootDirs, (rootDirectory) => containsPath(rootDirectory, scriptDirectory, basePath, ignoreCase) ? scriptDirectory.substr(rootDirectory.length) : void 0);
+        const relativeDirectory = firstDefined(rootDirs, (rootDirectory) => containsPath2(rootDirectory, scriptDirectory, basePath, ignoreCase) ? scriptDirectory.substr(rootDirectory.length) : void 0);
         return deduplicate(
           [...rootDirs.map((rootDirectory) => combinePaths(rootDirectory, relativeDirectory)), scriptDirectory].map((baseDir) => removeTrailingDirectorySeparator(baseDir)),
           equateStringsCaseSensitive,
@@ -208556,7 +208556,7 @@ ${options.prefix}` : "\n" : options.prefix
         containsIgnoredPath: () => containsIgnoredPath,
         containsObjectRestOrSpread: () => containsObjectRestOrSpread,
         containsParseError: () => containsParseError,
-        containsPath: () => containsPath,
+        containsPath: () => containsPath2,
         convertCompilerOptionsForTelemetry: () => convertCompilerOptionsForTelemetry,
         convertCompilerOptionsFromJson: () => convertCompilerOptionsFromJson,
         convertJsonOption: () => convertJsonOption,
@@ -211183,8 +211183,8 @@ ${options.prefix}` : "\n" : options.prefix
       function toNormalizedPath(fileName) {
         return normalizePath3(fileName);
       }
-      function normalizedPathToPath(normalizedPath, currentDirectory, getCanonicalFileName) {
-        const f = isRootedDiskPath(normalizedPath) ? normalizedPath : getNormalizedAbsolutePath(normalizedPath, currentDirectory);
+      function normalizedPathToPath(normalizedPath2, currentDirectory, getCanonicalFileName) {
+        const f = isRootedDiskPath(normalizedPath2) ? normalizedPath2 : getNormalizedAbsolutePath(normalizedPath2, currentDirectory);
         return getCanonicalFileName(f);
       }
       function asNormalizedPath(fileName) {
@@ -213061,7 +213061,7 @@ ${options.prefix}` : "\n" : options.prefix
               );
               continue;
             }
-            if (containsPath(this.currentDirectory, file, this.currentDirectory, !this.useCaseSensitiveFileNames())) {
+            if (containsPath2(this.currentDirectory, file, this.currentDirectory, !this.useCaseSensitiveFileNames())) {
               const subDirectory = file.indexOf(directorySeparator, this.currentDirectory.length + 1);
               if (subDirectory !== -1) {
                 createProjectWatcher(
@@ -213078,7 +213078,7 @@ ${options.prefix}` : "\n" : options.prefix
               }
               continue;
             }
-            if (containsPath(this.projectService.typingsInstaller.globalTypingsCacheLocation, file, this.currentDirectory, !this.useCaseSensitiveFileNames())) {
+            if (containsPath2(this.projectService.typingsInstaller.globalTypingsCacheLocation, file, this.currentDirectory, !this.useCaseSensitiveFileNames())) {
               createProjectWatcher(
                 this.projectService.typingsInstaller.globalTypingsCacheLocation,
                 "DirectoryWatcher"
@@ -215936,7 +215936,7 @@ ${options.prefix}` : "\n" : options.prefix
           const scriptInfo = Debug.checkDefined(this.getScriptInfo(info.path));
           if (scriptInfo.isDynamic) return void 0;
           let searchPath = asNormalizedPath(getDirectoryPath(info.fileName));
-          const isSearchPathInProjectRoot = () => containsPath(projectRootPath, searchPath, this.currentDirectory, !this.host.useCaseSensitiveFileNames);
+          const isSearchPathInProjectRoot = () => containsPath2(projectRootPath, searchPath, this.currentDirectory, !this.host.useCaseSensitiveFileNames);
           const anySearchPathOk = !projectRootPath || !isSearchPathInProjectRoot();
           let searchTsconfig = true;
           let searchJsconfig = true;
@@ -216573,7 +216573,7 @@ ${options.prefix}` : "\n" : options.prefix
           let bestMatch;
           for (const project of this.inferredProjects) {
             if (!project.projectRootPath) continue;
-            if (!containsPath(project.projectRootPath, info.path, this.host.getCurrentDirectory(), !this.host.useCaseSensitiveFileNames)) continue;
+            if (!containsPath2(project.projectRootPath, info.path, this.host.getCurrentDirectory(), !this.host.useCaseSensitiveFileNames)) continue;
             if (bestMatch && bestMatch.projectRootPath.length > project.projectRootPath.length) continue;
             bestMatch = project;
           }
@@ -217711,7 +217711,7 @@ Dynamic files must always be opened with service's current directory or service 
               return;
             }
             (_b = configFileExistenceInfo.config.watchedDirectories) == null ? void 0 : _b.forEach((watcher, directory) => {
-              if (containsPath(directory, info.fileName, !this.host.useCaseSensitiveFileNames)) {
+              if (containsPath2(directory, info.fileName, !this.host.useCaseSensitiveFileNames)) {
                 this.logger.info(`Invoking ${config2}:: wildcard for open scriptInfo:: ${info.fileName}`);
                 this.onWildCardDirectoryWatcherInvoke(
                   directory,
@@ -223224,8 +223224,8 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
         installPackage(options) {
           this.packageInstallId++;
           const request = { kind: "installPackage", ...options, id: this.packageInstallId };
-          const promise = new Promise((resolve13, reject) => {
-            (this.packageInstalledPromise ?? (this.packageInstalledPromise = /* @__PURE__ */ new Map())).set(this.packageInstallId, { resolve: resolve13, reject });
+          const promise = new Promise((resolve14, reject) => {
+            (this.packageInstalledPromise ?? (this.packageInstalledPromise = /* @__PURE__ */ new Map())).set(this.packageInstallId, { resolve: resolve14, reject });
           });
           this.installer.send(request);
           return promise;
@@ -223497,9 +223497,9 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
         };
       }
     })({ get exports() {
-      return ts11;
+      return ts12;
     }, set exports(v) {
-      ts11 = v;
+      ts12 = v;
       if (typeof module !== "undefined" && module.exports) {
         module.exports = v;
       }
@@ -223508,11 +223508,12 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
 });
 
 // ../architecture-rules/src/types.ts
-var SRIJIKA_ARCHITECTURE_PROFILE;
+var SRIJIKA_ARCHITECTURE_PROFILE, SRIJIKA_BROWNFIELD_ADOPTION_PROFILE;
 var init_types = __esm({
   "../architecture-rules/src/types.ts"() {
     "use strict";
     SRIJIKA_ARCHITECTURE_PROFILE = "feature-slot-part-v1";
+    SRIJIKA_BROWNFIELD_ADOPTION_PROFILE = "brownfield-ownership-v1";
   }
 });
 
@@ -223531,6 +223532,215 @@ function rootsOverlap(left, right) {
   const canonicalLeft = left.toLowerCase();
   const canonicalRight = right.toLowerCase();
   return canonicalLeft === canonicalRight || canonicalLeft.startsWith(`${canonicalRight}/`) || canonicalRight.startsWith(`${canonicalLeft}/`);
+}
+function pathContains(parent, child) {
+  const canonicalParent = parent.toLowerCase();
+  const canonicalChild = child.toLowerCase();
+  return canonicalParent === canonicalChild || canonicalChild.startsWith(`${canonicalParent}/`);
+}
+function validatedPathArray(value, field, allowEmpty = false) {
+  if (!Array.isArray(value) || !allowEmpty && value.length === 0 || value.length > MAX_BROWNFIELD_PATHS) {
+    throw new Error(
+      `${field} must be ${allowEmpty ? "an" : "a nonempty"} array with at most ${MAX_BROWNFIELD_PATHS} paths.`
+    );
+  }
+  const paths = value.map((entry, index) => {
+    if (typeof entry !== "string") throw new Error(`${field}[${index}] must be a string.`);
+    return validatedRelativePath(entry, `${field}[${index}]`, 32);
+  });
+  assertUnique(paths, field);
+  return Object.freeze(paths.sort((left, right) => left.localeCompare(right)));
+}
+function validatedDirectoryArray(value, field, fallback) {
+  if (value === void 0) return Object.freeze([...fallback]);
+  if (!Array.isArray(value) || value.length === 0 || value.length > 8) {
+    throw new Error(`${field} must be a nonempty array with at most 8 directory names.`);
+  }
+  const directories = value.map((entry, index) => {
+    if (typeof entry !== "string") throw new Error(`${field}[${index}] must be a string.`);
+    return validatedRelativePath(entry, `${field}[${index}]`, 1);
+  });
+  assertUnique(directories, field);
+  return Object.freeze(directories.sort((left, right) => left.localeCompare(right)));
+}
+function parseBrownfieldAdoption(root) {
+  const adoptionValue = root["adoption"];
+  if (adoptionValue === void 0) return void 0;
+  if (!adoptionValue || typeof adoptionValue !== "object" || Array.isArray(adoptionValue)) {
+    throw new Error("srijika.config.json adoption must be an object.");
+  }
+  const adoption = adoptionValue;
+  const adoptionFields = /* @__PURE__ */ new Set(["version", "framework", "enforcement", "ownership"]);
+  const unknownAdoptionField = Object.keys(adoption).find((field) => !adoptionFields.has(field));
+  if (unknownAdoptionField) {
+    throw new Error(`srijika.config.json adoption.${unknownAdoptionField} is not supported.`);
+  }
+  const ownershipValue = adoption["ownership"];
+  if (ownershipValue === void 0) return void 0;
+  if (!ownershipValue || typeof ownershipValue !== "object" || Array.isArray(ownershipValue)) {
+    throw new Error("srijika.config.json adoption.ownership must be an object.");
+  }
+  const ownership = ownershipValue;
+  const ownershipFields = /* @__PURE__ */ new Set([
+    "version",
+    "profile",
+    "managedRoots",
+    "include",
+    "exclude",
+    "adoptedOwners",
+    "directories"
+  ]);
+  const unknownOwnershipField = Object.keys(ownership).find((field) => !ownershipFields.has(field));
+  if (unknownOwnershipField) {
+    throw new Error(
+      `srijika.config.json adoption.ownership.${unknownOwnershipField} is not supported.`
+    );
+  }
+  if (ownership["version"] !== 1) {
+    throw new Error("srijika.config.json adoption.ownership.version must be 1.");
+  }
+  if (ownership["profile"] !== SRIJIKA_BROWNFIELD_ADOPTION_PROFILE) {
+    throw new Error(
+      `srijika.config.json adoption.ownership.profile must be "${SRIJIKA_BROWNFIELD_ADOPTION_PROFILE}".`
+    );
+  }
+  const managedRoots = validatedPathArray(
+    ownership["managedRoots"],
+    "srijika.config.json adoption.ownership.managedRoots"
+  );
+  const include = validatedPathArray(
+    ownership["include"],
+    "srijika.config.json adoption.ownership.include"
+  );
+  const adoptedOwners = validatedPathArray(
+    ownership["adoptedOwners"],
+    "srijika.config.json adoption.ownership.adoptedOwners",
+    true
+  );
+  for (let index = 0; index < managedRoots.length; index += 1) {
+    for (let other = index + 1; other < managedRoots.length; other += 1) {
+      if (rootsOverlap(managedRoots[index], managedRoots[other])) {
+        throw new Error("adoption.ownership.managedRoots must not overlap.");
+      }
+    }
+  }
+  for (const path of [...include, ...adoptedOwners]) {
+    if (!managedRoots.some((managedRoot) => pathContains(managedRoot, path))) {
+      throw new Error(`${path} must remain inside adoption.ownership.managedRoots.`);
+    }
+  }
+  for (const owner of adoptedOwners) {
+    if (!include.some((included) => pathContains(included, owner))) {
+      throw new Error(`${owner} must remain inside adoption.ownership.include.`);
+    }
+  }
+  for (let index = 0; index < adoptedOwners.length; index += 1) {
+    for (let other = index + 1; other < adoptedOwners.length; other += 1) {
+      if (rootsOverlap(adoptedOwners[index], adoptedOwners[other])) {
+        throw new Error("adoption.ownership.adoptedOwners must not overlap.");
+      }
+    }
+  }
+  const excludeValue = ownership["exclude"];
+  if (excludeValue !== void 0 && !Array.isArray(excludeValue)) {
+    throw new Error("srijika.config.json adoption.ownership.exclude must be an array.");
+  }
+  const exclusions = (excludeValue ?? []).map((entry, index) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(
+        `srijika.config.json adoption.ownership.exclude[${index}] must be an object.`
+      );
+    }
+    const exclusion = entry;
+    const unknownExclusionField = Object.keys(exclusion).find(
+      (field) => field !== "path" && field !== "category"
+    );
+    if (unknownExclusionField) {
+      throw new Error(
+        `srijika.config.json adoption.ownership.exclude[${index}].${unknownExclusionField} is not supported.`
+      );
+    }
+    if (typeof exclusion["path"] !== "string") {
+      throw new Error(
+        `srijika.config.json adoption.ownership.exclude[${index}].path must be a string.`
+      );
+    }
+    const path = validatedRelativePath(
+      exclusion["path"],
+      `srijika.config.json adoption.ownership.exclude[${index}].path`,
+      32
+    );
+    const category = exclusion["category"];
+    if (category !== "server" && category !== "service" && category !== "domain" && category !== "test") {
+      throw new Error(
+        `srijika.config.json adoption.ownership.exclude[${index}].category must be server, service, domain, or test.`
+      );
+    }
+    if (!managedRoots.some((managedRoot) => pathContains(managedRoot, path))) {
+      throw new Error(`${path} must remain inside adoption.ownership.managedRoots.`);
+    }
+    if (adoptedOwners.some((owner) => rootsOverlap(owner, path))) {
+      throw new Error(`${path} cannot exclude files inside an adopted owner.`);
+    }
+    return Object.freeze({ path, category });
+  });
+  if (exclusions.length > MAX_BROWNFIELD_PATHS) {
+    throw new Error(`adoption.ownership.exclude supports at most ${MAX_BROWNFIELD_PATHS} entries.`);
+  }
+  assertUnique(
+    exclusions.map(({ path }) => path),
+    "srijika.config.json adoption.ownership.exclude paths"
+  );
+  for (let index = 0; index < exclusions.length; index += 1) {
+    for (let other = index + 1; other < exclusions.length; other += 1) {
+      if (rootsOverlap(exclusions[index].path, exclusions[other].path)) {
+        throw new Error("adoption.ownership.exclude paths must not overlap.");
+      }
+    }
+  }
+  const directoriesValue = ownership["directories"];
+  if (directoriesValue !== void 0 && (!directoriesValue || typeof directoriesValue !== "object" || Array.isArray(directoriesValue))) {
+    throw new Error("srijika.config.json adoption.ownership.directories must be an object.");
+  }
+  const directories = directoriesValue ?? {};
+  const unknownDirectoryField = Object.keys(directories).find(
+    (field) => field !== "ui" && field !== "connectors" && field !== "hooks"
+  );
+  if (unknownDirectoryField) {
+    throw new Error(
+      `srijika.config.json adoption.ownership.directories.${unknownDirectoryField} is not supported.`
+    );
+  }
+  const resolvedDirectories = {
+    ui: validatedDirectoryArray(
+      directories["ui"],
+      "srijika.config.json adoption.ownership.directories.ui",
+      ["ui"]
+    ),
+    connectors: validatedDirectoryArray(
+      directories["connectors"],
+      "srijika.config.json adoption.ownership.directories.connectors",
+      ["connectors"]
+    ),
+    hooks: validatedDirectoryArray(
+      directories["hooks"],
+      "srijika.config.json adoption.ownership.directories.hooks",
+      ["hooks"]
+    )
+  };
+  assertUnique(
+    [...resolvedDirectories.ui, ...resolvedDirectories.connectors, ...resolvedDirectories.hooks],
+    "adoption.ownership recognized directory names"
+  );
+  return Object.freeze({
+    version: 1,
+    profile: SRIJIKA_BROWNFIELD_ADOPTION_PROFILE,
+    managedRoots,
+    include,
+    exclude: Object.freeze(exclusions.sort((left, right) => left.path.localeCompare(right.path))),
+    adoptedOwners,
+    directories: Object.freeze(resolvedDirectories)
+  });
 }
 function validatedSuffix(value, field, extension) {
   if (!value || value.includes("\0") || value.includes("/") || value.includes("\\") || !value.startsWith(".") || value.endsWith(".d.ts") || value.endsWith(".d.tsx") || !value.endsWith(extension)) {
@@ -223712,7 +223922,13 @@ function parseSrijikaProjectConfig(source) {
       `srijika.config.json entry must end with the configured UI suffix ${architecture.uiSuffix}.`
     );
   }
-  return Object.freeze({ sourceOfTruth: "tsx", entry, architecture });
+  const adoption = parseBrownfieldAdoption(root);
+  return Object.freeze({
+    sourceOfTruth: "tsx",
+    entry,
+    architecture,
+    ...adoption ? { adoption } : {}
+  });
 }
 function normalizedTsconfigPath(value, field, allowEmpty = false) {
   if (value.includes("\0") || value.includes("\\") || value.startsWith("/") || /^[A-Za-z]:/.test(value)) {
@@ -223809,7 +224025,7 @@ function parseSrijikaTypeScriptPathAliases(source) {
   }
   return Object.freeze(Object.fromEntries(aliases));
 }
-var import_typescript, DEFAULT_SRIJIKA_ARCHITECTURE, MAX_ARCHITECTURE_ROOT_SEGMENTS, PROJECT_ARCHITECTURE_STRING_FIELDS;
+var import_typescript, DEFAULT_SRIJIKA_ARCHITECTURE, MAX_ARCHITECTURE_ROOT_SEGMENTS, MAX_BROWNFIELD_PATHS, PROJECT_ARCHITECTURE_STRING_FIELDS;
 var init_config = __esm({
   "../architecture-rules/src/config.ts"() {
     "use strict";
@@ -223831,6 +224047,7 @@ var init_config = __esm({
       typesSuffix: ".types.ts"
     });
     MAX_ARCHITECTURE_ROOT_SEGMENTS = 10;
+    MAX_BROWNFIELD_PATHS = 128;
     PROJECT_ARCHITECTURE_STRING_FIELDS = [
       "featuresRoot",
       "sharedRoot",
@@ -226589,6 +226806,339 @@ var init_testing = __esm({
   }
 });
 
+// ../architecture-rules/src/adoption.ts
+function normalizedPath(value) {
+  return normalizeSrijikaRelativePath(value).replaceAll(/\/{2,}/gu, "/");
+}
+function containsPath(parent, child) {
+  const parentKey = parent.toLowerCase();
+  const childKey = child.toLowerCase();
+  return parentKey === childKey || childKey.startsWith(`${parentKey}/`);
+}
+function relativeFileName(fileName, projectRoot) {
+  const normalized2 = normalizedPath(fileName);
+  if (!projectRoot) return normalized2;
+  const root = normalizedPath(projectRoot);
+  if (normalized2.toLowerCase() === root.toLowerCase()) return "";
+  return containsPath(root, normalized2) ? normalized2.slice(root.length + 1) : normalized2;
+}
+function matchingPrefix(path, prefixes) {
+  return [...prefixes].sort((left, right) => right.length - left.length || left.localeCompare(right)).find((prefix) => containsPath(prefix, path));
+}
+function fileBaseName(path) {
+  return path.split("/").at(-1) ?? path;
+}
+function withoutSourceExtension(fileName) {
+  return fileName.replace(/\.(?:[cm]?[jt]sx?)$/iu, "");
+}
+function ownerNameForFile(fileName, category, uiSuffix, connectorSuffix) {
+  const suffix = category === "ui" ? uiSuffix : connectorSuffix;
+  let stem = fileName.endsWith(suffix) ? fileName.slice(0, -suffix.length) : withoutSourceExtension(fileName);
+  stem = stem.replace(category === "ui" ? /(?:UI|View|Component)$/u : /Connector$/u, "");
+  return canonicalSrijikaOwnerName(stem || "Owner");
+}
+function pathCategory(relativePath, config2, architecture) {
+  const segments = relativePath.split("/");
+  const directorySegments = segments.slice(0, -1).map((segment) => segment.toLowerCase());
+  const hasDirectory = (names) => names.some((name) => directorySegments.includes(name.toLowerCase()));
+  const fileName = fileBaseName(relativePath);
+  if (fileName.endsWith(architecture.uiSuffix) || hasDirectory(config2.directories.ui)) return "ui";
+  if (fileName.endsWith(architecture.connectorSuffix) || hasDirectory(config2.directories.connectors)) {
+    return "connector";
+  }
+  if (hasDirectory(config2.directories.hooks) || /^use[A-Z0-9].*\.[cm]?[jt]sx?$/u.test(fileName)) {
+    return "hook";
+  }
+  if (directorySegments.some((segment) => segment === "server")) return "server";
+  if (directorySegments.some((segment) => segment === "service" || segment === "services")) {
+    return "service";
+  }
+  if (directorySegments.some((segment) => segment === "domain")) return "domain";
+  if (directorySegments.some(
+    (segment) => segment === "test" || segment === "tests" || segment === "__tests__"
+  ) || /\.(?:test|spec)\.[cm]?[jt]sx?$/iu.test(fileName)) {
+    return "test";
+  }
+  return "source";
+}
+function proposedTarget(relativePath, managedRoot, category, config2, architecture) {
+  if (category !== "ui" && category !== "connector" && category !== "hook") return void 0;
+  const remainder = relativePath.slice(managedRoot.length + 1).split("/");
+  const sourceFeature = remainder[0];
+  if (!sourceFeature) return void 0;
+  const featureName = canonicalSrijikaOwnerName(sourceFeature);
+  const featureFolder = srijikaFolderName(featureName);
+  const featureRoot = `${architecture.featuresRoot}/${featureFolder}`;
+  const fileName = fileBaseName(relativePath);
+  const canonicalOwner = classifySrijikaArchitecturePath(relativePath, { architecture });
+  let canonicalRoot;
+  let canonicalName2;
+  if (canonicalOwner.kind === "feature" && canonicalOwner.feature) {
+    canonicalRoot = `${architecture.featuresRoot}/${canonicalOwner.feature}`;
+    canonicalName2 = canonicalSrijikaOwnerName(canonicalOwner.feature);
+  } else if (canonicalOwner.kind === "slot" && canonicalOwner.feature && canonicalOwner.slot) {
+    canonicalRoot = `${architecture.featuresRoot}/${canonicalOwner.feature}/${architecture.slotsDirectory}/${canonicalOwner.slot}`;
+    canonicalName2 = canonicalSrijikaOwnerName(canonicalOwner.slot);
+  } else if (canonicalOwner.kind === "part" && canonicalOwner.feature && canonicalOwner.slot && canonicalOwner.part) {
+    canonicalRoot = `${architecture.featuresRoot}/${canonicalOwner.feature}/${architecture.slotsDirectory}/${canonicalOwner.slot}/${architecture.partsDirectory}/${canonicalOwner.part}`;
+    canonicalName2 = canonicalSrijikaOwnerName(canonicalOwner.part);
+  } else if ((canonicalOwner.kind === "shared-ui" || canonicalOwner.kind === "shared-widget" || canonicalOwner.kind === "shared-capability") && canonicalOwner.shared) {
+    const category2 = canonicalOwner.kind === "shared-ui" ? "ui" : canonicalOwner.kind === "shared-widget" ? "widgets" : "capabilities";
+    canonicalRoot = `${architecture.sharedRoot}/${category2}/${canonicalOwner.shared}`;
+    canonicalName2 = canonicalSrijikaOwnerName(canonicalOwner.shared);
+  }
+  if (canonicalRoot && canonicalName2) {
+    const expected = category === "ui" ? `${canonicalRoot}/${canonicalName2}${architecture.uiSuffix}` : category === "connector" ? `${canonicalRoot}/${canonicalName2}${architecture.connectorSuffix}` : void 0;
+    if (expected === relativePath) return expected;
+    if (category === "hook" && (relativePath === `${canonicalRoot}/use${canonicalName2}.ts` || relativePath.startsWith(`${canonicalRoot}/${architecture.hooksDirectory}/`))) {
+      return relativePath;
+    }
+  }
+  const directorySegments = remainder.slice(1, -1);
+  const recognized = category === "ui" ? config2.directories.ui : category === "connector" ? config2.directories.connectors : config2.directories.hooks;
+  const recognizedIndex = directorySegments.findIndex(
+    (segment) => recognized.some((name) => name.toLowerCase() === segment.toLowerCase())
+  );
+  const scope = recognizedIndex < 0 ? [] : directorySegments.slice(0, recognizedIndex);
+  const slotName = scope[0] ? canonicalSrijikaOwnerName(scope[0]) : void 0;
+  const slotRoot = slotName ? `${featureRoot}/${architecture.slotsDirectory}/${srijikaFolderName(slotName)}` : void 0;
+  if (category === "hook") {
+    if (!slotName || !slotRoot) {
+      const featureHook = `${featureRoot}/use${featureName}.ts`;
+      return fileName === `use${featureName}.ts` ? featureHook : `${featureRoot}/${architecture.hooksDirectory}/${fileName}`;
+    }
+    const partName = scope[1] ? canonicalSrijikaOwnerName(scope[1]) : void 0;
+    const scopeRoot = partName ? `${slotRoot}/${architecture.partsDirectory}/${srijikaFolderName(partName)}` : slotRoot;
+    const scopeName = partName ?? slotName;
+    return fileName === `use${scopeName}.ts` ? `${scopeRoot}/${fileName}` : `${scopeRoot}/${architecture.hooksDirectory}/${fileName}`;
+  }
+  const ownerName = ownerNameForFile(
+    fileName,
+    category,
+    architecture.uiSuffix,
+    architecture.connectorSuffix
+  );
+  let ownerRoot;
+  if (!slotName || !slotRoot) {
+    ownerRoot = ownerName.toLowerCase() === featureName.toLowerCase() ? featureRoot : `${featureRoot}/${architecture.slotsDirectory}/${srijikaFolderName(ownerName)}`;
+  } else {
+    ownerRoot = ownerName.toLowerCase() === slotName.toLowerCase() ? slotRoot : `${slotRoot}/${architecture.partsDirectory}/${srijikaFolderName(ownerName)}`;
+  }
+  return `${ownerRoot}/${ownerName}${category === "ui" ? architecture.uiSuffix : architecture.connectorSuffix}`;
+}
+function posixDirectory(path) {
+  const segments = path.split("/");
+  segments.pop();
+  return segments.join("/");
+}
+function normalizeJoinedPath(base, value) {
+  const output = base ? base.split("/") : [];
+  for (const segment of value.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (output.length === 0) return null;
+      output.pop();
+    } else output.push(segment);
+  }
+  return output.join("/");
+}
+function stripKnownExtension(path) {
+  return path.replace(/\.(?:[cm]?[jt]sx?)$/iu, "");
+}
+function sourceLookup(paths) {
+  const output = /* @__PURE__ */ new Map();
+  for (const path of paths) {
+    output.set(path, path);
+    output.set(stripKnownExtension(path), path);
+    const index = stripKnownExtension(path).replace(/\/index$/u, "");
+    if (index !== stripKnownExtension(path)) output.set(index, path);
+  }
+  return output;
+}
+function resolveImport(origin, specifier, lookup, aliases) {
+  let unresolved = null;
+  if (specifier.startsWith(".")) {
+    unresolved = normalizeJoinedPath(posixDirectory(origin), specifier);
+  } else {
+    const alias = Object.entries(aliases).sort(([left], [right]) => right.length - left.length).find(
+      ([prefix]) => prefix.endsWith("/") ? specifier.startsWith(prefix) : specifier === prefix
+    );
+    if (alias) {
+      unresolved = normalizeJoinedPath(alias[1], specifier.slice(alias[0].length));
+    } else if (specifier.startsWith("src/")) unresolved = normalizeJoinedPath("", specifier);
+  }
+  if (!unresolved) return void 0;
+  return lookup.get(unresolved) ?? lookup.get(stripKnownExtension(unresolved));
+}
+function importSpecifiers(relativePath, source) {
+  const sourceFile2 = import_typescript4.default.createSourceFile(
+    relativePath,
+    source,
+    import_typescript4.default.ScriptTarget.Latest,
+    true,
+    relativePath.endsWith("x") ? import_typescript4.default.ScriptKind.TSX : import_typescript4.default.ScriptKind.TS
+  );
+  const specifiers = /* @__PURE__ */ new Set();
+  const visit = (node) => {
+    if ((import_typescript4.default.isImportDeclaration(node) || import_typescript4.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript4.default.isStringLiteralLike(node.moduleSpecifier)) {
+      specifiers.add(node.moduleSpecifier.text);
+    } else if (import_typescript4.default.isImportEqualsDeclaration(node) && import_typescript4.default.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && import_typescript4.default.isStringLiteralLike(node.moduleReference.expression)) {
+      specifiers.add(node.moduleReference.expression.text);
+    } else if (import_typescript4.default.isCallExpression(node) && (node.expression.kind === import_typescript4.default.SyntaxKind.ImportKeyword || import_typescript4.default.isIdentifier(node.expression) && node.expression.text === "require") && node.arguments[0] && import_typescript4.default.isStringLiteralLike(node.arguments[0])) {
+      specifiers.add(node.arguments[0].text);
+    }
+    import_typescript4.default.forEachChild(node, visit);
+  };
+  visit(sourceFile2);
+  return Object.freeze([...specifiers].sort());
+}
+function relativeImport(fromFile, toFile) {
+  const from = posixDirectory(fromFile).split("/").filter(Boolean);
+  const to = stripKnownExtension(toFile).split("/").filter(Boolean);
+  while (from[0] && to[0] && from[0].toLowerCase() === to[0].toLowerCase()) {
+    from.shift();
+    to.shift();
+  }
+  const prefix = from.length === 0 ? "./" : "../".repeat(from.length);
+  return `${prefix}${to.join("/")}`;
+}
+function planSrijikaBrownfieldAdoption(files, config2, options = {}) {
+  const architecture = resolveSrijikaArchitectureConfig(options.architecture);
+  const sources = files.map((file) => ({
+    relativePath: relativeFileName(file.fileName, options.projectRoot),
+    source: file.source
+  })).filter(({ relativePath }) => Boolean(relativePath)).sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const knownPaths = new Set(sources.map(({ relativePath }) => relativePath));
+  const knownPathKeys = new Set([...knownPaths].map((path) => path.toLowerCase()));
+  const coverage = [];
+  for (const file of sources) {
+    const managedRoot = matchingPrefix(file.relativePath, config2.managedRoots);
+    const includedRoot = matchingPrefix(file.relativePath, config2.include);
+    if (!managedRoot || !includedRoot) continue;
+    const adoptedOwner = matchingPrefix(file.relativePath, config2.adoptedOwners);
+    const exclusion = config2.exclude.find(({ path }) => containsPath(path, file.relativePath));
+    const category = pathCategory(file.relativePath, config2, architecture);
+    const target = proposedTarget(file.relativePath, includedRoot, category, config2, architecture);
+    if (exclusion && !adoptedOwner) {
+      coverage.push({
+        relativePath: file.relativePath,
+        status: "excluded",
+        category: exclusion.category,
+        managedRoot,
+        reason: `Explicit ${exclusion.category} exclusion remains normal project code.`
+      });
+      continue;
+    }
+    const requiresMove = target !== void 0 && target !== file.relativePath;
+    coverage.push({
+      relativePath: file.relativePath,
+      status: adoptedOwner ? requiresMove ? "blocked" : "governed" : "pending",
+      category,
+      managedRoot,
+      ...adoptedOwner ? { adoptedOwner } : {},
+      ...target ? { proposedTarget: target } : {},
+      reason: adoptedOwner ? requiresMove ? "An adopted owner must complete its canonical move before strict verification can pass." : "The file belongs to an adopted owner and is strictly governed." : target ? "The file has a deterministic canonical target but its owner is not adopted yet." : "The file remains pending until its owner is adopted or explicitly categorized."
+    });
+  }
+  const byTarget = /* @__PURE__ */ new Map();
+  for (const entry of coverage) {
+    if (!entry.proposedTarget || entry.proposedTarget === entry.relativePath) continue;
+    const targetKey = entry.proposedTarget.toLowerCase();
+    const existing = byTarget.get(targetKey) ?? [];
+    existing.push(entry);
+    byTarget.set(targetKey, existing);
+  }
+  const conflictedTargets = /* @__PURE__ */ new Set();
+  for (const [targetKey, entries] of byTarget) {
+    const target = entries[0]?.proposedTarget ?? targetKey;
+    const collision = entries.length > 1 || knownPathKeys.has(targetKey) && !entries.some(({ relativePath }) => relativePath.toLowerCase() === targetKey);
+    if (!collision) continue;
+    conflictedTargets.add(targetKey);
+    for (const entry of entries) {
+      entry.status = "blocked";
+      entry.reason = knownPathKeys.has(targetKey) ? `Canonical target ${target} already exists and will not be overwritten.` : `Multiple source files map to canonical target ${target}.`;
+    }
+  }
+  const moves = coverage.filter(
+    (entry) => entry.proposedTarget !== void 0 && entry.proposedTarget !== entry.relativePath
+  ).filter(
+    (entry) => entry.category === "ui" || entry.category === "connector" || entry.category === "hook"
+  ).map((entry) => ({
+    fromRelativePath: entry.relativePath,
+    toRelativePath: entry.proposedTarget,
+    category: entry.category,
+    status: conflictedTargets.has(entry.proposedTarget.toLowerCase()) ? "blocked" : "ready",
+    reason: entry.reason
+  }));
+  const movedPaths = new Map(
+    moves.filter(({ status }) => status === "ready").map(({ fromRelativePath, toRelativePath }) => [fromRelativePath, toRelativePath])
+  );
+  const lookup = sourceLookup([...knownPaths]);
+  const rewires = [];
+  for (const file of sources) {
+    const sourceAfterMove = movedPaths.get(file.relativePath) ?? file.relativePath;
+    for (const specifier of importSpecifiers(file.relativePath, file.source)) {
+      const importedSourcePath = resolveImport(
+        file.relativePath,
+        specifier,
+        lookup,
+        options.aliases ?? {}
+      );
+      if (!importedSourcePath) continue;
+      const importedTargetPath = movedPaths.get(importedSourcePath);
+      if (!importedTargetPath) continue;
+      const toSpecifier = relativeImport(sourceAfterMove, importedTargetPath);
+      if (specifier === toSpecifier) continue;
+      rewires.push({
+        relativePath: file.relativePath,
+        sourceAfterMove,
+        importedSourcePath,
+        importedTargetPath,
+        fromSpecifier: specifier,
+        toSpecifier
+      });
+    }
+  }
+  coverage.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  moves.sort((left, right) => left.fromRelativePath.localeCompare(right.fromRelativePath));
+  rewires.sort(
+    (left, right) => left.relativePath.localeCompare(right.relativePath) || left.fromSpecifier.localeCompare(right.fromSpecifier)
+  );
+  const count = (status) => coverage.filter((entry) => entry.status === status).length;
+  const summary = Object.freeze({
+    files: coverage.length,
+    governed: count("governed"),
+    pending: count("pending"),
+    blocked: count("blocked"),
+    excluded: count("excluded"),
+    adoptedOwners: config2.adoptedOwners.length,
+    fullProjectSuccess: coverage.length > 0 && coverage.every(({ status }) => status === "governed") && config2.adoptedOwners.length > 0
+  });
+  return Object.freeze({
+    version: SRIJIKA_BROWNFIELD_PLAN_VERSION,
+    status: summary.blocked > 0 ? "blocked" : summary.pending > 0 ? "partial" : "complete",
+    config: config2,
+    coverage: Object.freeze(coverage),
+    summary,
+    moves: Object.freeze(moves),
+    rewires: Object.freeze(rewires),
+    strictFiles: Object.freeze(
+      coverage.filter(({ adoptedOwner }) => adoptedOwner !== void 0).map(({ relativePath }) => relativePath)
+    )
+  });
+}
+var import_typescript4, SRIJIKA_BROWNFIELD_PLAN_VERSION;
+var init_adoption = __esm({
+  "../architecture-rules/src/adoption.ts"() {
+    "use strict";
+    import_typescript4 = __toESM(require_typescript(), 1);
+    init_creation();
+    init_config();
+    init_validator();
+    SRIJIKA_BROWNFIELD_PLAN_VERSION = "srijika-brownfield-plan-v1";
+  }
+});
+
 // ../architecture-rules/src/index.ts
 var init_src2 = __esm({
   "../architecture-rules/src/index.ts"() {
@@ -226598,6 +227148,7 @@ var init_src2 = __esm({
     init_validator();
     init_testing();
     init_types();
+    init_adoption();
   }
 });
 
@@ -226966,6 +227517,7 @@ async function inspectSrijikaProject(projectRoot) {
     lockfile: selectedLockfile?.fileName ?? null,
     scripts: Object.freeze(scripts),
     architecture: projectConfig.architecture,
+    ...projectConfig.adoption ? { adoption: projectConfig.adoption } : {},
     aliases,
     viteProject: typeof dependencies["vite"] === "string" || /^vite(?:\s|$)/.test(scripts["dev"] ?? ""),
     nextProject: typeof dependencies["next"] === "string" || /^next(?:\s|$)/.test(scripts["dev"] ?? ""),
@@ -226993,7 +227545,7 @@ var init_project = __esm({
 });
 
 // ../developer-engine/src/architecture.ts
-import { relative as relative2 } from "node:path";
+import { relative as relative2, resolve as resolve4 } from "node:path";
 import { performance as performance2 } from "node:perf_hooks";
 async function checkSrijikaArchitecture(projectRoot) {
   return new SrijikaArchitectureIndex().check(projectRoot);
@@ -227019,17 +227571,15 @@ var init_architecture = __esm({
         const project = await inspectSrijikaProject(projectRoot);
         const fileSystem = await SrijikaProjectFileSystem.open(project.root);
         const architecture = resolveSrijikaArchitectureConfig(project.architecture);
-        const discoveredFiles = await fileSystem.walkFiles(
-          [architecture.featuresRoot, architecture.sharedRoot],
-          {
-            maximumFiles: MAX_SOURCE_FILES,
-            maximumEntries: MAX_SCAN_ENTRIES,
-            maximumDirectories: MAX_SCAN_DIRECTORIES,
-            maximumDepth: MAX_SCAN_DEPTH,
-            ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
-            acceptFile: (fileName) => SOURCE_PATTERN.test(fileName.toLowerCase()) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(fileName.toLowerCase())
-          }
-        );
+        const scanRoots = project.adoption ? project.adoption.managedRoots : [architecture.featuresRoot, architecture.sharedRoot];
+        const discoveredFiles = await fileSystem.walkFiles(scanRoots, {
+          maximumFiles: MAX_SOURCE_FILES,
+          maximumEntries: MAX_SCAN_ENTRIES,
+          maximumDirectories: MAX_SCAN_DIRECTORIES,
+          maximumDepth: MAX_SCAN_DEPTH,
+          ignoredDirectoryNames: SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+          acceptFile: (fileName) => SOURCE_PATTERN.test(fileName.toLowerCase()) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(fileName.toLowerCase())
+        });
         const absoluteFiles = [...new Set(discoveredFiles.map(({ absolutePath }) => absolutePath))];
         const entryPath = fileSystem.resolve(project.entry);
         if (!absoluteFiles.includes(entryPath)) absoluteFiles.push(entryPath);
@@ -227079,18 +227629,34 @@ var init_architecture = __esm({
           }
           files.push({ fileName: path, source });
         }
+        const adoption = project.adoption ? planSrijikaBrownfieldAdoption(files, project.adoption, {
+          projectRoot: project.root,
+          architecture,
+          ...project.aliases ? { aliases: project.aliases } : {}
+        }) : void 0;
         const result = validateSrijikaArchitecture(files, {
           projectRoot: project.root,
           architecture,
           ...project.aliases ? { aliases: project.aliases } : {}
         });
+        const strictPaths = adoption ? /* @__PURE__ */ new Set([
+          entryPath,
+          ...adoption.strictFiles.map((fileName) => resolve4(project.root, fileName))
+        ]) : void 0;
+        const diagnostics = strictPaths ? result.diagnostics.filter(({ fileName }) => strictPaths.has(resolve4(fileName))) : result.diagnostics;
+        const recommendations = strictPaths ? result.recommendations.filter(
+          (recommendation) => diagnostics.some(
+            ({ recommendation: diagnosticRecommendation }) => diagnosticRecommendation ? diagnosticRecommendation.id === recommendation.id && diagnosticRecommendation.owner === recommendation.owner : false
+          )
+        ) : result.recommendations;
         return Object.freeze({
           root: project.root,
           checkedFiles: files.length,
           reusedFiles,
           durationMillis: Math.max(0, Math.round((performance2.now() - startedAt) * 10) / 10),
-          diagnostics: result.diagnostics,
-          recommendations: result.recommendations
+          diagnostics: Object.freeze(diagnostics),
+          recommendations: Object.freeze(recommendations),
+          ...adoption ? { adoption } : {}
         });
       }
     };
@@ -227129,7 +227695,7 @@ var init_portable = __esm({
     "use strict";
     init_config();
     portableMain = async function portableMain2(runtime, projectRoot, rawConfig) {
-      const { fs, fsConstants, path, ts: ts11 } = runtime;
+      const { fs, fsConstants, path, ts: ts12 } = runtime;
       const MAX_CONFIG_BYTES = 64 * 1024;
       const MAX_TSCONFIG_BYTES3 = 1024 * 1024;
       const MAX_SOURCE_BYTES4 = 4 * 1024 * 1024;
@@ -227382,7 +227948,201 @@ var init_portable = __esm({
           typesSuffix
         };
       }
+      function containsRelative(parent, child) {
+        const parentKey = parent.toLowerCase();
+        const childKey = child.toLowerCase();
+        return parentKey === childKey || childKey.startsWith(`${parentKey}/`);
+      }
+      function overlapsRelative(left, right) {
+        return containsRelative(left, right) || containsRelative(right, left);
+      }
+      function portablePathArray(value, field, allowEmpty = false) {
+        if (!Array.isArray(value) || !allowEmpty && value.length === 0 || value.length > 128) {
+          throw new Error(`${field} must be ${allowEmpty ? "an" : "a nonempty"} bounded path array.`);
+        }
+        const output = value.map(
+          (entry, index) => validatedRelativePath2(entry, `${field}[${index}]`, 32)
+        );
+        assertDistinct(output, field);
+        return output.sort((left, right) => left.localeCompare(right));
+      }
+      function portableDirectoryArray(value, field, fallback) {
+        if (value === void 0) return [...fallback];
+        if (!Array.isArray(value) || value.length === 0 || value.length > 8) {
+          throw new Error(`${field} must be a nonempty bounded directory-name array.`);
+        }
+        const output = value.map(
+          (entry, index) => validatedRelativePath2(entry, `${field}[${index}]`, 1)
+        );
+        assertDistinct(output, field);
+        return output.sort((left, right) => left.localeCompare(right));
+      }
+      function resolveRuntimeAdoption(value) {
+        if (value === void 0) return void 0;
+        const adoption2 = record3(value);
+        if (!adoption2) throw new Error("srijika.config.json adoption must be an object.");
+        const adoptionFields = /* @__PURE__ */ new Set(["version", "framework", "enforcement", "ownership"]);
+        const unknownAdoptionField = Object.keys(adoption2).find((field) => !adoptionFields.has(field));
+        if (unknownAdoptionField) {
+          throw new Error(`srijika.config.json adoption.${unknownAdoptionField} is not supported.`);
+        }
+        if (adoption2["ownership"] === void 0) return void 0;
+        const ownership = record3(adoption2["ownership"]);
+        if (!ownership) {
+          throw new Error("srijika.config.json adoption.ownership must be an object.");
+        }
+        const ownershipFields = /* @__PURE__ */ new Set([
+          "version",
+          "profile",
+          "managedRoots",
+          "include",
+          "exclude",
+          "adoptedOwners",
+          "directories"
+        ]);
+        const unknownOwnershipField = Object.keys(ownership).find(
+          (field) => !ownershipFields.has(field)
+        );
+        if (unknownOwnershipField) {
+          throw new Error(
+            `srijika.config.json adoption.ownership.${unknownOwnershipField} is not supported.`
+          );
+        }
+        if (ownership["version"] !== 1) {
+          throw new Error("srijika.config.json adoption.ownership.version must be 1.");
+        }
+        if (ownership["profile"] !== "brownfield-ownership-v1") {
+          throw new Error(
+            'srijika.config.json adoption.ownership.profile must be "brownfield-ownership-v1".'
+          );
+        }
+        const managedRoots = portablePathArray(
+          ownership["managedRoots"],
+          "srijika.config.json adoption.ownership.managedRoots"
+        );
+        const include = portablePathArray(
+          ownership["include"],
+          "srijika.config.json adoption.ownership.include"
+        );
+        const adoptedOwners = portablePathArray(
+          ownership["adoptedOwners"],
+          "srijika.config.json adoption.ownership.adoptedOwners",
+          true
+        );
+        for (let index = 0; index < managedRoots.length; index += 1) {
+          for (let other = index + 1; other < managedRoots.length; other += 1) {
+            if (overlapsRelative(managedRoots[index], managedRoots[other])) {
+              throw new Error("adoption.ownership.managedRoots must not overlap.");
+            }
+          }
+        }
+        for (const candidate of [...include, ...adoptedOwners]) {
+          if (!managedRoots.some((root) => containsRelative(root, candidate))) {
+            throw new Error(`${candidate} must remain inside adoption.ownership.managedRoots.`);
+          }
+        }
+        for (const owner of adoptedOwners) {
+          if (!include.some((included) => containsRelative(included, owner))) {
+            throw new Error(`${owner} must remain inside adoption.ownership.include.`);
+          }
+        }
+        for (let index = 0; index < adoptedOwners.length; index += 1) {
+          for (let other = index + 1; other < adoptedOwners.length; other += 1) {
+            if (overlapsRelative(adoptedOwners[index], adoptedOwners[other])) {
+              throw new Error("adoption.ownership.adoptedOwners must not overlap.");
+            }
+          }
+        }
+        const excludeValue = ownership["exclude"];
+        if (excludeValue !== void 0 && !Array.isArray(excludeValue)) {
+          throw new Error("srijika.config.json adoption.ownership.exclude must be an array.");
+        }
+        if ((excludeValue?.length ?? 0) > 128) {
+          throw new Error("adoption.ownership.exclude supports at most 128 entries.");
+        }
+        const exclude = (excludeValue ?? []).map((entry, index) => {
+          const exclusion = record3(entry);
+          if (!exclusion || typeof exclusion["path"] !== "string") {
+            throw new Error(`adoption.ownership.exclude[${index}] must contain a path.`);
+          }
+          const unknownExclusionField = Object.keys(exclusion).find(
+            (field) => field !== "path" && field !== "category"
+          );
+          if (unknownExclusionField) {
+            throw new Error(
+              `adoption.ownership.exclude[${index}].${unknownExclusionField} is not supported.`
+            );
+          }
+          const exclusionPath = validatedRelativePath2(
+            exclusion["path"],
+            `adoption.ownership.exclude[${index}].path`,
+            32
+          );
+          const category = exclusion["category"];
+          if (category !== "server" && category !== "service" && category !== "domain" && category !== "test") {
+            throw new Error(
+              `adoption.ownership.exclude[${index}].category must be server, service, domain, or test.`
+            );
+          }
+          if (!managedRoots.some((root) => containsRelative(root, exclusionPath))) {
+            throw new Error(`${exclusionPath} must remain inside adoption.ownership.managedRoots.`);
+          }
+          if (adoptedOwners.some((owner) => overlapsRelative(owner, exclusionPath))) {
+            throw new Error(`${exclusionPath} cannot exclude files inside an adopted owner.`);
+          }
+          const resolvedCategory = category;
+          return {
+            path: exclusionPath,
+            category: resolvedCategory
+          };
+        });
+        assertDistinct(
+          exclude.map(({ path: exclusionPath }) => exclusionPath),
+          "adoption.ownership.exclude paths"
+        );
+        for (let index = 0; index < exclude.length; index += 1) {
+          for (let other = index + 1; other < exclude.length; other += 1) {
+            if (overlapsRelative(exclude[index].path, exclude[other].path)) {
+              throw new Error("adoption.ownership.exclude paths must not overlap.");
+            }
+          }
+        }
+        const directoryValue = ownership["directories"];
+        const directories = directoryValue === void 0 ? {} : record3(directoryValue);
+        if (!directories) {
+          throw new Error("srijika.config.json adoption.ownership.directories must be an object.");
+        }
+        const unknownDirectoryField = Object.keys(directories).find(
+          (field) => field !== "ui" && field !== "connectors" && field !== "hooks"
+        );
+        if (unknownDirectoryField) {
+          throw new Error(`adoption.ownership.directories.${unknownDirectoryField} is not supported.`);
+        }
+        const resolvedDirectories = {
+          ui: portableDirectoryArray(directories["ui"], "adoption.ownership.directories.ui", ["ui"]),
+          connectors: portableDirectoryArray(
+            directories["connectors"],
+            "adoption.ownership.directories.connectors",
+            ["connectors"]
+          ),
+          hooks: portableDirectoryArray(directories["hooks"], "adoption.ownership.directories.hooks", [
+            "hooks"
+          ])
+        };
+        assertDistinct(
+          [...resolvedDirectories.ui, ...resolvedDirectories.connectors, ...resolvedDirectories.hooks],
+          "adoption.ownership recognized directory names"
+        );
+        return {
+          managedRoots,
+          include,
+          exclude: exclude.sort((left, right) => left.path.localeCompare(right.path)),
+          adoptedOwners,
+          directories: resolvedDirectories
+        };
+      }
       let config2 = rawConfig;
+      let adoption;
       let entrySource;
       try {
         const source = await readBoundedText(
@@ -227392,6 +228152,7 @@ var init_portable = __esm({
         const projectConfig = record3(JSON.parse(source));
         if (!projectConfig) throw new Error("srijika.config.json must contain a JSON object.");
         config2 = Object.prototype.hasOwnProperty.call(projectConfig, "architecture") ? resolveRuntimeConfig(projectConfig["architecture"]) : defaultConfig;
+        adoption = resolveRuntimeAdoption(projectConfig["adoption"]);
         if (projectConfig["sourceOfTruth"] !== "tsx") {
           throw new Error('srijika.config.json sourceOfTruth must be "tsx".');
         }
@@ -227427,10 +228188,10 @@ var init_portable = __esm({
         return result;
       }
       function parseTypeScriptAliases(source) {
-        const parsed = ts11.parseConfigFileTextToJson("tsconfig.json", source);
+        const parsed = ts12.parseConfigFileTextToJson("tsconfig.json", source);
         if (parsed.error) {
           throw new Error(
-            `tsconfig.json is not valid JSONC: ${ts11.flattenDiagnosticMessageText(parsed.error.messageText, " ")}`
+            `tsconfig.json is not valid JSONC: ${ts12.flattenDiagnosticMessageText(parsed.error.messageText, " ")}`
           );
         }
         const root = record3(parsed.config);
@@ -227517,9 +228278,9 @@ var init_portable = __esm({
         if (!missingPath(error2)) throw error2;
       }
       const normalizedProjectRoot = projectRoot.replaceAll("\\", "/").replace(/\/$/, "");
-      const sourceRoots = [.../* @__PURE__ */ new Set([config2.featuresRoot, config2.sharedRoot])].map(
-        (root) => path.resolve(projectRoot, ...root.split("/"))
-      );
+      const sourceRoots = [
+        ...new Set(adoption?.managedRoots ?? [config2.featuresRoot, config2.sharedRoot])
+      ].map((root) => path.resolve(projectRoot, ...root.split("/")));
       const ignored = /* @__PURE__ */ new Set([
         ".git",
         ".next",
@@ -227633,12 +228394,12 @@ var init_portable = __esm({
       }
       function scriptKindForFile2(fileName) {
         const normalized2 = fileName.toLowerCase();
-        if (normalized2.endsWith(".tsx")) return ts11.ScriptKind.TSX;
-        if (normalized2.endsWith(".jsx")) return ts11.ScriptKind.JSX;
+        if (normalized2.endsWith(".tsx")) return ts12.ScriptKind.TSX;
+        if (normalized2.endsWith(".jsx")) return ts12.ScriptKind.JSX;
         if (normalized2.endsWith(".js") || normalized2.endsWith(".mjs") || normalized2.endsWith(".cjs")) {
-          return ts11.ScriptKind.JS;
+          return ts12.ScriptKind.JS;
         }
-        return ts11.ScriptKind.TS;
+        return ts12.ScriptKind.TS;
       }
       function clean(value) {
         return value.replaceAll("\\", "/").replace(/\/{2,}/g, "/");
@@ -227910,7 +228671,7 @@ var init_portable = __esm({
       const uiFileMeaningfulLineLimit = 300;
       const uiContractMemberLimit = 16;
       function isCommentLikeNode3(node) {
-        return node.kind >= ts11.SyntaxKind.FirstJSDocNode && node.kind <= ts11.SyntaxKind.LastJSDocNode;
+        return node.kind >= ts12.SyntaxKind.FirstJSDocNode && node.kind <= ts12.SyntaxKind.LastJSDocNode;
       }
       function countMeaningfulLines3(sourceFile2, root) {
         const lines = /* @__PURE__ */ new Set();
@@ -227921,7 +228682,7 @@ var init_portable = __esm({
             for (const child of children) visit2(child);
             return;
           }
-          if (node.kind === ts11.SyntaxKind.EndOfFileToken) return;
+          if (node.kind === ts12.SyntaxKind.EndOfFileToken) return;
           const start = node.getStart(sourceFile2);
           const end = node.getEnd();
           if (end <= start) return;
@@ -227943,10 +228704,10 @@ var init_portable = __esm({
       function exportedOwnerUiFunction2(sourceFile2, owner) {
         const expectedName = `${pascalName3(owner)}UI`;
         return sourceFile2.statements.find(
-          (statement) => ts11.isFunctionDeclaration(statement) && statement.name?.text === expectedName && statement.modifiers?.some((modifier) => modifier.kind === ts11.SyntaxKind.ExportKeyword) === true
+          (statement) => ts12.isFunctionDeclaration(statement) && statement.name?.text === expectedName && statement.modifiers?.some((modifier) => modifier.kind === ts12.SyntaxKind.ExportKeyword) === true
         ) ?? null;
       }
-      function resolve13(origin, specifier) {
+      function resolve14(origin, specifier) {
         let candidate = null;
         if (specifier.startsWith(".")) candidate = clean(path.resolve(path.dirname(origin), specifier));
         else {
@@ -227977,6 +228738,9 @@ var init_portable = __esm({
       }
       function report(code, fileName, span, message, guidance, severity = "error", stableId) {
         const relative11 = clean(path.relative(projectRoot, fileName));
+        if (adoption && relative11 !== entrySource && !adoption.adoptedOwners.some((owner) => containsRelative(owner, relative11))) {
+          return;
+        }
         process.stderr.write(
           `${relative11}:${span.line}:${span.column} - ${severity} ${code}${stableId ? ` [${stableId}]` : ""}: ${message}
   ${guidance}
@@ -228029,10 +228793,10 @@ var init_portable = __esm({
         layouts.set(key, layout);
       }
       function layoutSpan(file) {
-        const sourceFile2 = ts11.createSourceFile(
+        const sourceFile2 = ts12.createSourceFile(
           file.fileName,
           file.source,
-          ts11.ScriptTarget.Latest,
+          ts12.ScriptTarget.Latest,
           true,
           scriptKindForFile2(file.fileName)
         );
@@ -228108,42 +228872,42 @@ var init_portable = __esm({
         }
       }
       function isTypeOnlyModuleReference2(node) {
-        if (ts11.isImportDeclaration(node)) {
+        if (ts12.isImportDeclaration(node)) {
           const clause = node.importClause;
           if (!clause) return false;
           if (clause.isTypeOnly) return true;
-          return !clause.name && !!clause.namedBindings && ts11.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0 && clause.namedBindings.elements.every((element) => element.isTypeOnly);
+          return !clause.name && !!clause.namedBindings && ts12.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0 && clause.namedBindings.elements.every((element) => element.isTypeOnly);
         }
-        if (ts11.isExportDeclaration(node)) {
+        if (ts12.isExportDeclaration(node)) {
           if (node.isTypeOnly) return true;
-          return !!node.exportClause && ts11.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every((element) => element.isTypeOnly);
+          return !!node.exportClause && ts12.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every((element) => element.isTypeOnly);
         }
-        if (ts11.isImportEqualsDeclaration(node)) return node.isTypeOnly;
+        if (ts12.isImportEqualsDeclaration(node)) return node.isTypeOnly;
         return false;
       }
       function isPassiveTypesStatement2(statement) {
-        if (ts11.isInterfaceDeclaration(statement) || ts11.isTypeAliasDeclaration(statement)) return true;
-        if (ts11.isImportDeclaration(statement)) return isTypeOnlyModuleReference2(statement);
-        if (ts11.isExportDeclaration(statement)) {
-          if (!statement.moduleSpecifier && statement.exportClause && ts11.isNamedExports(statement.exportClause)) {
+        if (ts12.isInterfaceDeclaration(statement) || ts12.isTypeAliasDeclaration(statement)) return true;
+        if (ts12.isImportDeclaration(statement)) return isTypeOnlyModuleReference2(statement);
+        if (ts12.isExportDeclaration(statement)) {
+          if (!statement.moduleSpecifier && statement.exportClause && ts12.isNamedExports(statement.exportClause)) {
             return statement.exportClause.elements.length === 0 || isTypeOnlyModuleReference2(statement);
           }
           return isTypeOnlyModuleReference2(statement);
         }
-        return ts11.isEmptyStatement(statement);
+        return ts12.isEmptyStatement(statement);
       }
       function passiveTypesReferenceViolations2(statement) {
         const violations = [];
         function inspect(node) {
-          if (ts11.isTypeQueryNode(node)) {
+          if (ts12.isTypeQueryNode(node)) {
             violations.push(node.exprName);
             return;
           }
-          if (ts11.isComputedPropertyName(node)) {
+          if (ts12.isComputedPropertyName(node)) {
             violations.push(node.expression);
             return;
           }
-          ts11.forEachChild(node, inspect);
+          ts12.forEachChild(node, inspect);
         }
         inspect(statement);
         return violations;
@@ -228183,11 +228947,11 @@ var init_portable = __esm({
       }
       function isJsxTagReference2(node) {
         let current = node;
-        while (ts11.isPropertyAccessExpression(current.parent) && current.parent.expression === current) {
+        while (ts12.isPropertyAccessExpression(current.parent) && current.parent.expression === current) {
           current = current.parent;
         }
         const parent = current.parent;
-        return (ts11.isJsxOpeningElement(parent) || ts11.isJsxClosingElement(parent) || ts11.isJsxSelfClosingElement(parent)) && parent.tagName === current;
+        return (ts12.isJsxOpeningElement(parent) || ts12.isJsxClosingElement(parent) || ts12.isJsxSelfClosingElement(parent)) && parent.tagName === current;
       }
       function forbiddenUiModule2(targetFileName) {
         const normalized2 = clean(targetFileName);
@@ -228212,12 +228976,12 @@ var init_portable = __esm({
       function isPresentationalExternalImport2(sourceFile2, moduleNode) {
         if (isPresentationalAssetSpecifier2(moduleNode.text)) return true;
         const declaration = moduleNode.parent;
-        if (!ts11.isImportDeclaration(declaration) || !declaration.importClause) return false;
+        if (!ts12.isImportDeclaration(declaration) || !declaration.importClause) return false;
         const clause = declaration.importClause;
         const bindings = [];
         if (clause.name) bindings.push(clause.name);
         if (clause.namedBindings) {
-          if (ts11.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
+          if (ts12.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
           else {
             for (const element of clause.namedBindings.elements) {
               if (!element.isTypeOnly) bindings.push(element.name);
@@ -228228,11 +228992,11 @@ var init_portable = __esm({
         for (const binding of bindings) {
           let inspect2 = function(node) {
             if (!rendererOnly || node === declaration) return;
-            if (ts11.isIdentifier(node) && node.text === binding.text) {
+            if (ts12.isIdentifier(node) && node.text === binding.text) {
               references += 1;
               if (!isJsxTagReference2(node)) rendererOnly = false;
             }
-            ts11.forEachChild(node, inspect2);
+            ts12.forEachChild(node, inspect2);
           };
           var inspect = inspect2;
           let references = 0;
@@ -228248,13 +229012,13 @@ var init_portable = __esm({
         }
         if (moduleNode.text !== "react") return false;
         const declaration = moduleNode.parent;
-        if (!ts11.isImportDeclaration(declaration)) return false;
+        if (!ts12.isImportDeclaration(declaration)) return false;
         const clause = declaration.importClause;
         if (!clause) return true;
         const bindings = [];
         if (clause.name) bindings.push(clause.name);
         if (clause.namedBindings) {
-          if (ts11.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
+          if (ts12.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
           else {
             for (const element of clause.namedBindings.elements) {
               if (!element.isTypeOnly) bindings.push(element.name);
@@ -228264,13 +229028,13 @@ var init_portable = __esm({
         for (const binding of bindings) {
           let inspect2 = function(node) {
             if (!safe || node === declaration) return;
-            if (ts11.isIdentifier(node) && node.text === binding.text) {
+            if (ts12.isIdentifier(node) && node.text === binding.text) {
               if (isJsxTagReference2(node)) return;
               let access2 = node;
-              while (ts11.isPropertyAccessExpression(access2.parent) && access2.parent.expression === access2) {
+              while (ts12.isPropertyAccessExpression(access2.parent) && access2.parent.expression === access2) {
                 access2 = access2.parent;
               }
-              if (ts11.isCallExpression(access2.parent) && access2.parent.expression === access2) {
+              if (ts12.isCallExpression(access2.parent) && access2.parent.expression === access2) {
                 const name = propertyAccessPath2(access2)?.at(-1);
                 if (name && (name === "use" || /^use[A-Z0-9]/.test(name) || name === "createElement" || name === "cloneElement")) {
                   return;
@@ -228278,7 +229042,7 @@ var init_portable = __esm({
               }
               safe = false;
             }
-            ts11.forEachChild(node, inspect2);
+            ts12.forEachChild(node, inspect2);
           };
           var inspect = inspect2;
           let safe = true;
@@ -228298,12 +229062,12 @@ var init_portable = __esm({
         };
       }
       function propertyAccessPath2(expression) {
-        if (ts11.isIdentifier(expression)) return [expression.text];
-        if (ts11.isPropertyAccessExpression(expression)) {
+        if (ts12.isIdentifier(expression)) return [expression.text];
+        if (ts12.isPropertyAccessExpression(expression)) {
           const parent = propertyAccessPath2(expression.expression);
           return parent ? [...parent, expression.name.text] : null;
         }
-        if (ts11.isElementAccessExpression(expression) && expression.argumentExpression && (ts11.isStringLiteralLike(expression.argumentExpression) || ts11.isNumericLiteral(expression.argumentExpression))) {
+        if (ts12.isElementAccessExpression(expression) && expression.argumentExpression && (ts12.isStringLiteralLike(expression.argumentExpression) || ts12.isNumericLiteral(expression.argumentExpression))) {
           const parent = propertyAccessPath2(expression.expression);
           return parent ? [...parent, expression.argumentExpression.text] : null;
         }
@@ -228311,8 +229075,8 @@ var init_portable = __esm({
       }
       function isTypePosition2(node) {
         let current = node;
-        while (current && !ts11.isStatement(current)) {
-          if (ts11.isTypeNode(current)) return true;
+        while (current && !ts12.isStatement(current)) {
+          if (ts12.isTypeNode(current)) return true;
           current = current.parent;
         }
         return false;
@@ -228320,21 +229084,21 @@ var init_portable = __esm({
       function isStandaloneRuntimeIdentifier2(node) {
         const parent = node.parent;
         if (isTypePosition2(node)) return false;
-        if (ts11.isPropertyAccessExpression(parent) && parent.name === node || ts11.isPropertyAssignment(parent) && parent.name === node || ts11.isBindingElement(parent) && (parent.name === node || parent.propertyName === node) || ts11.isVariableDeclaration(parent) && parent.name === node || ts11.isParameter(parent) && parent.name === node || ts11.isFunctionDeclaration(parent) && parent.name === node || ts11.isFunctionExpression(parent) && parent.name === node || ts11.isClassDeclaration(parent) && parent.name === node || ts11.isClassExpression(parent) && parent.name === node || ts11.isInterfaceDeclaration(parent) && parent.name === node || ts11.isTypeAliasDeclaration(parent) && parent.name === node || ts11.isTypeParameterDeclaration(parent) && parent.name === node || ts11.isPropertySignature(parent) && parent.name === node || ts11.isMethodSignature(parent) && parent.name === node || ts11.isImportClause(parent) && parent.name === node || ts11.isJsxAttribute(parent) && parent.name === node || ts11.isMethodDeclaration(parent) && parent.name === node || ts11.isPropertyDeclaration(parent) && parent.name === node || ts11.isGetAccessorDeclaration(parent) && parent.name === node || ts11.isSetAccessorDeclaration(parent) && parent.name === node || ts11.isImportEqualsDeclaration(parent) && parent.name === node || ts11.isModuleDeclaration(parent) && parent.name === node || ts11.isEnumMember(parent) && parent.name === node || ts11.isImportSpecifier(parent) || ts11.isExportSpecifier(parent) || ts11.isNamespaceImport(parent) || isJsxTagReference2(node)) {
+        if (ts12.isPropertyAccessExpression(parent) && parent.name === node || ts12.isPropertyAssignment(parent) && parent.name === node || ts12.isBindingElement(parent) && (parent.name === node || parent.propertyName === node) || ts12.isVariableDeclaration(parent) && parent.name === node || ts12.isParameter(parent) && parent.name === node || ts12.isFunctionDeclaration(parent) && parent.name === node || ts12.isFunctionExpression(parent) && parent.name === node || ts12.isClassDeclaration(parent) && parent.name === node || ts12.isClassExpression(parent) && parent.name === node || ts12.isInterfaceDeclaration(parent) && parent.name === node || ts12.isTypeAliasDeclaration(parent) && parent.name === node || ts12.isTypeParameterDeclaration(parent) && parent.name === node || ts12.isPropertySignature(parent) && parent.name === node || ts12.isMethodSignature(parent) && parent.name === node || ts12.isImportClause(parent) && parent.name === node || ts12.isJsxAttribute(parent) && parent.name === node || ts12.isMethodDeclaration(parent) && parent.name === node || ts12.isPropertyDeclaration(parent) && parent.name === node || ts12.isGetAccessorDeclaration(parent) && parent.name === node || ts12.isSetAccessorDeclaration(parent) && parent.name === node || ts12.isImportEqualsDeclaration(parent) && parent.name === node || ts12.isModuleDeclaration(parent) && parent.name === node || ts12.isEnumMember(parent) && parent.name === node || ts12.isImportSpecifier(parent) || ts12.isExportSpecifier(parent) || ts12.isNamespaceImport(parent) || isJsxTagReference2(node)) {
           return false;
         }
         return true;
       }
       function outermostPropertyAccess2(expression) {
         let current = expression;
-        while ((ts11.isPropertyAccessExpression(current.parent) || ts11.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
+        while ((ts12.isPropertyAccessExpression(current.parent) || ts12.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
           current = current.parent;
         }
         return current;
       }
       function isCoveredByRuntimePropertyAccess2(identifier2, runtimeNames) {
         let current = identifier2;
-        while ((ts11.isPropertyAccessExpression(current.parent) || ts11.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
+        while ((ts12.isPropertyAccessExpression(current.parent) || ts12.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
           current = current.parent;
           const terminalName = propertyAccessPath2(current)?.at(-1);
           if (terminalName !== void 0 && runtimeNames.has(terminalName)) return true;
@@ -228347,7 +229111,7 @@ var init_portable = __esm({
       }
       function isDirectInvocationTarget2(identifier2) {
         const parent = identifier2.parent;
-        return (ts11.isCallExpression(parent) || ts11.isNewExpression(parent)) && parent.expression === identifier2;
+        return (ts12.isCallExpression(parent) || ts12.isNewExpression(parent)) && parent.expression === identifier2;
       }
       for (const file of files) {
         let reportUiRuntimeReference2 = function(node, name) {
@@ -228379,9 +229143,9 @@ var init_portable = __esm({
             "SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN"
           );
         }, visit2 = function(node) {
-          if (ts11.isCallExpression(node) && (node.expression.kind === ts11.SyntaxKind.ImportKeyword || ts11.isIdentifier(node.expression) && node.expression.text === "require")) {
+          if (ts12.isCallExpression(node) && (node.expression.kind === ts12.SyntaxKind.ImportKeyword || ts12.isIdentifier(node.expression) && node.expression.text === "require")) {
             const argument = node.arguments[0];
-            if (!argument || !ts11.isStringLiteralLike(argument)) {
+            if (!argument || !ts12.isStringLiteralLike(argument)) {
               report(
                 "SRIJIKA4119",
                 file.fileName,
@@ -228395,16 +229159,16 @@ var init_portable = __esm({
           }
           let moduleNode = null;
           let moduleTypeOnly = false;
-          if ((ts11.isImportDeclaration(node) || ts11.isExportDeclaration(node)) && node.moduleSpecifier && ts11.isStringLiteralLike(node.moduleSpecifier)) {
+          if ((ts12.isImportDeclaration(node) || ts12.isExportDeclaration(node)) && node.moduleSpecifier && ts12.isStringLiteralLike(node.moduleSpecifier)) {
             moduleNode = node.moduleSpecifier;
             moduleTypeOnly = isTypeOnlyModuleReference2(node);
-          } else if (ts11.isImportEqualsDeclaration(node) && ts11.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts11.isStringLiteralLike(node.moduleReference.expression)) {
+          } else if (ts12.isImportEqualsDeclaration(node) && ts12.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts12.isStringLiteralLike(node.moduleReference.expression)) {
             moduleNode = node.moduleReference.expression;
             moduleTypeOnly = isTypeOnlyModuleReference2(node);
-          } else if (ts11.isImportTypeNode(node) && ts11.isLiteralTypeNode(node.argument) && ts11.isStringLiteralLike(node.argument.literal)) {
+          } else if (ts12.isImportTypeNode(node) && ts12.isLiteralTypeNode(node.argument) && ts12.isStringLiteralLike(node.argument.literal)) {
             moduleNode = node.argument.literal;
             moduleTypeOnly = true;
-          } else if (ts11.isCallExpression(node) && node.arguments.length > 0 && node.arguments[0] !== void 0 && ts11.isStringLiteralLike(node.arguments[0]) && (node.expression.kind === ts11.SyntaxKind.ImportKeyword || ts11.isIdentifier(node.expression) && node.expression.text === "require")) {
+          } else if (ts12.isCallExpression(node) && node.arguments.length > 0 && node.arguments[0] !== void 0 && ts12.isStringLiteralLike(node.arguments[0]) && (node.expression.kind === ts12.SyntaxKind.ImportKeyword || ts12.isIdentifier(node.expression) && node.expression.text === "require")) {
             moduleNode = node.arguments[0];
           }
           if (moduleNode) {
@@ -228412,10 +229176,10 @@ var init_portable = __esm({
             const uiRuntimeImport = isUi && !moduleTypeOnly;
             const sharedUiRuntimeImport = origin.kind === "shared-ui" && !moduleTypeOnly;
             if (isPresentationalAssetSpecifier2(moduleNode.text)) {
-              ts11.forEachChild(node, visit2);
+              ts12.forEachChild(node, visit2);
               return;
             }
-            const targetName = resolve13(file.fileName, moduleNode.text);
+            const targetName = resolve14(file.fileName, moduleNode.text);
             const declaredAlias = matchingAlias(moduleNode.text);
             if ((declaredAlias !== void 0 || isReservedProjectAlias2(moduleNode.text)) && (!declaredAlias || !targetName || !collectedFiles.has(targetName) || classify(targetName).kind === "outside")) {
               report(
@@ -228427,7 +229191,7 @@ var init_portable = __esm({
                 "error",
                 "SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS"
               );
-              ts11.forEachChild(node, visit2);
+              ts12.forEachChild(node, visit2);
               return;
             }
             const projectLocalImport = moduleNode.text.startsWith(".") || moduleNode.text.startsWith("src/");
@@ -228441,7 +229205,7 @@ var init_portable = __esm({
                 "error",
                 "SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT"
               );
-              ts11.forEachChild(node, visit2);
+              ts12.forEachChild(node, visit2);
               return;
             }
             if (!targetName) {
@@ -228709,10 +229473,10 @@ ${targetSource}`);
               }
             }
           }
-          if (isUi && ts11.isCallExpression(node)) {
+          if (isUi && ts12.isCallExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
-            const importedIdentifier = ts11.isIdentifier(node.expression) && importedHookNames.has(node.expression.text);
+            const importedIdentifier = ts12.isIdentifier(node.expression) && importedHookNames.has(node.expression.text);
             if (name && (name === "use" || /^use[A-Z0-9]/.test(name)) && !importedIdentifier) {
               report(
                 "SRIJIKA4101",
@@ -228723,53 +229487,53 @@ ${targetSource}`);
               );
             }
           }
-          if (isLogic && ts11.isCallExpression(node)) {
+          if (isLogic && ts12.isCallExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
             if (name && (name === "use" || /^use[A-Z0-9]/.test(name) || queryLifecycleNames.has(name) || logicTransportNames.has(name))) {
               reportLogicRuntimeReference2(node.expression, accessPath?.join(".") ?? name);
             }
-          } else if (isLogic && ts11.isNewExpression(node)) {
+          } else if (isLogic && ts12.isNewExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
             if (name && (queryRuntimeConstructors.has(name) || logicTransportNames.has(name))) {
               reportLogicRuntimeReference2(node.expression, accessPath?.join(".") ?? name);
             }
           }
-          if (isUi && ts11.isIdentifier(node) && browserRuntimeNames.has(node.text)) {
+          if (isUi && ts12.isIdentifier(node) && browserRuntimeNames.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node)) reportUiRuntimeReference2(node, node.text);
-          } else if (isUi && ts11.isIdentifier(node) && browserGlobals.has(node.text)) {
+          } else if (isUi && ts12.isIdentifier(node) && browserGlobals.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isCoveredByRuntimePropertyAccess2(node, browserRuntimeNames)) {
               reportUiRuntimeReference2(node, node.text);
             }
-          } else if (isUi && !isTypePosition2(node) && (ts11.isPropertyAccessExpression(node) || ts11.isElementAccessExpression(node))) {
+          } else if (isUi && !isTypePosition2(node) && (ts12.isPropertyAccessExpression(node) || ts12.isElementAccessExpression(node))) {
             const accessPath = propertyAccessPath2(node);
             const name = accessPath?.at(-1);
             if (accessPath && name && browserRuntimeNames.has(name) && browserGlobals.has(accessPath[0] ?? "")) {
               reportUiRuntimeReference2(node, name);
             }
           }
-          if (isLogic && ts11.isIdentifier(node) && logicTransportNames.has(node.text)) {
+          if (isLogic && ts12.isIdentifier(node) && logicTransportNames.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isDirectInvocationTarget2(node)) {
               reportLogicRuntimeReference2(node, node.text);
             }
-          } else if (isLogic && ts11.isIdentifier(node) && logicBrowserGlobals.has(node.text)) {
+          } else if (isLogic && ts12.isIdentifier(node) && logicBrowserGlobals.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isCoveredByStaticPropertyAccess2(node)) {
               reportLogicRuntimeReference2(node, node.text);
             }
-          } else if (isLogic && !isTypePosition2(node) && (ts11.isPropertyAccessExpression(node) || ts11.isElementAccessExpression(node))) {
+          } else if (isLogic && !isTypePosition2(node) && (ts12.isPropertyAccessExpression(node) || ts12.isElementAccessExpression(node))) {
             const accessPath = propertyAccessPath2(node);
             if (accessPath && logicBrowserGlobals.has(accessPath[0] ?? "")) {
               reportLogicRuntimeReference2(node, accessPath.join("."));
             }
           }
-          ts11.forEachChild(node, visit2);
+          ts12.forEachChild(node, visit2);
         };
         var reportUiRuntimeReference = reportUiRuntimeReference2, reportLogicRuntimeReference = reportLogicRuntimeReference2, visit = visit2;
-        const sourceFile2 = ts11.createSourceFile(
+        const sourceFile2 = ts12.createSourceFile(
           file.fileName,
           file.source,
-          ts11.ScriptTarget.Latest,
+          ts12.ScriptTarget.Latest,
           true,
           scriptKindForFile2(file.fileName)
         );
@@ -228844,10 +229608,10 @@ ${targetSource}`);
         }
         if (isUi) {
           for (const statement of sourceFile2.statements) {
-            if (!ts11.isImportDeclaration(statement) || !statement.importClause) continue;
+            if (!ts12.isImportDeclaration(statement) || !statement.importClause) continue;
             const clause = statement.importClause;
-            const modulePath = ts11.isStringLiteralLike(statement.moduleSpecifier) ? statement.moduleSpecifier.text : "";
-            const architectureHookTarget = forbiddenUiModule2(modulePath) !== null && resolve13(file.fileName, modulePath) !== null;
+            const modulePath = ts12.isStringLiteralLike(statement.moduleSpecifier) ? statement.moduleSpecifier.text : "";
+            const architectureHookTarget = forbiddenUiModule2(modulePath) !== null && resolve14(file.fileName, modulePath) !== null;
             if (clause.name && (clause.name.text === "use" || /^use[A-Z0-9]/.test(clause.name.text))) {
               importedHookNames.add(clause.name.text);
               if (!architectureHookTarget) {
@@ -228860,7 +229624,7 @@ ${targetSource}`);
                 );
               }
             }
-            if (!clause.namedBindings || !ts11.isNamedImports(clause.namedBindings)) continue;
+            if (!clause.namedBindings || !ts12.isNamedImports(clause.namedBindings)) continue;
             for (const element of clause.namedBindings.elements) {
               const importedName = element.propertyName?.text ?? element.name.text;
               if (importedName !== "use" && !/^use[A-Z0-9]/.test(importedName)) continue;
@@ -229079,9 +229843,9 @@ ${targetSource}`);
             const fileLines = countMeaningfulLines3(sourceFile2, sourceFile2);
             const functionLines = countMeaningfulLines3(sourceFile2, component);
             const parameterType = component.parameters[0]?.type;
-            const contractName = parameterType && ts11.isTypeReferenceNode(parameterType) && ts11.isIdentifier(parameterType.typeName) ? parameterType.typeName.text : null;
+            const contractName = parameterType && ts12.isTypeReferenceNode(parameterType) && ts12.isIdentifier(parameterType.typeName) ? parameterType.typeName.text : null;
             const contract = contractName ? sourceFile2.statements.find(
-              (statement) => ts11.isInterfaceDeclaration(statement) && statement.name.text === contractName
+              (statement) => ts12.isInterfaceDeclaration(statement) && statement.name.text === contractName
             ) : void 0;
             const contractMembers = contract?.members.length ?? 0;
             const breaches = [];
@@ -229230,10 +229994,10 @@ ${targetSource}`);
         const connectorSignals = recommendationSignals2(sourceFor2(connectorFileName));
         const storeSignals = recommendationSignals2(sourceFor2(storeFileName));
         const warningSpanFor = (fileName) => {
-          const sourceFile2 = ts11.createSourceFile(
+          const sourceFile2 = ts12.createSourceFile(
             fileName,
             sourceFor2(fileName),
-            ts11.ScriptTarget.Latest,
+            ts12.ScriptTarget.Latest,
             true,
             scriptKindForFile2(fileName)
           );
@@ -229326,9 +230090,27 @@ ${targetSource}`);
           );
         }
       }
-      if (!process.exitCode)
+      if (adoption) {
+        let governed = 0;
+        let pending = 0;
+        let excluded = 0;
+        for (const file of files) {
+          const relative11 = clean(path.relative(projectRoot, file.fileName));
+          if (!adoption.include.some((included) => containsRelative(included, relative11))) continue;
+          if (adoption.adoptedOwners.some((owner) => containsRelative(owner, relative11))) governed += 1;
+          else if (adoption.exclude.some(({ path: excludedPath }) => containsRelative(excludedPath, relative11))) {
+            excluded += 1;
+          } else pending += 1;
+        }
+        const status = process.exitCode ? "blocked" : pending > 0 || excluded > 0 ? "partial" : "complete";
+        process.stdout.write(
+          `Srijika strict architecture check ${process.exitCode ? "failed" : "passed"} (${files.length} source files); brownfield ownership ${status}: ${governed} governed, ${pending} pending, ${excluded} excluded.
+`
+        );
+      } else if (!process.exitCode) {
         process.stdout.write(`Srijika architecture check passed (${files.length} source files).
 `);
+      }
     };
   }
 });
@@ -232499,7 +233281,7 @@ export default defineConfig({
 
 // ../project-scaffold/src/writer.ts
 import { lstat as lstat2, mkdir, readdir, writeFile } from "node:fs/promises";
-import { dirname as dirname2, isAbsolute as isAbsolute2, parse as parse4, relative as relative3, resolve as resolve4 } from "node:path";
+import { dirname as dirname2, isAbsolute as isAbsolute2, parse as parse4, relative as relative3, resolve as resolve5 } from "node:path";
 var isMissingPathError2, inspectTarget, destinationFor, writeSrijikaProject;
 var init_writer = __esm({
   "../project-scaffold/src/writer.ts"() {
@@ -232530,7 +233312,7 @@ var init_writer = __esm({
       }
     };
     destinationFor = (absoluteTarget, projectPath) => {
-      const destination = resolve4(absoluteTarget, ...projectPath.split("/"));
+      const destination = resolve5(absoluteTarget, ...projectPath.split("/"));
       const pathFromTarget = relative3(absoluteTarget, destination);
       if (pathFromTarget.startsWith("..") || isAbsolute2(pathFromTarget)) {
         throw new Error(`Unsafe scaffold path: ${projectPath}`);
@@ -232541,7 +233323,7 @@ var init_writer = __esm({
       if (targetDirectory.trim().length === 0 || !isAbsolute2(targetDirectory)) {
         throw new TypeError("targetDirectory must be an explicit absolute path.");
       }
-      const absoluteTarget = resolve4(targetDirectory);
+      const absoluteTarget = resolve5(targetDirectory);
       if (absoluteTarget === parse4(absoluteTarget).root) {
         throw new Error("A filesystem root cannot be used as a Srijika project target.");
       }
@@ -232885,12 +233667,12 @@ function relativeModuleSpecifier(fromRelativePath, toRelativePath, preserveExten
 }
 function rewriteStaticModuleSpecifiers(source, replacements) {
   if (replacements.size === 0) return source;
-  const sourceFile2 = import_typescript4.default.createSourceFile(
+  const sourceFile2 = import_typescript5.default.createSourceFile(
     "srijika-migration.tsx",
     source,
-    import_typescript4.default.ScriptTarget.Latest,
+    import_typescript5.default.ScriptTarget.Latest,
     true,
-    import_typescript4.default.ScriptKind.TSX
+    import_typescript5.default.ScriptKind.TSX
   );
   const edits = [];
   const record3 = (node) => {
@@ -232903,17 +233685,17 @@ function rewriteStaticModuleSpecifiers(source, replacements) {
     });
   };
   const visit = (node) => {
-    if ((import_typescript4.default.isImportDeclaration(node) || import_typescript4.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript4.default.isStringLiteralLike(node.moduleSpecifier)) {
+    if ((import_typescript5.default.isImportDeclaration(node) || import_typescript5.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript5.default.isStringLiteralLike(node.moduleSpecifier)) {
       record3(node.moduleSpecifier);
-    } else if (import_typescript4.default.isImportEqualsDeclaration(node) && import_typescript4.default.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && import_typescript4.default.isStringLiteralLike(node.moduleReference.expression)) {
+    } else if (import_typescript5.default.isImportEqualsDeclaration(node) && import_typescript5.default.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && import_typescript5.default.isStringLiteralLike(node.moduleReference.expression)) {
       record3(node.moduleReference.expression);
-    } else if (import_typescript4.default.isImportTypeNode(node) && import_typescript4.default.isLiteralTypeNode(node.argument) && import_typescript4.default.isStringLiteralLike(node.argument.literal)) {
+    } else if (import_typescript5.default.isImportTypeNode(node) && import_typescript5.default.isLiteralTypeNode(node.argument) && import_typescript5.default.isStringLiteralLike(node.argument.literal)) {
       record3(node.argument.literal);
-    } else if (import_typescript4.default.isCallExpression(node) && (node.expression.kind === import_typescript4.default.SyntaxKind.ImportKeyword || import_typescript4.default.isIdentifier(node.expression) && node.expression.text === "require")) {
+    } else if (import_typescript5.default.isCallExpression(node) && (node.expression.kind === import_typescript5.default.SyntaxKind.ImportKeyword || import_typescript5.default.isIdentifier(node.expression) && node.expression.text === "require")) {
       const argument = node.arguments[0];
-      if (argument && import_typescript4.default.isStringLiteralLike(argument)) record3(argument);
+      if (argument && import_typescript5.default.isStringLiteralLike(argument)) record3(argument);
     }
-    import_typescript4.default.forEachChild(node, visit);
+    import_typescript5.default.forEachChild(node, visit);
   };
   visit(sourceFile2);
   return edits.sort((left, right) => right.start - left.start).reduce(
@@ -232924,9 +233706,9 @@ function rewriteStaticModuleSpecifiers(source, replacements) {
 function rewriteImportTarget(source, oldSourcePath, newSourcePath, oldTargetPath, newTargetPath, architecture, aliases) {
   const oldSpecifier = relativeModuleSpecifier(oldSourcePath, oldTargetPath);
   const newSpecifier = relativeModuleSpecifier(newSourcePath, newTargetPath);
-  const withoutSourceExtension = (value) => value.replace(/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i, "");
+  const withoutSourceExtension2 = (value) => value.replace(/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i, "");
   const aliasSpecifiers = (value) => {
-    const normalized2 = withoutSourceExtension(value.replaceAll("\\", "/"));
+    const normalized2 = withoutSourceExtension2(value.replaceAll("\\", "/"));
     return {
       direct: normalized2,
       ...normalized2.startsWith("src/") ? { source: `@/${normalized2.slice("src/".length)}` } : {},
@@ -232947,8 +233729,8 @@ function rewriteImportTarget(source, oldSourcePath, newSourcePath, oldTargetPath
   );
   const normalizedOld = oldTargetPath.replaceAll("\\", "/");
   const normalizedNew = newTargetPath.replaceAll("\\", "/");
-  const oldWithoutExtension = withoutSourceExtension(normalizedOld);
-  const newWithoutExtension = withoutSourceExtension(normalizedNew);
+  const oldWithoutExtension = withoutSourceExtension2(normalizedOld);
+  const newWithoutExtension = withoutSourceExtension2(normalizedNew);
   const explicitExtensions = [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"];
   for (const extension of explicitExtensions) {
     const oldVariant = `${oldWithoutExtension}${extension}`;
@@ -232976,7 +233758,7 @@ function rewriteImportTarget(source, oldSourcePath, newSourcePath, oldTargetPath
   }
   for (const [prefix, rawTarget] of Object.entries(aliases)) {
     const target = rawTarget.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/$/, "");
-    const targetWithoutExtension = withoutSourceExtension(target);
+    const targetWithoutExtension = withoutSourceExtension2(target);
     if (prefix.endsWith("/")) {
       const aliasVariants = [
         [oldWithoutExtension, newWithoutExtension, targetWithoutExtension, false],
@@ -233074,10 +233856,10 @@ function buildExpandedOwnerCapabilityPlan(input, target, existing, existingSourc
     );
   }
   if (hasFlatGateway) {
-    const withoutSourceExtension = (value) => value.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i, "");
-    const flatTarget = withoutSourceExtension(flatGateway);
+    const withoutSourceExtension2 = (value) => value.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/i, "");
+    const flatTarget = withoutSourceExtension2(flatGateway);
     const exactAlias = Object.entries(input.aliases ?? {}).find(
-      ([prefix, target2]) => !prefix.endsWith("/") && withoutSourceExtension(target2) === flatTarget
+      ([prefix, target2]) => !prefix.endsWith("/") && withoutSourceExtension2(target2) === flatTarget
     );
     if (exactAlias) {
       throw new Error(
@@ -233319,12 +234101,12 @@ function buildSrijikaOwnershipCreationPlan(input) {
     moves: []
   };
 }
-var import_typescript4, ACTION_ROLE;
+var import_typescript5, ACTION_ROLE;
 var init_ownership = __esm({
   "../project-scaffold/src/ownership.ts"() {
     "use strict";
     init_src2();
-    import_typescript4 = __toESM(require_typescript(), 1);
+    import_typescript5 = __toESM(require_typescript(), 1);
     ACTION_ROLE = {
       featureConnector: "connector",
       featureHook: "hook",
@@ -233363,13 +234145,13 @@ var init_ownership = __esm({
 // ../project-scaffold/src/ownership-writer.ts
 import { randomBytes } from "node:crypto";
 import { link, lstat as lstat3, mkdir as mkdir2, open as open2, readFile as readFile2, realpath as realpath2, rename, rm, unlink } from "node:fs/promises";
-import { dirname as dirname3, isAbsolute as isAbsolute3, relative as relative4, resolve as resolve5 } from "node:path";
+import { dirname as dirname3, isAbsolute as isAbsolute3, relative as relative4, resolve as resolve6 } from "node:path";
 function destinationFor2(root, relativePath) {
   const normalized2 = relativePath.replaceAll("\\", "/");
   if (!normalized2 || normalized2.startsWith("/") || isAbsolute3(normalized2) || normalized2.split("/").some((segment) => !segment || segment === "." || segment === "..")) {
     throw new Error(`Unsafe ownership path: ${relativePath}`);
   }
-  const destination = resolve5(root, ...normalized2.split("/"));
+  const destination = resolve6(root, ...normalized2.split("/"));
   const fromRoot = relative4(root, destination);
   if (!fromRoot || fromRoot.startsWith("..") || isAbsolute3(fromRoot)) {
     throw new Error(`Unsafe ownership path: ${relativePath}`);
@@ -233398,7 +234180,7 @@ async function assertSafeAncestors(root, realRoot, destination, relativePath) {
   const segments = relative4(root, parent).split(/[\\/]+/).filter(Boolean);
   let current = root;
   for (const segment of segments) {
-    current = resolve5(current, segment);
+    current = resolve6(current, segment);
     try {
       const metadata = await lstat3(current);
       if (metadata.isSymbolicLink()) {
@@ -233420,7 +234202,7 @@ async function ensureSafeParentDirectories(root, realRoot, destination, relative
   const segments = relative4(root, parent).split(/[\\/]+/).filter(Boolean);
   let current = root;
   for (const segment of segments) {
-    current = resolve5(current, segment);
+    current = resolve6(current, segment);
     let metadata;
     try {
       metadata = await lstat3(current);
@@ -233473,7 +234255,7 @@ async function temporaryFileFor(root, realRoot, destination, file) {
 async function applySrijikaOwnershipCreationPlan(projectRoot, plan, options = {}) {
   if (!isAbsolute3(projectRoot))
     throw new TypeError("projectRoot must be an explicit absolute path.");
-  const root = resolve5(projectRoot);
+  const root = resolve6(projectRoot);
   const realRoot = await assertSafeProjectRoot(root);
   const created = plan.files.map((file) => ({
     file,
@@ -233903,24 +234685,24 @@ var init_testing2 = __esm({
 });
 
 // ../project-scaffold/src/next-app.ts
-var import_typescript5, SRIJIKA_GENERATED_NEXT_ROUTE_HEADER;
+var import_typescript6, SRIJIKA_GENERATED_NEXT_ROUTE_HEADER;
 var init_next_app = __esm({
   "../project-scaffold/src/next-app.ts"() {
     "use strict";
-    import_typescript5 = __toESM(require_typescript(), 1);
+    import_typescript6 = __toESM(require_typescript(), 1);
     SRIJIKA_GENERATED_NEXT_ROUTE_HEADER = "/* Generated by Srijika. Re-run the Next route synchronizer instead of editing this file. */";
   }
 });
 
 // ../project-scaffold/src/test-writer.ts
 import { lstat as lstat4, readFile as readFile3 } from "node:fs/promises";
-import { isAbsolute as isAbsolute4, relative as relative5, resolve as resolve6 } from "node:path";
+import { isAbsolute as isAbsolute4, relative as relative5, resolve as resolve7 } from "node:path";
 function destinationFor3(root, relativePath) {
   const normalized2 = relativePath.replaceAll("\\", "/");
   if (!normalized2 || normalized2.startsWith("/") || isAbsolute4(normalized2) || normalized2.split("/").some((segment) => !segment || segment === "." || segment === "..")) {
     throw new Error(`Unsafe generated test path: ${relativePath}`);
   }
-  const destination = resolve6(root, ...normalized2.split("/"));
+  const destination = resolve7(root, ...normalized2.split("/"));
   const fromRoot = relative5(root, destination);
   if (!fromRoot || fromRoot.startsWith("..") || isAbsolute4(fromRoot)) {
     throw new Error(`Unsafe generated test path: ${relativePath}`);
@@ -233948,7 +234730,7 @@ async function applySrijikaTestAdapterPlan(projectRoot, plan) {
   if (!isAbsolute4(projectRoot)) {
     throw new TypeError("projectRoot must be an explicit absolute path.");
   }
-  const root = resolve6(projectRoot);
+  const root = resolve7(projectRoot);
   const rootMetadata = await lstat4(root);
   if (rootMetadata.isSymbolicLink() || !rootMetadata.isDirectory()) {
     throw new Error("projectRoot must be a real directory, not a symbolic link.");
@@ -234020,7 +234802,7 @@ var init_test_writer = __esm({
 
 // ../project-scaffold/src/test-package-writer.ts
 import { lstat as lstat5, readFile as readFile4 } from "node:fs/promises";
-import { isAbsolute as isAbsolute5, resolve as resolve7 } from "node:path";
+import { isAbsolute as isAbsolute5, resolve as resolve8 } from "node:path";
 function record2(value, field) {
   if (value === void 0) return {};
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -234037,8 +234819,8 @@ async function applySrijikaTestPackagePlan(projectRoot, plan) {
   if (!isAbsolute5(projectRoot)) {
     throw new TypeError("projectRoot must be an explicit absolute path.");
   }
-  const root = resolve7(projectRoot);
-  const packagePath = resolve7(root, "package.json");
+  const root = resolve8(projectRoot);
+  const packagePath = resolve8(root, "package.json");
   const metadata = await lstat5(packagePath);
   if (metadata.isSymbolicLink() || !metadata.isFile()) {
     throw new Error("package.json must be a regular file, not a symbolic link.");
@@ -234575,7 +235357,7 @@ var init_intrinsics = __esm({
 
 // ../tsx-compiler/src/policy.ts
 function isCommentLikeNode2(node) {
-  return node.kind >= ts6.SyntaxKind.FirstJSDocNode && node.kind <= ts6.SyntaxKind.LastJSDocNode;
+  return node.kind >= ts7.SyntaxKind.FirstJSDocNode && node.kind <= ts7.SyntaxKind.LastJSDocNode;
 }
 function countMeaningfulLines2(sourceFile2, root) {
   const lines = /* @__PURE__ */ new Set();
@@ -234586,7 +235368,7 @@ function countMeaningfulLines2(sourceFile2, root) {
       for (const child of children) visit(child);
       return;
     }
-    if (node.kind === ts6.SyntaxKind.EndOfFileToken) return;
+    if (node.kind === ts7.SyntaxKind.EndOfFileToken) return;
     const start = node.getStart(sourceFile2);
     const end = node.getEnd();
     if (end <= start) return;
@@ -234603,11 +235385,11 @@ function countMeaningfulLines2(sourceFile2, root) {
   visit(root);
   return lines.size;
 }
-var ts6, SRIJIKA_UI_COMPLEXITY_POLICY;
+var ts7, SRIJIKA_UI_COMPLEXITY_POLICY;
 var init_policy2 = __esm({
   "../tsx-compiler/src/policy.ts"() {
     "use strict";
-    ts6 = __toESM(require_typescript(), 1);
+    ts7 = __toESM(require_typescript(), 1);
     SRIJIKA_UI_COMPLEXITY_POLICY = Object.freeze({
       maxComponentMeaningfulLines: 200,
       maxFileMeaningfulLines: 300,
@@ -234654,32 +235436,32 @@ function mergeShapes(shapes) {
   return first;
 }
 function isNullishType(node) {
-  return node.kind === ts7.SyntaxKind.UndefinedKeyword || ts7.isLiteralTypeNode(node) && node.literal.kind === ts7.SyntaxKind.NullKeyword;
+  return node.kind === ts8.SyntaxKind.UndefinedKeyword || ts8.isLiteralTypeNode(node) && node.literal.kind === ts8.SyntaxKind.NullKeyword;
 }
 function hasModifier(node, kind) {
-  return ts7.canHaveModifiers(node) && (ts7.getModifiers(node)?.some((modifier) => modifier.kind === kind) ?? false);
+  return ts8.canHaveModifiers(node) && (ts8.getModifiers(node)?.some((modifier) => modifier.kind === kind) ?? false);
 }
 function isTypeOnlyImportDeclaration(statement) {
   const clause = statement.importClause;
   if (!clause) return false;
   if (clause.isTypeOnly) return true;
-  return !clause.name && !!clause.namedBindings && ts7.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.every((element) => element.isTypeOnly);
+  return !clause.name && !!clause.namedBindings && ts8.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.every((element) => element.isTypeOnly);
 }
 function isPassiveTypeModuleStatement(statement) {
-  if (ts7.isImportDeclaration(statement)) return isTypeOnlyImportDeclaration(statement);
-  if (ts7.isInterfaceDeclaration(statement) || ts7.isTypeAliasDeclaration(statement)) return true;
-  if (ts7.isExportDeclaration(statement)) {
+  if (ts8.isImportDeclaration(statement)) return isTypeOnlyImportDeclaration(statement);
+  if (ts8.isInterfaceDeclaration(statement) || ts8.isTypeAliasDeclaration(statement)) return true;
+  if (ts8.isExportDeclaration(statement)) {
     if (statement.isTypeOnly) return true;
-    return !statement.moduleSpecifier && !!statement.exportClause && ts7.isNamedExports(statement.exportClause) && statement.exportClause.elements.length === 0;
+    return !statement.moduleSpecifier && !!statement.exportClause && ts8.isNamedExports(statement.exportClause) && statement.exportClause.elements.length === 0;
   }
-  return ts7.isEmptyStatement(statement);
+  return ts8.isEmptyStatement(statement);
 }
 function containsTypeQuery(node) {
-  if (ts7.isTypeQueryNode(node)) return true;
+  if (ts8.isTypeQueryNode(node)) return true;
   return node.getChildren().some(containsTypeQuery);
 }
 function propertyName(node) {
-  if (ts7.isIdentifier(node) || ts7.isStringLiteral(node) || ts7.isNumericLiteral(node)) {
+  if (ts8.isIdentifier(node) || ts8.isStringLiteral(node) || ts8.isNumericLiteral(node)) {
     return node.text;
   }
   return null;
@@ -234790,30 +235572,30 @@ function normalizeJsxText(value) {
 }
 function unwrapExpression(expression) {
   let current = expression;
-  while (ts7.isParenthesizedExpression(current) || ts7.isAsExpression(current) || ts7.isTypeAssertionExpression(current) || ts7.isNonNullExpression(current) || ts7.isSatisfiesExpression(current)) {
+  while (ts8.isParenthesizedExpression(current) || ts8.isAsExpression(current) || ts8.isTypeAssertionExpression(current) || ts8.isNonNullExpression(current) || ts8.isSatisfiesExpression(current)) {
     current = current.expression;
   }
   return current;
 }
 function isJsxRenderable(node) {
-  return ts7.isJsxElement(node) || ts7.isJsxSelfClosingElement(node) || ts7.isJsxFragment(node);
+  return ts8.isJsxElement(node) || ts8.isJsxSelfClosingElement(node) || ts8.isJsxFragment(node);
 }
 function compileSrijikaTsx(fileName, source, options = {}) {
   return new SrijikaTsxCompiler(fileName, source, options).compile();
 }
 function srijikaTypeOnlyModuleSpecifiers(source) {
-  const sourceFile2 = ts7.createSourceFile(
+  const sourceFile2 = ts8.createSourceFile(
     "Srijika.ui.tsx",
     source,
-    ts7.ScriptTarget.Latest,
+    ts8.ScriptTarget.Latest,
     true,
-    ts7.ScriptKind.TSX
+    ts8.ScriptKind.TSX
   );
   return Object.freeze(
     [
       ...new Set(
         sourceFile2.statements.flatMap((statement) => {
-          if (!ts7.isImportDeclaration(statement) || !ts7.isStringLiteral(statement.moduleSpecifier) || !/^\.\.?\//.test(statement.moduleSpecifier.text) || !statement.importClause?.namedBindings || !ts7.isNamedImports(statement.importClause.namedBindings) || !(statement.importClause.isTypeOnly || statement.importClause.namedBindings.elements.some((element) => element.isTypeOnly))) {
+          if (!ts8.isImportDeclaration(statement) || !ts8.isStringLiteral(statement.moduleSpecifier) || !/^\.\.?\//.test(statement.moduleSpecifier.text) || !statement.importClause?.namedBindings || !ts8.isNamedImports(statement.importClause.namedBindings) || !(statement.importClause.isTypeOnly || statement.importClause.namedBindings.elements.some((element) => element.isTypeOnly))) {
             return [];
           }
           return [statement.moduleSpecifier.text];
@@ -234822,12 +235604,12 @@ function srijikaTypeOnlyModuleSpecifiers(source) {
     ].sort((left, right) => left.localeCompare(right))
   );
 }
-var ts7, tagDefinitions, SRIJIKA_INTRINSIC_TAGS, intrinsicTags, forbiddenPathSegments, binaryOperators, SrijikaTsxCompiler;
+var ts8, tagDefinitions, SRIJIKA_INTRINSIC_TAGS, intrinsicTags, forbiddenPathSegments, binaryOperators, SrijikaTsxCompiler;
 var init_compiler = __esm({
   "../tsx-compiler/src/compiler.ts"() {
     "use strict";
     init_src();
-    ts7 = __toESM(require_typescript(), 1);
+    ts8 = __toESM(require_typescript(), 1);
     init_intrinsics();
     init_policy2();
     tagDefinitions = {
@@ -234861,21 +235643,21 @@ var init_compiler = __esm({
     intrinsicTags = SRIJIKA_INTRINSIC_TAGS.join(", ");
     forbiddenPathSegments = /* @__PURE__ */ new Set(["__proto__", "prototype", "constructor"]);
     binaryOperators = /* @__PURE__ */ new Map([
-      [ts7.SyntaxKind.EqualsEqualsToken, "equals"],
-      [ts7.SyntaxKind.EqualsEqualsEqualsToken, "equals"],
-      [ts7.SyntaxKind.ExclamationEqualsToken, "notEquals"],
-      [ts7.SyntaxKind.ExclamationEqualsEqualsToken, "notEquals"],
-      [ts7.SyntaxKind.GreaterThanToken, "greaterThan"],
-      [ts7.SyntaxKind.GreaterThanEqualsToken, "greaterThanOrEqual"],
-      [ts7.SyntaxKind.LessThanToken, "lessThan"],
-      [ts7.SyntaxKind.LessThanEqualsToken, "lessThanOrEqual"],
-      [ts7.SyntaxKind.AmpersandAmpersandToken, "and"],
-      [ts7.SyntaxKind.BarBarToken, "or"],
-      [ts7.SyntaxKind.QuestionQuestionToken, "coalesce"],
-      [ts7.SyntaxKind.PlusToken, "add"],
-      [ts7.SyntaxKind.MinusToken, "subtract"],
-      [ts7.SyntaxKind.AsteriskToken, "multiply"],
-      [ts7.SyntaxKind.SlashToken, "divide"]
+      [ts8.SyntaxKind.EqualsEqualsToken, "equals"],
+      [ts8.SyntaxKind.EqualsEqualsEqualsToken, "equals"],
+      [ts8.SyntaxKind.ExclamationEqualsToken, "notEquals"],
+      [ts8.SyntaxKind.ExclamationEqualsEqualsToken, "notEquals"],
+      [ts8.SyntaxKind.GreaterThanToken, "greaterThan"],
+      [ts8.SyntaxKind.GreaterThanEqualsToken, "greaterThanOrEqual"],
+      [ts8.SyntaxKind.LessThanToken, "lessThan"],
+      [ts8.SyntaxKind.LessThanEqualsToken, "lessThanOrEqual"],
+      [ts8.SyntaxKind.AmpersandAmpersandToken, "and"],
+      [ts8.SyntaxKind.BarBarToken, "or"],
+      [ts8.SyntaxKind.QuestionQuestionToken, "coalesce"],
+      [ts8.SyntaxKind.PlusToken, "add"],
+      [ts8.SyntaxKind.MinusToken, "subtract"],
+      [ts8.SyntaxKind.AsteriskToken, "multiply"],
+      [ts8.SyntaxKind.SlashToken, "divide"]
     ]);
     SrijikaTsxCompiler = class {
       #sourceFile;
@@ -234895,12 +235677,12 @@ var init_compiler = __esm({
       #externalDiagnosticAnchor = null;
       #needsPropsInterface = false;
       constructor(fileName, source, options) {
-        this.#sourceFile = ts7.createSourceFile(
+        this.#sourceFile = ts8.createSourceFile(
           fileName,
           source,
-          ts7.ScriptTarget.Latest,
+          ts8.ScriptTarget.Latest,
           true,
-          ts7.ScriptKind.TSX
+          ts8.ScriptKind.TSX
         );
         this.#options = options;
         for (const module of options.resolvedTypeModules ?? []) {
@@ -234908,12 +235690,12 @@ var init_compiler = __esm({
           this.#resolvedTypeModules.set(module.specifier, {
             fileName: module.fileName,
             ...module.hash ? { hash: module.hash } : {},
-            sourceFile: ts7.createSourceFile(
+            sourceFile: ts8.createSourceFile(
               module.fileName,
               module.source,
-              ts7.ScriptTarget.Latest,
+              ts8.ScriptTarget.Latest,
               true,
-              ts7.ScriptKind.TS
+              ts8.ScriptKind.TS
             )
           });
         }
@@ -234925,7 +235707,7 @@ var init_compiler = __esm({
           const end = start + (diagnostic2.length ?? 1);
           this.#addDiagnostic(
             "SRIJIKA0001",
-            ts7.flattenDiagnosticMessageText(diagnostic2.messageText, "\n"),
+            ts8.flattenDiagnosticMessageText(diagnostic2.messageText, "\n"),
             start,
             end
           );
@@ -234933,7 +235715,7 @@ var init_compiler = __esm({
         if (syntaxDiagnostics.length > 0) return this.#result(null);
         this.#validateFileComplexity();
         const components = this.#sourceFile.statements.filter(
-          (statement) => ts7.isFunctionDeclaration(statement) && hasModifier(statement, ts7.SyntaxKind.ExportKeyword)
+          (statement) => ts8.isFunctionDeclaration(statement) && hasModifier(statement, ts8.SyntaxKind.ExportKeyword)
         );
         if (components.length === 0) {
           this.#addDiagnostic(
@@ -235103,7 +235885,7 @@ var init_compiler = __esm({
         const parameter = component.parameters[0];
         if (!parameter) return;
         this.#propsParameter = parameter;
-        if (!ts7.isIdentifier(parameter.name)) {
+        if (!ts8.isIdentifier(parameter.name)) {
           this.#addDiagnostic(
             "SRIJIKA1003",
             "Destructured props are not supported. Use one named props parameter.",
@@ -235116,7 +235898,7 @@ var init_compiler = __esm({
           this.#needsPropsInterface = true;
           return;
         }
-        if (!ts7.isTypeReferenceNode(parameter.type) || !ts7.isIdentifier(parameter.type.typeName)) {
+        if (!ts8.isTypeReferenceNode(parameter.type) || !ts8.isIdentifier(parameter.type.typeName)) {
           this.#needsPropsInterface = true;
           this.#addDiagnostic(
             "SRIJIKA1003",
@@ -235127,7 +235909,7 @@ var init_compiler = __esm({
         }
         const interfaceName = parameter.type.typeName.text;
         let declaration = this.#sourceFile.statements.find(
-          (statement) => ts7.isInterfaceDeclaration(statement) && statement.name.text === interfaceName
+          (statement) => ts8.isInterfaceDeclaration(statement) && statement.name.text === interfaceName
         );
         if (!declaration) {
           const imported = this.#resolveImportedPropsInterface(interfaceName, parameter.type);
@@ -235153,7 +235935,7 @@ var init_compiler = __esm({
             declaration.heritageClauses[0] ?? declaration
           );
         }
-        const topLevelMembers = declaration.members.filter(ts7.isPropertySignature);
+        const topLevelMembers = declaration.members.filter(ts8.isPropertySignature);
         if (topLevelMembers.length > SRIJIKA_UI_COMPLEXITY_POLICY.maxTopLevelContractMembers) {
           this.#addDiagnostic(
             "SRIJIKA3003",
@@ -235162,7 +235944,7 @@ var init_compiler = __esm({
           );
         }
         for (const member of declaration.members) {
-          if (!ts7.isPropertySignature(member) || !member.name) {
+          if (!ts8.isPropertySignature(member) || !member.name) {
             this.#addDiagnostic(
               "SRIJIKA1005",
               "Only property declarations are allowed in a Srijika props interface.",
@@ -235207,7 +235989,7 @@ var init_compiler = __esm({
       #resolveImportedPropsInterface(localName, anchor) {
         const matches = [];
         for (const statement of this.#sourceFile.statements) {
-          if (!ts7.isImportDeclaration(statement) || !ts7.isStringLiteral(statement.moduleSpecifier) || !statement.importClause?.namedBindings || !ts7.isNamedImports(statement.importClause.namedBindings)) {
+          if (!ts8.isImportDeclaration(statement) || !ts8.isStringLiteral(statement.moduleSpecifier) || !statement.importClause?.namedBindings || !ts8.isNamedImports(statement.importClause.namedBindings)) {
             continue;
           }
           for (const element of statement.importClause.namedBindings.elements) {
@@ -235265,7 +236047,7 @@ var init_compiler = __esm({
           return null;
         }
         const declarations = module.sourceFile.statements.filter(
-          (statement) => ts7.isInterfaceDeclaration(statement) && statement.name.text === imported.importedName && hasModifier(statement, ts7.SyntaxKind.ExportKeyword)
+          (statement) => ts8.isInterfaceDeclaration(statement) && statement.name.text === imported.importedName && hasModifier(statement, ts8.SyntaxKind.ExportKeyword)
         );
         if (declarations.length !== 1) {
           this.#addDiagnostic(
@@ -235288,8 +236070,8 @@ var init_compiler = __esm({
       }
       #eventSignature(node) {
         let type = node;
-        while (ts7.isParenthesizedTypeNode(type)) type = type.type;
-        if (!ts7.isFunctionTypeNode(type)) return null;
+        while (ts8.isParenthesizedTypeNode(type)) type = type.type;
+        if (!ts8.isFunctionTypeNode(type)) return null;
         if (type.parameters.length > 1) {
           this.#addDiagnostic(
             "SRIJIKA1005",
@@ -235297,12 +236079,12 @@ var init_compiler = __esm({
             type.parameters[1] ?? type
           );
         }
-        if (type.type.kind !== ts7.SyntaxKind.VoidKeyword) {
+        if (type.type.kind !== ts8.SyntaxKind.VoidKeyword) {
           this.#addDiagnostic("SRIJIKA1005", "A Srijika event callback must return void.", type.type);
         }
         const parameter = type.parameters[0];
         if (!parameter) return { payload: null };
-        if (!ts7.isIdentifier(parameter.name) || !parameter.type) {
+        if (!ts8.isIdentifier(parameter.name) || !parameter.type) {
           this.#addDiagnostic(
             "SRIJIKA1005",
             "A normalized event payload needs a named parameter with an explicit type.",
@@ -235319,15 +236101,15 @@ var init_compiler = __esm({
       }
       #parseType(node, resolving = /* @__PURE__ */ new Set()) {
         switch (node.kind) {
-          case ts7.SyntaxKind.StringKeyword:
+          case ts8.SyntaxKind.StringKeyword:
             return { kind: "string" };
-          case ts7.SyntaxKind.NumberKeyword:
+          case ts8.SyntaxKind.NumberKeyword:
             return { kind: "number" };
-          case ts7.SyntaxKind.BooleanKeyword:
+          case ts8.SyntaxKind.BooleanKeyword:
             return { kind: "boolean" };
-          case ts7.SyntaxKind.UnknownKeyword:
+          case ts8.SyntaxKind.UnknownKeyword:
             return { kind: "unknown" };
-          case ts7.SyntaxKind.AnyKeyword:
+          case ts8.SyntaxKind.AnyKeyword:
             this.#addDiagnostic(
               "SRIJIKA1005",
               "`any` disables contract safety. Prefer `unknown` and narrow it before use.",
@@ -235338,18 +236120,18 @@ var init_compiler = __esm({
           default:
             break;
         }
-        if (ts7.isParenthesizedTypeNode(node)) return this.#parseType(node.type, resolving);
-        if (ts7.isTypeOperatorNode(node)) return this.#parseType(node.type, resolving);
-        if (ts7.isArrayTypeNode(node)) {
+        if (ts8.isParenthesizedTypeNode(node)) return this.#parseType(node.type, resolving);
+        if (ts8.isTypeOperatorNode(node)) return this.#parseType(node.type, resolving);
+        if (ts8.isArrayTypeNode(node)) {
           return { kind: "array", item: this.#parseType(node.elementType, resolving) };
         }
-        if (ts7.isTupleTypeNode(node)) {
+        if (ts8.isTupleTypeNode(node)) {
           return {
             kind: "array",
             item: mergeShapes(
               node.elements.map((element) => {
-                if (ts7.isNamedTupleMember(element)) return this.#parseType(element.type, resolving);
-                if (ts7.isOptionalTypeNode(element) || ts7.isRestTypeNode(element)) {
+                if (ts8.isNamedTupleMember(element)) return this.#parseType(element.type, resolving);
+                if (ts8.isOptionalTypeNode(element) || ts8.isRestTypeNode(element)) {
                   return this.#parseType(element.type, resolving);
                 }
                 return this.#parseType(element, resolving);
@@ -235357,7 +236139,7 @@ var init_compiler = __esm({
             )
           };
         }
-        if (ts7.isTypeReferenceNode(node)) {
+        if (ts8.isTypeReferenceNode(node)) {
           const sourceFile2 = node.getSourceFile();
           const name = node.typeName.getText(sourceFile2);
           if ((name === "Array" || name === "ReadonlyArray") && node.typeArguments?.length === 1) {
@@ -235368,10 +236150,10 @@ var init_compiler = __esm({
           }
           if (resolving.has(name)) return { kind: "unknown" };
           const interfaceDeclaration = sourceFile2.statements.find(
-            (statement) => ts7.isInterfaceDeclaration(statement) && statement.name.text === name
+            (statement) => ts8.isInterfaceDeclaration(statement) && statement.name.text === name
           );
           const typeAliasDeclaration = sourceFile2.statements.find(
-            (statement) => ts7.isTypeAliasDeclaration(statement) && statement.name.text === name
+            (statement) => ts8.isTypeAliasDeclaration(statement) && statement.name.text === name
           );
           if (interfaceDeclaration || typeAliasDeclaration) {
             const nextResolving = new Set(resolving).add(name);
@@ -235382,27 +236164,27 @@ var init_compiler = __esm({
           }
           return { kind: "unknown" };
         }
-        if (ts7.isTypeLiteralNode(node)) {
+        if (ts8.isTypeLiteralNode(node)) {
           return this.#parseObjectMembers(node.members, resolving);
         }
-        if (ts7.isUnionTypeNode(node)) {
+        if (ts8.isUnionTypeNode(node)) {
           const nonNullish = node.types.filter((type) => !isNullishType(type));
           return mergeShapes(
             nonNullish.map(
-              (type) => ts7.isLiteralTypeNode(type) ? this.#literalTypeShape(type.literal) : this.#parseType(type, resolving)
+              (type) => ts8.isLiteralTypeNode(type) ? this.#literalTypeShape(type.literal) : this.#parseType(type, resolving)
             )
           );
         }
-        if (ts7.isIntersectionTypeNode(node)) {
+        if (ts8.isIntersectionTypeNode(node)) {
           return mergeShapes(node.types.map((type) => this.#parseType(type, resolving)));
         }
-        if (ts7.isLiteralTypeNode(node)) return this.#literalTypeShape(node.literal);
+        if (ts8.isLiteralTypeNode(node)) return this.#literalTypeShape(node.literal);
         return { kind: "unknown" };
       }
       #parseObjectMembers(members, resolving) {
         const fields = {};
         for (const member of members) {
-          if (!ts7.isPropertySignature(member) || !member.name) {
+          if (!ts8.isPropertySignature(member) || !member.name) {
             this.#addDiagnostic(
               "SRIJIKA1005",
               "Nested Srijika object types may contain only properties.",
@@ -235441,25 +236223,25 @@ var init_compiler = __esm({
         return { kind: "object", fields, additionalProperties: false };
       }
       #literalTypeShape(literalNode) {
-        if (ts7.isStringLiteral(literalNode)) return { kind: "string" };
-        if (ts7.isNumericLiteral(literalNode)) return { kind: "number" };
-        if (literalNode.kind === ts7.SyntaxKind.TrueKeyword || literalNode.kind === ts7.SyntaxKind.FalseKeyword) {
+        if (ts8.isStringLiteral(literalNode)) return { kind: "string" };
+        if (ts8.isNumericLiteral(literalNode)) return { kind: "number" };
+        if (literalNode.kind === ts8.SyntaxKind.TrueKeyword || literalNode.kind === ts8.SyntaxKind.FalseKeyword) {
           return { kind: "boolean" };
         }
         return { kind: "unknown" };
       }
       #isReactNodeType(node) {
-        if (!ts7.isTypeReferenceNode(node)) return false;
+        if (!ts8.isTypeReferenceNode(node)) return false;
         const typeName = node.typeName.getText(node.getSourceFile());
         return typeName === "ReactNode" || typeName === "React.ReactNode";
       }
       #findReturn(component) {
         const body = component.body;
         if (!body) return null;
-        const returns = body.statements.filter(ts7.isReturnStatement);
+        const returns = body.statements.filter(ts8.isReturnStatement);
         for (const statement of body.statements) {
-          if (ts7.isReturnStatement(statement)) continue;
-          if (ts7.isExpressionStatement(statement) && ts7.isStringLiteral(statement.expression)) {
+          if (ts8.isReturnStatement(statement)) continue;
+          if (ts8.isExpressionStatement(statement) && ts8.isStringLiteral(statement.expression)) {
             continue;
           }
           this.#addDiagnostic(
@@ -235479,7 +236261,7 @@ var init_compiler = __esm({
         return returns[0];
       }
       #compileRenderable(renderable, requestedId) {
-        if (ts7.isJsxFragment(renderable)) {
+        if (ts8.isJsxFragment(renderable)) {
           const id2 = stableNodeId(requestedId);
           const children2 = this.#compileChildren(renderable.children, id2);
           this.#recordNode(
@@ -235493,7 +236275,7 @@ var init_compiler = __esm({
           );
           return [id2];
         }
-        const opening = ts7.isJsxElement(renderable) ? renderable.openingElement : renderable;
+        const opening = ts8.isJsxElement(renderable) ? renderable.openingElement : renderable;
         const tag = opening.tagName.getText(this.#sourceFile);
         const definition = tagDefinitions[tag];
         if (!definition) {
@@ -235505,7 +236287,7 @@ var init_compiler = __esm({
           return [];
         }
         const id = stableNodeId(requestedId);
-        const children = ts7.isJsxElement(renderable) ? renderable.children : [];
+        const children = ts8.isJsxElement(renderable) ? renderable.children : [];
         const node = this.#createElement(id, tag, definition, children);
         this.#compileAttributes(node, tag, definition, opening.attributes);
         this.#recordNode(node, renderable);
@@ -235582,7 +236364,7 @@ var init_compiler = __esm({
         let outputIndex = 0;
         for (const child of children) {
           const childBase = `${parentId}_${outputIndex}`;
-          if (ts7.isJsxText(child)) {
+          if (ts8.isJsxText(child)) {
             const value = normalizeJsxText(child.text);
             if (!value) continue;
             const id = stableNodeId(`${childBase}_text`);
@@ -235591,7 +236373,7 @@ var init_compiler = __esm({
             outputIndex += 1;
             continue;
           }
-          if (ts7.isJsxExpression(child)) {
+          if (ts8.isJsxExpression(child)) {
             if (!child.expression) continue;
             const ids2 = this.#compileStructuralExpression(child.expression, childBase);
             result.push(...ids2);
@@ -235627,7 +236409,7 @@ var init_compiler = __esm({
             return [id2];
           }
         }
-        if (ts7.isBinaryExpression(value) && value.operatorToken.kind === ts7.SyntaxKind.AmpersandAmpersandToken) {
+        if (ts8.isBinaryExpression(value) && value.operatorToken.kind === ts8.SyntaxKind.AmpersandAmpersandToken) {
           const id2 = stableNodeId(`${requestedId}_if`);
           const condition = this.#compileExpression(value.left, "boolean");
           const whenTrue = this.#compileBranch(value.right, `${id2}_true`);
@@ -235644,7 +236426,7 @@ var init_compiler = __esm({
           );
           return [id2];
         }
-        if (ts7.isConditionalExpression(value)) {
+        if (ts8.isConditionalExpression(value)) {
           const id2 = stableNodeId(`${requestedId}_if`);
           const condition = this.#compileExpression(value.condition, "boolean");
           const whenTrue = this.#compileBranch(value.whenTrue, `${id2}_true`);
@@ -235662,7 +236444,7 @@ var init_compiler = __esm({
           );
           return [id2];
         }
-        if (value.kind === ts7.SyntaxKind.NullKeyword || value.kind === ts7.SyntaxKind.FalseKeyword || ts7.isIdentifier(value) && value.text === "undefined") {
+        if (value.kind === ts8.SyntaxKind.NullKeyword || value.kind === ts8.SyntaxKind.FalseKeyword || ts8.isIdentifier(value) && value.text === "undefined") {
           return [];
         }
         const id = stableNodeId(`${requestedId}_expression`);
@@ -235680,7 +236462,7 @@ var init_compiler = __esm({
       #compileBranch(expression, requestedId) {
         const value = unwrapExpression(expression);
         if (isJsxRenderable(value)) return this.#compileRenderable(value, requestedId);
-        if (value.kind === ts7.SyntaxKind.NullKeyword || value.kind === ts7.SyntaxKind.FalseKeyword || ts7.isIdentifier(value) && value.text === "undefined") {
+        if (value.kind === ts8.SyntaxKind.NullKeyword || value.kind === ts8.SyntaxKind.FalseKeyword || ts8.isIdentifier(value) && value.text === "undefined") {
           return [];
         }
         const id = stableNodeId(`${requestedId}_expression`);
@@ -235698,12 +236480,12 @@ var init_compiler = __esm({
       #compileLeafContent(children, expected) {
         const parts = [];
         for (const child of children) {
-          if (ts7.isJsxText(child)) {
+          if (ts8.isJsxText(child)) {
             const value = normalizeJsxText(child.text);
             if (value) parts.push(value);
             continue;
           }
-          if (ts7.isJsxExpression(child)) {
+          if (ts8.isJsxExpression(child)) {
             if (child.expression) parts.push(this.#compileExpression(child.expression, expected));
             continue;
           }
@@ -235732,7 +236514,7 @@ var init_compiler = __esm({
       #compileAttributes(node, tag, definition, attributes) {
         const instanceProps = {};
         for (const attribute of attributes.properties) {
-          if (ts7.isJsxSpreadAttribute(attribute)) {
+          if (ts8.isJsxSpreadAttribute(attribute)) {
             this.#addDiagnostic(
               "SRIJIKA2002",
               "JSX spread attributes are not allowed in Srijika UI files.",
@@ -235817,7 +236599,7 @@ var init_compiler = __esm({
       #safeInstanceAttributeType(tag, name, attribute) {
         if (/^(?:aria|data)-[a-z][a-z0-9_.:-]*$/.test(name)) {
           if (!attribute.initializer) return "boolean";
-          if (ts7.isJsxExpression(attribute.initializer) && attribute.initializer.expression && (attribute.initializer.expression.kind === ts7.SyntaxKind.TrueKeyword || attribute.initializer.expression.kind === ts7.SyntaxKind.FalseKeyword)) {
+          if (ts8.isJsxExpression(attribute.initializer) && attribute.initializer.expression && (attribute.initializer.expression.kind === ts8.SyntaxKind.TrueKeyword || attribute.initializer.expression.kind === ts8.SyntaxKind.FalseKeyword)) {
             return "boolean";
           }
           return "string";
@@ -235839,7 +236621,7 @@ var init_compiler = __esm({
           }
           return literal2(true);
         }
-        if (ts7.isStringLiteral(initializer3)) {
+        if (ts8.isStringLiteral(initializer3)) {
           if (expected === "event") {
             this.#addDiagnostic(
               "SRIJIKA2003",
@@ -235850,7 +236632,7 @@ var init_compiler = __esm({
           }
           return literal2(initializer3.text);
         }
-        if (!ts7.isJsxExpression(initializer3)) {
+        if (!ts8.isJsxExpression(initializer3)) {
           this.#addDiagnostic(
             "SRIJIKA2003",
             "A JSX element cannot be used directly as an attribute value.",
@@ -235885,18 +236667,18 @@ var init_compiler = __esm({
       #isNormalizedInputValueBridge(attribute, expression) {
         const name = attribute.name.getText(this.#sourceFile);
         if (name !== "onChange" && name !== "onInput") return false;
-        if (!ts7.isArrowFunction(expression) || expression.parameters.length !== 1) return false;
+        if (!ts8.isArrowFunction(expression) || expression.parameters.length !== 1) return false;
         const parameter = expression.parameters[0];
-        if (!parameter || !ts7.isIdentifier(parameter.name) || !ts7.isCallExpression(expression.body))
+        if (!parameter || !ts8.isIdentifier(parameter.name) || !ts8.isCallExpression(expression.body))
           return false;
         if (expression.body.arguments.length !== 1) return false;
         const callback = this.#referencePath(unwrapExpression(expression.body.expression));
         if (!callback || callback.length !== 1) return false;
         const argument = unwrapExpression(expression.body.arguments[0]);
-        if (!ts7.isPropertyAccessExpression(argument) || argument.name.text !== "value") return false;
-        if (!ts7.isPropertyAccessExpression(argument.expression) || argument.expression.name.text !== "target")
+        if (!ts8.isPropertyAccessExpression(argument) || argument.name.text !== "value") return false;
+        if (!ts8.isPropertyAccessExpression(argument.expression) || argument.expression.name.text !== "target")
           return false;
-        return ts7.isIdentifier(argument.expression.expression) && argument.expression.expression.text === parameter.name.text;
+        return ts8.isIdentifier(argument.expression.expression) && argument.expression.expression.text === parameter.name.text;
       }
       #eventAttributeQuickFixes(attribute) {
         const attributeName = attribute.name.getText(this.#sourceFile);
@@ -235961,23 +236743,23 @@ var init_compiler = __esm({
         if (referencePath) {
           return this.#referenceExpression(referencePath, expected, value);
         }
-        if (ts7.isStringLiteral(value) || ts7.isNoSubstitutionTemplateLiteral(value)) {
+        if (ts8.isStringLiteral(value) || ts8.isNoSubstitutionTemplateLiteral(value)) {
           return literal2(value.text);
         }
-        if (ts7.isNumericLiteral(value)) return literal2(Number(value.text));
-        if (value.kind === ts7.SyntaxKind.TrueKeyword) return literal2(true);
-        if (value.kind === ts7.SyntaxKind.FalseKeyword) return literal2(false);
-        if (value.kind === ts7.SyntaxKind.NullKeyword) return literal2(null);
-        if (ts7.isIdentifier(value) && value.text === "undefined") return literal2(null);
-        if (ts7.isPrefixUnaryExpression(value)) {
-          if (value.operator === ts7.SyntaxKind.ExclamationToken) {
+        if (ts8.isNumericLiteral(value)) return literal2(Number(value.text));
+        if (value.kind === ts8.SyntaxKind.TrueKeyword) return literal2(true);
+        if (value.kind === ts8.SyntaxKind.FalseKeyword) return literal2(false);
+        if (value.kind === ts8.SyntaxKind.NullKeyword) return literal2(null);
+        if (ts8.isIdentifier(value) && value.text === "undefined") return literal2(null);
+        if (ts8.isPrefixUnaryExpression(value)) {
+          if (value.operator === ts8.SyntaxKind.ExclamationToken) {
             return {
               kind: "unary",
               operator: "not",
               operand: this.#compileExpression(value.operand, "boolean")
             };
           }
-          if (value.operator === ts7.SyntaxKind.MinusToken) {
+          if (value.operator === ts8.SyntaxKind.MinusToken) {
             return {
               kind: "unary",
               operator: "negate",
@@ -235985,7 +236767,7 @@ var init_compiler = __esm({
             };
           }
         }
-        if (ts7.isBinaryExpression(value)) {
+        if (ts8.isBinaryExpression(value)) {
           const operator = binaryOperators.get(value.operatorToken.kind);
           if (operator) {
             const booleanOperator = operator === "and" || operator === "or";
@@ -236004,7 +236786,7 @@ var init_compiler = __esm({
             };
           }
         }
-        if (ts7.isConditionalExpression(value)) {
+        if (ts8.isConditionalExpression(value)) {
           return {
             kind: "conditional",
             condition: this.#compileExpression(value.condition, "boolean"),
@@ -236012,7 +236794,7 @@ var init_compiler = __esm({
             whenFalse: this.#compileExpression(value.whenFalse, expected)
           };
         }
-        if (ts7.isTemplateExpression(value)) {
+        if (ts8.isTemplateExpression(value)) {
           const parts = [value.head.text];
           for (const span of value.templateSpans) {
             parts.push(this.#compileExpression(span.expression));
@@ -236031,30 +236813,30 @@ var init_compiler = __esm({
       }
       #literalExpression(expression) {
         const value = unwrapExpression(expression);
-        if (ts7.isStringLiteral(value) || ts7.isNoSubstitutionTemplateLiteral(value)) {
+        if (ts8.isStringLiteral(value) || ts8.isNoSubstitutionTemplateLiteral(value)) {
           return { ok: true, value: value.text };
         }
-        if (ts7.isNumericLiteral(value)) return { ok: true, value: Number(value.text) };
-        if (value.kind === ts7.SyntaxKind.TrueKeyword) return { ok: true, value: true };
-        if (value.kind === ts7.SyntaxKind.FalseKeyword) return { ok: true, value: false };
-        if (value.kind === ts7.SyntaxKind.NullKeyword) return { ok: true, value: null };
-        if (ts7.isPrefixUnaryExpression(value) && value.operator === ts7.SyntaxKind.MinusToken && ts7.isNumericLiteral(value.operand)) {
+        if (ts8.isNumericLiteral(value)) return { ok: true, value: Number(value.text) };
+        if (value.kind === ts8.SyntaxKind.TrueKeyword) return { ok: true, value: true };
+        if (value.kind === ts8.SyntaxKind.FalseKeyword) return { ok: true, value: false };
+        if (value.kind === ts8.SyntaxKind.NullKeyword) return { ok: true, value: null };
+        if (ts8.isPrefixUnaryExpression(value) && value.operator === ts8.SyntaxKind.MinusToken && ts8.isNumericLiteral(value.operand)) {
           return { ok: true, value: -Number(value.operand.text) };
         }
-        if (ts7.isArrayLiteralExpression(value)) {
+        if (ts8.isArrayLiteralExpression(value)) {
           const entries = [];
           for (const element of value.elements) {
-            if (ts7.isSpreadElement(element)) return { ok: false };
+            if (ts8.isSpreadElement(element)) return { ok: false };
             const entry = this.#literalExpression(element);
             if (!entry.ok) return { ok: false };
             entries.push(entry.value);
           }
           return { ok: true, value: entries };
         }
-        if (ts7.isObjectLiteralExpression(value)) {
+        if (ts8.isObjectLiteralExpression(value)) {
           const entries = {};
           for (const property of value.properties) {
-            if (!ts7.isPropertyAssignment(property)) return { ok: false };
+            if (!ts8.isPropertyAssignment(property)) return { ok: false };
             const name = propertyName(property.name);
             if (!name || forbiddenPathSegments.has(name)) return { ok: false };
             const entry = this.#literalExpression(property.initializer);
@@ -236069,11 +236851,11 @@ var init_compiler = __esm({
         if (!this.#propsName) return null;
         const path = [];
         let current = expression;
-        while (ts7.isPropertyAccessExpression(current)) {
+        while (ts8.isPropertyAccessExpression(current)) {
           path.unshift(current.name.text);
           current = current.expression;
         }
-        if (!ts7.isIdentifier(current) || current.text !== this.#propsName || path.length === 0) {
+        if (!ts8.isIdentifier(current) || current.text !== this.#propsName || path.length === 0) {
           return null;
         }
         return path;
@@ -236227,12 +237009,12 @@ ${indentation}${first}: ${suggestedType === "event" ? "() => void" : renderShape
         let container = root;
         for (const segment of path) {
           const member = container.members.find(
-            (candidate) => ts7.isPropertySignature(candidate) && candidate.name !== void 0 && propertyName(candidate.name) === segment
+            (candidate) => ts8.isPropertySignature(candidate) && candidate.name !== void 0 && propertyName(candidate.name) === segment
           );
           if (!member?.type) return null;
           let type = member.type;
-          while (ts7.isParenthesizedTypeNode(type)) type = type.type;
-          if (!ts7.isTypeLiteralNode(type)) return null;
+          while (ts8.isParenthesizedTypeNode(type)) type = type.type;
+          if (!ts8.isTypeLiteralNode(type)) return null;
           container = type;
         }
         return container;
@@ -236274,7 +237056,7 @@ ${lines.join("\n")}
 }
 
 `;
-        const edits = ts7.isIdentifier(this.#propsParameter.name) ? [
+        const edits = ts8.isIdentifier(this.#propsParameter.name) ? [
           {
             start: this.#component.getStart(this.#sourceFile),
             end: this.#component.getStart(this.#sourceFile),
@@ -236347,8 +237129,8 @@ ${lines.join("\n")}
         return type;
       }
       #renderableName(renderable) {
-        if (ts7.isJsxFragment(renderable)) return "fragment";
-        const opening = ts7.isJsxElement(renderable) ? renderable.openingElement : renderable;
+        if (ts8.isJsxFragment(renderable)) return "fragment";
+        const opening = ts8.isJsxElement(renderable) ? renderable.openingElement : renderable;
         return opening.tagName.getText(this.#sourceFile).toLowerCase();
       }
       #recordNode(node, source) {
@@ -236387,11 +237169,11 @@ ${lines.join("\n")}
 });
 
 // ../tsx-compiler/src/writer.ts
-var ts8;
+var ts9;
 var init_writer2 = __esm({
   "../tsx-compiler/src/writer.ts"() {
     "use strict";
-    ts8 = __toESM(require_typescript(), 1);
+    ts9 = __toESM(require_typescript(), 1);
     init_src();
     init_intrinsics();
     init_policy2();
@@ -236414,6 +237196,11 @@ import { createHash } from "node:crypto";
 import { posix as posix2, relative as relative6 } from "node:path";
 function isUiPath(fileName, uiSuffix) {
   return fileName.toLowerCase().endsWith(uiSuffix.toLowerCase());
+}
+function belongsToOwner(fileName, owner) {
+  const fileKey = fileName.toLowerCase();
+  const ownerKey2 = owner.toLowerCase();
+  return fileKey === ownerKey2 || fileKey.startsWith(`${ownerKey2}/`);
 }
 function diagnosticSummary(diagnostic2) {
   return `${diagnostic2.fileName}:${diagnostic2.span.line}:${diagnostic2.span.column} ${diagnostic2.code} ${diagnostic2.message}`;
@@ -236491,7 +237278,7 @@ async function checkSrijikaUiDiagnostics(projectRoot) {
   const architecture = resolveSrijikaArchitectureConfig(project.architecture);
   const fileSystem = await SrijikaProjectFileSystem.open(project.root);
   const discovered = await fileSystem.walkFiles(
-    [architecture.featuresRoot, architecture.sharedRoot],
+    project.adoption ? project.adoption.managedRoots : [architecture.featuresRoot, architecture.sharedRoot],
     {
       maximumFiles: MAX_UI_FILES,
       maximumEntries: MAX_SCAN_ENTRIES2,
@@ -236502,7 +237289,13 @@ async function checkSrijikaUiDiagnostics(projectRoot) {
       acceptFile: (fileName) => isUiPath(fileName, architecture.uiSuffix)
     }
   );
-  const paths = [...new Set(discovered.map((file) => file.relativePath))];
+  const paths = [
+    ...new Set(
+      discovered.map((file) => file.relativePath).filter(
+        (path) => !project.adoption || project.adoption.adoptedOwners.some((owner) => belongsToOwner(path, owner))
+      )
+    )
+  ];
   if (isUiPath(project.entry, architecture.uiSuffix) && !paths.includes(project.entry)) {
     paths.push(project.entry);
   }
@@ -236582,7 +237375,7 @@ import { constants as constants2 } from "node:fs";
 import { lstat as lstat6, mkdir as mkdir3, mkdtemp, open as open3, realpath as realpath3, rename as rename2, rm as rm2, writeFile as writeFile2 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { delimiter, isAbsolute as isAbsolute8, join as join2, relative as relative9, resolve as resolve10 } from "node:path";
+import { delimiter, isAbsolute as isAbsolute8, join as join2, relative as relative9, resolve as resolve11 } from "node:path";
 function sha256(value) {
   return createHash2("sha256").update(value).digest("hex");
 }
@@ -236735,10 +237528,10 @@ function ensureContained(root, target) {
   }
 }
 async function createEvidenceDirectory(targetRoot) {
-  const canonicalRoot = await realpath3(resolve10(targetRoot));
+  const canonicalRoot = await realpath3(resolve11(targetRoot));
   const captureId = `${Date.now()}-${randomUUID()}`;
   const relativePath = `${EVIDENCE_ROOT}/${captureId}`;
-  const absolutePath = resolve10(canonicalRoot, ...relativePath.split("/"));
+  const absolutePath = resolve11(canonicalRoot, ...relativePath.split("/"));
   ensureContained(canonicalRoot, absolutePath);
   await mkdir3(absolutePath, { recursive: true });
   const canonicalEvidence = await realpath3(absolutePath);
@@ -236991,9 +237784,9 @@ async function persistManifest(targetRoot, evidenceDirectory, manifest) {
   await writeFile2(join2(evidenceDirectory.absolutePath, "manifest.json"), serialized, {
     flag: "wx"
   });
-  const latest = resolve10(targetRoot, ...LATEST_MANIFEST_PATH.split("/"));
-  ensureContained(resolve10(targetRoot), latest);
-  const latestDirectory = resolve10(latest, "..");
+  const latest = resolve11(targetRoot, ...LATEST_MANIFEST_PATH.split("/"));
+  ensureContained(resolve11(targetRoot), latest);
+  const latestDirectory = resolve11(latest, "..");
   await mkdir3(latestDirectory, { recursive: true });
   if (await realpath3(latestDirectory) !== latestDirectory) {
     throw new Error("Browser parity manifest path must not contain symlinks.");
@@ -237164,7 +237957,7 @@ async function createVerifiedSourceRuntimeCopy(target) {
     for (const file of session.inventory.files) {
       const bytes = await readBoundedBinary(sourceFileSystem, file.relativePath, 4 * 1024 * 1024);
       const destination = join2(temporaryRoot, ...file.relativePath.split("/"));
-      await mkdir3(resolve10(destination, ".."), { recursive: true });
+      await mkdir3(resolve11(destination, ".."), { recursive: true });
       await writeFile2(destination, bytes, { flag: "wx" });
     }
     const copied = await scanReactMigrationSource(temporaryRoot);
@@ -237555,7 +238348,7 @@ import {
   parse as parse5,
   posix as posix3,
   relative as relative10,
-  resolve as resolve11
+  resolve as resolve12
 } from "node:path";
 function isInside(parent, candidate) {
   const fromParent = relative10(parent, candidate);
@@ -237572,7 +238365,7 @@ async function canonicalFutureTarget(targetDirectory) {
   if (!isAbsolute9(targetDirectory) || targetDirectory.trim().length === 0) {
     throw new Error("Migration target must be an explicit absolute path.");
   }
-  const target = resolve11(targetDirectory);
+  const target = resolve12(targetDirectory);
   if (target === parse5(target).root)
     throw new Error("A filesystem root cannot be a migration target.");
   try {
@@ -237599,7 +238392,7 @@ async function canonicalFutureTarget(targetDirectory) {
       if (process.platform !== "win32" && pathKey2(canonical) !== pathKey2(existing)) {
         throw new Error("Migration target must not be reached through a symbolic-link ancestor.");
       }
-      return resolve11(canonical, relative10(existing, target));
+      return resolve12(canonical, relative10(existing, target));
     } catch (error2) {
       if (!(error2 instanceof Error && "code" in error2 && error2.code === "ENOENT")) throw error2;
       existing = dirname4(existing);
@@ -237697,20 +238490,20 @@ function packageNameForSpecifier(specifier) {
 }
 function importedSpecifiers(source) {
   const matches = /* @__PURE__ */ new Set();
-  const sourceFile2 = import_typescript7.default.createSourceFile(
+  const sourceFile2 = import_typescript8.default.createSourceFile(
     "migration-source.tsx",
     source,
-    import_typescript7.default.ScriptTarget.Latest,
+    import_typescript8.default.ScriptTarget.Latest,
     true,
-    import_typescript7.default.ScriptKind.TSX
+    import_typescript8.default.ScriptKind.TSX
   );
   const visit = (node) => {
-    if ((import_typescript7.default.isImportDeclaration(node) || import_typescript7.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript7.default.isStringLiteral(node.moduleSpecifier)) {
+    if ((import_typescript8.default.isImportDeclaration(node) || import_typescript8.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript8.default.isStringLiteral(node.moduleSpecifier)) {
       matches.add(node.moduleSpecifier.text);
-    } else if (import_typescript7.default.isCallExpression(node) && node.arguments.length === 1 && import_typescript7.default.isStringLiteral(node.arguments[0]) && (node.expression.kind === import_typescript7.default.SyntaxKind.ImportKeyword || import_typescript7.default.isIdentifier(node.expression) && node.expression.text === "require")) {
+    } else if (import_typescript8.default.isCallExpression(node) && node.arguments.length === 1 && import_typescript8.default.isStringLiteral(node.arguments[0]) && (node.expression.kind === import_typescript8.default.SyntaxKind.ImportKeyword || import_typescript8.default.isIdentifier(node.expression) && node.expression.text === "require")) {
       matches.add(node.arguments[0].text);
     }
-    import_typescript7.default.forEachChild(node, visit);
+    import_typescript8.default.forEachChild(node, visit);
   };
   visit(sourceFile2);
   return Object.freeze([...matches].sort((left, right) => left.localeCompare(right)));
@@ -237763,7 +238556,7 @@ function sourceAliasesFromConfigs(configs) {
   for (const [configPath, source] of [...configs].sort(
     ([left], [right]) => left.localeCompare(right)
   )) {
-    const parsed = import_typescript7.default.parseConfigFileTextToJson(configPath, source);
+    const parsed = import_typescript8.default.parseConfigFileTextToJson(configPath, source);
     if (parsed.error || !parsed.config || typeof parsed.config !== "object") continue;
     const options = parsed.config.compilerOptions;
     if (!options || typeof options !== "object" || Array.isArray(options)) continue;
@@ -238711,7 +239504,7 @@ function planReactMigration(inventory, targetDirectory, targetBaselineSha256 = s
     ),
     ...inventory.files.filter((file) => !plannedSourceCounts.has(file.relativePath)).map((file) => `Migration slice coverage is missing ${file.relativePath}.`)
   ];
-  const targetRoot = resolve11(targetDirectory);
+  const targetRoot = resolve12(targetDirectory);
   const approvedLegacyAdapters = Object.keys(ADAPTER_PACKAGES).flatMap((id) => {
     const sourcePaths = inventory.ownership.filter((owner) => owner.approvedLegacyAdapters.includes(id)).map((owner) => owner.sourcePath).sort((left, right) => left.localeCompare(right));
     if (sourcePaths.length === 0) return [];
@@ -238956,15 +239749,15 @@ async function getReactMigrationStatus(targetDirectory) {
 }
 function exportedNames(sourcePath, source) {
   if (!sourceExtension.test(sourcePath)) return Object.freeze([]);
-  const file = import_typescript7.default.createSourceFile(sourcePath, source, import_typescript7.default.ScriptTarget.Latest, false);
+  const file = import_typescript8.default.createSourceFile(sourcePath, source, import_typescript8.default.ScriptTarget.Latest, false);
   const names = [];
   for (const statement of file.statements) {
-    const exported = import_typescript7.default.canHaveModifiers(statement) ? import_typescript7.default.getModifiers(statement)?.some((modifier) => modifier.kind === import_typescript7.default.SyntaxKind.ExportKeyword) : false;
+    const exported = import_typescript8.default.canHaveModifiers(statement) ? import_typescript8.default.getModifiers(statement)?.some((modifier) => modifier.kind === import_typescript8.default.SyntaxKind.ExportKeyword) : false;
     if (!exported) continue;
     const named = statement;
-    if (named.name && import_typescript7.default.isIdentifier(named.name)) {
+    if (named.name && import_typescript8.default.isIdentifier(named.name)) {
       names.push(named.name.text);
-    } else if (import_typescript7.default.isExportDeclaration(statement) && statement.exportClause && import_typescript7.default.isNamedExports(statement.exportClause)) {
+    } else if (import_typescript8.default.isExportDeclaration(statement) && statement.exportClause && import_typescript8.default.isNamedExports(statement.exportClause)) {
       names.push(...statement.exportClause.elements.map((element) => element.name.text));
     }
   }
@@ -239191,7 +239984,7 @@ function safeTargetPath(targetRoot, relativePath) {
   if (!relativePath || isAbsolute9(relativePath) || relativePath.includes("\\") || relativePath.includes("\0") || segments.some((segment) => !segment || segment === "." || segment === "..")) {
     throw new Error(`Migration write path must be project-relative: ${relativePath}`);
   }
-  const target = resolve11(targetRoot, ...relativePath.split("/"));
+  const target = resolve12(targetRoot, ...relativePath.split("/"));
   if (!isInside(targetRoot, target) || relativePath === SESSION_PATH || relativePath.startsWith(".srijika/migrations/react/")) {
     throw new Error(`Unsafe migration write path: ${relativePath}`);
   }
@@ -239586,8 +240379,8 @@ function migrationSessionStateSha256(session) {
   );
 }
 function wrapperFinding(relativePath, source, sourceRoot) {
-  const normalizedPath = `/${relativePath.toLowerCase()}/`;
-  if (/\/(?:legacy|compat|original|migration-source|old-app)\//u.test(normalizedPath)) {
+  const normalizedPath2 = `/${relativePath.toLowerCase()}/`;
+  if (/\/(?:legacy|compat|original|migration-source|old-app)\//u.test(normalizedPath2)) {
     return `${relativePath} uses a prohibited runtime fallback subtree.`;
   }
   if (/\b(?:eval\s*\(|new\s+Function\s*\()/u.test(source)) {
@@ -240024,7 +240817,7 @@ async function reviewReactMigrationSlice(request) {
       if (!/^\.srijika\/migrations\/react\/reviews\/[a-f0-9]{64}\.json$/u.test(candidate.payloadPath)) {
         throw new Error("Pending migration review payload path is invalid.");
       }
-      const stalePayload = resolve11(session.targetRoot, ...candidate.payloadPath.split("/"));
+      const stalePayload = resolve12(session.targetRoot, ...candidate.payloadPath.split("/"));
       if (!isInside(session.targetRoot, stalePayload))
         throw new Error("Pending migration review payload path escapes target.");
       await assertNoSymlinkAncestors(session.targetRoot, stalePayload);
@@ -241049,11 +241842,11 @@ async function finalizeReactMigration(request) {
   await writeSession(next);
   return next;
 }
-var import_typescript7, SESSION_VERSION, SESSION_PATH, EVIDENCE_KEY_PATH, MAX_FILES, MAX_ENTRIES, MAX_DIRECTORIES, MAX_DEPTH, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_PACKAGE_BYTES2, MAX_ADAPTER_MODULES, sha2562, pathKey2, sourceExtension, styleExtension, assetExtension, runtimeDataAssetExtension, configurationFilePattern, ADAPTER_PACKAGES, targetLockfilePaths, packageFieldForDependencyScope;
+var import_typescript8, SESSION_VERSION, SESSION_PATH, EVIDENCE_KEY_PATH, MAX_FILES, MAX_ENTRIES, MAX_DIRECTORIES, MAX_DEPTH, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_PACKAGE_BYTES2, MAX_ADAPTER_MODULES, sha2562, pathKey2, sourceExtension, styleExtension, assetExtension, runtimeDataAssetExtension, configurationFilePattern, ADAPTER_PACKAGES, targetLockfilePaths, packageFieldForDependencyScope;
 var init_react_migration = __esm({
   "../developer-engine/src/react-migration.ts"() {
     "use strict";
-    import_typescript7 = __toESM(require_typescript(), 1);
+    import_typescript8 = __toESM(require_typescript(), 1);
     init_src2();
     init_portable();
     init_src3();
@@ -241073,7 +241866,7 @@ var init_react_migration = __esm({
     MAX_PACKAGE_BYTES2 = 1024 * 1024;
     MAX_ADAPTER_MODULES = 16;
     sha2562 = (value) => createHash3("sha256").update(value).digest("hex");
-    pathKey2 = (value) => process.platform === "win32" ? resolve11(value).toLowerCase() : resolve11(value);
+    pathKey2 = (value) => process.platform === "win32" ? resolve12(value).toLowerCase() : resolve12(value);
     sourceExtension = /\.(?:[cm]?[jt]s|[jt]sx)$/iu;
     styleExtension = /\.(?:css|scss|sass|less|styl)$/iu;
     assetExtension = /\.(?:avif|bmp|eot|gif|ico|jpe?g|mp3|mp4|ogg|otf|png|svg|ttf|wav|webm|webp|woff2?)$/iu;
@@ -248185,12 +248978,12 @@ var StdioServerTransport = class {
     this.onclose?.();
   }
   send(message) {
-    return new Promise((resolve13) => {
+    return new Promise((resolve14) => {
       const json2 = serializeMessage(message);
       if (this._stdout.write(json2)) {
-        resolve13();
+        resolve14();
       } else {
-        this._stdout.once("drain", resolve13);
+        this._stdout.once("drain", resolve14);
       }
     });
   }
@@ -254109,7 +254902,7 @@ var Protocol = class {
           return;
         }
         const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
-        await new Promise((resolve13) => setTimeout(resolve13, pollInterval));
+        await new Promise((resolve14) => setTimeout(resolve14, pollInterval));
         options?.signal?.throwIfAborted();
       }
     } catch (error2) {
@@ -254126,7 +254919,7 @@ var Protocol = class {
    */
   request(request, resultSchema, options) {
     const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
-    return new Promise((resolve13, reject) => {
+    return new Promise((resolve14, reject) => {
       const earlyReject = (error2) => {
         reject(error2);
       };
@@ -254204,7 +254997,7 @@ var Protocol = class {
           if (!parseResult.success) {
             reject(parseResult.error);
           } else {
-            resolve13(parseResult.data);
+            resolve14(parseResult.data);
           }
         } catch (error2) {
           reject(error2);
@@ -254465,12 +255258,12 @@ var Protocol = class {
       }
     } catch {
     }
-    return new Promise((resolve13, reject) => {
+    return new Promise((resolve14, reject) => {
       if (signal.aborted) {
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
         return;
       }
-      const timeoutId = setTimeout(resolve13, interval);
+      const timeoutId = setTimeout(resolve14, interval);
       signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         reject(new McpError(ErrorCode.InvalidRequest, "Request cancelled"));
@@ -255561,7 +256354,7 @@ var McpServer = class {
     let task = createTaskResult.task;
     const pollInterval = task.pollInterval ?? 5e3;
     while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
-      await new Promise((resolve13) => setTimeout(resolve13, pollInterval));
+      await new Promise((resolve14) => setTimeout(resolve14, pollInterval));
       const updatedTask = await extra.taskStore.getTask(taskId);
       if (!updatedTask) {
         throw new McpError(ErrorCode.InternalError, `Task ${taskId} not found during polling`);
@@ -256580,7 +257373,7 @@ var SrijikaBridgeClient = class {
 };
 
 // src/code-project.ts
-import { resolve as resolve12 } from "node:path";
+import { resolve as resolve13 } from "node:path";
 
 // ../developer-engine/src/index.ts
 init_architecture();
@@ -256597,7 +257390,7 @@ init_project();
 // ../developer-engine/src/next-adoption.ts
 init_src2();
 init_src3();
-var import_typescript6 = __toESM(require_typescript(), 1);
+var import_typescript7 = __toESM(require_typescript(), 1);
 init_architecture();
 init_project_filesystem();
 init_ui_diagnostics();
@@ -256623,7 +257416,7 @@ init_src2();
 init_src3();
 init_project();
 init_project_filesystem();
-import { isAbsolute as isAbsolute6, relative as relative7, resolve as resolve8 } from "node:path";
+import { isAbsolute as isAbsolute6, relative as relative7, resolve as resolve9 } from "node:path";
 var OPTIONAL_CAPABILITIES = Object.freeze(["hook", "store", "logic", "api", "types"]);
 var MAX_INVENTORY_FILES = 4096;
 var MAX_INVENTORY_ENTRIES = 32768;
@@ -256660,7 +257453,7 @@ async function collectSourceFiles(root) {
   return { paths: files.map(({ relativePath }) => relativePath), sources };
 }
 function normalizedOwnerFolder(root, value) {
-  const absolute = isAbsolute6(value) ? resolve8(value) : resolve8(root, value);
+  const absolute = isAbsolute6(value) ? resolve9(value) : resolve9(root, value);
   const fromRoot = relative7(root, absolute).replaceAll("\\", "/");
   if (!fromRoot || fromRoot.startsWith("../") || isAbsolute6(fromRoot)) {
     throw new Error("The selected owner must remain inside the Srijika project.");
@@ -256753,7 +257546,7 @@ init_project_filesystem();
 init_architecture();
 init_ui_diagnostics();
 import { spawn } from "node:child_process";
-import { isAbsolute as isAbsolute7, relative as relative8, resolve as resolve9 } from "node:path";
+import { isAbsolute as isAbsolute7, relative as relative8, resolve as resolve10 } from "node:path";
 import { performance as performance3 } from "node:perf_hooks";
 var MAX_TEST_CONTRACT_FILES = 8192;
 var MAX_TEST_CONTRACT_ENTRIES = 65536;
@@ -256885,7 +257678,7 @@ function isContractTextFile(fileName) {
   return /\.(?:[cm]?[jt]sx?|css|scss|sass|less|styl|json)$/iu.test(fileName);
 }
 function projectRelativePath(root, value) {
-  const absolute = isAbsolute7(value) ? resolve9(value) : resolve9(root, value);
+  const absolute = isAbsolute7(value) ? resolve10(value) : resolve10(root, value);
   const fromRoot = relative8(root, absolute).replaceAll("\\", "/");
   if (!fromRoot || fromRoot.startsWith("../") || isAbsolute7(fromRoot)) {
     throw new Error("Changed test-contract files must remain inside the Srijika project.");
@@ -257205,7 +257998,7 @@ var SrijikaCodeProjectService = class {
     const configured = this.#configuredRoot ? await findSrijikaProjectRoot(this.#configuredRoot) : void 0;
     if (!requested) return configured ?? findSrijikaProjectRoot(process.cwd());
     const selected = await findSrijikaProjectRoot(requested);
-    if (configured && resolve12(selected) !== resolve12(configured)) {
+    if (configured && resolve13(selected) !== resolve13(configured)) {
       throw new Error("This MCP server is bounded to its configured Srijika project.");
     }
     return selected;
@@ -257215,7 +258008,9 @@ var SrijikaCodeProjectService = class {
     const project = await inspectSrijikaProject(root);
     const featuresRoot = project.architecture?.featuresRoot ?? "src/features";
     const sharedRoot = project.architecture?.sharedRoot ?? "src/shared";
-    const ownershipRoots = [.../* @__PURE__ */ new Set([featuresRoot, sharedRoot])];
+    const ownershipRoots = [
+      ...new Set(project.adoption?.managedRoots ?? [featuresRoot, sharedRoot])
+    ];
     const fileSystem = await SrijikaProjectFileSystem.open(root);
     const discovered = await fileSystem.walkFiles(ownershipRoots, {
       maximumFiles: MAX_PROJECT_FILES,
@@ -257224,6 +258019,7 @@ var SrijikaCodeProjectService = class {
       maximumDepth: MAX_PROJECT_DEPTH
     });
     const files = discovered.map(({ relativePath }) => relativePath);
+    const adoptionPlan = project.adoption ? (await checkSrijikaArchitecture(root)).adoption : void 0;
     return {
       contractId: "srijika.cli-first-code-project",
       root,
@@ -257233,6 +258029,8 @@ var SrijikaCodeProjectService = class {
       viteProject: project.viteProject,
       nextProject: project.nextProject,
       architecture: project.architecture,
+      adoption: project.adoption,
+      adoptionPlan,
       ownershipRoots,
       scripts: project.scripts,
       files,
@@ -257251,10 +258049,12 @@ var SrijikaCodeProjectService = class {
       checkSrijikaArchitecture(root),
       checkSrijikaUiDiagnostics(root)
     ]);
+    const strictPassed = srijikaUi.diagnostics.length === 0 && !architecture.diagnostics.some((diagnostic2) => diagnostic2.severity === "error") && architecture.adoption?.status !== "blocked";
     return {
       ...architecture,
       srijikaUi,
-      passed: srijikaUi.diagnostics.length === 0 && !architecture.diagnostics.some((diagnostic2) => diagnostic2.severity === "error")
+      strictPassed,
+      passed: strictPassed && (!architecture.adoption || architecture.adoption.summary.fullProjectSuccess)
     };
   }
   async scaffold(request, dryRun) {
@@ -257755,6 +258555,19 @@ var SRIJIKA_DOCUMENTATION = [
             "apiSuffix",
             "typesSuffix"
           ]
+        },
+        brownfieldAdoption: {
+          version: 1,
+          profile: "brownfield-ownership-v1",
+          managedRoots: "bounded project-relative discovery roots",
+          include: "bounded paths requiring coverage",
+          excludeCategories: ["server", "service", "domain", "test"],
+          adoptedOwners: "non-overlapping owner roots under include",
+          recognizedDirectories: ["ui", "connectors", "hooks"],
+          coverage: ["governed", "pending", "blocked", "excluded"],
+          fullProjectSuccess: "true only when every covered file is governed",
+          planner: "read-only deterministic moves and exact static import rewires",
+          strictScope: "adopted owners plus authoritative entry"
         },
         safety: {
           rootMaximumSegments: 10,
