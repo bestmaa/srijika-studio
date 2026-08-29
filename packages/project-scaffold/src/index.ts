@@ -1,5 +1,7 @@
 export { createSrijikaProjectFileMap, createSrijikaUiSourcePair } from './templates.js';
+export { createSrijikaNextProjectFileMap } from './next-templates.js';
 export type {
+  SrijikaNextProjectScaffoldOptions,
   SrijikaProjectFileMap,
   SrijikaProjectScaffoldOptions,
   SrijikaUiSourceKind,
@@ -7,7 +9,7 @@ export type {
   SrijikaUiSourcePairOptions,
   WriteSrijikaProjectResult,
 } from './types.js';
-export { writeSrijikaProject } from './writer.js';
+export { writeSrijikaNextProject, writeSrijikaProject } from './writer.js';
 export {
   availableSrijikaOwnershipCreationActions,
   buildSrijikaOwnershipCapabilityBatchPlan,

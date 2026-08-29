@@ -41,6 +41,21 @@ srijika migrate react \
   --target /absolute/path/new-srijika-app
 ```
 
+For a Next.js App Router source, select the dedicated adapter:
+
+```bash
+srijika migrate next \
+  --source /absolute/path/old-next-app \
+  --target /absolute/path/new-srijika-next-app
+```
+
+The Next inventory preserves the authoritative `app` or `src/app` root and
+records route groups, dynamic segments, layouts, pages, loading/error/not-found
+boundaries, Server and Client Components, route handlers, metadata, server
+actions, middleware, public assets, framework configuration, environment keys,
+and package-manager facts. Framework-owned runtime files keep exact native Next
+paths, while protected server files are rejected from UI/client owners.
+
 Optional creation metadata and automation output are available:
 
 ```bash

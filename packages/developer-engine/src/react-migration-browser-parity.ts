@@ -175,6 +175,7 @@ function normalizeRoute(value: string): string | undefined {
     return undefined;
   let route = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`;
   route = route.replace(/\/?:[A-Za-z_$][\w$]*\??/gu, '/srijika-parity');
+  route = route.replace(/\[\[?\.\.\.[^\]]+\]\]?|\[[^\]]+\]/gu, 'srijika-parity');
   route = route.replace(/\*+$/gu, 'srijika-parity').replace(/\/{2,}/gu, '/');
   if (route.includes('..') || route.length > 512) return undefined;
   return route.length > 1 ? route.replace(/\/+$/gu, '') : '/';
@@ -183,7 +184,17 @@ function normalizeRoute(value: string): string | undefined {
 async function deriveEngineRoutes(target: string): Promise<readonly string[]> {
   const session = await getReactMigrationStatus(target);
   const sourceFileSystem = await SrijikaProjectFileSystem.open(session.sourceRoot);
-  const routes = new Set<string>(['/']);
+  const routes = new Set<string>(
+    session.inventory.nextAppRouter
+      ? session.inventory.nextAppRouter.routes
+          .filter((route) => route.kind === 'page')
+          .flatMap((route) => {
+            const normalized = normalizeRoute(route.routePath);
+            return normalized ? [normalized] : [];
+          })
+      : ['/'],
+  );
+  if (routes.size === 0) routes.add('/');
   let totalBytes = 0;
   const routeSources = session.plan.ownership
     .filter((decision) => decision.routeEntrypoint)
@@ -761,7 +772,12 @@ function installCommand(
   if (manager === 'pnpm') {
     return [
       'pnpm',
-      ['install', ...(hasLockfile ? ['--frozen-lockfile'] : []), '--ignore-scripts', ...offline],
+      [
+        'install',
+        ...(hasLockfile ? ['--frozen-lockfile'] : ['--lockfile=false']),
+        '--ignore-scripts',
+        ...offline,
+      ],
     ];
   }
   if (manager === 'npm') {
@@ -953,6 +969,17 @@ function viteCommand(
   return ['bunx', ['--no-install', ...viteArgs]];
 }
 
+function nextCommand(
+  manager: SupportedPackageManager,
+  port: number,
+): readonly [string, readonly string[]] {
+  const nextArgs = ['next', 'dev', '--hostname', '127.0.0.1', '--port', String(port)];
+  if (manager === 'pnpm') return ['pnpm', ['exec', ...nextArgs]];
+  if (manager === 'npm') return ['npx', ['--no-install', ...nextArgs]];
+  if (manager === 'yarn') return ['yarn', ['exec', ...nextArgs]];
+  return ['bunx', ['--no-install', ...nextArgs]];
+}
+
 interface RunningParityServer {
   child: ChildProcess;
   binding: ReactMigrationParityServerBinding;
@@ -966,8 +993,10 @@ function launchParityServer(
   manager: SupportedPackageManager,
   port: number,
   cwdKind: ReactMigrationParityServerBinding['cwdKind'],
+  framework: 'vite' | 'next-app-router',
 ): RunningParityServer {
-  const [executable, args] = viteCommand(manager, port);
+  const [executable, args] =
+    framework === 'next-app-router' ? nextCommand(manager, port) : viteCommand(manager, port);
   const child = spawn(executable, args, {
     cwd: root,
     detached: process.platform !== 'win32',
@@ -1089,8 +1118,15 @@ export async function captureReactMigrationBrowserParity(
       sourceManager,
       sourcePort,
       'temporary-source-copy',
+      session.inventory.framework === 'next-app-router' ? 'next-app-router' : 'vite',
     );
-    targetServer = launchParityServer(session.targetRoot, targetManager, targetPort, 'target-root');
+    targetServer = launchParityServer(
+      session.targetRoot,
+      targetManager,
+      targetPort,
+      'target-root',
+      session.inventory.framework === 'next-app-router' ? 'next-app-router' : 'vite',
+    );
     await Promise.all([waitForParityServer(sourceServer), waitForParityServer(targetServer)]);
     evidenceDirectory = await createEvidenceDirectory(session.targetRoot);
     browser = await playwright.chromium.launch({ headless: true });

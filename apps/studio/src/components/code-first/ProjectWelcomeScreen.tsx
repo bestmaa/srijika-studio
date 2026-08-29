@@ -180,15 +180,15 @@ export function ProjectWelcomeScreen({
               </span>
               <div>
                 <span className="code-first-welcome-action-kicker">SAFE REACT MIGRATION</span>
-                <h2>Import Existing React Project</h2>
+                <h2>Import Existing React or Next.js Project</h2>
                 <p>
-                  Select a read-only React source and a separate target. Studio plans a native
-                  Feature / Slot / Part / Shared conversion; rerunning the target resumes its saved,
-                  dependency-ordered slices.
+                  Select a read-only React or Next.js source and a separate target. Studio plans a
+                  native Feature / Slot / Part / Shared conversion; rerunning the target resumes its
+                  saved, dependency-ordered slices.
                 </p>
               </div>
               <button type="button" disabled={disabled} onClick={onImportReactProject}>
-                Import or Resume React Project
+                Import or Resume React / Next.js Project
                 <ArrowRight size={15} aria-hidden="true" />
               </button>
               {onInspectReactMigration && (

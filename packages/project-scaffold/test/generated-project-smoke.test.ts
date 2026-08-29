@@ -15,6 +15,7 @@ import {
   buildSrijikaNextAppRouterPlan,
   buildSrijikaNextTestAdapterPlan,
   buildSrijikaViteTestAdapterPlan,
+  writeSrijikaNextProject,
   writeSrijikaProject,
 } from '../src/index.js';
 
@@ -34,7 +35,7 @@ async function runPnpm(cwd: string, ...args: readonly string[]): Promise<string>
       cwd,
       env: { ...process.env, CI: 'true' },
       maxBuffer: 8 * 1024 * 1024,
-      timeout: 120_000,
+      timeout: 300_000,
     });
     return `${stdout}${stderr}`;
   } catch (error) {
@@ -73,6 +74,33 @@ for (const reactQuery of [false, true]) {
     180_000,
   );
 }
+
+smoke(
+  'installs, validates, typechecks, and builds the canonical Next migration target',
+  async () => {
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-generated-next-migration-smoke-'));
+    const target = join(parent, 'app');
+    try {
+      await writeSrijikaNextProject(target, {
+        projectName: 'srijika-next-migration-smoke',
+        displayName: 'Srijika Next Migration Smoke',
+        nextVersion: '16.3.2',
+        appRoot: 'app',
+      });
+      await runPnpm(target, 'install', '--lockfile=false');
+      const validation = await runPnpm(target, 'run', 'validate:srijika');
+      const typecheck = await runPnpm(target, 'run', 'typecheck');
+      const build = await runPnpm(target, 'run', 'build');
+
+      expect(validation).toContain('Srijika architecture check passed');
+      expect(typecheck).toContain('validate:srijika');
+      expect(build).toContain('Compiled successfully');
+    } finally {
+      await rm(parent, { force: true, recursive: true });
+    }
+  },
+  240_000,
+);
 
 smoke(
   'generates and executes isolated Vite owner tests with Vitest and Playwright',

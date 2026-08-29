@@ -501,9 +501,9 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
   server.registerTool(
     SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
     {
-      title: 'Create React to Srijika migration',
+      title: 'Create migration session',
       description:
-        'Preflight canonical non-overlapping roots, capture an immutable-source baseline, scaffold only a distinct new target or accept a recognizable clean generated Srijika starter, and persist a resumable session. The source is never written.',
+        'Create an immutable-source React or Next App Router migration in a distinct target. Optional framework selection fails closed.',
       inputSchema: {
         source: z.string().min(1).max(4_096),
         target: z.string().min(1).max(4_096),
@@ -513,10 +513,11 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
           .optional(),
         displayName: z.string().min(1).max(160).optional(),
         dryRun: z.boolean().optional(),
+        framework: z.enum(['react', 'next-app-router']).optional(),
       },
       annotations: MUTATING,
     },
-    ({ source, target, projectName, displayName, dryRun }) =>
+    ({ source, target, projectName, displayName, dryRun, framework }) =>
       callCodeProject(
         () =>
           reactMigration.start({
@@ -525,6 +526,7 @@ export function createSrijikaMcpServer(options: SrijikaMcpServerOptions = {}): M
             ...(projectName === undefined ? {} : { projectName }),
             ...(displayName === undefined ? {} : { displayName }),
             ...(dryRun === undefined ? {} : { dryRun }),
+            ...(framework === undefined ? {} : { expectedFramework: framework }),
           }),
         'React migration session created without modifying the source.',
       ),

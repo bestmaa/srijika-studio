@@ -26,11 +26,11 @@ describe('Studio React migration entry', () => {
         onVerifyReactMigration={() => undefined}
       />,
     );
-    expect(desktop).toContain('Import Existing React Project');
-    expect(desktop).toContain('Import or Resume React Project');
+    expect(desktop).toContain('Import Existing React or Next.js Project');
+    expect(desktop).toContain('Import or Resume React / Next.js Project');
     expect(desktop).toContain('Check Existing Migration Status');
     expect(desktop).toContain('Verify Converted Project');
-    expect(desktop).toContain('read-only React source');
+    expect(desktop).toContain('read-only React or Next.js source');
     expect(desktop).toContain('native');
     expect(desktop).toContain('Source stays immutable');
 
@@ -43,7 +43,7 @@ describe('Studio React migration entry', () => {
         onVerifyReactMigration={() => undefined}
       />,
     );
-    expect(browser).not.toContain('Import Existing React Project');
+    expect(browser).not.toContain('Import Existing React or Next.js Project');
   });
 
   it('summarizes fail-closed owner evidence and its bounded repair scope', () => {

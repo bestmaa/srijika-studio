@@ -24,7 +24,9 @@ import { createSrijikaArchitectureValidatorScript } from '@srijika/architecture-
 
 import {
   buildSrijikaOwnershipCreationPlan,
+  createSrijikaNextProjectFileMap,
   createSrijikaProjectFileMap,
+  writeSrijikaNextProject,
   writeSrijikaProject,
 } from '@srijika/project-scaffold';
 
@@ -155,7 +157,7 @@ export interface ReactMigrationInventoryFile {
 export interface ReactMigrationInventory {
   sourceRoot: string;
   packageName: string;
-  framework: 'vite' | 'create-react-app' | 'react';
+  framework: 'vite' | 'create-react-app' | 'react' | 'next-app-router';
   language: 'typescript' | 'javascript' | 'mixed';
   files: readonly ReactMigrationInventoryFile[];
   environmentKeys: Readonly<Record<string, readonly string[]>>;
@@ -166,8 +168,41 @@ export interface ReactMigrationInventory {
   packageDependencyRecords: readonly ReactMigrationPackageDependency[];
   packageScripts: Readonly<Record<string, string>>;
   toolchain: ReactMigrationToolchainFacts;
+  nextAppRouter?: ReactMigrationNextAppRouterInventory;
   sourceAliases: Readonly<Record<string, string>>;
   ownership: readonly ReactMigrationOwnershipDecision[];
+}
+
+export type ReactMigrationNextRouteKind =
+  | 'default'
+  | 'error'
+  | 'global-error'
+  | 'layout'
+  | 'loading'
+  | 'not-found'
+  | 'page'
+  | 'route'
+  | 'template';
+
+export interface ReactMigrationNextRouteFile {
+  relativePath: string;
+  kind: ReactMigrationNextRouteKind;
+  routePath: string;
+  segments: readonly string[];
+  routeGroups: readonly string[];
+  dynamicSegments: readonly string[];
+  boundary: 'server' | 'client';
+  serverAction: boolean;
+  metadata: boolean;
+}
+
+export interface ReactMigrationNextAppRouterInventory {
+  appRoot: 'app' | 'src/app';
+  routes: readonly ReactMigrationNextRouteFile[];
+  protectedServerFiles: readonly string[];
+  middleware: readonly string[];
+  publicAssets: readonly string[];
+  configPaths: readonly string[];
 }
 
 export type ReactMigrationPackageDependencyScope =
@@ -184,6 +219,7 @@ export interface ReactMigrationToolchainFacts {
   packageManager?: string;
   nodeEngine?: string;
   viteVersion?: string;
+  nextVersion?: string;
   configPaths: readonly string[];
 }
 
@@ -458,6 +494,8 @@ export interface StartReactMigrationRequest {
   projectName?: string;
   displayName?: string;
   dryRun?: boolean;
+  /** Fail closed when a dedicated CLI or adapter selected a different source framework. */
+  expectedFramework?: 'react' | 'next-app-router';
 }
 
 export interface ApplyReactMigrationSliceRequest {
@@ -512,6 +550,7 @@ export interface ReactMigrationCliRequest {
   operation: ReactMigrationCliOperation;
   target: string;
   source?: string;
+  framework?: 'react' | 'next-app-router';
 }
 
 const sha256 = (value: Uint8Array | string): string =>
@@ -624,7 +663,93 @@ const assetExtension =
   /\.(?:avif|bmp|eot|gif|ico|jpe?g|mp3|mp4|ogg|otf|png|svg|ttf|wav|webm|webp|woff2?)$/iu;
 const runtimeDataAssetExtension = /\.(?:csv|geojson|json|txt|wasm|webmanifest)$/iu;
 const configurationFilePattern =
-  /(^|\/)(?:package\.json|index\.html|tsconfig[^/]*\.json|vite\.config\.[^/]+|craco\.config\.[^/]+)$/u;
+  /(^|\/)(?:package\.json|index\.html|tsconfig[^/]*\.json|vite\.config\.[^/]+|craco\.config\.[^/]+|next\.config\.[^/]+)$/u;
+
+const NEXT_ROUTE_FILE_PATTERN =
+  /(?:^|\/)(default|error|global-error|layout|loading|not-found|page|route|template)\.(?:[cm]?[jt]sx?)$/iu;
+const NEXT_MIDDLEWARE_PATTERN = /(?:^|\/)middleware\.(?:[cm]?[jt]sx?)$/iu;
+const NEXT_RUNTIME_CONFIG_PATTERN =
+  /(?:^|\/)(?:next\.config\.[^/]+|instrumentation(?:-client)?\.(?:[cm]?[jt]sx?))$/iu;
+
+function nextRouteKind(relativePath: string): ReactMigrationNextRouteKind | undefined {
+  return NEXT_ROUTE_FILE_PATTERN.exec(relativePath)?.[1]?.toLowerCase() as
+    ReactMigrationNextRouteKind | undefined;
+}
+
+function isUseClientSource(source: string): boolean {
+  return /^\s*['"]use client['"];?/mu.test(source);
+}
+
+function isUseServerSource(source: string): boolean {
+  return /^\s*['"]use server['"];?/mu.test(source) || /\{\s*['"]use server['"];?/u.test(source);
+}
+
+function importsServerOnlyRuntime(source: string): boolean {
+  return /(?:from\s+|import\s*\(\s*)['"](?:server-only|next\/headers|next\/server)['"]/u.test(
+    source,
+  );
+}
+
+function nextRouteInventory(
+  appRoot: 'app' | 'src/app',
+  relativePath: string,
+  source: string,
+): ReactMigrationNextRouteFile | undefined {
+  const kind = nextRouteKind(relativePath);
+  if (!kind || !relativePath.startsWith(`${appRoot}/`)) return undefined;
+  const segments = posix
+    .dirname(relativePath)
+    .slice(appRoot.length + 1)
+    .split('/')
+    .filter(Boolean);
+  const routeGroups = segments.filter((segment) => /^\([^/]+\)$/u.test(segment));
+  const routeSegments = segments.filter(
+    (segment) => !/^\([^/]+\)$/u.test(segment) && !segment.startsWith('@'),
+  );
+  const dynamicSegments = routeSegments.filter((segment) => /^\[.+\]$/u.test(segment));
+  return Object.freeze({
+    relativePath,
+    kind,
+    routePath: routeSegments.length === 0 ? '/' : `/${routeSegments.join('/')}`,
+    segments: Object.freeze([...segments]),
+    routeGroups: Object.freeze(routeGroups),
+    dynamicSegments: Object.freeze(dynamicSegments),
+    boundary: isUseClientSource(source) ? 'client' : 'server',
+    serverAction: isUseServerSource(source),
+    metadata:
+      /\bexport\s+(?:const\s+(?:metadata|generateMetadata)\b|(?:async\s+)?function\s+generateMetadata\b)/u.test(
+        source,
+      ),
+  });
+}
+
+function isNextProtectedServerFile(
+  relativePath: string,
+  source: string,
+  appRoot: 'app' | 'src/app',
+): boolean {
+  if (NEXT_MIDDLEWARE_PATTERN.test(relativePath)) return true;
+  if (nextRouteKind(relativePath) === 'route') return true;
+  if (isUseServerSource(source) || importsServerOnlyRuntime(source)) return true;
+  return (
+    relativePath.startsWith(`${appRoot}/`) &&
+    sourceExtension.test(relativePath) &&
+    !isUseClientSource(source)
+  );
+}
+
+function isNextExactFrameworkSource(
+  inventory: Pick<ReactMigrationInventory, 'framework' | 'nextAppRouter'>,
+  sourcePath: string,
+): boolean {
+  if (inventory.framework !== 'next-app-router' || !inventory.nextAppRouter) return false;
+  return (
+    inventory.nextAppRouter.routes.some((route) => route.relativePath === sourcePath) ||
+    inventory.nextAppRouter.protectedServerFiles.includes(sourcePath) ||
+    inventory.nextAppRouter.middleware.includes(sourcePath) ||
+    inventory.nextAppRouter.configPaths.includes(sourcePath)
+  );
+}
 
 function acceptedMigrationFile(fileName: string): boolean {
   return fileName.length > 0;
@@ -870,7 +995,9 @@ function canonicalTargets(
   ownerName: string,
   role: ReactMigrationOwnerRole,
   sourcePath: string,
+  exactFrameworkPath = false,
 ): readonly string[] {
+  if (exactFrameworkPath) return Object.freeze([sourcePath]);
   const pascal = pascalName(ownerName);
   const base = ownerPath === '.' ? 'src' : ownerPath;
   // A package script is executable product behavior, not a browser module.
@@ -1005,7 +1132,24 @@ function componentNeedsWidgetBoundary(source: string): boolean {
 
 function seededOwner(
   file: ReactMigrationInventoryFile,
+  exactFrameworkPath = false,
+  appRoot: 'app' | 'src/app' = 'app',
 ): Pick<ReactMigrationOwnershipDecision, 'ownerKind' | 'ownerName' | 'ownerPath' | 'rationale'> {
+  if (exactFrameworkPath) {
+    const projectOwned = NEXT_RUNTIME_CONFIG_PATTERN.test(file.relativePath);
+    const frameworkOwnerPath = posix.dirname(file.relativePath);
+    return {
+      ownerKind: projectOwned ? 'project' : 'application',
+      ownerName: projectOwned
+        ? 'project'
+        : canonicalName(
+            frameworkOwnerPath === '.' ? basename(file.relativePath) : frameworkOwnerPath,
+          ),
+      ownerPath: projectOwned ? '.' : frameworkOwnerPath === '.' ? appRoot : frameworkOwnerPath,
+      rationale:
+        'Next.js owns this runtime surface; migration preserves its framework path and server boundary.',
+    };
+  }
   const segments = file.relativePath.split('/');
   const srcIndex = segments.indexOf('src');
   const afterSrc = srcIndex >= 0 ? segments.slice(srcIndex + 1) : segments;
@@ -1375,7 +1519,8 @@ export async function scanReactMigrationSource(
   if (typeof dependencies['react'] !== 'string') {
     throw new Error('Phase 1 accepts React projects only; package.json must declare react.');
   }
-  for (const unsupported of ['next', '@remix-run/react', 'react-native', 'expo']) {
+  const nextVersion = typeof dependencies['next'] === 'string' ? dependencies['next'] : undefined;
+  for (const unsupported of ['@remix-run/react', 'react-native', 'expo']) {
     if (typeof dependencies[unsupported] === 'string') {
       throw new Error(
         `Phase 1 does not yet migrate ${unsupported} projects; use a reviewed framework adapter instead.`,
@@ -1392,6 +1537,15 @@ export async function scanReactMigrationSource(
     stopAtNestedProjectRoots: false,
     acceptFile: acceptedMigrationFile,
   });
+  const nextAppRoots = nextVersion
+    ? (['app', 'src/app'] as const).filter((candidate) =>
+        files.some(({ relativePath }) => relativePath.startsWith(`${candidate}/`)),
+      )
+    : [];
+  if (nextVersion && nextAppRoots.length !== 1) {
+    throw new Error('Next.js migration requires exactly one App Router root: app or src/app.');
+  }
+  const nextAppRoot = nextAppRoots[0];
   const inventory: ReactMigrationInventoryFile[] = [];
   const sourceTexts = new Map<string, string>();
   const tsconfigTexts = new Map<string, string>();
@@ -1405,6 +1559,17 @@ export async function scanReactMigrationSource(
       throw new Error('React migration source exceeds the 64 MiB aggregate safety limit.');
     }
     let category = categoryFor(file.relativePath);
+    if (
+      nextAppRoot &&
+      file.relativePath.startsWith(`${nextAppRoot}/`) &&
+      nextRouteKind(file.relativePath)
+    ) {
+      category = nextRouteKind(file.relativePath) === 'route' ? 'api' : 'route';
+    } else if (nextAppRoot && NEXT_MIDDLEWARE_PATTERN.test(file.relativePath)) {
+      category = 'api';
+    } else if (nextAppRoot && NEXT_RUNTIME_CONFIG_PATTERN.test(file.relativePath)) {
+      category = 'script';
+    }
     if (category === 'environment') environment[file.relativePath] = environmentKeys(read.bytes);
     if (sourceExtension.test(file.relativePath) && containsSemanticRouteBehavior(read.bytes)) {
       semanticRoutesPresent = true;
@@ -1444,13 +1609,21 @@ export async function scanReactMigrationSource(
   inventory.sort((left, right) =>
     left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
   );
-  if (!inventory.some((file) => file.category === 'entry' || file.category === 'component')) {
+  if (
+    !inventory.some(
+      (file) =>
+        file.category === 'entry' ||
+        file.category === 'component' ||
+        (nextAppRoot && nextRouteKind(file.relativePath) !== undefined),
+    )
+  ) {
     throw new Error('No React source entry or component was found in the source project.');
   }
   const hasTypeScript = inventory.some((file) => /\.(?:ts|tsx|mts|cts)$/iu.test(file.relativePath));
   const hasJavaScript = inventory.some((file) => /\.(?:js|jsx|mjs|cjs)$/iu.test(file.relativePath));
-  const framework =
-    typeof dependencies['vite'] === 'string'
+  const framework = nextVersion
+    ? 'next-app-router'
+    : typeof dependencies['vite'] === 'string'
       ? 'vite'
       : typeof dependencies['react-scripts'] === 'string'
         ? 'create-react-app'
@@ -1463,6 +1636,66 @@ export async function scanReactMigrationSource(
     .sort((left, right) => left.localeCompare(right));
   const inventoryPaths = new Set(inventory.map((file) => file.relativePath));
   const sourceAliases = sourceAliasesFromConfigs(tsconfigTexts);
+  const nextRoutes = nextAppRoot
+    ? inventory.flatMap((file) => {
+        const route = nextRouteInventory(
+          nextAppRoot,
+          file.relativePath,
+          sourceTexts.get(file.relativePath) ?? '',
+        );
+        return route ? [route] : [];
+      })
+    : [];
+  const nextProtectedServerFiles = nextAppRoot
+    ? inventory
+        .filter((file) =>
+          isNextProtectedServerFile(
+            file.relativePath,
+            sourceTexts.get(file.relativePath) ?? '',
+            nextAppRoot,
+          ),
+        )
+        .map((file) => file.relativePath)
+        .sort()
+    : [];
+  const nextAppRouter: ReactMigrationNextAppRouterInventory | undefined = nextAppRoot
+    ? Object.freeze({
+        appRoot: nextAppRoot,
+        routes: Object.freeze(nextRoutes),
+        protectedServerFiles: Object.freeze(nextProtectedServerFiles),
+        middleware: Object.freeze(
+          inventory
+            .filter((file) => NEXT_MIDDLEWARE_PATTERN.test(file.relativePath))
+            .map((file) => file.relativePath)
+            .sort(),
+        ),
+        publicAssets: Object.freeze(
+          inventory
+            .filter((file) => file.relativePath.startsWith('public/'))
+            .map((file) => file.relativePath)
+            .sort(),
+        ),
+        configPaths: Object.freeze(
+          inventory
+            .filter(
+              (file) =>
+                NEXT_RUNTIME_CONFIG_PATTERN.test(file.relativePath) ||
+                (file.category === 'configuration' &&
+                  /(?:^|\/)(?:tsconfig[^/]*\.json|postcss\.config\.[^/]+|tailwind\.config\.[^/]+)$/iu.test(
+                    file.relativePath,
+                  )),
+            )
+            .map((file) => file.relativePath)
+            .sort(),
+        ),
+      })
+    : undefined;
+  const exactFrameworkSources = new Set([
+    ...(nextAppRouter?.routes.map((route) => route.relativePath) ?? []),
+    ...(nextAppRouter?.protectedServerFiles ?? []),
+    ...(nextAppRouter?.middleware ?? []),
+    ...(nextAppRouter?.configPaths.filter((path) => NEXT_RUNTIME_CONFIG_PATTERN.test(path)) ?? []),
+  ]);
   const dependencyMap = new Map<string, readonly ReactMigrationModuleDependency[]>();
   for (const file of inventory) {
     const source = sourceTexts.get(file.relativePath) ?? '';
@@ -1488,7 +1721,13 @@ export async function scanReactMigrationSource(
   }
   const graphComponents = stronglyConnectedSourceComponents(inventory, dependencyMap);
   const baseOwners = new Map(
-    inventory.map((file) => [file.relativePath, seededOwner(file)] as const),
+    inventory.map(
+      (file) =>
+        [
+          file.relativePath,
+          seededOwner(file, exactFrameworkSources.has(file.relativePath), nextAppRoot),
+        ] as const,
+    ),
   );
   const consumerOwners = new Map<string, Set<string>>();
   const directConsumers = new Map<string, Set<string>>();
@@ -1529,7 +1768,16 @@ export async function scanReactMigrationSource(
       ? baseOwners.get(stylePeer.relativePath)!
       : baseOwners.get(file.relativePath)!;
     const source = sourceTexts.get(file.relativePath) ?? '';
-    const role = ownerRole(file.category, source);
+    const role =
+      exactFrameworkSources.has(file.relativePath) && nextAppRoot
+        ? NEXT_RUNTIME_CONFIG_PATTERN.test(file.relativePath)
+          ? 'configuration'
+          : nextRouteKind(file.relativePath) && nextRouteKind(file.relativePath) !== 'route'
+            ? 'route'
+            : /\.(?:tsx|jsx)$/iu.test(file.relativePath) && !isUseServerSource(source)
+              ? 'route'
+              : 'api'
+        : ownerRole(file.category, source);
     const distinctConsumers = consumerOwners.get(file.relativePath) ?? new Set<string>();
     const independentlyUsedTopLevelStore =
       file.relativePath.startsWith('devtools/') &&
@@ -1592,14 +1840,18 @@ export async function scanReactMigrationSource(
         seed.ownerName,
         role,
         file.relativePath,
+        exactFrameworkSources.has(file.relativePath),
       ),
       dependencies: dependencyMap.get(file.relativePath) ?? Object.freeze([]),
       graphComponentId:
         graphComponents.get(file.relativePath) ?? sha256(file.relativePath).slice(0, 16),
-      routeEntrypoint:
-        file.category === 'route' ||
-        (sourceExtension.test(file.relativePath) &&
-          containsSemanticRouteBehavior(Buffer.from(source))),
+      routeEntrypoint: nextAppRoot
+        ? nextRoutes.some(
+            (route) => route.relativePath === file.relativePath && route.kind === 'page',
+          )
+        : file.category === 'route' ||
+          (sourceExtension.test(file.relativePath) &&
+            containsSemanticRouteBehavior(Buffer.from(source))),
       completionObligation: completionObligation(file.category, file.relativePath),
       approvedLegacyAdapters: detectedAdapters(file.relativePath, source, packageImports),
     });
@@ -1819,6 +2071,29 @@ export async function scanReactMigrationSource(
       ),
     });
   });
+  const detectedLockfileManagers = [
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['package-lock.json', 'npm'],
+    ['yarn.lock', 'yarn'],
+    ['bun.lock', 'bun'],
+    ['bun.lockb', 'bun'],
+  ] as const;
+  const presentPackageManagers = [
+    ...new Set(
+      detectedLockfileManagers
+        .filter(([lockfile]) => inventory.some((file) => file.relativePath === lockfile))
+        .map(([, manager]) => manager),
+    ),
+  ];
+  if (typeof packageJson['packageManager'] !== 'string' && presentPackageManagers.length > 1) {
+    throw new Error(
+      'Migration source has multiple package-manager lockfiles without an authoritative packageManager declaration.',
+    );
+  }
+  const packageManagerFact =
+    typeof packageJson['packageManager'] === 'string'
+      ? packageJson['packageManager']
+      : presentPackageManagers[0];
   return Object.freeze({
     sourceRoot: fileSystem.root,
     packageName:
@@ -1830,27 +2105,33 @@ export async function scanReactMigrationSource(
     environmentKeys: Object.freeze(environment),
     totalBytes,
     snapshotSha256,
-    semanticRoutesPresent,
+    semanticRoutesPresent:
+      semanticRoutesPresent || nextRoutes.some((route) => route.kind === 'page'),
     packageDependencies: Object.freeze(packageDependencies),
     packageDependencyRecords: Object.freeze(packageDependencyRecords),
     packageScripts,
     toolchain: Object.freeze({
-      ...(typeof packageJson['packageManager'] === 'string'
-        ? { packageManager: packageJson['packageManager'] }
-        : {}),
+      ...(packageManagerFact ? { packageManager: packageManagerFact } : {}),
       ...(packageJson['engines'] &&
       typeof packageJson['engines'] === 'object' &&
       typeof (packageJson['engines'] as Record<string, unknown>)['node'] === 'string'
         ? { nodeEngine: (packageJson['engines'] as Record<string, string>)['node'] }
         : {}),
       ...(typeof dependencies['vite'] === 'string' ? { viteVersion: dependencies['vite'] } : {}),
+      ...(nextVersion ? { nextVersion } : {}),
       configPaths: Object.freeze(
         inventory
-          .filter((file) => file.category === 'configuration')
+          .filter(
+            (file) =>
+              file.category === 'configuration' ||
+              (framework === 'next-app-router' &&
+                NEXT_RUNTIME_CONFIG_PATTERN.test(file.relativePath)),
+          )
           .map((file) => file.relativePath)
           .sort(),
       ),
     }),
+    ...(nextAppRouter ? { nextAppRouter } : {}),
     sourceAliases,
     ownership: Object.freeze(ownership),
   });
@@ -1883,7 +2164,7 @@ export function planReactMigration(
   inventory: ReactMigrationInventory,
   targetDirectory: string,
   targetBaselineSha256 = sha256(
-    Object.entries(createSrijikaProjectFileMap())
+    Object.entries(migrationStarterFileMap(inventory))
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([path, source]) => `${path}\0${sha256(source)}`)
       .join('\n'),
@@ -2065,7 +2346,7 @@ export function planReactMigration(
   const batchedOwnerIds = groupedOwnerIds.map((members) => [...members]);
   const requiredStarterCleanup = Object.freeze(
     starterCleanupOverride ??
-      Object.entries(createSrijikaProjectFileMap())
+      Object.entries(migrationStarterFileMap(inventory))
         .filter(([relativePath]) => relativePath.startsWith('src/features/home/'))
         .map(([relativePath, source]) =>
           Object.freeze({ relativePath, expectedSha256: sha256(source) }),
@@ -2276,9 +2557,12 @@ async function projectSnapshotSha256(targetRoot: string): Promise<string> {
   return sha256(entries.sort((left, right) => left.localeCompare(right)).join('\n'));
 }
 
-async function assertExistingSrijikaTargetIsEmptyStarter(targetRoot: string): Promise<void> {
+async function assertExistingSrijikaTargetIsEmptyStarter(
+  targetRoot: string,
+  inventory: ReactMigrationInventory,
+): Promise<void> {
   const fileSystem = await SrijikaProjectFileSystem.open(targetRoot);
-  const allowed = new Set(Object.keys(createSrijikaProjectFileMap()));
+  const allowed = new Set(Object.keys(migrationStarterFileMap(inventory)));
   const files = await fileSystem.walkFiles([''], {
     maximumFiles: MAX_FILES,
     maximumEntries: MAX_ENTRIES,
@@ -2334,10 +2618,37 @@ function npmName(value: string): string {
   return normalized;
 }
 
+function migrationStarterFileMap(
+  inventory: ReactMigrationInventory,
+  options: { projectName?: string; displayName?: string } = {},
+): Readonly<Record<string, string>> {
+  if (inventory.framework === 'next-app-router') {
+    if (!inventory.nextAppRouter || !inventory.toolchain.nextVersion) {
+      throw new Error('Next.js migration inventory is missing its App Router toolchain facts.');
+    }
+    return createSrijikaNextProjectFileMap({
+      nextVersion: inventory.toolchain.nextVersion,
+      appRoot: inventory.nextAppRouter.appRoot,
+      ...(options.projectName ? { projectName: options.projectName } : {}),
+      ...(options.displayName ? { displayName: options.displayName } : {}),
+    });
+  }
+  return createSrijikaProjectFileMap(options);
+}
+
 export async function startReactMigration(
   request: StartReactMigrationRequest,
 ): Promise<ReactMigrationSession> {
   const inventory = await scanReactMigrationSource(request.source);
+  if (
+    (request.expectedFramework === 'next-app-router' &&
+      inventory.framework !== 'next-app-router') ||
+    (request.expectedFramework === 'react' && inventory.framework === 'next-app-router')
+  ) {
+    throw new Error(
+      `Migration adapter ${request.expectedFramework} does not match detected framework ${inventory.framework}.`,
+    );
+  }
   const targetRoot = await canonicalFutureTarget(request.target);
   assertDistinctRoots(inventory.sourceRoot, targetRoot);
   try {
@@ -2385,10 +2696,19 @@ export async function startReactMigration(
     if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
   }
   if (!targetHasProject) {
-    await writeSrijikaProject(targetRoot, {
+    const scaffoldOptions = {
       projectName: request.projectName ?? npmName(basename(targetRoot)),
       displayName: request.displayName ?? basename(targetRoot),
-    });
+    };
+    if (inventory.framework === 'next-app-router') {
+      await writeSrijikaNextProject(targetRoot, {
+        ...scaffoldOptions,
+        nextVersion: inventory.toolchain.nextVersion!,
+        appRoot: inventory.nextAppRouter!.appRoot,
+      });
+    } else {
+      await writeSrijikaProject(targetRoot, scaffoldOptions);
+    }
   } else {
     const entries = await SrijikaProjectFileSystem.open(targetRoot);
     if (await entries.isRegularFile(SESSION_PATH)) {
@@ -2400,11 +2720,11 @@ export async function startReactMigration(
         'Existing Srijika target must pass architecture validation before migration.',
       );
     }
-    await assertExistingSrijikaTargetIsEmptyStarter(targetRoot);
+    await assertExistingSrijikaTargetIsEmptyStarter(targetRoot, inventory);
   }
   const targetBaselineSha256 = await projectSnapshotSha256(targetRoot);
   const starterCleanup = await Promise.all(
-    Object.keys(createSrijikaProjectFileMap())
+    Object.keys(migrationStarterFileMap(inventory))
       .filter((relativePath) => relativePath.startsWith('src/features/home/'))
       .map(async (relativePath) => {
         const expectedSha256 = await existingHash(targetRoot, relativePath);
@@ -2563,14 +2883,21 @@ async function writeSafeMigrationText(
   await rename(temporary, target);
 }
 
-function migrationTestInstallCommand(manager: 'pnpm' | 'npm' | 'yarn' | 'bun'): {
+function migrationTestInstallCommand(
+  manager: 'pnpm' | 'npm' | 'yarn' | 'bun',
+  hasLockfile: boolean,
+): {
   executable: string;
   args: readonly string[];
 } {
   if (manager === 'pnpm') {
     return {
       executable: manager,
-      args: Object.freeze(['install', '--no-frozen-lockfile', '--ignore-scripts']),
+      args: Object.freeze([
+        'install',
+        ...(hasLockfile ? ['--no-frozen-lockfile'] : ['--lockfile=false']),
+        '--ignore-scripts',
+      ]),
     };
   }
   if (manager === 'npm') {
@@ -2671,7 +2998,7 @@ export async function synchronizeReactMigrationTestHarness(
     );
   if (request.includeInstall) {
     const project = await inspectSrijikaProject(session.targetRoot);
-    const command = migrationTestInstallCommand(project.packageManager);
+    const command = migrationTestInstallCommand(project.packageManager, Boolean(project.lockfile));
     const result = await executeBoundedGate(
       session.targetRoot,
       command.executable,
@@ -2959,6 +3286,7 @@ export async function reviewReactMigrationOwnership(
           override.ownerName,
           override.role,
           decision.sourcePath,
+          isNextExactFrameworkSource(session.inventory, decision.sourcePath),
         ),
       });
     }),
@@ -3615,7 +3943,7 @@ async function validateReviewedSlice(
       throw new Error(`${write.relativePath} changed since the migration slice was reviewed.`);
     }
   }
-  const baselinePaths = new Set(Object.keys(createSrijikaProjectFileMap()));
+  const baselinePaths = new Set(Object.keys(migrationStarterFileMap(session.inventory)));
   const deletePaths = new Set<string>();
   for (const deletion of slice.deletes ?? []) {
     const target = safeTargetPath(session.targetRoot, deletion.relativePath);
@@ -3667,6 +3995,15 @@ async function validateReviewedSlice(
     if (mapping.ownerId !== decision.ownerId || mapping.role !== decision.role) {
       throw new Error(
         `${mapping.sourcePath} must use canonical owner ${decision.ownerId} with role ${decision.role}.`,
+      );
+    }
+    if (
+      session.inventory.nextAppRouter?.protectedServerFiles.includes(mapping.sourcePath) &&
+      (mapping.role === 'ui' ||
+        mapping.targetPaths.some((targetPath) => /\.(?:ui|connector)\.tsx$/iu.test(targetPath)))
+    ) {
+      throw new Error(
+        `${mapping.sourcePath} is a protected Next.js server module and cannot enter a client/UI owner.`,
       );
     }
     if (mapping.rationale.trim().length < 8) {
@@ -4595,12 +4932,19 @@ function packageManagerCommand(
   manager: 'pnpm' | 'npm' | 'yarn' | 'bun',
   operation: 'install' | 'typecheck' | 'build' | 'test',
   scriptName: string = operation,
+  hasLockfile = true,
 ): { executable: string; args: readonly string[] } {
   if (operation === 'install') {
     return manager === 'yarn'
       ? { executable: manager, args: Object.freeze(['install', '--immutable']) }
       : manager === 'pnpm'
-        ? { executable: manager, args: Object.freeze(['install', '--frozen-lockfile']) }
+        ? {
+            executable: manager,
+            args: Object.freeze([
+              'install',
+              ...(hasLockfile ? ['--frozen-lockfile'] : ['--lockfile=false']),
+            ]),
+          }
         : manager === 'npm'
           ? { executable: manager, args: Object.freeze(['ci']) }
           : { executable: manager, args: Object.freeze(['install', '--frozen-lockfile']) };
@@ -4794,7 +5138,7 @@ export async function runReactMigrationVerificationGates(
       name === 'typecheck'
         ? /(?:^|\s)(?:tsc\b|pnpm\s+validate:srijika\b|npm\s+run\s+validate:srijika\b)/u
         : name === 'build'
-          ? /(?:^|\s)(?:vite\s+build\b|tsc\b[^&|;]*(?:&&|&)\s*vite\s+build\b)/u
+          ? /(?:^|\s)(?:vite\s+build\b|next\s+build\b|tsc\b[^&|;]*(?:&&|&)\s*(?:vite|next)\s+build\b)/u
           : name === 'test'
             ? /(?:vitest|jest|node\s+--test|playwright|cypress)/u
             : undefined;
@@ -4812,7 +5156,12 @@ export async function runReactMigrationVerificationGates(
       });
       continue;
     }
-    const command = packageManagerCommand(project.packageManager, name, scriptName);
+    const command = packageManagerCommand(
+      project.packageManager,
+      name,
+      scriptName,
+      Boolean(project.lockfile),
+    );
     // Resolve pnpm before spawning. A GUI/MCP host can expose a shim that is
     // sufficient to launch pnpm itself but does not leave `pnpm` on PATH for
     // the package script's nested shell. The user-local executable gives the
@@ -5569,7 +5918,7 @@ export function buildReactMigrationCliArguments(
     assertDistinctRoots(resolve(request.source), resolve(request.target));
     return Object.freeze([
       'migrate',
-      'react',
+      request.framework === 'next-app-router' ? 'next' : 'react',
       '--source',
       resolve(request.source),
       '--target',

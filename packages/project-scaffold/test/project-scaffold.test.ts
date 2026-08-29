@@ -6,6 +6,7 @@ import * as ts from 'typescript';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  createSrijikaNextProjectFileMap,
   createSrijikaProjectFileMap,
   createSrijikaUiSourcePair,
   writeSrijikaProject,
@@ -343,6 +344,43 @@ describe('createSrijikaProjectFileMap', () => {
     expect(() => createSrijikaProjectFileMap({ reactQuery: 'yes' as unknown as boolean })).toThrow(
       /reactQuery/,
     );
+  });
+});
+
+describe('createSrijikaNextProjectFileMap', () => {
+  it('creates a deterministic App Router target without a Vite compatibility shell', () => {
+    const files = createSrijikaNextProjectFileMap({
+      nextVersion: '16.3.2',
+      appRoot: 'src/app',
+      projectName: 'next-migration',
+      displayName: 'Next Migration',
+    });
+    const packageMetadata = JSON.parse(files['package.json'] ?? '{}') as {
+      scripts: Record<string, string>;
+      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
+    };
+
+    expect(Object.keys(files)).toEqual([...Object.keys(files)].sort());
+    expect(packageMetadata.dependencies['next']).toBe('16.3.2');
+    expect(packageMetadata.scripts['build']).toContain('next build');
+    expect(packageMetadata.devDependencies['vite']).toBeUndefined();
+    expect(files['src/app/layout.tsx']).toContain("import '../styles.css';");
+    expect(files['src/app/page.tsx']).toContain("from '../features/home/Home.connector'");
+    expect(files['src/features/home/Home.connector.tsx']).toMatch(/^'use client';/u);
+    expect(files['next.config.ts']).toContain('NextConfig');
+    expect(files['next-env.d.ts']).toContain('next/image-types/global');
+    expect(files['vite.config.ts']).toBeUndefined();
+    expect(files['src/main.tsx']).toBeUndefined();
+    expect(files['src/srijika/preview-bridge.ts']).toBeUndefined();
+    expect(files['index.html']).toBeUndefined();
+    expect(files['pnpm-lock.yaml']).toBeUndefined();
+  });
+
+  it('rejects local Next.js dependency references', () => {
+    expect(() =>
+      createSrijikaNextProjectFileMap({ nextVersion: 'workspace:*', appRoot: 'app' }),
+    ).toThrow(/registry package version/u);
   });
 });
 

@@ -77,6 +77,8 @@ export function planSrijikaProjectCommand(
     runtime?: SrijikaRuntimePreference;
     host?: string;
     port?: number;
+    /** Migration targets may install without creating package-manager state. */
+    allowMissingLockfile?: boolean;
   } = {},
 ): SrijikaCommandPlan {
   const selection = selectSrijikaRuntime(project, options.runtime ?? 'auto');
@@ -89,6 +91,17 @@ export function planSrijikaProjectCommand(
       bun: ['bun.lock', 'bun.lockb'],
     };
     if (!project.lockfile) {
+      if (options.allowMissingLockfile && manager === 'pnpm') {
+        return Object.freeze({
+          kind,
+          cwd: project.root,
+          executable: executableFor(manager),
+          args: Object.freeze(['install', '--lockfile=false']),
+          runtime: selection.runtime,
+          packageManager: manager,
+          description: `Install ${project.projectName} dependencies without mutating migration state.`,
+        });
+      }
       throw new Error('A supported lockfile is required before Srijika can install dependencies.');
     }
     if (!compatibleLockfiles[manager].includes(project.lockfile)) {
