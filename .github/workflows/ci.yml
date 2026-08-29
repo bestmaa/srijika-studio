@@ -119,7 +119,7 @@ jobs:
           # macOS exposes its default temporary directory through a system path alias.
           # Use the canonical directory so project symlink checks still fail closed.
           TMPDIR: /private/tmp
-        run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/project-scaffold test
+        run: pnpm --filter @srijika/developer-engine exec vitest run --config vitest.config.ts test/developer-engine.test.ts test/next-live-preview.test.ts && pnpm --filter @srijika/project-scaffold exec vitest run --config vitest.config.ts test/project-scaffold.test.ts
 
       - name: Verify native runtime contracts
         run: cargo test --locked -p studio-core
