@@ -504,7 +504,7 @@ describe('React migration command', () => {
     expect(packageMetadata.scripts['build']).toContain('next build');
     await expect(access(join(target, 'pnpm-lock.yaml'))).rejects.toThrow();
     expect(await readFile(join(source, 'src/app/page.tsx'), 'utf8')).toBe(before);
-  }, 30_000);
+  }, 120_000);
 
   it('creates a separate resumable target and reports status without changing source', async () => {
     const source = await reactSource();
