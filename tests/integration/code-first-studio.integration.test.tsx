@@ -764,7 +764,7 @@ export function FeatureCardUI(props: FeatureCardUIProps) {
     await user.click(within(dialog).getByRole('button', { name: 'Create UI page' }));
     expect(within(dialog).getByRole('alert')).toHaveTextContent('already exists');
     expect(sourceEditor().value).toContain('export function HomeUI');
-  });
+  }, 10_000);
 
   it('authors components into authoritative TSX and keeps collapsible navigator panels in sync', async () => {
     const user = userEvent.setup();

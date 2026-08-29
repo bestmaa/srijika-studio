@@ -1283,6 +1283,19 @@ export function Home(props: HomeProps) {
   });
 
   it('starts the real app, connects UI Sources to its runtime, then stops and builds it', async () => {
+    let projectRunning = false;
+    serviceMocks.getProjectRuntimeStatus.mockImplementation(() =>
+      Promise.resolve(runtimeStatus(projectRunning)),
+    );
+    serviceMocks.startCodeProject.mockImplementation(() => {
+      projectRunning = true;
+      return Promise.resolve(runtimeStatus(true));
+    });
+    serviceMocks.stopCodeProject.mockImplementation(() => {
+      projectRunning = false;
+      return Promise.resolve(runtimeStatus(false));
+    });
+
     render(<CodeFirstStudio />);
     const runtime = screen.getByRole('region', { name: 'Project runtime' });
 
