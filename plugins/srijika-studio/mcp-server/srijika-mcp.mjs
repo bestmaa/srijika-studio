@@ -1537,8 +1537,8 @@ var require_dataType = __commonJS({
       return types;
     }
     exports.getSchemaTypes = getSchemaTypes;
-    function getJSONTypes(ts10) {
-      const types = Array.isArray(ts10) ? ts10 : ts10 ? [ts10] : [];
+    function getJSONTypes(ts11) {
+      const types = Array.isArray(ts11) ? ts11 : ts11 ? [ts11] : [];
       if (types.every(rules_1.isJSONType))
         return types;
       throw new Error("type must be JSONType or JSONType[]: " + types.join(","));
@@ -2580,18 +2580,18 @@ var require_validate = __commonJS({
       });
       narrowSchemaTypes(it, types);
     }
-    function checkMultipleTypes(it, ts10) {
-      if (ts10.length > 1 && !(ts10.length === 2 && ts10.includes("null"))) {
+    function checkMultipleTypes(it, ts11) {
+      if (ts11.length > 1 && !(ts11.length === 2 && ts11.includes("null"))) {
         strictTypesError(it, "use allowUnionTypes to allow union type keyword");
       }
     }
-    function checkKeywordTypes(it, ts10) {
+    function checkKeywordTypes(it, ts11) {
       const rules = it.self.RULES.all;
       for (const keyword in rules) {
         const rule = rules[keyword];
         if (typeof rule == "object" && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
           const { type } = rule.definition;
-          if (type.length && !type.some((t) => hasApplicableType(ts10, t))) {
+          if (type.length && !type.some((t) => hasApplicableType(ts11, t))) {
             strictTypesError(it, `missing type "${type.join(",")}" for keyword "${keyword}"`);
           }
         }
@@ -2600,18 +2600,18 @@ var require_validate = __commonJS({
     function hasApplicableType(schTs, kwdT) {
       return schTs.includes(kwdT) || kwdT === "number" && schTs.includes("integer");
     }
-    function includesType(ts10, t) {
-      return ts10.includes(t) || t === "integer" && ts10.includes("number");
+    function includesType(ts11, t) {
+      return ts11.includes(t) || t === "integer" && ts11.includes("number");
     }
     function narrowSchemaTypes(it, withTypes) {
-      const ts10 = [];
+      const ts11 = [];
       for (const t of it.dataTypes) {
         if (includesType(withTypes, t))
-          ts10.push(t);
+          ts11.push(t);
         else if (withTypes.includes("integer") && t === "number")
-          ts10.push("integer");
+          ts11.push("integer");
       }
-      it.dataTypes = ts10;
+      it.dataTypes = ts11;
     }
     function strictTypesError(it, msg) {
       const schemaPath = it.schemaEnv.baseId + it.errSchemaPath;
@@ -11978,7 +11978,7 @@ var init_src = __esm({
 // ../../node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/typescript.js
 var require_typescript = __commonJS({
   "../../node_modules/.pnpm/typescript@6.0.3/node_modules/typescript/lib/typescript.js"(exports, module) {
-    var ts10 = {};
+    var ts11 = {};
     ((module2) => {
       "use strict";
       var __defProp2 = Object.defineProperty;
@@ -223497,9 +223497,9 @@ Additional information: BADCLIENT: Bad error code, ${badCode} not found in range
         };
       }
     })({ get exports() {
-      return ts10;
+      return ts11;
     }, set exports(v) {
-      ts10 = v;
+      ts11 = v;
       if (typeof module !== "undefined" && module.exports) {
         module.exports = v;
       }
@@ -223766,11 +223766,15 @@ function parseSrijikaTypeScriptPathAliases(source) {
     throw new Error("tsconfig.json compilerOptions must be an object.");
   }
   const options = compilerOptions;
-  if (Object.hasOwn(options, "baseUrl")) {
-    throw new Error(
-      "tsconfig.json compilerOptions.baseUrl must be omitted; strict Srijika path targets are already project-relative inside the project root."
-    );
+  const baseUrlValue = options["baseUrl"];
+  if (baseUrlValue !== void 0 && typeof baseUrlValue !== "string") {
+    throw new Error("tsconfig.json compilerOptions.baseUrl must be a string.");
   }
+  const baseUrl = normalizedTsconfigPath(
+    typeof baseUrlValue === "string" ? baseUrlValue : "",
+    "tsconfig.json compilerOptions.baseUrl",
+    true
+  );
   const paths = options["paths"];
   if (paths === void 0) return Object.freeze({});
   if (!paths || typeof paths !== "object" || Array.isArray(paths)) {
@@ -223797,7 +223801,7 @@ function parseSrijikaTypeScriptPathAliases(source) {
     const alias = wildcard ? pattern.slice(0, -1) : pattern;
     const targetWithoutWildcard = wildcard ? firstTarget.slice(0, -1) : firstTarget;
     const target = normalizedTsconfigPath(
-      targetWithoutWildcard,
+      [baseUrl, targetWithoutWildcard].filter(Boolean).join("/"),
       `tsconfig.json path alias ${pattern}`,
       true
     );
@@ -227125,10 +227129,10 @@ var init_portable = __esm({
     "use strict";
     init_config();
     portableMain = async function portableMain2(runtime, projectRoot, rawConfig) {
-      const { fs, fsConstants, path, ts: ts10 } = runtime;
+      const { fs, fsConstants, path, ts: ts11 } = runtime;
       const MAX_CONFIG_BYTES = 64 * 1024;
-      const MAX_TSCONFIG_BYTES2 = 1024 * 1024;
-      const MAX_SOURCE_BYTES3 = 4 * 1024 * 1024;
+      const MAX_TSCONFIG_BYTES3 = 1024 * 1024;
+      const MAX_SOURCE_BYTES4 = 4 * 1024 * 1024;
       const MAX_TOTAL_SOURCE_BYTES = 24 * 1024 * 1024;
       const MAX_SOURCE_FILES2 = 4096;
       const MAX_SCAN_ENTRIES3 = 32768;
@@ -227423,10 +227427,10 @@ var init_portable = __esm({
         return result;
       }
       function parseTypeScriptAliases(source) {
-        const parsed = ts10.parseConfigFileTextToJson("tsconfig.json", source);
+        const parsed = ts11.parseConfigFileTextToJson("tsconfig.json", source);
         if (parsed.error) {
           throw new Error(
-            `tsconfig.json is not valid JSONC: ${ts10.flattenDiagnosticMessageText(parsed.error.messageText, " ")}`
+            `tsconfig.json is not valid JSONC: ${ts11.flattenDiagnosticMessageText(parsed.error.messageText, " ")}`
           );
         }
         const root = record3(parsed.config);
@@ -227451,11 +227455,15 @@ var init_portable = __esm({
         if (compilerOptionsValue === void 0) return {};
         const compilerOptions = record3(compilerOptionsValue);
         if (!compilerOptions) throw new Error("tsconfig.json compilerOptions must be an object.");
-        if (Object.prototype.hasOwnProperty.call(compilerOptions, "baseUrl")) {
-          throw new Error(
-            "tsconfig.json compilerOptions.baseUrl must be omitted; strict Srijika path targets are already project-relative inside the project root."
-          );
+        const baseUrlValue = compilerOptions["baseUrl"];
+        if (baseUrlValue !== void 0 && typeof baseUrlValue !== "string") {
+          throw new Error("tsconfig.json compilerOptions.baseUrl must be a string.");
         }
+        const baseUrl = normalizedTsconfigPath2(
+          typeof baseUrlValue === "string" ? baseUrlValue : "",
+          "tsconfig.json compilerOptions.baseUrl",
+          true
+        );
         const pathsValue = compilerOptions["paths"];
         if (pathsValue === void 0) return {};
         const paths = record3(pathsValue);
@@ -227484,7 +227492,11 @@ var init_portable = __esm({
           const target = wildcard ? firstTarget.slice(0, -1) : firstTarget;
           output.push([
             alias,
-            normalizedTsconfigPath2(target, `tsconfig.json path alias ${pattern}`, true)
+            normalizedTsconfigPath2(
+              [baseUrl, target].filter(Boolean).join("/"),
+              `tsconfig.json path alias ${pattern}`,
+              true
+            )
           ]);
         }
         return Object.fromEntries(output);
@@ -227498,7 +227510,7 @@ var init_portable = __esm({
         aliases = {
           ...aliases,
           ...parseTypeScriptAliases(
-            await readBoundedText(path.join(projectRoot, "tsconfig.json"), MAX_TSCONFIG_BYTES2)
+            await readBoundedText(path.join(projectRoot, "tsconfig.json"), MAX_TSCONFIG_BYTES3)
           )
         };
       } catch (error2) {
@@ -227578,7 +227590,7 @@ var init_portable = __esm({
             if (collectedFiles.size > MAX_SOURCE_FILES2) {
               throw new Error(`Architecture scan exceeds the ${MAX_SOURCE_FILES2}-file safety limit.`);
             }
-            const source = await readBoundedText(absolute, MAX_SOURCE_BYTES3);
+            const source = await readBoundedText(absolute, MAX_SOURCE_BYTES4);
             totalSourceBytes += Buffer.byteLength(source, "utf8");
             if (totalSourceBytes > MAX_TOTAL_SOURCE_BYTES) {
               throw new Error("Architecture scan exceeds the 24 MiB aggregate source safety limit.");
@@ -227599,7 +227611,7 @@ var init_portable = __esm({
           if (collectedFiles.size > MAX_SOURCE_FILES2) {
             throw new Error(`Architecture scan exceeds the ${MAX_SOURCE_FILES2}-file safety limit.`);
           }
-          const source = await readBoundedText(absoluteEntry, MAX_SOURCE_BYTES3);
+          const source = await readBoundedText(absoluteEntry, MAX_SOURCE_BYTES4);
           totalSourceBytes += Buffer.byteLength(source, "utf8");
           if (totalSourceBytes > MAX_TOTAL_SOURCE_BYTES) {
             throw new Error("Architecture scan exceeds the 24 MiB aggregate source safety limit.");
@@ -227621,12 +227633,12 @@ var init_portable = __esm({
       }
       function scriptKindForFile2(fileName) {
         const normalized2 = fileName.toLowerCase();
-        if (normalized2.endsWith(".tsx")) return ts10.ScriptKind.TSX;
-        if (normalized2.endsWith(".jsx")) return ts10.ScriptKind.JSX;
+        if (normalized2.endsWith(".tsx")) return ts11.ScriptKind.TSX;
+        if (normalized2.endsWith(".jsx")) return ts11.ScriptKind.JSX;
         if (normalized2.endsWith(".js") || normalized2.endsWith(".mjs") || normalized2.endsWith(".cjs")) {
-          return ts10.ScriptKind.JS;
+          return ts11.ScriptKind.JS;
         }
-        return ts10.ScriptKind.TS;
+        return ts11.ScriptKind.TS;
       }
       function clean(value) {
         return value.replaceAll("\\", "/").replace(/\/{2,}/g, "/");
@@ -227898,7 +227910,7 @@ var init_portable = __esm({
       const uiFileMeaningfulLineLimit = 300;
       const uiContractMemberLimit = 16;
       function isCommentLikeNode3(node) {
-        return node.kind >= ts10.SyntaxKind.FirstJSDocNode && node.kind <= ts10.SyntaxKind.LastJSDocNode;
+        return node.kind >= ts11.SyntaxKind.FirstJSDocNode && node.kind <= ts11.SyntaxKind.LastJSDocNode;
       }
       function countMeaningfulLines3(sourceFile2, root) {
         const lines = /* @__PURE__ */ new Set();
@@ -227909,7 +227921,7 @@ var init_portable = __esm({
             for (const child of children) visit2(child);
             return;
           }
-          if (node.kind === ts10.SyntaxKind.EndOfFileToken) return;
+          if (node.kind === ts11.SyntaxKind.EndOfFileToken) return;
           const start = node.getStart(sourceFile2);
           const end = node.getEnd();
           if (end <= start) return;
@@ -227931,7 +227943,7 @@ var init_portable = __esm({
       function exportedOwnerUiFunction2(sourceFile2, owner) {
         const expectedName = `${pascalName3(owner)}UI`;
         return sourceFile2.statements.find(
-          (statement) => ts10.isFunctionDeclaration(statement) && statement.name?.text === expectedName && statement.modifiers?.some((modifier) => modifier.kind === ts10.SyntaxKind.ExportKeyword) === true
+          (statement) => ts11.isFunctionDeclaration(statement) && statement.name?.text === expectedName && statement.modifiers?.some((modifier) => modifier.kind === ts11.SyntaxKind.ExportKeyword) === true
         ) ?? null;
       }
       function resolve13(origin, specifier) {
@@ -228017,10 +228029,10 @@ var init_portable = __esm({
         layouts.set(key, layout);
       }
       function layoutSpan(file) {
-        const sourceFile2 = ts10.createSourceFile(
+        const sourceFile2 = ts11.createSourceFile(
           file.fileName,
           file.source,
-          ts10.ScriptTarget.Latest,
+          ts11.ScriptTarget.Latest,
           true,
           scriptKindForFile2(file.fileName)
         );
@@ -228096,42 +228108,42 @@ var init_portable = __esm({
         }
       }
       function isTypeOnlyModuleReference2(node) {
-        if (ts10.isImportDeclaration(node)) {
+        if (ts11.isImportDeclaration(node)) {
           const clause = node.importClause;
           if (!clause) return false;
           if (clause.isTypeOnly) return true;
-          return !clause.name && !!clause.namedBindings && ts10.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0 && clause.namedBindings.elements.every((element) => element.isTypeOnly);
+          return !clause.name && !!clause.namedBindings && ts11.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.length > 0 && clause.namedBindings.elements.every((element) => element.isTypeOnly);
         }
-        if (ts10.isExportDeclaration(node)) {
+        if (ts11.isExportDeclaration(node)) {
           if (node.isTypeOnly) return true;
-          return !!node.exportClause && ts10.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every((element) => element.isTypeOnly);
+          return !!node.exportClause && ts11.isNamedExports(node.exportClause) && node.exportClause.elements.length > 0 && node.exportClause.elements.every((element) => element.isTypeOnly);
         }
-        if (ts10.isImportEqualsDeclaration(node)) return node.isTypeOnly;
+        if (ts11.isImportEqualsDeclaration(node)) return node.isTypeOnly;
         return false;
       }
       function isPassiveTypesStatement2(statement) {
-        if (ts10.isInterfaceDeclaration(statement) || ts10.isTypeAliasDeclaration(statement)) return true;
-        if (ts10.isImportDeclaration(statement)) return isTypeOnlyModuleReference2(statement);
-        if (ts10.isExportDeclaration(statement)) {
-          if (!statement.moduleSpecifier && statement.exportClause && ts10.isNamedExports(statement.exportClause)) {
+        if (ts11.isInterfaceDeclaration(statement) || ts11.isTypeAliasDeclaration(statement)) return true;
+        if (ts11.isImportDeclaration(statement)) return isTypeOnlyModuleReference2(statement);
+        if (ts11.isExportDeclaration(statement)) {
+          if (!statement.moduleSpecifier && statement.exportClause && ts11.isNamedExports(statement.exportClause)) {
             return statement.exportClause.elements.length === 0 || isTypeOnlyModuleReference2(statement);
           }
           return isTypeOnlyModuleReference2(statement);
         }
-        return ts10.isEmptyStatement(statement);
+        return ts11.isEmptyStatement(statement);
       }
       function passiveTypesReferenceViolations2(statement) {
         const violations = [];
         function inspect(node) {
-          if (ts10.isTypeQueryNode(node)) {
+          if (ts11.isTypeQueryNode(node)) {
             violations.push(node.exprName);
             return;
           }
-          if (ts10.isComputedPropertyName(node)) {
+          if (ts11.isComputedPropertyName(node)) {
             violations.push(node.expression);
             return;
           }
-          ts10.forEachChild(node, inspect);
+          ts11.forEachChild(node, inspect);
         }
         inspect(statement);
         return violations;
@@ -228171,11 +228183,11 @@ var init_portable = __esm({
       }
       function isJsxTagReference2(node) {
         let current = node;
-        while (ts10.isPropertyAccessExpression(current.parent) && current.parent.expression === current) {
+        while (ts11.isPropertyAccessExpression(current.parent) && current.parent.expression === current) {
           current = current.parent;
         }
         const parent = current.parent;
-        return (ts10.isJsxOpeningElement(parent) || ts10.isJsxClosingElement(parent) || ts10.isJsxSelfClosingElement(parent)) && parent.tagName === current;
+        return (ts11.isJsxOpeningElement(parent) || ts11.isJsxClosingElement(parent) || ts11.isJsxSelfClosingElement(parent)) && parent.tagName === current;
       }
       function forbiddenUiModule2(targetFileName) {
         const normalized2 = clean(targetFileName);
@@ -228200,12 +228212,12 @@ var init_portable = __esm({
       function isPresentationalExternalImport2(sourceFile2, moduleNode) {
         if (isPresentationalAssetSpecifier2(moduleNode.text)) return true;
         const declaration = moduleNode.parent;
-        if (!ts10.isImportDeclaration(declaration) || !declaration.importClause) return false;
+        if (!ts11.isImportDeclaration(declaration) || !declaration.importClause) return false;
         const clause = declaration.importClause;
         const bindings = [];
         if (clause.name) bindings.push(clause.name);
         if (clause.namedBindings) {
-          if (ts10.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
+          if (ts11.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
           else {
             for (const element of clause.namedBindings.elements) {
               if (!element.isTypeOnly) bindings.push(element.name);
@@ -228216,11 +228228,11 @@ var init_portable = __esm({
         for (const binding of bindings) {
           let inspect2 = function(node) {
             if (!rendererOnly || node === declaration) return;
-            if (ts10.isIdentifier(node) && node.text === binding.text) {
+            if (ts11.isIdentifier(node) && node.text === binding.text) {
               references += 1;
               if (!isJsxTagReference2(node)) rendererOnly = false;
             }
-            ts10.forEachChild(node, inspect2);
+            ts11.forEachChild(node, inspect2);
           };
           var inspect = inspect2;
           let references = 0;
@@ -228236,13 +228248,13 @@ var init_portable = __esm({
         }
         if (moduleNode.text !== "react") return false;
         const declaration = moduleNode.parent;
-        if (!ts10.isImportDeclaration(declaration)) return false;
+        if (!ts11.isImportDeclaration(declaration)) return false;
         const clause = declaration.importClause;
         if (!clause) return true;
         const bindings = [];
         if (clause.name) bindings.push(clause.name);
         if (clause.namedBindings) {
-          if (ts10.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
+          if (ts11.isNamespaceImport(clause.namedBindings)) bindings.push(clause.namedBindings.name);
           else {
             for (const element of clause.namedBindings.elements) {
               if (!element.isTypeOnly) bindings.push(element.name);
@@ -228252,13 +228264,13 @@ var init_portable = __esm({
         for (const binding of bindings) {
           let inspect2 = function(node) {
             if (!safe || node === declaration) return;
-            if (ts10.isIdentifier(node) && node.text === binding.text) {
+            if (ts11.isIdentifier(node) && node.text === binding.text) {
               if (isJsxTagReference2(node)) return;
               let access2 = node;
-              while (ts10.isPropertyAccessExpression(access2.parent) && access2.parent.expression === access2) {
+              while (ts11.isPropertyAccessExpression(access2.parent) && access2.parent.expression === access2) {
                 access2 = access2.parent;
               }
-              if (ts10.isCallExpression(access2.parent) && access2.parent.expression === access2) {
+              if (ts11.isCallExpression(access2.parent) && access2.parent.expression === access2) {
                 const name = propertyAccessPath2(access2)?.at(-1);
                 if (name && (name === "use" || /^use[A-Z0-9]/.test(name) || name === "createElement" || name === "cloneElement")) {
                   return;
@@ -228266,7 +228278,7 @@ var init_portable = __esm({
               }
               safe = false;
             }
-            ts10.forEachChild(node, inspect2);
+            ts11.forEachChild(node, inspect2);
           };
           var inspect = inspect2;
           let safe = true;
@@ -228286,12 +228298,12 @@ var init_portable = __esm({
         };
       }
       function propertyAccessPath2(expression) {
-        if (ts10.isIdentifier(expression)) return [expression.text];
-        if (ts10.isPropertyAccessExpression(expression)) {
+        if (ts11.isIdentifier(expression)) return [expression.text];
+        if (ts11.isPropertyAccessExpression(expression)) {
           const parent = propertyAccessPath2(expression.expression);
           return parent ? [...parent, expression.name.text] : null;
         }
-        if (ts10.isElementAccessExpression(expression) && expression.argumentExpression && (ts10.isStringLiteralLike(expression.argumentExpression) || ts10.isNumericLiteral(expression.argumentExpression))) {
+        if (ts11.isElementAccessExpression(expression) && expression.argumentExpression && (ts11.isStringLiteralLike(expression.argumentExpression) || ts11.isNumericLiteral(expression.argumentExpression))) {
           const parent = propertyAccessPath2(expression.expression);
           return parent ? [...parent, expression.argumentExpression.text] : null;
         }
@@ -228299,8 +228311,8 @@ var init_portable = __esm({
       }
       function isTypePosition2(node) {
         let current = node;
-        while (current && !ts10.isStatement(current)) {
-          if (ts10.isTypeNode(current)) return true;
+        while (current && !ts11.isStatement(current)) {
+          if (ts11.isTypeNode(current)) return true;
           current = current.parent;
         }
         return false;
@@ -228308,21 +228320,21 @@ var init_portable = __esm({
       function isStandaloneRuntimeIdentifier2(node) {
         const parent = node.parent;
         if (isTypePosition2(node)) return false;
-        if (ts10.isPropertyAccessExpression(parent) && parent.name === node || ts10.isPropertyAssignment(parent) && parent.name === node || ts10.isBindingElement(parent) && (parent.name === node || parent.propertyName === node) || ts10.isVariableDeclaration(parent) && parent.name === node || ts10.isParameter(parent) && parent.name === node || ts10.isFunctionDeclaration(parent) && parent.name === node || ts10.isFunctionExpression(parent) && parent.name === node || ts10.isClassDeclaration(parent) && parent.name === node || ts10.isClassExpression(parent) && parent.name === node || ts10.isInterfaceDeclaration(parent) && parent.name === node || ts10.isTypeAliasDeclaration(parent) && parent.name === node || ts10.isTypeParameterDeclaration(parent) && parent.name === node || ts10.isPropertySignature(parent) && parent.name === node || ts10.isMethodSignature(parent) && parent.name === node || ts10.isImportClause(parent) && parent.name === node || ts10.isJsxAttribute(parent) && parent.name === node || ts10.isMethodDeclaration(parent) && parent.name === node || ts10.isPropertyDeclaration(parent) && parent.name === node || ts10.isGetAccessorDeclaration(parent) && parent.name === node || ts10.isSetAccessorDeclaration(parent) && parent.name === node || ts10.isImportEqualsDeclaration(parent) && parent.name === node || ts10.isModuleDeclaration(parent) && parent.name === node || ts10.isEnumMember(parent) && parent.name === node || ts10.isImportSpecifier(parent) || ts10.isExportSpecifier(parent) || ts10.isNamespaceImport(parent) || isJsxTagReference2(node)) {
+        if (ts11.isPropertyAccessExpression(parent) && parent.name === node || ts11.isPropertyAssignment(parent) && parent.name === node || ts11.isBindingElement(parent) && (parent.name === node || parent.propertyName === node) || ts11.isVariableDeclaration(parent) && parent.name === node || ts11.isParameter(parent) && parent.name === node || ts11.isFunctionDeclaration(parent) && parent.name === node || ts11.isFunctionExpression(parent) && parent.name === node || ts11.isClassDeclaration(parent) && parent.name === node || ts11.isClassExpression(parent) && parent.name === node || ts11.isInterfaceDeclaration(parent) && parent.name === node || ts11.isTypeAliasDeclaration(parent) && parent.name === node || ts11.isTypeParameterDeclaration(parent) && parent.name === node || ts11.isPropertySignature(parent) && parent.name === node || ts11.isMethodSignature(parent) && parent.name === node || ts11.isImportClause(parent) && parent.name === node || ts11.isJsxAttribute(parent) && parent.name === node || ts11.isMethodDeclaration(parent) && parent.name === node || ts11.isPropertyDeclaration(parent) && parent.name === node || ts11.isGetAccessorDeclaration(parent) && parent.name === node || ts11.isSetAccessorDeclaration(parent) && parent.name === node || ts11.isImportEqualsDeclaration(parent) && parent.name === node || ts11.isModuleDeclaration(parent) && parent.name === node || ts11.isEnumMember(parent) && parent.name === node || ts11.isImportSpecifier(parent) || ts11.isExportSpecifier(parent) || ts11.isNamespaceImport(parent) || isJsxTagReference2(node)) {
           return false;
         }
         return true;
       }
       function outermostPropertyAccess2(expression) {
         let current = expression;
-        while ((ts10.isPropertyAccessExpression(current.parent) || ts10.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
+        while ((ts11.isPropertyAccessExpression(current.parent) || ts11.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
           current = current.parent;
         }
         return current;
       }
       function isCoveredByRuntimePropertyAccess2(identifier2, runtimeNames) {
         let current = identifier2;
-        while ((ts10.isPropertyAccessExpression(current.parent) || ts10.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
+        while ((ts11.isPropertyAccessExpression(current.parent) || ts11.isElementAccessExpression(current.parent)) && current.parent.expression === current) {
           current = current.parent;
           const terminalName = propertyAccessPath2(current)?.at(-1);
           if (terminalName !== void 0 && runtimeNames.has(terminalName)) return true;
@@ -228335,7 +228347,7 @@ var init_portable = __esm({
       }
       function isDirectInvocationTarget2(identifier2) {
         const parent = identifier2.parent;
-        return (ts10.isCallExpression(parent) || ts10.isNewExpression(parent)) && parent.expression === identifier2;
+        return (ts11.isCallExpression(parent) || ts11.isNewExpression(parent)) && parent.expression === identifier2;
       }
       for (const file of files) {
         let reportUiRuntimeReference2 = function(node, name) {
@@ -228367,9 +228379,9 @@ var init_portable = __esm({
             "SRIJIKA-ARCH-LOGIC-RUNTIME-CONCERN"
           );
         }, visit2 = function(node) {
-          if (ts10.isCallExpression(node) && (node.expression.kind === ts10.SyntaxKind.ImportKeyword || ts10.isIdentifier(node.expression) && node.expression.text === "require")) {
+          if (ts11.isCallExpression(node) && (node.expression.kind === ts11.SyntaxKind.ImportKeyword || ts11.isIdentifier(node.expression) && node.expression.text === "require")) {
             const argument = node.arguments[0];
-            if (!argument || !ts10.isStringLiteralLike(argument)) {
+            if (!argument || !ts11.isStringLiteralLike(argument)) {
               report(
                 "SRIJIKA4119",
                 file.fileName,
@@ -228383,16 +228395,16 @@ var init_portable = __esm({
           }
           let moduleNode = null;
           let moduleTypeOnly = false;
-          if ((ts10.isImportDeclaration(node) || ts10.isExportDeclaration(node)) && node.moduleSpecifier && ts10.isStringLiteralLike(node.moduleSpecifier)) {
+          if ((ts11.isImportDeclaration(node) || ts11.isExportDeclaration(node)) && node.moduleSpecifier && ts11.isStringLiteralLike(node.moduleSpecifier)) {
             moduleNode = node.moduleSpecifier;
             moduleTypeOnly = isTypeOnlyModuleReference2(node);
-          } else if (ts10.isImportEqualsDeclaration(node) && ts10.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts10.isStringLiteralLike(node.moduleReference.expression)) {
+          } else if (ts11.isImportEqualsDeclaration(node) && ts11.isExternalModuleReference(node.moduleReference) && node.moduleReference.expression && ts11.isStringLiteralLike(node.moduleReference.expression)) {
             moduleNode = node.moduleReference.expression;
             moduleTypeOnly = isTypeOnlyModuleReference2(node);
-          } else if (ts10.isImportTypeNode(node) && ts10.isLiteralTypeNode(node.argument) && ts10.isStringLiteralLike(node.argument.literal)) {
+          } else if (ts11.isImportTypeNode(node) && ts11.isLiteralTypeNode(node.argument) && ts11.isStringLiteralLike(node.argument.literal)) {
             moduleNode = node.argument.literal;
             moduleTypeOnly = true;
-          } else if (ts10.isCallExpression(node) && node.arguments.length > 0 && node.arguments[0] !== void 0 && ts10.isStringLiteralLike(node.arguments[0]) && (node.expression.kind === ts10.SyntaxKind.ImportKeyword || ts10.isIdentifier(node.expression) && node.expression.text === "require")) {
+          } else if (ts11.isCallExpression(node) && node.arguments.length > 0 && node.arguments[0] !== void 0 && ts11.isStringLiteralLike(node.arguments[0]) && (node.expression.kind === ts11.SyntaxKind.ImportKeyword || ts11.isIdentifier(node.expression) && node.expression.text === "require")) {
             moduleNode = node.arguments[0];
           }
           if (moduleNode) {
@@ -228400,7 +228412,7 @@ var init_portable = __esm({
             const uiRuntimeImport = isUi && !moduleTypeOnly;
             const sharedUiRuntimeImport = origin.kind === "shared-ui" && !moduleTypeOnly;
             if (isPresentationalAssetSpecifier2(moduleNode.text)) {
-              ts10.forEachChild(node, visit2);
+              ts11.forEachChild(node, visit2);
               return;
             }
             const targetName = resolve13(file.fileName, moduleNode.text);
@@ -228415,7 +228427,7 @@ var init_portable = __esm({
                 "error",
                 "SRIJIKA-ARCH-UNRESOLVED-PROJECT-ALIAS"
               );
-              ts10.forEachChild(node, visit2);
+              ts11.forEachChild(node, visit2);
               return;
             }
             const projectLocalImport = moduleNode.text.startsWith(".") || moduleNode.text.startsWith("src/");
@@ -228429,7 +228441,7 @@ var init_portable = __esm({
                 "error",
                 "SRIJIKA-ARCH-UNRESOLVED-PROJECT-IMPORT"
               );
-              ts10.forEachChild(node, visit2);
+              ts11.forEachChild(node, visit2);
               return;
             }
             if (!targetName) {
@@ -228697,10 +228709,10 @@ ${targetSource}`);
               }
             }
           }
-          if (isUi && ts10.isCallExpression(node)) {
+          if (isUi && ts11.isCallExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
-            const importedIdentifier = ts10.isIdentifier(node.expression) && importedHookNames.has(node.expression.text);
+            const importedIdentifier = ts11.isIdentifier(node.expression) && importedHookNames.has(node.expression.text);
             if (name && (name === "use" || /^use[A-Z0-9]/.test(name)) && !importedIdentifier) {
               report(
                 "SRIJIKA4101",
@@ -228711,53 +228723,53 @@ ${targetSource}`);
               );
             }
           }
-          if (isLogic && ts10.isCallExpression(node)) {
+          if (isLogic && ts11.isCallExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
             if (name && (name === "use" || /^use[A-Z0-9]/.test(name) || queryLifecycleNames.has(name) || logicTransportNames.has(name))) {
               reportLogicRuntimeReference2(node.expression, accessPath?.join(".") ?? name);
             }
-          } else if (isLogic && ts10.isNewExpression(node)) {
+          } else if (isLogic && ts11.isNewExpression(node)) {
             const accessPath = propertyAccessPath2(node.expression);
             const name = accessPath?.at(-1);
             if (name && (queryRuntimeConstructors.has(name) || logicTransportNames.has(name))) {
               reportLogicRuntimeReference2(node.expression, accessPath?.join(".") ?? name);
             }
           }
-          if (isUi && ts10.isIdentifier(node) && browserRuntimeNames.has(node.text)) {
+          if (isUi && ts11.isIdentifier(node) && browserRuntimeNames.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node)) reportUiRuntimeReference2(node, node.text);
-          } else if (isUi && ts10.isIdentifier(node) && browserGlobals.has(node.text)) {
+          } else if (isUi && ts11.isIdentifier(node) && browserGlobals.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isCoveredByRuntimePropertyAccess2(node, browserRuntimeNames)) {
               reportUiRuntimeReference2(node, node.text);
             }
-          } else if (isUi && !isTypePosition2(node) && (ts10.isPropertyAccessExpression(node) || ts10.isElementAccessExpression(node))) {
+          } else if (isUi && !isTypePosition2(node) && (ts11.isPropertyAccessExpression(node) || ts11.isElementAccessExpression(node))) {
             const accessPath = propertyAccessPath2(node);
             const name = accessPath?.at(-1);
             if (accessPath && name && browserRuntimeNames.has(name) && browserGlobals.has(accessPath[0] ?? "")) {
               reportUiRuntimeReference2(node, name);
             }
           }
-          if (isLogic && ts10.isIdentifier(node) && logicTransportNames.has(node.text)) {
+          if (isLogic && ts11.isIdentifier(node) && logicTransportNames.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isDirectInvocationTarget2(node)) {
               reportLogicRuntimeReference2(node, node.text);
             }
-          } else if (isLogic && ts10.isIdentifier(node) && logicBrowserGlobals.has(node.text)) {
+          } else if (isLogic && ts11.isIdentifier(node) && logicBrowserGlobals.has(node.text)) {
             if (isStandaloneRuntimeIdentifier2(node) && !isCoveredByStaticPropertyAccess2(node)) {
               reportLogicRuntimeReference2(node, node.text);
             }
-          } else if (isLogic && !isTypePosition2(node) && (ts10.isPropertyAccessExpression(node) || ts10.isElementAccessExpression(node))) {
+          } else if (isLogic && !isTypePosition2(node) && (ts11.isPropertyAccessExpression(node) || ts11.isElementAccessExpression(node))) {
             const accessPath = propertyAccessPath2(node);
             if (accessPath && logicBrowserGlobals.has(accessPath[0] ?? "")) {
               reportLogicRuntimeReference2(node, accessPath.join("."));
             }
           }
-          ts10.forEachChild(node, visit2);
+          ts11.forEachChild(node, visit2);
         };
         var reportUiRuntimeReference = reportUiRuntimeReference2, reportLogicRuntimeReference = reportLogicRuntimeReference2, visit = visit2;
-        const sourceFile2 = ts10.createSourceFile(
+        const sourceFile2 = ts11.createSourceFile(
           file.fileName,
           file.source,
-          ts10.ScriptTarget.Latest,
+          ts11.ScriptTarget.Latest,
           true,
           scriptKindForFile2(file.fileName)
         );
@@ -228832,9 +228844,9 @@ ${targetSource}`);
         }
         if (isUi) {
           for (const statement of sourceFile2.statements) {
-            if (!ts10.isImportDeclaration(statement) || !statement.importClause) continue;
+            if (!ts11.isImportDeclaration(statement) || !statement.importClause) continue;
             const clause = statement.importClause;
-            const modulePath = ts10.isStringLiteralLike(statement.moduleSpecifier) ? statement.moduleSpecifier.text : "";
+            const modulePath = ts11.isStringLiteralLike(statement.moduleSpecifier) ? statement.moduleSpecifier.text : "";
             const architectureHookTarget = forbiddenUiModule2(modulePath) !== null && resolve13(file.fileName, modulePath) !== null;
             if (clause.name && (clause.name.text === "use" || /^use[A-Z0-9]/.test(clause.name.text))) {
               importedHookNames.add(clause.name.text);
@@ -228848,7 +228860,7 @@ ${targetSource}`);
                 );
               }
             }
-            if (!clause.namedBindings || !ts10.isNamedImports(clause.namedBindings)) continue;
+            if (!clause.namedBindings || !ts11.isNamedImports(clause.namedBindings)) continue;
             for (const element of clause.namedBindings.elements) {
               const importedName = element.propertyName?.text ?? element.name.text;
               if (importedName !== "use" && !/^use[A-Z0-9]/.test(importedName)) continue;
@@ -229067,9 +229079,9 @@ ${targetSource}`);
             const fileLines = countMeaningfulLines3(sourceFile2, sourceFile2);
             const functionLines = countMeaningfulLines3(sourceFile2, component);
             const parameterType = component.parameters[0]?.type;
-            const contractName = parameterType && ts10.isTypeReferenceNode(parameterType) && ts10.isIdentifier(parameterType.typeName) ? parameterType.typeName.text : null;
+            const contractName = parameterType && ts11.isTypeReferenceNode(parameterType) && ts11.isIdentifier(parameterType.typeName) ? parameterType.typeName.text : null;
             const contract = contractName ? sourceFile2.statements.find(
-              (statement) => ts10.isInterfaceDeclaration(statement) && statement.name.text === contractName
+              (statement) => ts11.isInterfaceDeclaration(statement) && statement.name.text === contractName
             ) : void 0;
             const contractMembers = contract?.members.length ?? 0;
             const breaches = [];
@@ -229218,10 +229230,10 @@ ${targetSource}`);
         const connectorSignals = recommendationSignals2(sourceFor2(connectorFileName));
         const storeSignals = recommendationSignals2(sourceFor2(storeFileName));
         const warningSpanFor = (fileName) => {
-          const sourceFile2 = ts10.createSourceFile(
+          const sourceFile2 = ts11.createSourceFile(
             fileName,
             sourceFor2(fileName),
-            ts10.ScriptTarget.Latest,
+            ts11.ScriptTarget.Latest,
             true,
             scriptKindForFile2(fileName)
           );
@@ -230421,7 +230433,7 @@ dist
           mcpServers: {
             "srijika-project": {
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.4.1", "--project", "."],
+              args: ["-y", "@srijika/mcp-server@0.5.0", "--project", "."],
               cwd: "."
             }
           }
@@ -230431,7 +230443,7 @@ dist
             "srijika-project": {
               type: "stdio",
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.4.1", "--project", "${workspaceFolder}"]
+              args: ["-y", "@srijika/mcp-server@0.5.0", "--project", "${workspaceFolder}"]
             }
           }
         }),
@@ -230650,7 +230662,7 @@ Studio later requires no migration: open this same project folder.
           scripts: {
             dev: "vite",
             "validate:srijika": "node scripts/srijika-validate.mjs",
-            "mcp:srijika": "npx -y @srijika/mcp-server@0.4.1 --project .",
+            "mcp:srijika": "npx -y @srijika/mcp-server@0.5.0 --project .",
             build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
             preview: "vite preview",
             typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"
@@ -236399,7 +236411,7 @@ var init_src4 = __esm({
 
 // ../developer-engine/src/ui-diagnostics.ts
 import { createHash } from "node:crypto";
-import { posix as posix2, relative as relative7 } from "node:path";
+import { posix as posix2, relative as relative6 } from "node:path";
 function isUiPath(fileName, uiSuffix) {
   return fileName.toLowerCase().endsWith(uiSuffix.toLowerCase());
 }
@@ -236521,7 +236533,7 @@ async function checkSrijikaUiDiagnostics(projectRoot) {
   for (const path of paths) {
     const read = await fileSystem.readText(path, MAX_UI_BYTES);
     const source = chargeSource(path, read.source, read.size);
-    const displayPath = relative7(project.root, fileSystem.resolve(path)).replaceAll("\\", "/");
+    const displayPath = relative6(project.root, fileSystem.resolve(path)).replaceAll("\\", "/");
     diagnostics.push(
       ...await compileUi(
         displayPath,
@@ -237685,20 +237697,20 @@ function packageNameForSpecifier(specifier) {
 }
 function importedSpecifiers(source) {
   const matches = /* @__PURE__ */ new Set();
-  const sourceFile2 = import_typescript6.default.createSourceFile(
+  const sourceFile2 = import_typescript7.default.createSourceFile(
     "migration-source.tsx",
     source,
-    import_typescript6.default.ScriptTarget.Latest,
+    import_typescript7.default.ScriptTarget.Latest,
     true,
-    import_typescript6.default.ScriptKind.TSX
+    import_typescript7.default.ScriptKind.TSX
   );
   const visit = (node) => {
-    if ((import_typescript6.default.isImportDeclaration(node) || import_typescript6.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript6.default.isStringLiteral(node.moduleSpecifier)) {
+    if ((import_typescript7.default.isImportDeclaration(node) || import_typescript7.default.isExportDeclaration(node)) && node.moduleSpecifier && import_typescript7.default.isStringLiteral(node.moduleSpecifier)) {
       matches.add(node.moduleSpecifier.text);
-    } else if (import_typescript6.default.isCallExpression(node) && node.arguments.length === 1 && import_typescript6.default.isStringLiteral(node.arguments[0]) && (node.expression.kind === import_typescript6.default.SyntaxKind.ImportKeyword || import_typescript6.default.isIdentifier(node.expression) && node.expression.text === "require")) {
+    } else if (import_typescript7.default.isCallExpression(node) && node.arguments.length === 1 && import_typescript7.default.isStringLiteral(node.arguments[0]) && (node.expression.kind === import_typescript7.default.SyntaxKind.ImportKeyword || import_typescript7.default.isIdentifier(node.expression) && node.expression.text === "require")) {
       matches.add(node.arguments[0].text);
     }
-    import_typescript6.default.forEachChild(node, visit);
+    import_typescript7.default.forEachChild(node, visit);
   };
   visit(sourceFile2);
   return Object.freeze([...matches].sort((left, right) => left.localeCompare(right)));
@@ -237751,7 +237763,7 @@ function sourceAliasesFromConfigs(configs) {
   for (const [configPath, source] of [...configs].sort(
     ([left], [right]) => left.localeCompare(right)
   )) {
-    const parsed = import_typescript6.default.parseConfigFileTextToJson(configPath, source);
+    const parsed = import_typescript7.default.parseConfigFileTextToJson(configPath, source);
     if (parsed.error || !parsed.config || typeof parsed.config !== "object") continue;
     const options = parsed.config.compilerOptions;
     if (!options || typeof options !== "object" || Array.isArray(options)) continue;
@@ -238125,7 +238137,7 @@ async function scanReactMigrationSource(sourceDirectory) {
   if (!await fileSystem.isRegularFile("package.json")) {
     throw new Error("React migration source must contain package.json.");
   }
-  const packageSource = (await fileSystem.readText("package.json", MAX_PACKAGE_BYTES)).source;
+  const packageSource = (await fileSystem.readText("package.json", MAX_PACKAGE_BYTES2)).source;
   const packageJson = JSON.parse(packageSource);
   const dependencyScopes = [
     ["dependencies", "dependency"],
@@ -238944,15 +238956,15 @@ async function getReactMigrationStatus(targetDirectory) {
 }
 function exportedNames(sourcePath, source) {
   if (!sourceExtension.test(sourcePath)) return Object.freeze([]);
-  const file = import_typescript6.default.createSourceFile(sourcePath, source, import_typescript6.default.ScriptTarget.Latest, false);
+  const file = import_typescript7.default.createSourceFile(sourcePath, source, import_typescript7.default.ScriptTarget.Latest, false);
   const names = [];
   for (const statement of file.statements) {
-    const exported = import_typescript6.default.canHaveModifiers(statement) ? import_typescript6.default.getModifiers(statement)?.some((modifier) => modifier.kind === import_typescript6.default.SyntaxKind.ExportKeyword) : false;
+    const exported = import_typescript7.default.canHaveModifiers(statement) ? import_typescript7.default.getModifiers(statement)?.some((modifier) => modifier.kind === import_typescript7.default.SyntaxKind.ExportKeyword) : false;
     if (!exported) continue;
     const named = statement;
-    if (named.name && import_typescript6.default.isIdentifier(named.name)) {
+    if (named.name && import_typescript7.default.isIdentifier(named.name)) {
       names.push(named.name.text);
-    } else if (import_typescript6.default.isExportDeclaration(statement) && statement.exportClause && import_typescript6.default.isNamedExports(statement.exportClause)) {
+    } else if (import_typescript7.default.isExportDeclaration(statement) && statement.exportClause && import_typescript7.default.isNamedExports(statement.exportClause)) {
       names.push(...statement.exportClause.elements.map((element) => element.name.text));
     }
   }
@@ -239426,7 +239438,7 @@ async function sourcePackageDependencyWrite(session, sliceId, requested) {
     }
   }
   const targetFileSystem = await SrijikaProjectFileSystem.open(session.targetRoot);
-  const packageBytes = (await readSafeBytes(targetFileSystem, "package.json", MAX_PACKAGE_BYTES)).bytes;
+  const packageBytes = (await readSafeBytes(targetFileSystem, "package.json", MAX_PACKAGE_BYTES2)).bytes;
   let packageJson;
   try {
     const parsed = JSON.parse(
@@ -239499,7 +239511,7 @@ async function sourcePackageScriptWrite(session, sliceId, requested, dependencyW
     }
   }
   const targetFileSystem = await SrijikaProjectFileSystem.open(session.targetRoot);
-  const targetBytes = (await readSafeBytes(targetFileSystem, "package.json", MAX_PACKAGE_BYTES)).bytes;
+  const targetBytes = (await readSafeBytes(targetFileSystem, "package.json", MAX_PACKAGE_BYTES2)).bytes;
   const currentBytes = dependencyWrite ? migrationWriteBytes(dependencyWrite) : targetBytes;
   let packageJson;
   try {
@@ -241037,11 +241049,11 @@ async function finalizeReactMigration(request) {
   await writeSession(next);
   return next;
 }
-var import_typescript6, SESSION_VERSION, SESSION_PATH, EVIDENCE_KEY_PATH, MAX_FILES, MAX_ENTRIES, MAX_DIRECTORIES, MAX_DEPTH, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_PACKAGE_BYTES, MAX_ADAPTER_MODULES, sha2562, pathKey2, sourceExtension, styleExtension, assetExtension, runtimeDataAssetExtension, configurationFilePattern, ADAPTER_PACKAGES, targetLockfilePaths, packageFieldForDependencyScope;
+var import_typescript7, SESSION_VERSION, SESSION_PATH, EVIDENCE_KEY_PATH, MAX_FILES, MAX_ENTRIES, MAX_DIRECTORIES, MAX_DEPTH, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_PACKAGE_BYTES2, MAX_ADAPTER_MODULES, sha2562, pathKey2, sourceExtension, styleExtension, assetExtension, runtimeDataAssetExtension, configurationFilePattern, ADAPTER_PACKAGES, targetLockfilePaths, packageFieldForDependencyScope;
 var init_react_migration = __esm({
   "../developer-engine/src/react-migration.ts"() {
     "use strict";
-    import_typescript6 = __toESM(require_typescript(), 1);
+    import_typescript7 = __toESM(require_typescript(), 1);
     init_src2();
     init_portable();
     init_src3();
@@ -241058,7 +241070,7 @@ var init_react_migration = __esm({
     MAX_DEPTH = 32;
     MAX_FILE_BYTES = 4 * 1024 * 1024;
     MAX_TOTAL_BYTES = 64 * 1024 * 1024;
-    MAX_PACKAGE_BYTES = 1024 * 1024;
+    MAX_PACKAGE_BYTES2 = 1024 * 1024;
     MAX_ADAPTER_MODULES = 16;
     sha2562 = (value) => createHash3("sha256").update(value).digest("hex");
     pathKey2 = (value) => process.platform === "win32" ? resolve11(value).toLowerCase() : resolve11(value);
@@ -256581,6 +256593,29 @@ var WINDOWS = process.platform === "win32";
 
 // ../developer-engine/src/index.ts
 init_project();
+
+// ../developer-engine/src/next-adoption.ts
+init_src2();
+init_src3();
+var import_typescript6 = __toESM(require_typescript(), 1);
+init_architecture();
+init_project_filesystem();
+init_ui_diagnostics();
+var MAX_PACKAGE_BYTES = 1024 * 1024;
+var MAX_TSCONFIG_BYTES2 = 1024 * 1024;
+var MAX_SOURCE_BYTES2 = 4 * 1024 * 1024;
+var MAX_LOCKFILE_BYTES = 16 * 1024 * 1024;
+var MAX_SOURCE_TOTAL_BYTES2 = 32 * 1024 * 1024;
+var MAX_PROCESS_OUTPUT_BYTES = 64 * 1024;
+var LOCKFILES2 = Object.freeze([
+  { manager: "pnpm", fileName: "pnpm-lock.yaml", text: true },
+  { manager: "npm", fileName: "package-lock.json", text: true },
+  { manager: "yarn", fileName: "yarn.lock", text: true },
+  { manager: "bun", fileName: "bun.lock", text: true },
+  { manager: "bun", fileName: "bun.lockb", text: false }
+]);
+
+// ../developer-engine/src/index.ts
 init_project_filesystem();
 
 // ../developer-engine/src/structure.ts
@@ -256588,14 +256623,14 @@ init_src2();
 init_src3();
 init_project();
 init_project_filesystem();
-import { isAbsolute as isAbsolute6, relative as relative6, resolve as resolve8 } from "node:path";
+import { isAbsolute as isAbsolute6, relative as relative7, resolve as resolve8 } from "node:path";
 var OPTIONAL_CAPABILITIES = Object.freeze(["hook", "store", "logic", "api", "types"]);
 var MAX_INVENTORY_FILES = 4096;
 var MAX_INVENTORY_ENTRIES = 32768;
 var MAX_INVENTORY_DIRECTORIES = 4096;
 var MAX_INVENTORY_DEPTH = 32;
-var MAX_SOURCE_BYTES2 = 4 * 1024 * 1024;
-var MAX_SOURCE_TOTAL_BYTES2 = 24 * 1024 * 1024;
+var MAX_SOURCE_BYTES3 = 4 * 1024 * 1024;
+var MAX_SOURCE_TOTAL_BYTES3 = 24 * 1024 * 1024;
 function isMigrationSourceFile(fileName) {
   const normalized2 = fileName.toLowerCase();
   return /\.(?:[cm]?[jt]s|[jt]sx)$/.test(normalized2) && !/\.d\.(?:ts|tsx|mts|cts)$/.test(normalized2);
@@ -256615,9 +256650,9 @@ async function collectSourceFiles(root) {
   });
   let totalSourceBytes = 0;
   for (const file of files) {
-    const read = await fileSystem.readText(file.absolutePath, MAX_SOURCE_BYTES2);
+    const read = await fileSystem.readText(file.absolutePath, MAX_SOURCE_BYTES3);
     totalSourceBytes += read.size;
-    if (totalSourceBytes > MAX_SOURCE_TOTAL_BYTES2) {
+    if (totalSourceBytes > MAX_SOURCE_TOTAL_BYTES3) {
       throw new Error("Ownership inventory exceeds the 24 MiB aggregate source safety limit.");
     }
     sources[file.relativePath] = read.source;
@@ -256626,7 +256661,7 @@ async function collectSourceFiles(root) {
 }
 function normalizedOwnerFolder(root, value) {
   const absolute = isAbsolute6(value) ? resolve8(value) : resolve8(root, value);
-  const fromRoot = relative6(root, absolute).replaceAll("\\", "/");
+  const fromRoot = relative7(root, absolute).replaceAll("\\", "/");
   if (!fromRoot || fromRoot.startsWith("../") || isAbsolute6(fromRoot)) {
     throw new Error("The selected owner must remain inside the Srijika project.");
   }
@@ -257759,7 +257794,7 @@ var SRIJIKA_DOCUMENTATION = [
           syntax: "JSONC",
           extends: "rejected",
           references: "absent or empty array only; nonempty project references are rejected",
-          baseUrl: "must be omitted",
+          baseUrl: "optional bounded project-relative base for path targets",
           source: "compilerOptions.paths",
           acceptedPatterns: ["exact", "slash-delimited terminal /* wildcard"],
           targetPolicy: "first target is authoritative and must remain inside the project",

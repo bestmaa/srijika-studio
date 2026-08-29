@@ -21,6 +21,10 @@ npx @srijika/cli check
 npx @srijika/cli dev
 npx @srijika/cli dev --runtime bun
 
+# Attach Srijika safely to a populated Next.js App Router project:
+npx @srijika/cli adopt . --framework next --dry-run --json
+npx @srijika/cli adopt . --framework next --json
+
 # Start or resume an immutable-source React migration:
 npx @srijika/cli migrate react --source /old/react-app --target /new/srijika-app
 npx @srijika/cli migrate status --target /new/srijika-app
@@ -39,6 +43,15 @@ project, while a missing copy is silently skipped. Use `--no-install`,
 
 Every generated project includes portable validation plus VS Code Run App, Check
 Architecture, and Build App tasks, so Studio is never required.
+
+`adopt --framework next` is the brownfield path for an existing populated App
+Router application. Dry-run inventories the authoritative package manager,
+lockfile, routes, aliases, Next TypeScript plugin, explicit `.ui.tsx` sources,
+and server-only surfaces without writing. Apply runs the existing typecheck and
+production build first, rechecks the source baseline, creates only missing
+Srijika/editor/MCP/owner-test files, and emits exact merge instructions for every
+existing file. It never rewrites `package.json`, application source, Next
+configuration, scripts, versions, or the lockfile.
 
 `migrate react` supports React Vite/CRA JavaScript and TypeScript projects in
 phase 1. It never writes to the source: it captures a bounded hash inventory,
@@ -68,8 +81,8 @@ architecture root/directory/suffix overrides, and exact profile
 case-insensitive name/suffix collisions, suffix overlap, traversal, and symlink
 escapes fail closed. Root JSONC `tsconfig.json` is the alias authority:
 `extends` and nonempty `references` are rejected, empty references are allowed,
-`compilerOptions.baseUrl` must be omitted, and only exact or slash-delimited
-terminal `/*` paths are accepted. The authoritative entry is validated and
+`compilerOptions.baseUrl` may be a bounded project-relative path, and only exact
+or slash-delimited terminal `/*` paths are accepted. The authoritative entry is validated and
 counted even outside ownership roots.
 
 `check --watch` uses one filtered recursive project-root watcher so config,

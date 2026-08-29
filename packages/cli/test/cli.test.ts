@@ -47,6 +47,52 @@ async function reactSource(): Promise<string> {
   return root;
 }
 
+async function nextAdoptionProject(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'srijika-cli-next-adoption-'));
+  roots.push(root);
+  await mkdir(join(root, 'src/app'), { recursive: true });
+  await mkdir(join(root, 'src/features/home'), { recursive: true });
+  await writeFile(
+    join(root, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'existing-next-app',
+        private: true,
+        packageManager: 'npm@11.0.0',
+        scripts: {
+          dev: 'next dev',
+          build: 'node -e "process.exit(0)"',
+          typecheck: 'node -e "process.exit(0)"',
+        },
+        dependencies: { next: '16.3.2', react: '19.2.0', 'react-dom': '19.2.0' },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await writeFile(
+    join(root, 'package-lock.json'),
+    `${JSON.stringify({ name: 'existing-next-app', lockfileVersion: 3, packages: {} }, null, 2)}\n`,
+  );
+  await writeFile(
+    join(root, 'tsconfig.json'),
+    `${JSON.stringify({ compilerOptions: { jsx: 'preserve', plugins: [{ name: 'next' }] } }, null, 2)}\n`,
+  );
+  await writeFile(
+    join(root, 'src/features/home/Home.ui.tsx'),
+    'export function HomeUI() { return <main>Home</main>; }\n',
+  );
+  await writeFile(
+    join(root, 'src/features/home/Home.connector.tsx'),
+    "import { HomeUI } from './Home.ui';\nexport function HomeConnector() { return <HomeUI />; }\n",
+  );
+  await writeFile(
+    join(root, 'src/app/page.tsx'),
+    "import { HomeConnector } from '../features/home/Home.connector';\nexport default function Page() { return <HomeConnector />; }\n",
+  );
+  return root;
+}
+
 async function workspace(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), 'srijika-cli-workspace-'));
   roots.push(root);
@@ -307,6 +353,52 @@ describe('workspace commands', () => {
     } finally {
       console.log = originalLog;
     }
+  });
+});
+
+describe('Next.js adoption command', () => {
+  it('previews without writes, then verifies and adopts without changing existing source', async () => {
+    const root = await nextAdoptionProject();
+    const beforePackage = await readFile(join(root, 'package.json'), 'utf8');
+    const beforePage = await readFile(join(root, 'src/app/page.tsx'), 'utf8');
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...values: unknown[]) => logs.push(values.map(String).join(' '));
+    try {
+      await expect(
+        runSrijikaCli(['adopt', root, '--framework', 'next', '--dry-run', '--json']),
+      ).resolves.toBe(0);
+      const preview = JSON.parse(logs.join('\n')) as {
+        dryRun: boolean;
+        plan: { files: Array<{ relativePath: string }> };
+      };
+      expect(preview.dryRun).toBe(true);
+      expect(preview.plan.files).toContainEqual(
+        expect.objectContaining({ relativePath: 'srijika.config.json' }),
+      );
+      await expect(access(join(root, 'srijika.config.json'))).rejects.toThrow();
+
+      logs.length = 0;
+      await expect(runSrijikaCli(['adopt', root, '--framework', 'next', '--json'])).resolves.toBe(
+        0,
+      );
+      const adopted = JSON.parse(logs.join('\n')) as {
+        dryRun: boolean;
+        verification: Array<{ name: string; status: string }>;
+      };
+      expect(adopted.dryRun).toBe(false);
+      expect(adopted.verification).toEqual([
+        expect.objectContaining({ name: 'typecheck', status: 'passed' }),
+        expect.objectContaining({ name: 'build', status: 'passed' }),
+      ]);
+    } finally {
+      console.log = originalLog;
+    }
+    expect(await readFile(join(root, 'package.json'), 'utf8')).toBe(beforePackage);
+    expect(await readFile(join(root, 'src/app/page.tsx'), 'utf8')).toBe(beforePage);
+    await expect(readFile(join(root, 'srijika.config.json'), 'utf8')).resolves.toContain(
+      'report-only',
+    );
   });
 });
 

@@ -440,11 +440,15 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
     if (compilerOptionsValue === undefined) return {};
     const compilerOptions = record(compilerOptionsValue);
     if (!compilerOptions) throw new Error('tsconfig.json compilerOptions must be an object.');
-    if (Object.prototype.hasOwnProperty.call(compilerOptions, 'baseUrl')) {
-      throw new Error(
-        'tsconfig.json compilerOptions.baseUrl must be omitted; strict Srijika path targets are already project-relative inside the project root.',
-      );
+    const baseUrlValue = compilerOptions['baseUrl'];
+    if (baseUrlValue !== undefined && typeof baseUrlValue !== 'string') {
+      throw new Error('tsconfig.json compilerOptions.baseUrl must be a string.');
     }
+    const baseUrl = normalizedTsconfigPath(
+      typeof baseUrlValue === 'string' ? baseUrlValue : '',
+      'tsconfig.json compilerOptions.baseUrl',
+      true,
+    );
     const pathsValue = compilerOptions['paths'];
     if (pathsValue === undefined) return {};
     const paths = record(pathsValue);
@@ -488,7 +492,11 @@ const portableMain: PortableMain = async function portableMain(runtime, projectR
       const target = wildcard ? firstTarget.slice(0, -1) : firstTarget;
       output.push([
         alias,
-        normalizedTsconfigPath(target, `tsconfig.json path alias ${pattern}`, true),
+        normalizedTsconfigPath(
+          [baseUrl, target].filter(Boolean).join('/'),
+          `tsconfig.json path alias ${pattern}`,
+          true,
+        ),
       ]);
     }
     return Object.fromEntries(output);

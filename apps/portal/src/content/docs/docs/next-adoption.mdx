@@ -1,0 +1,31 @@
+---
+title: Adopt an Existing Next.js App
+description: Attach Srijika safely to a populated App Router project without rewriting its source or framework model.
+---
+
+Use brownfield adoption when the existing Next.js application remains the same
+application and framework:
+
+```bash
+npx @srijika/cli adopt . --framework next --dry-run --json
+npx @srijika/cli adopt . --framework next --json
+```
+
+Dry-run performs no writes. It detects the App Router root, declared package
+manager and lockfile, TypeScript aliases and Next plugin, explicit `.ui.tsx`
+presentation sources, framework route files, and server-only boundaries.
+
+Apply runs the project's existing typecheck and production build before writing.
+It then creates only missing Srijika, VS Code, MCP, and Next owner-test contracts.
+Application source, `package.json`, framework configuration, scripts, dependency
+versions, and the lockfile remain authoritative and unchanged. Existing metadata
+files are preserved with exact reviewed merge instructions.
+
+Adoption starts in report-only mode. App Router pages/layouts/states and route
+handlers remain framework-owned, and server-only modules never become Srijika UI
+owners. Review diagnostics and adopt owners incrementally before enabling strict
+enforcement.
+
+Read the exhaustive [Next adoption safety contract](/reference/next_adoption/)
+for baseline hashing, package-manager ambiguity, alias rules, generated contracts,
+and post-adoption verification.

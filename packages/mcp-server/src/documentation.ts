@@ -497,7 +497,7 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           syntax: 'JSONC',
           extends: 'rejected',
           references: 'absent or empty array only; nonempty project references are rejected',
-          baseUrl: 'must be omitted',
+          baseUrl: 'optional bounded project-relative base for path targets',
           source: 'compilerOptions.paths',
           acceptedPatterns: ['exact', 'slash-delimited terminal /* wildcard'],
           targetPolicy: 'first target is authoritative and must remain inside the project',

@@ -359,11 +359,15 @@ export function parseSrijikaTypeScriptPathAliases(
     throw new Error('tsconfig.json compilerOptions must be an object.');
   }
   const options = compilerOptions as Readonly<Record<string, unknown>>;
-  if (Object.hasOwn(options, 'baseUrl')) {
-    throw new Error(
-      'tsconfig.json compilerOptions.baseUrl must be omitted; strict Srijika path targets are already project-relative inside the project root.',
-    );
+  const baseUrlValue = options['baseUrl'];
+  if (baseUrlValue !== undefined && typeof baseUrlValue !== 'string') {
+    throw new Error('tsconfig.json compilerOptions.baseUrl must be a string.');
   }
+  const baseUrl = normalizedTsconfigPath(
+    typeof baseUrlValue === 'string' ? baseUrlValue : '',
+    'tsconfig.json compilerOptions.baseUrl',
+    true,
+  );
   const paths = options['paths'];
   if (paths === undefined) return Object.freeze({});
   if (!paths || typeof paths !== 'object' || Array.isArray(paths)) {
@@ -405,7 +409,7 @@ export function parseSrijikaTypeScriptPathAliases(
     const alias = wildcard ? pattern.slice(0, -1) : pattern;
     const targetWithoutWildcard = wildcard ? firstTarget.slice(0, -1) : firstTarget;
     const target = normalizedTsconfigPath(
-      targetWithoutWildcard,
+      [baseUrl, targetWithoutWildcard].filter(Boolean).join('/'),
       `tsconfig.json path alias ${pattern}`,
       true,
     );

@@ -46,6 +46,7 @@ export default defineConfig({
             { label: 'CLI-first workflow', slug: 'docs/cli-runtime' },
             { label: 'VS Code workflow', slug: 'docs/vscode' },
             { label: 'Monorepo workflow', slug: 'docs/monorepo' },
+            { label: 'Adopt an existing Next.js app', slug: 'docs/next-adoption' },
             { label: 'React migration', slug: 'docs/react-migration' },
           ],
         },

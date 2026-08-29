@@ -9,6 +9,7 @@ import {
   checkSrijikaArchitecture,
   checkSrijikaUiDiagnostics,
   collectSrijikaTestEvidence,
+  adoptSrijikaNextProject,
   applyReactMigrationSlice,
   captureReactMigrationBrowserParity,
   createSrijikaDoctorReport,
@@ -95,6 +96,7 @@ Usage:
   srijika workspace check [root] [--project-id <id>] [--json]
   srijika workspace tests sync [root] [--project-id <id>] [--dry-run] [--json]
   srijika workspace tests verify [root] [--project-id <id>] [--skip-install] [--json]
+  srijika adopt [project] --framework next [--dry-run] [--json]
   srijika migrate react --source <existing-react> --target <new-srijika> [--dry-run] [--json]
   srijika migrate status --target <new-srijika> [--json]
   srijika migrate plan --target <new-srijika> [--json]
@@ -568,6 +570,41 @@ async function runWorkspace(parsed: ParsedArguments): Promise<number> {
     return subOperation === 'verify' && 'status' in result && result.status !== 'passed' ? 1 : 0;
   }
   throw new Error(`Unknown workspace operation: ${operation}.`);
+}
+
+async function runAdopt(parsed: ParsedArguments): Promise<number> {
+  assertKnownOptions(parsed, ['framework', 'dry-run', 'json']);
+  if (parsed.positionals.length > 1) throw new Error('adopt accepts at most one project path.');
+  const framework = stringOption(parsed, 'framework');
+  if (framework !== 'next') {
+    throw new Error('adopt currently requires --framework next.');
+  }
+  const result = await adoptSrijikaNextProject({
+    project: parsed.positionals[0] ?? process.cwd(),
+    dryRun: booleanOption(parsed, 'dry-run'),
+  });
+  if (booleanOption(parsed, 'json')) {
+    console.log(JSON.stringify(result, null, 2));
+    return 0;
+  }
+  console.log(
+    `${result.dryRun ? '→ Planned' : '✓ Adopted'} ${result.plan.framework} project at ${result.plan.root}`,
+  );
+  console.log(`· ${result.plan.packageManager}: ${result.plan.lockfile}`);
+  console.log(`· App Router: ${result.plan.appRoot}, UI entry: ${result.plan.entry}`);
+  for (const relativePath of result.plan.files.map(({ relativePath }) => relativePath)) {
+    console.log(`${result.dryRun ? '→ Would create' : '✓ Created'}: ${relativePath}`);
+  }
+  for (const instruction of result.plan.mergeInstructions) {
+    console.log(`· Review merge: ${instruction.relativePath} — ${instruction.reason}`);
+  }
+  for (const gate of result.verification) console.log(`· ${gate.name}: ${gate.status}`);
+  if (result.reportOnly) {
+    console.log(
+      `· Report only: ${result.reportOnly.architectureErrors} architecture error(s), ${result.reportOnly.uiDiagnostics} UI diagnostic(s)`,
+    );
+  }
+  return 0;
 }
 
 export function resolveSrijikaWatchRoots(
@@ -1098,6 +1135,8 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
       return runTests(parsed);
     case 'workspace':
       return runWorkspace(parsed);
+    case 'adopt':
+      return runAdopt(parsed);
     case 'migrate':
       return runMigrate(parsed);
     case 'dev':

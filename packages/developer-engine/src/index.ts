@@ -2,6 +2,12 @@ export { checkSrijikaArchitecture, SrijikaArchitectureIndex } from './architectu
 export { createSrijikaDoctorReport } from './doctor.js';
 export { findSrijikaProjectRoot, inspectSrijikaProject } from './project.js';
 export {
+  adoptSrijikaNextProject,
+  planSrijikaNextAdoption,
+  SRIJIKA_NEXT_ADOPTION_VERSION,
+  verifySrijikaNextAdoption,
+} from './next-adoption.js';
+export {
   SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
   SrijikaProjectFileSystem,
 } from './project-filesystem.js';
@@ -43,6 +49,18 @@ export {
   checkSrijikaUiDiagnostics,
   formatSrijikaUiDiagnostic,
 } from './ui-diagnostics.js';
+export type {
+  SrijikaNextAdoptionBaselineFile,
+  SrijikaNextAdoptionCommand,
+  SrijikaNextAdoptionFile,
+  SrijikaNextAdoptionFinding,
+  SrijikaNextAdoptionMergeInstruction,
+  SrijikaNextAdoptionPlan,
+  SrijikaNextAdoptionRequest,
+  SrijikaNextAdoptionResult,
+  SrijikaNextAdoptionRouteFile,
+  SrijikaNextAdoptionVerificationGate,
+} from './next-adoption.js';
 export type {
   SrijikaProspectiveUiWrite,
   SrijikaUiDiagnosticCheckResult,
