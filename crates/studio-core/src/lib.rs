@@ -1649,11 +1649,11 @@ impl StudioCore {
 
         Ok(ProjectAppTarget {
             project_path: project.canonical_root.to_string_lossy().into_owned(),
-            url: loopback_dev_server_url(port),
+            url: loopback_dev_server_route_url(port, request.route.as_deref())?,
         })
     }
 
-    /// Runs `pnpm install --frozen-lockfile` in a validated project and returns
+    /// Runs the declared package manager's immutable install in a validated project and returns
     /// bounded process output. Only one managed task may run per project.
     pub fn install_project_dependencies(
         &self,
@@ -1662,7 +1662,7 @@ impl StudioCore {
         self.run_project_task(request, ProjectTaskKind::Install)
     }
 
-    /// Runs the generated project's declared build script through pnpm.
+    /// Runs the project's declared build script through its authoritative package manager.
     pub fn build_code_project(
         &self,
         request: ProjectTaskRequest,
@@ -1670,7 +1670,7 @@ impl StudioCore {
         self.run_project_task(request, ProjectTaskKind::Build)
     }
 
-    /// Compiles the generated project, then starts one loopback-only Vite dev
+    /// Compiles the project, then starts one loopback-only Vite or Next.js dev
     /// server and returns only after its tracked HTTP endpoint is ready.
     pub fn start_code_project(
         &self,
@@ -1751,22 +1751,25 @@ impl StudioCore {
                 "a task or dev server became active while the project was compiling",
             ));
         }
-        let mut command = Command::new(pnpm_executable());
+        let executable = dependency.package_manager.executable();
+        let dev_arguments =
+            managed_dev_arguments(dependency.package_manager, dependency.framework, port);
+        let mut command = Command::new(executable);
         command
             .current_dir(&project.canonical_root)
-            .args(pnpm_dev_arguments(port))
+            .args(dev_arguments)
             .env("CI", "1")
             .env("NO_COLOR", "1")
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
         configure_process_group(&mut command);
-        // Vite must bind the reserved port itself. Keep the reservation until
+        // The framework must bind the reserved port itself. Keep the reservation until
         // the last possible moment to minimize the release-to-spawn race.
         drop(port_reservation);
         let mut child = command
             .spawn()
-            .map_err(|source| tool_io("start pnpm dev server", pnpm_executable(), source))?;
+            .map_err(|source| tool_io("start managed project dev server", executable, source))?;
         let pid = child.id();
         let stdout = Arc::new(Mutex::new(CappedOutput::default()));
         let stderr = Arc::new(Mutex::new(CappedOutput::default()));
@@ -1780,6 +1783,7 @@ impl StudioCore {
             .map(|reader| spawn_output_reader(reader, Arc::clone(&stderr)));
         record.dev_server = Some(ManagedDevServer {
             child,
+            executable,
             pid,
             port,
             started_at_millis: unix_time_millis(),
@@ -1956,14 +1960,27 @@ impl StudioCore {
         }
 
         let started = Instant::now();
-        let arguments: &[&str] = match kind {
-            ProjectTaskKind::Install => &["install", "--frozen-lockfile", "--reporter=append-only"],
-            ProjectTaskKind::Build => &["run", "build"],
+        let arguments = match kind {
+            ProjectTaskKind::Install => dependency
+                .package_manager
+                .install_arguments()
+                .iter()
+                .map(|value| (*value).to_owned())
+                .collect::<Vec<_>>(),
+            ProjectTaskKind::Build => dependency.package_manager.script_arguments("build", &[]),
+        };
+        let current_directory = if kind == ProjectTaskKind::Install {
+            dependency
+                .lockfile_root
+                .as_deref()
+                .unwrap_or(&project.canonical_root)
+        } else {
+            &project.canonical_root
         };
         let execution = run_captured_command(
-            pnpm_executable(),
-            arguments,
-            &project.canonical_root,
+            dependency.package_manager.executable(),
+            &arguments,
+            current_directory,
             |pid| {
                 let mut runtimes = self.lock_runtimes()?;
                 if runtimes.shutting_down {
@@ -2500,6 +2517,7 @@ pub struct ProjectRuntimeStatusRequest {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct OpenCodeProjectAppRequest {
     pub path: String,
+    pub route: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -2529,6 +2547,70 @@ pub enum ProjectDependencyState {
     NotInstalled,
     Outdated,
     Ready,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ManagedPackageManager {
+    Pnpm,
+    Npm,
+    Yarn,
+    Bun,
+}
+
+impl ManagedPackageManager {
+    fn from_declaration(value: &str) -> Option<Self> {
+        match value.split('@').next()? {
+            "pnpm" => Some(Self::Pnpm),
+            "npm" => Some(Self::Npm),
+            "yarn" => Some(Self::Yarn),
+            "bun" => Some(Self::Bun),
+            _ => None,
+        }
+    }
+
+    fn executable(self) -> &'static str {
+        match self {
+            Self::Pnpm => pnpm_executable(),
+            Self::Npm => npm_executable(),
+            Self::Yarn => yarn_executable(),
+            Self::Bun => bun_executable(),
+        }
+    }
+
+    fn lockfiles(self) -> &'static [&'static str] {
+        match self {
+            Self::Pnpm => &["pnpm-lock.yaml"],
+            Self::Npm => &["package-lock.json"],
+            Self::Yarn => &["yarn.lock"],
+            Self::Bun => &["bun.lock", "bun.lockb"],
+        }
+    }
+
+    fn install_arguments(self) -> &'static [&'static str] {
+        match self {
+            Self::Pnpm => &["install", "--frozen-lockfile", "--reporter=append-only"],
+            Self::Npm => &["ci"],
+            Self::Yarn => &["install", "--immutable"],
+            Self::Bun => &["install", "--frozen-lockfile"],
+        }
+    }
+
+    fn script_arguments(self, script: &str, forwarded: &[String]) -> Vec<String> {
+        let mut arguments = vec!["run".to_owned(), script.to_owned()];
+        if self == Self::Npm && !forwarded.is_empty() {
+            arguments.push("--".to_owned());
+        }
+        arguments.extend_from_slice(forwarded);
+        arguments
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ManagedProjectFramework {
+    Vite,
+    NextAppRouter,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -2585,6 +2667,9 @@ pub struct DevServerStatus {
 #[serde(rename_all = "camelCase")]
 pub struct ProjectRuntimeStatus {
     pub path: String,
+    pub framework: ManagedProjectFramework,
+    pub package_manager: ManagedPackageManager,
+    pub lockfile_root: Option<String>,
     pub lockfile_present: bool,
     pub dependencies_installed: bool,
     pub dependencies_ready: bool,
@@ -2806,6 +2891,33 @@ fn pnpm_executable() -> &'static str {
 #[cfg(not(windows))]
 fn pnpm_executable() -> &'static str {
     "pnpm"
+}
+
+#[cfg(windows)]
+fn npm_executable() -> &'static str {
+    "npm.cmd"
+}
+#[cfg(not(windows))]
+fn npm_executable() -> &'static str {
+    "npm"
+}
+
+#[cfg(windows)]
+fn yarn_executable() -> &'static str {
+    "yarn.cmd"
+}
+#[cfg(not(windows))]
+fn yarn_executable() -> &'static str {
+    "yarn"
+}
+
+#[cfg(windows)]
+fn bun_executable() -> &'static str {
+    "bun.exe"
+}
+#[cfg(not(windows))]
+fn bun_executable() -> &'static str {
+    "bun"
 }
 
 #[derive(Debug)]
@@ -3869,6 +3981,115 @@ struct ProjectDependencyInspection {
     lockfile_present: bool,
     dependencies_installed: bool,
     message: String,
+    package_manager: ManagedPackageManager,
+    framework: ManagedProjectFramework,
+    lockfile_root: Option<PathBuf>,
+}
+
+fn package_framework(
+    package: &Map<String, Value>,
+) -> Result<ManagedProjectFramework, StudioCoreError> {
+    let dependency = |name: &str| {
+        ["dependencies", "devDependencies"].iter().any(|field| {
+            package
+                .get(*field)
+                .and_then(Value::as_object)
+                .is_some_and(|values| values.get(name).and_then(Value::as_str).is_some())
+        })
+    };
+    let next = dependency("next");
+    let vite = dependency("vite");
+    match (next, vite) {
+        (true, false) => Ok(ManagedProjectFramework::NextAppRouter),
+        (false, true) | (false, false) => Ok(ManagedProjectFramework::Vite),
+        (true, true) => Err(StudioCoreError::InvalidProject(
+            "managed projects must select exactly one Vite or Next.js framework",
+        )),
+    }
+}
+
+fn manager_for_lockfile(file_name: &str) -> Option<ManagedPackageManager> {
+    [
+        ManagedPackageManager::Pnpm,
+        ManagedPackageManager::Npm,
+        ManagedPackageManager::Yarn,
+        ManagedPackageManager::Bun,
+    ]
+    .into_iter()
+    .find(|manager| manager.lockfiles().contains(&file_name))
+}
+
+fn regular_lockfile(path: &Path) -> Result<Option<fs::Metadata>, StudioCoreError> {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => {
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(StudioCoreError::InvalidProject(
+                    "the selected package-manager lockfile must be a regular file",
+                ));
+            }
+            if metadata.len() > MAX_LOCKFILE_BYTES {
+                return Err(StudioCoreError::InvalidProject(
+                    "the selected package-manager lockfile exceeds the size limit",
+                ));
+            }
+            Ok(Some(metadata))
+        }
+        Err(source) if source.kind() == ErrorKind::NotFound => Ok(None),
+        Err(source) => Err(source_io("inspect project lockfile", path, source)),
+    }
+}
+
+fn discover_project_lockfile(
+    project_root: &Path,
+    declared: Option<ManagedPackageManager>,
+) -> Result<Option<(ManagedPackageManager, PathBuf, PathBuf, fs::Metadata)>, StudioCoreError> {
+    let mut directory = project_root.to_path_buf();
+    for _ in 0..16 {
+        let mut found = Vec::new();
+        for file_name in [
+            "pnpm-lock.yaml",
+            "package-lock.json",
+            "yarn.lock",
+            "bun.lock",
+            "bun.lockb",
+        ] {
+            let path = directory.join(file_name);
+            if let Some(metadata) = regular_lockfile(&path)? {
+                found.push((
+                    manager_for_lockfile(file_name).expect("known lockfile"),
+                    path,
+                    metadata,
+                ));
+            }
+        }
+        if let Some(manager) = declared {
+            if let Some((_, path, metadata)) =
+                found.iter().find(|(candidate, _, _)| *candidate == manager)
+            {
+                return Ok(Some((manager, directory, path.clone(), metadata.clone())));
+            }
+            if directory == project_root && !found.is_empty() {
+                return Err(StudioCoreError::InvalidProject(
+                    "packageManager does not match the project lockfile",
+                ));
+            }
+        } else if found.len() == 1 {
+            let (manager, path, metadata) = found.remove(0);
+            return Ok(Some((manager, directory, path, metadata)));
+        } else if found.len() > 1 {
+            return Err(StudioCoreError::InvalidProject(
+                "multiple package-manager lockfiles require an explicit packageManager",
+            ));
+        }
+        let Some(parent) = directory.parent() else {
+            break;
+        };
+        if parent == directory {
+            break;
+        }
+        directory = parent.to_path_buf();
+    }
+    Ok(None)
 }
 
 fn inspect_project_dependencies(
@@ -3892,58 +4113,58 @@ fn inspect_project_dependencies(
             ));
         }
     }
-    if package
-        .get("packageManager")
-        .and_then(Value::as_str)
-        .is_some_and(|manager| !manager.starts_with("pnpm@"))
-    {
-        return Err(StudioCoreError::InvalidProject(
-            "packageManager must select pnpm",
-        ));
-    }
-
-    let lockfile_path = root.join("pnpm-lock.yaml");
-    let lockfile_metadata = match fs::symlink_metadata(&lockfile_path) {
-        Ok(metadata) => {
-            if metadata.file_type().is_symlink() || !metadata.is_file() {
-                return Err(StudioCoreError::InvalidProject(
-                    "pnpm-lock.yaml must be a regular file",
-                ));
-            }
-            if metadata.len() > MAX_LOCKFILE_BYTES {
-                return Err(StudioCoreError::InvalidProject(
-                    "pnpm-lock.yaml exceeds the size limit",
-                ));
-            }
-            Some(metadata)
-        }
-        Err(source) if source.kind() == std::io::ErrorKind::NotFound => None,
-        Err(source) => return Err(source_io("inspect pnpm lockfile", &lockfile_path, source)),
+    let framework = package_framework(package)?;
+    let declared = match package.get("packageManager").and_then(Value::as_str) {
+        Some(value) => Some(ManagedPackageManager::from_declaration(value).ok_or(
+            StudioCoreError::InvalidProject("packageManager must select pnpm, npm, yarn, or bun"),
+        )?),
+        None => None,
     };
-    let Some(lockfile_metadata) = lockfile_metadata else {
+    let discovered = discover_project_lockfile(root, declared)?;
+    let package_manager = discovered
+        .as_ref()
+        .map(|(manager, _, _, _)| *manager)
+        .or(declared)
+        .unwrap_or(ManagedPackageManager::Pnpm);
+    let Some((_, lockfile_root, _lockfile_path, lockfile_metadata)) = discovered else {
         return Ok(ProjectDependencyInspection {
             state: ProjectDependencyState::MissingLockfile,
             lockfile_present: false,
             dependencies_installed: false,
-            message: "Generate pnpm-lock.yaml before installing dependencies.".to_owned(),
+            message: format!(
+                "Restore the declared {} lockfile before installing dependencies.",
+                package_manager.executable()
+            ),
+            package_manager,
+            framework,
+            lockfile_root: None,
         });
     };
 
-    let node_modules_path = root.join("node_modules");
+    let node_modules_path = lockfile_root.join("node_modules");
     let modules_state_path = node_modules_path.join(".modules.yaml");
-    let modules_metadata = match (
-        fs::symlink_metadata(&node_modules_path),
-        fs::symlink_metadata(&modules_state_path),
-    ) {
-        (Ok(directory), Ok(state))
-            if !directory.file_type().is_symlink()
-                && directory.is_dir()
-                && !state.file_type().is_symlink()
-                && state.is_file() =>
-        {
-            Some(state)
+    let pnp_state_path = lockfile_root.join(".pnp.cjs");
+    let modules_metadata = if package_manager == ManagedPackageManager::Pnpm {
+        match (
+            fs::symlink_metadata(&node_modules_path),
+            fs::symlink_metadata(&modules_state_path),
+        ) {
+            (Ok(directory), Ok(state))
+                if !directory.file_type().is_symlink()
+                    && directory.is_dir()
+                    && !state.file_type().is_symlink()
+                    && state.is_file() =>
+            {
+                Some(state)
+            }
+            _ => None,
         }
-        _ => None,
+    } else {
+        [node_modules_path, pnp_state_path].iter().find_map(|path| {
+            fs::symlink_metadata(path).ok().filter(|metadata| {
+                !metadata.file_type().is_symlink() && (metadata.is_dir() || metadata.is_file())
+            })
+        })
     };
     let Some(modules_metadata) = modules_metadata else {
         return Ok(ProjectDependencyInspection {
@@ -3951,6 +4172,9 @@ fn inspect_project_dependencies(
             lockfile_present: true,
             dependencies_installed: false,
             message: "Dependencies are not installed. Run the managed install task.".to_owned(),
+            package_manager,
+            framework,
+            lockfile_root: Some(lockfile_root),
         });
     };
 
@@ -3968,7 +4192,11 @@ fn inspect_project_dependencies(
             state: ProjectDependencyState::Outdated,
             lockfile_present: true,
             dependencies_installed: true,
-            message: "package.json or pnpm-lock.yaml changed; reinstall dependencies.".to_owned(),
+            message: "package.json or the authoritative lockfile changed; reinstall dependencies."
+                .to_owned(),
+            package_manager,
+            framework,
+            lockfile_root: Some(lockfile_root),
         })
     } else {
         Ok(ProjectDependencyInspection {
@@ -3976,6 +4204,9 @@ fn inspect_project_dependencies(
             lockfile_present: true,
             dependencies_installed: true,
             message: "Dependencies are ready.".to_owned(),
+            package_manager,
+            framework,
+            lockfile_root: Some(lockfile_root),
         })
     }
 }
@@ -4003,6 +4234,7 @@ fn project_runtime_is_busy(record: &ProjectRuntimeRecord) -> bool {
 #[derive(Debug)]
 struct ManagedDevServer {
     child: Child,
+    executable: &'static str,
     pid: u32,
     port: u16,
     started_at_millis: u64,
@@ -4060,7 +4292,7 @@ struct CapturedText {
 
 fn run_captured_command(
     executable: &'static str,
-    arguments: &[&str],
+    arguments: &[String],
     current_directory: &Path,
     on_spawn: impl FnOnce(u32) -> Result<(), StudioCoreError>,
 ) -> Result<CapturedCommand, StudioCoreError> {
@@ -4142,10 +4374,13 @@ fn snapshot_output(output: &Arc<Mutex<CappedOutput>>) -> Result<CapturedText, St
 
 fn refresh_dev_server(record: &mut ProjectRuntimeRecord) -> Result<(), StudioCoreError> {
     let exit_status = if let Some(server) = record.dev_server.as_mut() {
-        server
-            .child
-            .try_wait()
-            .map_err(|source| tool_io("inspect pnpm dev server", pnpm_executable(), source))?
+        server.child.try_wait().map_err(|source| {
+            tool_io(
+                "inspect managed project dev server",
+                server.executable,
+                source,
+            )
+        })?
     } else {
         None
     };
@@ -4167,6 +4402,36 @@ fn loopback_dev_server_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}")
 }
 
+fn validated_managed_preview_route(route: &str) -> Result<&str, StudioCoreError> {
+    let lower = route.to_ascii_lowercase();
+    if route.len() > 2_048
+        || !route.starts_with('/')
+        || route.starts_with("//")
+        || route.contains(['?', '#', '\\', '\0'])
+        || lower.contains("%2f")
+        || lower.contains("%5c")
+        || lower.contains("%2e")
+        || route
+            .split('/')
+            .any(|segment| segment == "." || segment == "..")
+    {
+        return Err(StudioCoreError::InvalidProject(
+            "managed preview route must be a bounded same-origin path",
+        ));
+    }
+    Ok(route)
+}
+
+fn loopback_dev_server_route_url(
+    port: u16,
+    route: Option<&str>,
+) -> Result<String, StudioCoreError> {
+    let base = loopback_dev_server_url(port);
+    route.map_or(Ok(base.clone()), |route| {
+        Ok(format!("{base}{}", validated_managed_preview_route(route)?))
+    })
+}
+
 fn reserve_loopback_dev_server_port(
     requested_port: Option<u16>,
 ) -> Result<(u16, TcpListener), StudioCoreError> {
@@ -4180,19 +4445,27 @@ fn reserve_loopback_dev_server_port(
     Ok((reserved_port, listener))
 }
 
-fn pnpm_dev_arguments(port: u16) -> Vec<String> {
-    // pnpm forwards arguments after the script name directly. Adding npm's
-    // extra `--` would launch `vite -- --host ...`, causing Vite to treat the
-    // flags as positional input while the process remains misleadingly alive.
-    vec![
-        "run".to_owned(),
-        "dev".to_owned(),
-        "--host".to_owned(),
-        Ipv4Addr::LOCALHOST.to_string(),
-        "--port".to_owned(),
-        port.to_string(),
-        "--strictPort".to_owned(),
-    ]
+fn managed_dev_arguments(
+    package_manager: ManagedPackageManager,
+    framework: ManagedProjectFramework,
+    port: u16,
+) -> Vec<String> {
+    let forwarded = match framework {
+        ManagedProjectFramework::Vite => vec![
+            "--host".to_owned(),
+            Ipv4Addr::LOCALHOST.to_string(),
+            "--port".to_owned(),
+            port.to_string(),
+            "--strictPort".to_owned(),
+        ],
+        ManagedProjectFramework::NextAppRouter => vec![
+            "--hostname".to_owned(),
+            Ipv4Addr::LOCALHOST.to_string(),
+            "--port".to_owned(),
+            port.to_string(),
+        ],
+    };
+    package_manager.script_arguments("dev", &forwarded)
 }
 
 fn loopback_dev_server_ready(port: u16) -> bool {
@@ -4269,10 +4542,13 @@ fn stop_managed_dev_server(
     mut server: ManagedDevServer,
 ) -> Result<DevServerStatus, StudioCoreError> {
     terminate_process_tree(&mut server.child, server.pid)?;
-    let status = server
-        .child
-        .wait()
-        .map_err(|source| tool_io("wait for pnpm dev server", pnpm_executable(), source))?;
+    let status = server.child.wait().map_err(|source| {
+        tool_io(
+            "wait for managed project dev server",
+            server.executable,
+            source,
+        )
+    })?;
     finish_dev_server(server, status, DevServerState::Stopped)
 }
 
@@ -4337,6 +4613,12 @@ fn project_runtime_status(
 
     ProjectRuntimeStatus {
         path: project_root.to_string_lossy().into_owned(),
+        framework: dependency.framework,
+        package_manager: dependency.package_manager,
+        lockfile_root: dependency
+            .lockfile_root
+            .as_ref()
+            .map(|path| path.to_string_lossy().into_owned()),
         lockfile_present: dependency.lockfile_present,
         dependencies_installed: dependency.dependencies_installed,
         dependencies_ready: dependency.state == ProjectDependencyState::Ready,
@@ -8285,7 +8567,7 @@ pub enum StudioCoreError {
     InvalidProjectFile(String),
     #[error("invalid VS Code target: {0}")]
     InvalidEditorTarget(&'static str),
-    #[error("the project is missing pnpm-lock.yaml")]
+    #[error("the project is missing its declared package-manager lockfile")]
     MissingLockfile,
     #[error("project dependencies are not ready: {0}")]
     DependenciesNotReady(String),
@@ -8417,14 +8699,15 @@ mod tests {
         MAX_ARCHITECTURE_SCAN_DIRECTORIES, MAX_ARCHITECTURE_SCAN_ENTRIES,
         MAX_ARCHITECTURE_SOURCE_BYTES, MAX_ARCHITECTURE_SOURCE_FILES, MAX_PROJECT_ENTRY_SEGMENTS,
         MAX_PROJECT_TREE_DEPTH, MAX_PROJECT_TREE_ENTRIES, MAX_TOOL_OUTPUT_BYTES,
-        MAX_TYPESCRIPT_CONFIG_BYTES, MIN_DEV_SERVER_PORT, ManagedDevServer,
-        OpenCodeProjectAppRequest, OpenCodeProjectRequest, OpenInVsCodeRequest,
-        ProjectDependencyState, ProjectRuntimeRecord, ProjectRuntimeStatusRequest,
-        ProjectTaskRequest, ProjectTreeScan, SaveTsxSourceRequest, SaveUiDocumentRequest,
-        ScaffoldCodeProjectStructureRequest, ScanCodeProjectRequest, StartCodeProjectRequest,
-        StudioCore, StudioCoreError, configured_architecture, pnpm_dev_arguments, pnpm_executable,
-        project_runtime_is_busy, scan_directory, upgrade_legacy_live_preview_bridge,
-        validate_ui_document_envelope,
+        MAX_TYPESCRIPT_CONFIG_BYTES, MIN_DEV_SERVER_PORT, ManagedDevServer, ManagedPackageManager,
+        ManagedProjectFramework, OpenCodeProjectAppRequest, OpenCodeProjectRequest,
+        OpenInVsCodeRequest, ProjectDependencyState, ProjectRuntimeRecord,
+        ProjectRuntimeStatusRequest, ProjectTaskRequest, ProjectTreeScan, SaveTsxSourceRequest,
+        SaveUiDocumentRequest, ScaffoldCodeProjectStructureRequest, ScanCodeProjectRequest,
+        StartCodeProjectRequest, StudioCore, StudioCoreError, configured_architecture,
+        inspect_project_dependencies, loopback_dev_server_route_url, managed_dev_arguments,
+        pnpm_executable, project_runtime_is_busy, scan_directory,
+        upgrade_legacy_live_preview_bridge, validate_ui_document_envelope,
     };
 
     #[cfg(unix)]
@@ -8519,9 +8802,13 @@ mod tests {
     }
 
     #[test]
-    fn pnpm_dev_arguments_reach_vite_without_an_extra_separator() {
+    fn package_manager_arguments_reach_each_framework_without_an_extra_separator() {
         assert_eq!(
-            pnpm_dev_arguments(40_269),
+            managed_dev_arguments(
+                ManagedPackageManager::Pnpm,
+                ManagedProjectFramework::Vite,
+                40_269,
+            ),
             [
                 "run",
                 "dev",
@@ -8532,6 +8819,97 @@ mod tests {
                 "--strictPort",
             ]
         );
+        assert_eq!(
+            managed_dev_arguments(
+                ManagedPackageManager::Npm,
+                ManagedProjectFramework::NextAppRouter,
+                40_270,
+            ),
+            [
+                "run",
+                "dev",
+                "--",
+                "--hostname",
+                "127.0.0.1",
+                "--port",
+                "40270",
+            ]
+        );
+    }
+
+    #[test]
+    fn dependency_inspection_uses_the_declared_manager_and_nearest_workspace_lockfile() {
+        let directory = tempdir().expect("temporary directory");
+        let workspace = directory.path().join("workspace");
+        let project = workspace.join("apps/web");
+        fs::create_dir_all(&project).expect("create monorepo project");
+        write_code_project(&project, true, false);
+        fs::write(
+            project.join("package.json"),
+            r#"{"name":"next-app","private":true,"packageManager":"npm@11.0.0","scripts":{"dev":"next dev","build":"next build"},"dependencies":{"next":"16.3.3"}}"#,
+        )
+        .expect("write Next package manifest");
+        fs::write(workspace.join("package-lock.json"), "{}\n").expect("write root lockfile");
+        fs::create_dir(workspace.join("node_modules")).expect("create root dependency state");
+
+        let inspected =
+            inspect_project_dependencies(&project).expect("inspect workspace toolchain");
+        assert_eq!(inspected.package_manager, ManagedPackageManager::Npm);
+        assert_eq!(inspected.framework, ManagedProjectFramework::NextAppRouter);
+        assert_eq!(inspected.state, ProjectDependencyState::Ready);
+        assert_eq!(
+            inspected.lockfile_root.as_deref(),
+            Some(workspace.as_path())
+        );
+    }
+
+    #[test]
+    fn dependency_inspection_recognizes_every_supported_local_lockfile() {
+        for (declaration, lockfile, manager) in [
+            (
+                "pnpm@11.18.0",
+                "pnpm-lock.yaml",
+                ManagedPackageManager::Pnpm,
+            ),
+            (
+                "npm@11.0.0",
+                "package-lock.json",
+                ManagedPackageManager::Npm,
+            ),
+            ("yarn@4.9.2", "yarn.lock", ManagedPackageManager::Yarn),
+            ("bun@1.2.22", "bun.lock", ManagedPackageManager::Bun),
+        ] {
+            let directory = tempdir().expect("temporary directory");
+            write_code_project(directory.path(), true, false);
+            fs::write(
+                directory.path().join("package.json"),
+                format!(r#"{{"private":true,"packageManager":"{declaration}","scripts":{{"dev":"vite","build":"vite build"}},"devDependencies":{{"vite":"8.2.0"}}}}"#),
+            )
+            .expect("write package manifest");
+            fs::write(directory.path().join(lockfile), "{}\n").expect("write lockfile");
+            let inspected =
+                inspect_project_dependencies(directory.path()).expect("inspect manager");
+            assert_eq!(inspected.package_manager, manager);
+            assert_eq!(inspected.framework, ManagedProjectFramework::Vite);
+            assert_eq!(inspected.state, ProjectDependencyState::NotInstalled);
+        }
+    }
+
+    #[test]
+    fn managed_preview_routes_cannot_escape_the_tracked_loopback_origin() {
+        assert_eq!(
+            loopback_dev_server_route_url(40_271, Some("/auth/github")).unwrap(),
+            "http://127.0.0.1:40271/auth/github"
+        );
+        for route in [
+            "https://example.com",
+            "//example.com",
+            "/../secret",
+            "/%2e%2e/secret",
+            "/auth?q=x",
+        ] {
+            assert!(loopback_dev_server_route_url(40_271, Some(route)).is_err());
+        }
     }
 
     #[test]
@@ -11798,7 +12176,21 @@ if (ready) /import\('\.\/old'\)/.test(value);
             })
             .expect_err("case-only sibling collision must be portable");
         assert_eq!(portable_collision.code(), "project_file_exists");
-        assert!(!project.join("src/pages/Portable.ui.tsx").exists());
+        let exact_page_names = || {
+            fs::read_dir(project.join("src/pages"))
+                .expect("read page directory")
+                .map(|entry| entry.expect("read page entry").file_name())
+                .collect::<Vec<_>>()
+        };
+        assert!(
+            !exact_page_names()
+                .iter()
+                .any(|name| name.to_string_lossy() == "Portable.ui.tsx")
+        );
+        assert_eq!(
+            fs::read_to_string(project.join("src/pages/PORTABLE.UI.TSX")).unwrap(),
+            "keep portable"
+        );
         assert!(!project.join("src/pages/Portable.connector.tsx").exists());
 
         fs::write(
@@ -11816,8 +12208,21 @@ if (ready) /import\('\.\/old'\)/.test(value);
             })
             .expect_err("case-only connector collision must be portable");
         assert_eq!(portable_connector_collision.code(), "project_file_exists");
-        assert!(!project.join("src/pages/Toolbar.ui.tsx").exists());
-        assert!(!project.join("src/pages/Toolbar.connector.tsx").exists());
+        let page_names = exact_page_names();
+        assert!(
+            !page_names
+                .iter()
+                .any(|name| name.to_string_lossy() == "Toolbar.ui.tsx")
+        );
+        assert!(
+            !page_names
+                .iter()
+                .any(|name| name.to_string_lossy() == "Toolbar.connector.tsx")
+        );
+        assert_eq!(
+            fs::read_to_string(project.join("src/pages/TOOLBAR.CONNECTOR.TSX")).unwrap(),
+            "keep portable connector"
+        );
     }
 
     #[test]
@@ -13181,6 +13586,7 @@ if (ready) /import\('\.\/old'\)/.test(value);
         let untracked = core
             .resolve_project_app_target(OpenCodeProjectAppRequest {
                 path: project_path.clone(),
+                route: None,
             })
             .expect_err("an untracked server must not produce a browser target");
         assert_eq!(untracked.code(), "project_app_not_running");
@@ -13198,6 +13604,7 @@ if (ready) /import\('\.\/old'\)/.test(value);
                 ProjectRuntimeRecord {
                     dev_server: Some(ManagedDevServer {
                         child,
+                        executable: pnpm_executable(),
                         pid,
                         port,
                         started_at_millis: 1,
@@ -13221,6 +13628,7 @@ if (ready) /import\('\.\/old'\)/.test(value);
         let target = core
             .resolve_project_app_target(OpenCodeProjectAppRequest {
                 path: project_path.clone(),
+                route: None,
             })
             .expect("resolve ready managed application");
         assert_eq!(
@@ -13234,6 +13642,7 @@ if (ready) /import\('\.\/old'\)/.test(value);
         let not_ready = loop {
             match core.resolve_project_app_target(OpenCodeProjectAppRequest {
                 path: project_path.clone(),
+                route: None,
             }) {
                 Err(error) => break error,
                 Ok(_) => {

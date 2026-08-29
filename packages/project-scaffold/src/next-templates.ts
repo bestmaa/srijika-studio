@@ -1,4 +1,5 @@
 import { createSrijikaProjectFileMap } from './templates.js';
+import { createSrijikaNextLivePreviewFileMap } from './next-live-preview.js';
 import type { SrijikaNextProjectScaffoldOptions, SrijikaProjectFileMap } from './types.js';
 
 const SAFE_PACKAGE_VERSION =
@@ -96,10 +97,20 @@ export default function HomePage() {
   files['next.config.ts'] = sourceFile(`
 import type { NextConfig } from 'next';
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  turbopack: {
+    rules: {
+      '**/*.ui.tsx': {
+        loaders: ['./src/srijika/next-preview-loader.cjs'],
+        as: '*.tsx',
+      },
+    },
+  },
+};
 
 export default nextConfig;
 `);
+  Object.assign(files, createSrijikaNextLivePreviewFileMap(options.appRoot));
   files['tsconfig.json'] = jsonFile({
     compilerOptions: {
       target: 'ES2022',

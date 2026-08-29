@@ -11,7 +11,7 @@ Desktop ───────┤      ├─ project and lockfile detection
 Codex / MCP ───┘      ├─ Feature → Slot → Part scaffold contract
                        ├─ strict Shared UI / Widget / Capability contract
                        ├─ incremental architecture validation
-                       └─ Vite runtime command planning
+                       └─ Vite / Next.js runtime command planning
 ```
 
 ## Runtime policy
@@ -33,6 +33,11 @@ lockfile (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, or `bun.lock`).
 
 React is browser code in both modes. Bun changes the process executing Vite; it
 does not remove React or restrict npm-compatible React packages.
+
+Detected Next App Router projects remain in Node compatibility mode and run the
+declared dev script with `--hostname 127.0.0.1 --port <reserved>`. Vite uses its
+strict-port equivalents. Desktop Studio owns the process tree and route origin;
+CLI planning uses the same framework distinction.
 
 TanStack Query is independent of runtime selection. The default project is
 minimal and has no Query dependency or Provider. Opt in only when required:

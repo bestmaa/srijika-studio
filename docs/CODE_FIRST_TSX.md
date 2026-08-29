@@ -183,35 +183,37 @@ back to `src/styles.css`, `public/srijika-mark.svg`, and a CSS class-name previe
 when those explicit preview fields are absent. Stylesheets and SVG assets are
 UTF-8-only, size-bounded, containment-checked, and symlinks are rejected.
 
-For an attached desktop project, Studio does not show the derived renderer in the
-center panel. It shows **Start App** until the independent application is running;
+For an attached desktop project, Studio does not show the derived renderer as a live
+application. It shows **Start App** until the independent application is running;
 it does not present compiled UI as though the app were alive. The independent app
-uses the generated `package.json`, exact versions,
-`packageManager`, `pnpm-lock.yaml`, and `srijika.toolchain.json`. Full Run/Build first
-checks runtime status, performs `pnpm install --frozen-lockfile` when required, then
-starts the pinned Vite application or production build. Studio tracks the dev child
+uses the project `package.json`, exact versions, declared package manager, nearest
+matching lockfile, and `srijika.toolchain.json` when present. Full Run/Build first
+checks runtime status, performs the manager's immutable install when required, then
+starts the pinned Vite or Next.js application or production build. Studio tracks the dev child
 and its loopback readiness. `Open App` becomes available only when that tracked
 server accepts connections, then opens the native-derived URL in the system browser;
 the frontend never supplies an arbitrary URL. Studio also exposes an explicit stop
 action. For an attached desktop project, `Browser preview` uses the same lifecycle:
-it synchronizes dependencies when needed, builds and starts the managed Vite process,
+it synchronizes dependencies when needed, builds and starts the managed framework process,
 waits for loopback readiness, then navigates Srijika's dedicated preview webview to that
 exact tracked URL. Therefore the browser preview executes the real project CSS,
-dependencies, assets, Connector logic, and Vite HMR. The derived `/preview` route is
+dependencies, assets, Connector logic, routes, and HMR. The derived `/preview` route is
 retained only for browser-mode and detached standalone UI previews. Project creation
 never waits for a network install. Once ready, that same validated loopback URL is
 embedded in Studio's center preview panel. Selecting a configured-UI source sends its
 validated relative path to the running app, which resolves and renders the required
 sibling using the configured Connector suffix. The Connector therefore executes inside the real
 project with its Providers, CSS, dependencies, Hook, Store, Logic, API, and HMR
-graph. Source switching does not restart Vite. Run App, the embedded panel, Browser
+graph. Next projects select a bounded App Router page and explicit dynamic route values;
+source or route switching does not restart the runtime. Run App, the embedded panel, Browser
 Preview, and Open App never create competing renderers or project processes.
 
-During `vite serve` only, the generated `srijika-preview-source-locations` transform
+During Vite serve or Next development only, source instrumentation
 adds a relative configured-UI source location to each rendered JSX element. The embedded
 app's tiny preview bridge exchanges versioned `postMessage` events only with its
-parent frame. The bridge uses a development-only `import.meta.glob` registry of
-Connector modules and reports `loading`, `ready`, or `error` for the selected UI.
+parent frame. Vite uses a development-only `import.meta.glob` registry of Connector
+modules; Next reports whether the selected governed UI is rendered by the selected
+real route. Both report `loading`, `ready`, or `error` for the selected UI.
 Studio validates the managed loopback origin and message shape, resolves
 the relative source through the indexed project, maps the source position through the
 compiler source map, and selects the stable node. The reverse message outlines the
@@ -219,6 +221,9 @@ currently selected Studio node in the live app. A recognizable older generated
 bridge is atomically upgraded before the required start-time build; custom
 application-owned files are preserved. Production builds contain neither the
 source-location attributes nor an active bridge.
+
+When startup fails, Studio keeps the last valid derived UI visible under an explicit
+failure banner. It never presents that fallback as the running application.
 
 ## Diagnostics
 

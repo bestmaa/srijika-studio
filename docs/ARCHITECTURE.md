@@ -135,7 +135,7 @@ TSX in-process and uses its bundled renderer. That fallback never evaluates proj
 imports or mixes the project's React runtime into the editor. Configured CSS, SVG
 assets, and design-time prop values are read through a bounded native boundary and
 rendered in an isolated frame. An attached desktop project instead embeds the managed
-Vite application in the center preview after readiness, making the real project the
+Vite or Next.js application in the center preview after readiness, making the real project the
 fidelity path for CSS, dependencies, routes, Connector behavior, assets, and HMR.
 
 The independent application is a normal pinned React/Vite workspace. A generated
@@ -145,8 +145,8 @@ project includes exact dependency versions, `packageManager`, `pnpm-lock.yaml`, 
 ```text
 validated project root
   → runtime status
-  → pnpm install --frozen-lockfile (only when needed)
-  → pnpm dev on fixed loopback / pnpm run build
+  → immutable install from the nearest declared npm/pnpm/Yarn/Bun lockfile (only when needed)
+  → declared framework dev script on fixed loopback / declared build script
   → tracked readiness, system-browser open, stop state, and capped diagnostics output
 ```
 
@@ -154,26 +154,29 @@ validated project root
 Studio-tracked child and opens it only after `127.0.0.1:<port>` is accepting
 connections; the frontend cannot supply an arbitrary URL. Desktop `Browser preview`
 resolves that same native target and loads it in a dedicated webview, so it is the real
-Vite application rather than another derived renderer. The center desktop preview
+managed application rather than another derived renderer. The center desktop preview
 uses the same validated runtime URL inside a sandboxed iframe. Browser-mode and
 detached UI preview continue to use the dependency-free derived route. Native commands use fixed
 executables and argument arrays, never shell strings. The
-current development baseline resolves pnpm and VS Code from the host environment;
+current development baseline resolves the declared npm/pnpm/Yarn/Bun manager and VS Code from the host environment;
 the boundary is structured so signed platform builds can substitute verified bundled
 sidecars without changing project metadata or frontend behavior.
 
-The scaffold's serve-only Vite transform annotates rendered resolved-UI-suffix elements with
+The Vite serve-only transform and Next development-only loader annotate rendered resolved-UI-suffix elements with
 relative source locations. A versioned parent/iframe message bridge validates the
 tracked loopback origin and converts those locations through the compiler source map
 to stable node IDs. This keeps live-app clicks, UI Nodes, source selection, and the
 Inspector synchronized without granting the embedded project Tauri IPC capability or
-persisting instrumentation in production output.
+persisting instrumentation in production output. Next route selection is derived
+from bounded App Router page files; route groups, dynamic parameters, loading, and
+error boundaries stay framework-owned, and every resolved route remains on the
+tracked loopback origin.
 
 ## Node and desktop build model
 
 Node/Vite remain generated-project run/build tools. The Studio read model uses the TypeScript parser in-process and does not invoke a generated application or evaluate its imports. A production Tauri bundle embeds the built Studio assets and does not need Node merely to inspect source. Dependency and application tasks are managed separately and report toolchain availability explicitly.
 
-The current repository does **not** check platform Node/pnpm binaries into source control. Development builds resolve the fixed commands from the host environment; release packaging can provide verified sidecars behind the same native runner. Windows, macOS, and Linux desktop artifacts must be built and signed on their native CI runners; a WSL build produces a Linux application.
+The current repository does **not** check platform Node/package-manager binaries into source control. Development builds resolve the validated declared manager from the host environment; release packaging can provide verified sidecars behind the same native runner. Windows, macOS, and Linux desktop artifacts must be built and signed on their native CI runners; a WSL build produces a Linux application.
 
 ## AI boundary
 

@@ -32,6 +32,7 @@ export default tseslint.config(
         projectService: {
           allowDefaultProject: [
             'apps/payload-next-reference/scripts/*.mjs',
+            'apps/payload-next-reference/src/srijika/*.cjs',
             'apps/studio/scripts/*.mjs',
             'packages/create-srijika/bin/*.mjs',
             'packages/create-srijika/test/*.mjs',
@@ -76,6 +77,24 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+    },
+  },
+  {
+    files: ['apps/payload-next-reference/src/srijika/*.cjs'],
+    languageOptions: {
+      globals: {
+        module: 'readonly',
+        process: 'readonly',
+        require: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

@@ -1,5 +1,9 @@
 export { createSrijikaProjectFileMap, createSrijikaUiSourcePair } from './templates.js';
 export { createSrijikaNextProjectFileMap } from './next-templates.js';
+export {
+  createSrijikaNextLivePreviewFileMap,
+  SRIJIKA_NEXT_LIVE_PREVIEW_VERSION,
+} from './next-live-preview.js';
 export type {
   SrijikaNextProjectScaffoldOptions,
   SrijikaProjectFileMap,

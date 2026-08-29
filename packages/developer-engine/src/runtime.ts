@@ -71,6 +71,23 @@ function viteArgs(host: string, port: number): readonly string[] {
   return ['--host', host, '--port', String(port), '--strictPort'];
 }
 
+function nextArgs(host: string, port: number): readonly string[] {
+  return ['--hostname', host, '--port', String(port)];
+}
+
+function managedServerArgs(project: SrijikaProjectMetadata, host: string, port: number) {
+  if (host !== '127.0.0.1') {
+    throw new Error('Managed project servers must bind to the 127.0.0.1 loopback interface.');
+  }
+  if (!Number.isSafeInteger(port) || port < 1_024 || port > 65_535) {
+    throw new Error('Managed project server ports must be between 1024 and 65535.');
+  }
+  if (project.nextProject === project.viteProject) {
+    throw new Error('A managed project must resolve to exactly one supported framework.');
+  }
+  return project.nextProject ? nextArgs(host, port) : viteArgs(host, port);
+}
+
 export function planSrijikaProjectCommand(
   project: SrijikaProjectMetadata,
   kind: SrijikaProjectCommandKind,
@@ -153,8 +170,9 @@ export function planSrijikaProjectCommand(
   const args = managerRunArgs(manager, script);
   if (kind === 'dev' || kind === 'preview') {
     if (manager === 'npm') args.push('--');
-    args.push(...viteArgs(host, port));
+    args.push(...managedServerArgs(project, host, port));
   }
+  const framework = project.nextProject ? 'Next.js' : 'Vite';
   return Object.freeze({
     kind,
     cwd: project.root,
@@ -162,7 +180,7 @@ export function planSrijikaProjectCommand(
     args: Object.freeze(args),
     runtime: 'node',
     packageManager: manager,
-    description: `${kind === 'dev' ? 'Start Vite HMR' : `Run ${script}`} for ${project.projectName}.`,
+    description: `${kind === 'dev' ? `Start ${framework} HMR` : `Run ${script}`} for ${project.projectName}.`,
     ...(selection.runtime === 'node' && options.runtime === 'bun'
       ? { fallbackReason: selection.reason }
       : {}),

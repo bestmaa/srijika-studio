@@ -60,6 +60,11 @@ import {
   type CodeProjectArchitectureDiagnostic,
 } from '../../lib/architecture-diagnostics';
 import { projectServiceErrorMessage } from '../../lib/error-message';
+import {
+  nextPreviewRoutes,
+  resolveNextPreviewRoute,
+  sameOriginPreviewUrl,
+} from '../../lib/next-preview-routes';
 import { persistPreviewDocument, persistPreviewViewportSize } from '../../lib/preview-channel';
 import {
   resolvedCodeProjectTypeModules,
@@ -489,6 +494,8 @@ export function CodeFirstStudio() {
   const [runtimeStatus, setRuntimeStatus] = useState<ProjectRuntimeStatus | null>(null);
   const [runtimeAction, setRuntimeAction] = useState<RuntimeAction | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [selectedNextRouteId, setSelectedNextRouteId] = useState<string | null>(null);
+  const [nextRouteValues, setNextRouteValues] = useState<Readonly<Record<string, string>>>({});
   const [livePreviewRuntimeState, setLivePreviewRuntimeState] =
     useState<LivePreviewRuntimeState | null>(null);
   const [recoverableProject, setRecoverableProject] = useState<ProjectSessionRecovery | null>(() =>
@@ -598,13 +605,37 @@ export function CodeFirstStudio() {
   const fullAppStatus = runtimeLabel(projectRoot, runtimeStatus, runtimeAction, runtimeError);
   const fullAppHasError = runtimeError !== null || runtimeStatus?.devServer.state === 'exited';
   const desktopMode = isTauriDesktop();
-  const liveProjectUrl =
+  const discoveredNextRoutes = useMemo(() => nextPreviewRoutes(projectEntries), [projectEntries]);
+  const selectedNextRoute =
+    discoveredNextRoutes.find(({ id }) => id === selectedNextRouteId) ??
+    discoveredNextRoutes[0] ??
+    null;
+  let nextPreviewPath = '/';
+  let nextPreviewRouteError: string | null = null;
+  if (runtimeStatus?.framework === 'next-app-router') {
+    if (!selectedNextRoute) {
+      nextPreviewRouteError = 'No App Router page was found in the bounded project index.';
+    } else {
+      try {
+        nextPreviewPath = resolveNextPreviewRoute(selectedNextRoute, nextRouteValues);
+      } catch (error) {
+        nextPreviewRouteError = errorMessage(error);
+      }
+    }
+  }
+  const liveProjectBaseUrl =
     desktopMode &&
     projectRoot &&
     runtimeStatus?.running &&
     runtimeStatus.devServer.ready &&
     runtimeStatus.devServer.url
       ? runtimeStatus.devServer.url
+      : null;
+  const liveProjectUrl =
+    liveProjectBaseUrl && !nextPreviewRouteError
+      ? runtimeStatus?.framework === 'next-app-router'
+        ? sameOriginPreviewUrl(liveProjectBaseUrl, nextPreviewPath)
+        : liveProjectBaseUrl
       : null;
   const showFullAppPreview = Boolean(projectRoot && desktopMode);
   const projectRuntimeBlocksTransition =
@@ -1892,7 +1923,9 @@ export function CodeFirstStudio() {
       let installedDuration: number | null = null;
       const ensureDependenciesReady = async (): Promise<boolean> => {
         if (currentStatus.dependencyState === 'missingLockfile')
-          throw new Error('pnpm-lock.yaml is missing. Restore the project lockfile first.');
+          throw new Error(
+            `${currentStatus.packageManager} lockfile is missing. Restore the authoritative project lockfile first.`,
+          );
         if (currentStatus.dependenciesReady) return true;
 
         setRuntimeAction('install');
@@ -1971,11 +2004,18 @@ export function CodeFirstStudio() {
       setMessage('Wait for the managed Full App to become ready before opening it.');
       return;
     }
+    if (nextPreviewRouteError) {
+      setMessage(nextPreviewRouteError);
+      return;
+    }
     const actionRoot = projectRoot;
     const generation = projectSessionGenerationRef.current;
     setOpeningApp(true);
     try {
-      const opened = await openCodeProjectApp(actionRoot);
+      const opened =
+        runtimeStatus.framework === 'next-app-router'
+          ? await openCodeProjectApp(actionRoot, nextPreviewPath)
+          : await openCodeProjectApp(actionRoot);
       if (!isProjectSessionCurrent(generation, actionRoot)) return;
       if (!opened) throw new Error('Desktop did not return the opened application URL.');
       setMessage(`Opened the managed Full App at ${opened.url}`);
@@ -2069,7 +2109,9 @@ export function CodeFirstStudio() {
       setRuntimeStatus(status);
 
       if (status.dependencyState === 'missingLockfile') {
-        throw new Error('pnpm-lock.yaml is missing. Restore the project lockfile first.');
+        throw new Error(
+          `${status.packageManager} lockfile is missing. Restore the authoritative project lockfile first.`,
+        );
       }
       if (!status.dependenciesReady) {
         setRuntimeAction('install');
@@ -2105,7 +2147,11 @@ export function CodeFirstStudio() {
         setRuntimeStatus(status);
       }
 
-      const opened = await openCodeProjectPreview(actionRoot);
+      if (nextPreviewRouteError) throw new Error(nextPreviewRouteError);
+      const opened =
+        status.framework === 'next-app-router'
+          ? await openCodeProjectPreview(actionRoot, nextPreviewPath)
+          : await openCodeProjectPreview(actionRoot);
       if (!isCurrentRuntimeRequest()) return;
       if (!opened) throw new Error('Desktop did not return the live preview URL.');
       setMessage(`Live project preview opened at ${opened.url}`);
@@ -2461,6 +2507,51 @@ export function CodeFirstStudio() {
             {fullAppStatus}
           </span>
         </div>
+        {runtimeStatus?.framework === 'next-app-router' && (
+          <>
+            <span className="code-first-runtime-divider" aria-hidden="true" />
+            <div className="code-first-runtime-status code-first-next-route-controls">
+              <label htmlFor="srijika-next-preview-route" className="code-first-runtime-label">
+                Next route
+              </label>
+              <select
+                id="srijika-next-preview-route"
+                aria-label="Next preview route"
+                value={selectedNextRoute?.id ?? ''}
+                onChange={(event) => {
+                  setSelectedNextRouteId(event.target.value);
+                  setNextRouteValues({});
+                }}
+              >
+                {discoveredNextRoutes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {route.pathname}
+                    {route.routeGroups.length > 0 ? ` · ${route.routeGroups.join(' ')}` : ''}
+                    {route.states.length > 0 ? ` · ${route.states.join('/')}` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedNextRoute?.parameters.map((parameter) => (
+                <input
+                  key={parameter.name}
+                  aria-label={`Next route parameter ${parameter.name}`}
+                  value={nextRouteValues[parameter.name] ?? ''}
+                  placeholder={
+                    parameter.kind === 'single'
+                      ? parameter.name
+                      : `${parameter.name}/segments${parameter.kind === 'optional-catch-all' ? ' (optional)' : ''}`
+                  }
+                  onChange={(event) =>
+                    setNextRouteValues((current) => ({
+                      ...current,
+                      [parameter.name]: event.target.value,
+                    }))
+                  }
+                />
+              ))}
+            </div>
+          </>
+        )}
         <span className="code-first-toolbar-spacer" />
         <button
           type="button"
@@ -2747,8 +2838,12 @@ export function CodeFirstStudio() {
                     : runtimeAction === 'run' || runtimeAction === 'install'
                       ? 'starting'
                       : runtimeError
-                        ? 'failed'
-                        : 'app stopped'}
+                        ? document
+                          ? 'last good · app failed'
+                          : 'failed'
+                        : nextPreviewRouteError
+                          ? 'route needs input'
+                          : 'app stopped'}
                 </span>
                 {liveProjectUrl && <span className="code-first-badge">HMR</span>}
               </>
@@ -2804,36 +2899,57 @@ export function CodeFirstStudio() {
                   dragActive={draggedComponentId !== null}
                   onDropComponent={handleLiveComponentDrop}
                 />
+              ) : runtimeError && document ? (
+                <div data-preview-runtime="last-good-derived">
+                  <div className="code-first-live-preview-fallback" role="alert">
+                    Live application startup failed. Showing the last valid derived UI:{' '}
+                    {runtimeError}
+                  </div>
+                  <CodeFirstPreviewFrame
+                    document={document}
+                    selectedNodeId={selectedNodeId}
+                    stylesheets={previewStylesheets}
+                    assets={previewAssets}
+                    symbols={symbols}
+                    stale
+                    onSelectNode={selectNodeAndReveal}
+                  />
+                </div>
               ) : (
                 <div className="code-first-live-preview-empty">
                   <div>
                     <strong>
                       {runtimeAction === 'run' || runtimeAction === 'install'
                         ? 'Building and starting the real project…'
-                        : runtimeError
-                          ? 'The real application could not start'
-                          : 'Start the app to preview the selected UI'}
+                        : nextPreviewRouteError
+                          ? 'Complete the selected Next route'
+                          : runtimeError
+                            ? 'The real application could not start'
+                            : 'Start the app to preview the selected UI'}
                     </strong>
                     <p>
-                      {runtimeError
-                        ? runtimeError
-                        : 'The center view uses the managed Vite application and renders the selected UI through its required Connector, providers, CSS, dependencies, state, APIs, and HMR.'}
+                      {nextPreviewRouteError ??
+                        (runtimeError
+                          ? runtimeError
+                          : `The center view uses the managed ${runtimeStatus?.framework === 'next-app-router' ? 'Next.js' : 'Vite'} application with its real routes, providers, CSS, dependencies, assets, state, APIs, and HMR.`)}
                     </p>
-                    <button
-                      type="button"
-                      disabled={
-                        runtimeAction !== null ||
-                        runtimeStatus?.activeTask !== null ||
-                        runtimeStatus?.dependencyState === 'missingLockfile'
-                      }
-                      onClick={() => void handleRuntimeAction('run')}
-                    >
-                      {runtimeAction === 'run' || runtimeAction === 'install'
-                        ? 'Starting App…'
-                        : runtimeError
-                          ? 'Retry App'
-                          : 'Start App'}
-                    </button>
+                    {!nextPreviewRouteError && (
+                      <button
+                        type="button"
+                        disabled={
+                          runtimeAction !== null ||
+                          runtimeStatus?.activeTask !== null ||
+                          runtimeStatus?.dependencyState === 'missingLockfile'
+                        }
+                        onClick={() => void handleRuntimeAction('run')}
+                      >
+                        {runtimeAction === 'run' || runtimeAction === 'install'
+                          ? 'Starting App…'
+                          : runtimeError
+                            ? 'Retry App'
+                            : 'Start App'}
+                      </button>
+                    )}
                   </div>
                 </div>
               )

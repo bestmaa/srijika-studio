@@ -1,4 +1,6 @@
 import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compileSrijikaTsx } from '@srijika/tsx-compiler';
@@ -7,6 +9,34 @@ import { describe, expect, it, vi } from 'vitest';
 import { mutatePost } from '../src/features/posts/posts.api';
 
 describe('Payload reference owner contracts', () => {
+  it('adds governed source markers only in the managed development compiler', async () => {
+    const projectRoot = dirname(fileURLToPath(new URL('../package.json', import.meta.url)));
+    const loaderPath = fileURLToPath(
+      new URL('../src/srijika/next-preview-loader.cjs', import.meta.url),
+    );
+    const loader = createRequire(import.meta.url)(loaderPath) as (
+      this: {
+        rootContext: string;
+        resourcePath: string;
+      },
+      source: string,
+    ) => string;
+    const resourcePath = fileURLToPath(
+      new URL('../src/features/posts/Posts.ui.tsx', import.meta.url),
+    );
+    const source = await readFile(resourcePath, 'utf8');
+    try {
+      vi.stubEnv('NODE_ENV', 'development');
+      expect(loader.call({ rootContext: projectRoot, resourcePath }, source)).toContain(
+        'data-srijika-source="src/features/posts/Posts.ui.tsx:',
+      );
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(loader.call({ rootContext: projectRoot, resourcePath }, source)).toBe(source);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('keeps the post list UI free of Payload and database runtime imports', async () => {
     const fileName = fileURLToPath(new URL('../src/features/posts/Posts.ui.tsx', import.meta.url));
     const source = await readFile(fileName, 'utf8');
