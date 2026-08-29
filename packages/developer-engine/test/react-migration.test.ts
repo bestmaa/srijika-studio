@@ -217,11 +217,185 @@ async function reactFixture(): Promise<string> {
   return root;
 }
 
+async function nextAppRouterFixture(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), 'srijika-next-source-'));
+  roots.push(root);
+  for (const directory of [
+    'app/(marketing)/products/[slug]',
+    'app/api/health',
+    'app/components',
+    'app/server',
+    'public',
+  ]) {
+    await mkdir(join(root, directory), { recursive: true });
+  }
+  await writeFile(
+    join(root, 'package.json'),
+    `${JSON.stringify({
+      name: 'old-next-app',
+      private: true,
+      packageManager: 'pnpm@11.18.0',
+      scripts: { dev: 'next dev', build: 'next build', test: 'vitest run' },
+      dependencies: { next: '16.3.2', react: '19.2.8', 'react-dom': '19.2.8' },
+      devDependencies: { typescript: '6.0.3' },
+    })}\n`,
+  );
+  await writeFile(
+    join(root, 'tsconfig.json'),
+    `${JSON.stringify({ compilerOptions: { jsx: 'preserve', plugins: [{ name: 'next' }] } })}\n`,
+  );
+  await writeFile(join(root, 'next.config.ts'), 'export default { typedRoutes: true };\n');
+  await writeFile(
+    join(root, 'middleware.ts'),
+    "import { NextResponse } from 'next/server';\nexport function middleware() { return NextResponse.next(); }\n",
+  );
+  await writeFile(
+    join(root, 'app/layout.tsx'),
+    "import type { ReactNode } from 'react';\nexport const metadata = { title: 'Old app' };\nexport default function Layout({ children }: { children: ReactNode }) { return <html><body>{children}</body></html>; }\n",
+  );
+  await writeFile(
+    join(root, 'app/(marketing)/products/[slug]/page.tsx'),
+    "import { BuyButton } from '../../../components/BuyButton';\nexport default function ProductPage() { return <main><h1>Product</h1><BuyButton /></main>; }\n",
+  );
+  await writeFile(
+    join(root, 'app/(marketing)/products/[slug]/loading.tsx'),
+    'export default function Loading() { return <p>Loading</p>; }\n',
+  );
+  await writeFile(
+    join(root, 'app/(marketing)/products/[slug]/error.tsx'),
+    "'use client';\nexport default function ErrorPage() { return <p>Error</p>; }\n",
+  );
+  await writeFile(
+    join(root, 'app/not-found.tsx'),
+    'export default function NotFound() { return <main>Missing</main>; }\n',
+  );
+  await writeFile(
+    join(root, 'app/components/BuyButton.tsx'),
+    "'use client';\nexport function BuyButton() { return <button>Buy</button>; }\n",
+  );
+  await writeFile(
+    join(root, 'app/server/actions.ts'),
+    "'use server';\nexport async function buy() { return { ok: true }; }\n",
+  );
+  await writeFile(
+    join(root, 'app/api/health/route.ts'),
+    "import { NextResponse } from 'next/server';\nexport function GET() { return NextResponse.json({ ok: true }); }\n",
+  );
+  await writeFile(join(root, 'public/logo.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>\n');
+  await writeFile(join(root, '.env.example'), 'NEXT_PUBLIC_API_URL=https://example.invalid\n');
+  return root;
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
 describe('React migration engine', () => {
+  it('inventories and scaffolds an immutable Next App Router migration session', async () => {
+    const source = await nextAppRouterFixture();
+    const beforePackage = await readFile(join(source, 'package.json'), 'utf8');
+    const inventory = await scanReactMigrationSource(source);
+
+    expect(inventory.framework).toBe('next-app-router');
+    expect(inventory.toolchain.nextVersion).toBe('16.3.2');
+    expect(inventory.nextAppRouter).toMatchObject({
+      appRoot: 'app',
+      middleware: ['middleware.ts'],
+      publicAssets: ['public/logo.svg'],
+    });
+    expect(
+      inventory.nextAppRouter?.routes.find(
+        (route) => route.relativePath === 'app/(marketing)/products/[slug]/page.tsx',
+      ),
+    ).toMatchObject({
+      kind: 'page',
+      routePath: '/products/[slug]',
+      routeGroups: ['(marketing)'],
+      dynamicSegments: ['[slug]'],
+      boundary: 'server',
+    });
+    expect(
+      inventory.nextAppRouter?.routes.find((route) => route.relativePath === 'app/layout.tsx'),
+    ).toMatchObject({ kind: 'layout', metadata: true, boundary: 'server' });
+    expect(inventory.nextAppRouter?.protectedServerFiles).toEqual(
+      expect.arrayContaining([
+        'app/(marketing)/products/[slug]/page.tsx',
+        'app/api/health/route.ts',
+        'app/server/actions.ts',
+        'middleware.ts',
+      ]),
+    );
+    expect(inventory.nextAppRouter?.protectedServerFiles).not.toContain(
+      'app/components/BuyButton.tsx',
+    );
+    for (const sourcePath of inventory.nextAppRouter?.protectedServerFiles ?? []) {
+      const decision = inventory.ownership.find((owner) => owner.sourcePath === sourcePath);
+      expect(decision?.role).not.toBe('ui');
+      expect(decision?.canonicalTargetPaths).toEqual([sourcePath]);
+    }
+
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-next-target-'));
+    roots.push(parent);
+    const target = join(parent, 'converted');
+    const started = await startReactMigration({
+      source,
+      target,
+      expectedFramework: 'next-app-router',
+    });
+    const targetPackage = JSON.parse(await readFile(join(target, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+      dependencies: Record<string, string>;
+    };
+    expect(started.inventory.nextAppRouter?.appRoot).toBe('app');
+    expect(targetPackage.dependencies['next']).toBe('16.3.2');
+    expect(targetPackage.scripts['build']).toContain('next build');
+    await expect(readFile(join(target, 'app/page.tsx'), 'utf8')).resolves.toContain(
+      'HomeConnector',
+    );
+    await expect(readFile(join(target, 'vite.config.ts'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    const middlewareOwner = started.plan.ownership.find(
+      (owner) => owner.sourcePath === 'middleware.ts',
+    )!;
+    const middlewareSlice = plannedSlice(started, 'middleware.ts');
+    await expect(
+      reviewReactMigrationSlice({
+        target,
+        slice: {
+          id: middlewareSlice.id,
+          title: middlewareSlice.title,
+          writes: [
+            {
+              relativePath: 'src/features/middleware/Middleware.ui.tsx',
+              content: 'export function MiddlewareUI() { return <main>Unsafe</main>; }\n',
+            },
+          ],
+          mappings: [
+            {
+              sourcePath: 'middleware.ts',
+              targetPaths: ['src/features/middleware/Middleware.ui.tsx'],
+              kind: 'migrated',
+              mode: 'native',
+              ownerId: middlewareOwner.ownerId,
+              role: middlewareOwner.role,
+              rationale: 'Attempt to move protected middleware into a visual owner.',
+            },
+          ],
+        },
+      }),
+    ).rejects.toThrow(/protected Next\.js server module/u);
+    expect(await readFile(join(source, 'package.json'), 'utf8')).toBe(beforePackage);
+    expect(
+      buildReactMigrationCliArguments({
+        operation: 'start',
+        source,
+        target,
+        framework: 'next-app-router',
+      }).slice(0, 2),
+    ).toEqual(['migrate', 'next']);
+  });
+
   it('inspects exact converted-target imports, exports, roles, and graph findings read-only', async () => {
     const source = await reactFixture();
     const parent = await mkdtemp(join(tmpdir(), 'srijika-react-architecture-target-'));

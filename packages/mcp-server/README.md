@@ -2,9 +2,9 @@
 
 This stdio MCP server lets Codex and other MCP clients understand, validate, plan,
 and safely scaffold a CLI-first Srijika TSX project without Desktop Studio. It
-also coordinates immutable-source React migration into a distinct new Srijika
-target through the same canonical developer engine used by CLI and editor
-adapters.
+also coordinates immutable-source React and Next.js App Router migration into a
+distinct new Srijika target through the same canonical developer engine used by
+CLI and editor adapters.
 
 Node.js `>=22.13.0` is required. The npm package uses its declared runtime dependencies. The Codex plugin build is
 separate and self-contained, including the TypeScript parser, so an installed
@@ -52,6 +52,12 @@ open target graphs, and unowned target modules block completion. The read-only `
 machine-readable contract. The server does not claim arbitrary automatic
 rewriting or guaranteed zero context loss; Codex performs reviewed semantic
 slice analysis.
+
+The create tool accepts optional `framework: "next-app-router"` to fail closed
+unless the source is a Next.js App Router application. Without that selector,
+the shared scanner detects React Vite/CRA or Next.js and returns the matching
+framework inventory. Next route/runtime metadata is returned from the same
+session used by CLI, VS Code, and Desktop Studio.
 
 If slice context proves an inferred owner wrong, the bounded ownership-review
 tool can correct canonical owner kind/name/path/role only before the first slice

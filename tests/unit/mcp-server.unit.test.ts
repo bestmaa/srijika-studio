@@ -675,7 +675,13 @@ describe('Srijika MCP server', () => {
     const target = '/projects/new-srijika';
     const created = await client.callTool({
       name: SRIJIKA_REACT_MIGRATION_TOOL_NAMES.create,
-      arguments: { source, target, projectName: 'new-srijika', displayName: 'New Srijika' },
+      arguments: {
+        source,
+        target,
+        projectName: 'new-srijika',
+        displayName: 'New Srijika',
+        framework: 'next-app-router',
+      },
     });
     expect(created.isError).toBeUndefined();
     expect(startMigration).toHaveBeenCalledWith({
@@ -683,6 +689,7 @@ describe('Srijika MCP server', () => {
       target,
       projectName: 'new-srijika',
       displayName: 'New Srijika',
+      expectedFramework: 'next-app-router',
     });
 
     await client.callTool({

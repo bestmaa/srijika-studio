@@ -1284,7 +1284,7 @@ export function CodeFirstStudio() {
     setBusy(true);
     setMessage(
       operation === 'start'
-        ? 'Select the read-only React source, then choose a separate Srijika target.'
+        ? 'Select the read-only React or Next.js source, then choose a separate Srijika target.'
         : operation === 'status'
           ? 'Select an existing Srijika migration target.'
           : 'Select the converted Srijika project to verify.',
@@ -1292,7 +1292,7 @@ export function CodeFirstStudio() {
     try {
       const response = await chooseAndRunReactMigration(operation);
       if (!response) {
-        setMessage('React migration selection was cancelled; no files were changed.');
+        setMessage('Migration selection was cancelled; no files were changed.');
         return;
       }
       const summary = describeReactMigrationCommand(response);
@@ -1326,7 +1326,7 @@ export function CodeFirstStudio() {
       await refreshProjectIndex();
       setMessage(`${summary} Opened converted project at ${opened.path}`);
     } catch (error) {
-      setMessage(`React migration failed: ${errorMessage(error)}`);
+      setMessage(`Migration failed: ${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }

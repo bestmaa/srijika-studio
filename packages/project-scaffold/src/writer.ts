@@ -2,7 +2,13 @@ import { lstat, mkdir, readdir, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, parse, relative, resolve } from 'node:path';
 
 import { createSrijikaProjectFileMap } from './templates.js';
-import type { SrijikaProjectScaffoldOptions, WriteSrijikaProjectResult } from './types.js';
+import { createSrijikaNextProjectFileMap } from './next-templates.js';
+import type {
+  SrijikaNextProjectScaffoldOptions,
+  SrijikaProjectFileMap,
+  SrijikaProjectScaffoldOptions,
+  WriteSrijikaProjectResult,
+} from './types.js';
 
 const isMissingPathError = (error: unknown): boolean =>
   error instanceof Error && 'code' in error && error.code === 'ENOENT';
@@ -47,9 +53,9 @@ const destinationFor = (absoluteTarget: string, projectPath: string): string => 
  * Writes a newly generated project to an explicit absolute directory.
  * Existing non-empty directories, files, symlinks, and filesystem roots are rejected.
  */
-export const writeSrijikaProject = async (
+const writeProjectFileMap = async (
   targetDirectory: string,
-  options: SrijikaProjectScaffoldOptions = {},
+  fileMap: SrijikaProjectFileMap,
 ): Promise<WriteSrijikaProjectResult> => {
   if (targetDirectory.trim().length === 0 || !isAbsolute(targetDirectory)) {
     throw new TypeError('targetDirectory must be an explicit absolute path.');
@@ -65,7 +71,6 @@ export const writeSrijikaProject = async (
     await mkdir(absoluteTarget, { recursive: true });
   }
 
-  const fileMap = createSrijikaProjectFileMap(options);
   const files = Object.keys(fileMap);
 
   for (const projectPath of files) {
@@ -82,3 +87,15 @@ export const writeSrijikaProject = async (
     files: Object.freeze(files),
   });
 };
+
+export const writeSrijikaProject = async (
+  targetDirectory: string,
+  options: SrijikaProjectScaffoldOptions = {},
+): Promise<WriteSrijikaProjectResult> =>
+  writeProjectFileMap(targetDirectory, createSrijikaProjectFileMap(options));
+
+export const writeSrijikaNextProject = async (
+  targetDirectory: string,
+  options: SrijikaNextProjectScaffoldOptions,
+): Promise<WriteSrijikaProjectResult> =>
+  writeProjectFileMap(targetDirectory, createSrijikaNextProjectFileMap(options));

@@ -31,6 +31,7 @@ export function validateReactMigrationRequest(
     operation: request.operation,
     target: resolve(request.target),
     ...(request.source === undefined ? {} : { source: resolve(request.source) }),
+    ...(request.framework === undefined ? {} : { framework: request.framework }),
   };
 }
 
@@ -56,7 +57,11 @@ export async function runReactMigration(
   const validated = validateReactMigrationRequest(request);
   const session =
     validated.operation === 'start'
-      ? await startReactMigration({ source: validated.source!, target: validated.target })
+      ? await startReactMigration({
+          source: validated.source!,
+          target: validated.target,
+          ...(validated.framework === undefined ? {} : { expectedFramework: validated.framework }),
+        })
       : validated.operation === 'status'
         ? await getReactMigrationStatus(validated.target)
         : await verifyReactMigration({ target: validated.target });

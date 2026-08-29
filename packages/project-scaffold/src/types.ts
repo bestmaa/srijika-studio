@@ -11,6 +11,13 @@ export interface SrijikaProjectScaffoldOptions {
   reactQuery?: boolean;
 }
 
+export interface SrijikaNextProjectScaffoldOptions extends SrijikaProjectScaffoldOptions {
+  /** Exact Next.js version carried from the immutable source inventory. */
+  nextVersion: string;
+  /** Preserve the source application's authoritative App Router root. */
+  appRoot: 'app' | 'src/app';
+}
+
 export interface WriteSrijikaProjectResult {
   absoluteTarget: string;
   files: readonly string[];

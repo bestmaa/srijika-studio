@@ -481,6 +481,31 @@ describe('Next.js adoption command', () => {
 });
 
 describe('React migration command', () => {
+  it('uses the dedicated Next App Router adapter and creates a real Next target', async () => {
+    const source = await nextAdoptionProject();
+    const parent = await mkdtemp(join(tmpdir(), 'srijika-cli-next-migration-target-'));
+    roots.push(parent);
+    const target = join(parent, 'new-next-app');
+    const before = await readFile(join(source, 'src/app/page.tsx'), 'utf8');
+    const originalLog = console.log;
+    console.log = () => undefined;
+    try {
+      await expect(
+        runSrijikaCli(['migrate', 'next', '--source', source, '--target', target, '--json']),
+      ).resolves.toBe(0);
+    } finally {
+      console.log = originalLog;
+    }
+    const packageMetadata = JSON.parse(await readFile(join(target, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+      dependencies: Record<string, string>;
+    };
+    expect(packageMetadata.dependencies['next']).toBe('16.3.2');
+    expect(packageMetadata.scripts['build']).toContain('next build');
+    await expect(access(join(target, 'pnpm-lock.yaml'))).rejects.toThrow();
+    expect(await readFile(join(source, 'src/app/page.tsx'), 'utf8')).toBe(before);
+  }, 120_000);
+
   it('creates a separate resumable target and reports status without changing source', async () => {
     const source = await reactSource();
     const parent = await mkdtemp(join(tmpdir(), 'srijika-cli-react-target-'));

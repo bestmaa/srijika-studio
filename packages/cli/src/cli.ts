@@ -100,6 +100,7 @@ Usage:
   srijika workspace tests verify [root] [--project-id <id>] [--skip-install] [--json]
   srijika adopt [project] --framework next [--dry-run] [--json]
   srijika migrate react --source <existing-react> --target <new-srijika> [--dry-run] [--json]
+  srijika migrate next --source <existing-next> --target <new-srijika> [--dry-run] [--json]
   srijika migrate status --target <new-srijika> [--json]
   srijika migrate plan --target <new-srijika> [--json]
   srijika migrate context --target <new-srijika> --slice <id> [--cursor <cursor>] [--limit <n>] [--max-bytes <n>] --json
@@ -928,7 +929,7 @@ async function runMigrate(parsed: ParsedArguments): Promise<number> {
   if (!operation || extra.length > 0) {
     throw new Error('Use a supported `srijika migrate` operation with named options.');
   }
-  if (operation === 'react') {
+  if (operation === 'react' || operation === 'next') {
     assertKnownOptions(parsed, [
       'source',
       'target',
@@ -941,7 +942,7 @@ async function runMigrate(parsed: ParsedArguments): Promise<number> {
     const source = stringOption(parsed, 'source');
     const target = stringOption(parsed, 'target');
     if (!source || !target) {
-      throw new Error('migrate react requires --source and --target.');
+      throw new Error(`migrate ${operation} requires --source and --target.`);
     }
     const json = booleanOption(parsed, 'json');
     const dryRun = booleanOption(parsed, 'dry-run');
@@ -953,10 +954,13 @@ async function runMigrate(parsed: ParsedArguments): Promise<number> {
       ...(projectName ? { projectName } : {}),
       ...(displayName ? { displayName } : {}),
       dryRun,
+      ...(operation === 'next' ? { expectedFramework: 'next-app-router' as const } : {}),
     });
     if (!dryRun && !booleanOption(parsed, 'no-install')) {
       const project = await inspectSrijikaProject(session.targetRoot);
-      const install = planSrijikaProjectCommand(project, 'install');
+      const install = planSrijikaProjectCommand(project, 'install', {
+        allowMissingLockfile: session.inventory.framework === 'next-app-router',
+      });
       if (!json) console.log(`→ ${formatSrijikaCommand(install)}`);
       const code = await runSrijikaCommand(install, json ? { stdio: 'ignore' } : {});
       if (code !== 0) return code;

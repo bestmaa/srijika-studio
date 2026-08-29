@@ -254,6 +254,7 @@ function pageInventory(inventory: ReactMigrationInventory, cursor?: string, limi
     packageDependencyRecords: inventory.packageDependencyRecords,
     packageScripts: inventory.packageScripts,
     toolchain: inventory.toolchain,
+    nextAppRouter: inventory.nextAppRouter ?? null,
     environmentKeys: inventory.environmentKeys,
     sourceAliases: inventory.sourceAliases,
     files,
@@ -333,6 +334,8 @@ function compactSession(session: ReactMigrationSession) {
     targetRoot: session.targetRoot,
     planId: session.plan.id,
     sourceSnapshotSha256: session.inventory.snapshotSha256,
+    framework: session.inventory.framework,
+    nextAppRouter: session.inventory.nextAppRouter ?? null,
     targetBaselineSha256: session.plan.targetBaselineSha256,
     summary: {
       counts: {

@@ -714,6 +714,17 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
       contractId: 'srijika.react-migration-native-v2',
       sessionFile: '.srijika/migrations/react/session.json',
       adapters: ['cli', 'codex-mcp', 'vscode', 'desktop'],
+      frameworkAdapters: {
+        react: ['vite', 'create-react-app'],
+        next: {
+          id: 'next-app-router',
+          appRoots: ['app', 'src/app'],
+          exactFrameworkPaths: true,
+          protectedServerFilesMayEnterUiOwners: false,
+          productionBuild: 'next build',
+          parityRuntime: 'next dev',
+        },
+      },
       sourceContract: {
         immutable: true,
         baselineRequired: true,

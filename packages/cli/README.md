@@ -27,6 +27,8 @@ npx @srijika/cli adopt . --framework next --json
 
 # Start or resume an immutable-source React migration:
 npx @srijika/cli migrate react --source /old/react-app --target /new/srijika-app
+# Or select the framework-aware Next.js App Router adapter:
+npx @srijika/cli migrate next --source /old/next-app --target /new/srijika-next-app
 npx @srijika/cli migrate status --target /new/srijika-app
 npx @srijika/cli migrate verify --target /new/srijika-app
 ```
@@ -53,15 +55,20 @@ Srijika/editor/MCP/owner-test files, and emits exact merge instructions for ever
 existing file. It never rewrites `package.json`, application source, Next
 configuration, scripts, versions, or the lockfile.
 
-`migrate react` supports React Vite/CRA JavaScript and TypeScript projects in
-phase 1. It never writes to the source: it captures a bounded hash inventory,
-creates or resumes a distinct target, and persists the reviewed slice plan and
+`migrate react` supports React Vite/CRA JavaScript and TypeScript projects.
+`migrate next` adds a framework-aware App Router inventory for route groups,
+dynamic segments, layouts, loading/error/not-found boundaries, route handlers,
+metadata, server actions, middleware, public assets, environment usage, and
+Next configuration. Both commands use the same session implementation and
+never write to the source: they capture a bounded hash inventory,
+create or resume a distinct target, and persist the reviewed slice plan and
 source-to-target mappings under `.srijika/migrations/react/`. Apply semantic
 slices through Codex/MCP. Every slice requires zero Srijika diagnostics,
 architecture pass, TypeScript pass, and production build pass before the next
 slice. Then use `migrate verify`; completion requires an unchanged source, full
-mapped-or-ignored traceability, verified slices, and typecheck/build/test evidence. Next.js, Remix, React
-Native, and Expo fail closed until dedicated adapters are available.
+mapped-or-ignored traceability, verified slices, and typecheck/build/test evidence.
+The Next adapter additionally requires a Next production build and engine-owned
+App Router parity. Remix, React Native, and Expo remain unsupported and fail closed.
 
 `behavior-hook` and `store-slice` accept only a PascalCase suffix. The shared
 writer derives the owner-prefixed filename, moves a flat gateway into its

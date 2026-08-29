@@ -36,6 +36,14 @@ describe('React migration engine adapter', () => {
       target,
       '--json',
     ]);
+    expect(
+      buildReactMigrationArguments({
+        operation: 'start',
+        source,
+        target,
+        framework: 'next-app-router',
+      }),
+    ).toEqual(['migrate', 'next', '--source', source, '--target', target, '--json']);
   });
 
   it('rejects equal or nested source/target folders before starting the engine', () => {
