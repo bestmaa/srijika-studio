@@ -118,4 +118,13 @@ Tauri and Rust provide narrow operations for project creation, scanning, source 
 
 AI receives the same TSX rules and diagnostics as developers. It must propose changes to source and connector files. It may not persist or mutate derived `UiDocument` as a parallel authority.
 
+## Next.js adapter boundary
+
+Next.js UI support is explicit and non-executing. The versioned adapter maps exact
+`next/link` and `next/image` imports, plus project-registered pure presentation
+components, to safe preview nodes. App Router pages, layouts, and route handlers
+share server/client and serializable-prop diagnostics across Studio, VS Code,
+CLI, and MCP. Unsupported, dynamic, invalid-prop, client-only, and
+non-serializable cases use stable `SRIJIKA5001` through `SRIJIKA5005` codes.
+
 For the complete invariant list and dependency explanation, read the canonical [Srijika Studio Architecture](/reference/architecture/) reference.

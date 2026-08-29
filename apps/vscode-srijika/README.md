@@ -16,6 +16,13 @@ Typing `<` also offers only the intrinsic HTML elements supported by the current
 Srijika compiler. Generated projects enable Emmet for TSX and VS Code's normal CSS
 language suggestions for `.css` files.
 
+In Next.js App Router projects, the same compiler recognizes exact registered
+`next/link`, `next/image`, and project-local presentation component imports.
+Open page, layout, and route sources also receive shared server/client boundary
+diagnostics. Preview metadata is source-only; the extension never imports those
+runtime modules. See
+[`docs/NEXT_FRAMEWORK_ADAPTER.md`](../../docs/NEXT_FRAMEWORK_ADAPTER.md).
+
 ## Install in VS Code
 
 Install **Srijika Language Support** from the

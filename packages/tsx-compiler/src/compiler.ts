@@ -15,6 +15,13 @@ import {
   type ValueShape,
   type ValueType,
 } from '@srijika/contracts';
+import {
+  createFrameworkComponentRegistry,
+  SRIJIKA_NEXT_FRAMEWORK_ADAPTER,
+  type FrameworkComponentManifest,
+  type FrameworkComponentPropSpec,
+  type FrameworkComponentRegistry,
+} from '@srijika/component-registry';
 import * as ts from 'typescript';
 
 import type {
@@ -104,6 +111,12 @@ interface TagDefinition {
   componentId: string;
   displayName: string;
   mode: 'container' | 'page' | 'text' | 'heading' | 'image' | 'button' | 'input';
+}
+
+interface FrameworkImportBinding {
+  manifest: FrameworkComponentManifest;
+  declaration: ts.ImportDeclaration;
+  localName: string;
 }
 
 const tagDefinitions: Readonly<Record<string, TagDefinition>> = {
@@ -357,6 +370,13 @@ class SrijikaTsxCompiler {
   readonly #contract = new Map<string, ContractEntry>();
   readonly #missingTypes: MissingTypeEntry[] = [];
   readonly #resolvedTypeModules = new Map<string, ResolvedTypeModuleSource>();
+  readonly #frameworkRegistry: FrameworkComponentRegistry;
+  readonly #frameworkImports = new Map<string, FrameworkImportBinding>();
+  readonly #frameworkUses: Array<{
+    binding: FrameworkImportBinding;
+    nodeIds: readonly string[];
+  }> = [];
+  readonly #directives: string[] = [];
   #component: ts.FunctionDeclaration | null = null;
   #propsParameter: ts.ParameterDeclaration | null = null;
   #propsName: string | null = null;
@@ -374,6 +394,7 @@ class SrijikaTsxCompiler {
       ts.ScriptKind.TSX,
     );
     this.#options = options;
+    this.#frameworkRegistry = createFrameworkComponentRegistry(options.projectComponents);
     for (const module of options.resolvedTypeModules ?? []) {
       if (this.#resolvedTypeModules.has(module.specifier)) continue;
       this.#resolvedTypeModules.set(module.specifier, {
@@ -406,6 +427,7 @@ class SrijikaTsxCompiler {
     }
     if (syntaxDiagnostics.length > 0) return this.#result(null);
 
+    this.#readFrameworkImports();
     this.#validateFileComplexity();
 
     const components = this.#sourceFile.statements.filter(
@@ -472,6 +494,126 @@ class SrijikaTsxCompiler {
     return this.#result(document);
   }
 
+  #readFrameworkImports(): void {
+    for (const statement of this.#sourceFile.statements) {
+      if (ts.isExpressionStatement(statement) && ts.isStringLiteral(statement.expression)) {
+        this.#directives.push(statement.expression.text);
+        continue;
+      }
+      break;
+    }
+
+    const registeredModules = new Set(
+      this.#frameworkRegistry.components().map((component) => component.moduleSpecifier),
+    );
+    for (const statement of this.#sourceFile.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
+        continue;
+      }
+      const moduleSpecifier = statement.moduleSpecifier.text;
+      const registeredModule = registeredModules.has(moduleSpecifier);
+      const nextModule = moduleSpecifier === 'next' || moduleSpecifier.startsWith('next/');
+      const clause = statement.importClause;
+      if (!clause || clause.isTypeOnly) {
+        if (!clause && registeredModule) {
+          this.#addDiagnostic(
+            'SRIJIKA5001',
+            `Side-effect import ${moduleSpecifier} is not a supported preview primitive. Import its registered component explicitly.`,
+            statement,
+          );
+        }
+        continue;
+      }
+
+      if (clause.name) {
+        this.#registerFrameworkBinding(
+          moduleSpecifier,
+          'default',
+          clause.name.text,
+          statement,
+          registeredModule || nextModule,
+          clause.name,
+        );
+      }
+      const bindings = clause.namedBindings;
+      if (bindings && ts.isNamespaceImport(bindings) && (registeredModule || nextModule)) {
+        this.#addDiagnostic(
+          'SRIJIKA5001',
+          `Namespace import from ${moduleSpecifier} is not supported. Use an explicitly registered component export.`,
+          bindings,
+        );
+      }
+      if (bindings && ts.isNamedImports(bindings)) {
+        for (const element of bindings.elements) {
+          if (element.isTypeOnly) continue;
+          const exportName = element.propertyName?.text ?? element.name.text;
+          this.#registerFrameworkBinding(
+            moduleSpecifier,
+            exportName,
+            element.name.text,
+            statement,
+            registeredModule || nextModule,
+            element,
+          );
+        }
+      }
+    }
+
+    const visitDynamicImport = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && node.arguments.length === 1) {
+        const argument = node.arguments[0];
+        const dynamicImport = node.expression.kind === ts.SyntaxKind.ImportKeyword;
+        const requireCall = ts.isIdentifier(node.expression) && node.expression.text === 'require';
+        if (
+          (dynamicImport || requireCall) &&
+          argument &&
+          ts.isStringLiteralLike(argument) &&
+          (registeredModules.has(argument.text) ||
+            argument.text === 'next' ||
+            argument.text.startsWith('next/'))
+        ) {
+          this.#addDiagnostic(
+            'SRIJIKA5002',
+            `Dynamic ${dynamicImport ? 'import' : 'require'} of ${argument.text} cannot be proven safe. Use a static registered import.`,
+            node,
+          );
+        }
+      }
+      ts.forEachChild(node, visitDynamicImport);
+    };
+    visitDynamicImport(this.#sourceFile);
+  }
+
+  #registerFrameworkBinding(
+    moduleSpecifier: string,
+    exportName: string,
+    localName: string,
+    declaration: ts.ImportDeclaration,
+    reportUnsupported: boolean,
+    anchor: ts.Node,
+  ): void {
+    const manifest = this.#frameworkRegistry.resolve(moduleSpecifier, exportName);
+    if (!manifest) {
+      if (reportUnsupported) {
+        this.#addDiagnostic(
+          'SRIJIKA5001',
+          `Unsupported framework primitive ${moduleSpecifier}#${exportName}. Register an exact safe manifest or use a supported export.`,
+          anchor,
+        );
+      }
+      return;
+    }
+    if (this.#frameworkImports.has(localName)) {
+      this.#addDiagnostic(
+        'SRIJIKA5001',
+        `Framework component binding ${localName} is ambiguous. Use one unique static import.`,
+        anchor,
+      );
+      return;
+    }
+    this.#frameworkImports.set(localName, { manifest, declaration, localName });
+  }
+
   #validateFileComplexity(): void {
     const meaningfulLines = countMeaningfulLines(this.#sourceFile, this.#sourceFile);
     if (meaningfulLines <= SRIJIKA_UI_COMPLEXITY_POLICY.maxFileMeaningfulLines) return;
@@ -506,6 +648,25 @@ class SrijikaTsxCompiler {
       ),
       sourceMap,
       componentContract: this.#componentContract(),
+      framework: {
+        boundary: this.#directives.includes('use client') ? 'client' : 'server',
+        directives: Object.freeze([...this.#directives]),
+        primitives: Object.freeze(
+          this.#frameworkUses.map(({ binding, nodeIds }) => ({
+            adapterId:
+              binding.manifest.source === 'framework'
+                ? SRIJIKA_NEXT_FRAMEWORK_ADAPTER
+                : 'srijika.project-components',
+            adapterVersion: binding.manifest.version,
+            componentId: binding.manifest.id,
+            moduleSpecifier: binding.manifest.moduleSpecifier,
+            exportName: binding.manifest.exportName,
+            localName: binding.localName,
+            nodeIds: Object.freeze([...nodeIds]),
+            importSpan: this.#span(binding.declaration),
+          })),
+        ),
+      },
     };
   }
 
@@ -1051,6 +1212,10 @@ class SrijikaTsxCompiler {
     const opening = ts.isJsxElement(renderable) ? renderable.openingElement : renderable;
     const tag = opening.tagName.getText(this.#sourceFile);
     const definition = tagDefinitions[tag];
+    const frameworkBinding = this.#frameworkImports.get(tag);
+    if (frameworkBinding) {
+      return this.#compileFrameworkRenderable(renderable, requestedId, frameworkBinding);
+    }
     if (!definition) {
       this.#addDiagnostic(
         'SRIJIKA2001',
@@ -1066,6 +1231,161 @@ class SrijikaTsxCompiler {
     this.#compileAttributes(node, tag, definition, opening.attributes);
     this.#recordNode(node, renderable);
     return [id];
+  }
+
+  #compileFrameworkRenderable(
+    renderable: Exclude<JsxRenderable, ts.JsxFragment>,
+    requestedId: string,
+    binding: FrameworkImportBinding,
+  ): string[] {
+    const id = stableNodeId(requestedId);
+    const opening = ts.isJsxElement(renderable) ? renderable.openingElement : renderable;
+    const sourceChildren = ts.isJsxElement(renderable) ? renderable.children : [];
+    let node: ElementNode;
+    switch (binding.manifest.preview.kind) {
+      case 'container': {
+        node = createElementNode(id, 'srijika.container', binding.manifest.displayName, {
+          props: { as: literal(binding.manifest.preview.element) },
+          slots: { children: [] },
+        });
+        node.slots['children'] = this.#compileChildren(sourceChildren, id);
+        break;
+      }
+      case 'image':
+        node = createElementNode(id, 'srijika.image', binding.manifest.displayName, {
+          props: {
+            src: literal(''),
+            alt: literal(''),
+            fit: literal('cover'),
+            loading: literal('lazy'),
+          },
+          slots: {},
+        });
+        break;
+      case 'text':
+        node = createElementNode(id, 'srijika.text', binding.manifest.displayName, {
+          props: { text: this.#compileLeafContent(sourceChildren, 'string') },
+          slots: {},
+        });
+        break;
+    }
+
+    const meaningfulChildren = sourceChildren.some(
+      (child) => !ts.isJsxText(child) || normalizeJsxText(child.text).length > 0,
+    );
+    if (binding.manifest.children === 'required' && !meaningfulChildren) {
+      this.#addDiagnostic(
+        'SRIJIKA5003',
+        `${binding.manifest.displayName} requires previewable children.`,
+        opening.tagName,
+      );
+    }
+    if (binding.manifest.children === 'forbidden' && meaningfulChildren) {
+      this.#addDiagnostic(
+        'SRIJIKA5003',
+        `${binding.manifest.displayName} does not accept children.`,
+        renderable,
+      );
+    }
+
+    this.#compileFrameworkAttributes(node, binding.manifest, opening.attributes);
+    this.#recordNode(node, renderable);
+    this.#frameworkUses.push({ binding, nodeIds: Object.freeze([id]) });
+    return [id];
+  }
+
+  #compileFrameworkAttributes(
+    node: ElementNode,
+    manifest: FrameworkComponentManifest,
+    attributes: ts.JsxAttributes,
+  ): void {
+    const seen = new Set<string>();
+    const instanceProps: Record<string, InstancePropSpec> = {};
+    for (const attribute of attributes.properties) {
+      if (ts.isJsxSpreadAttribute(attribute)) {
+        this.#addDiagnostic(
+          'SRIJIKA5002',
+          `Spread props on ${manifest.displayName} are not statically provable. Pass registered props explicitly.`,
+          attribute,
+        );
+        continue;
+      }
+      const name = attribute.name.getText(this.#sourceFile);
+      const spec = manifest.props[name];
+      if (!spec) {
+        this.#addDiagnostic(
+          'SRIJIKA5003',
+          `Prop ${name} is not registered for ${manifest.displayName}.`,
+          attribute.name,
+        );
+        continue;
+      }
+      seen.add(name);
+      if (!attribute.initializer && spec.type !== 'boolean') {
+        this.#addDiagnostic(
+          'SRIJIKA5003',
+          `Prop ${name} on ${manifest.displayName} requires a ${spec.type} value.`,
+          attribute,
+        );
+      }
+      const expression = this.#compileAttributeValue(attribute, spec.type);
+      const actualType = this.#expressionType(expression);
+      if (actualType !== 'unknown' && actualType !== spec.type) {
+        this.#addDiagnostic(
+          'SRIJIKA5003',
+          `Prop ${name} on ${manifest.displayName} expects ${spec.type}, received ${actualType}.`,
+          attribute,
+        );
+      }
+      if (!spec.previewProp) continue;
+      this.#setFrameworkPreviewProp(node, spec.previewProp, spec, expression, instanceProps);
+    }
+
+    for (const [name, spec] of Object.entries(manifest.props)) {
+      if (!spec.required || seen.has(name)) continue;
+      this.#addDiagnostic(
+        'SRIJIKA5003',
+        `${manifest.displayName} requires prop ${name}.`,
+        attributes,
+      );
+    }
+    if (manifest.id === 'srijika.next.image') {
+      const usesFill = seen.has('fill');
+      if (!usesFill && (!seen.has('width') || !seen.has('height'))) {
+        this.#addDiagnostic(
+          'SRIJIKA5003',
+          'Next Image requires both width and height unless fill is present.',
+          attributes,
+        );
+      }
+    }
+    if (Object.keys(instanceProps).length > 0) node.instanceProps = instanceProps;
+  }
+
+  #setFrameworkPreviewProp(
+    node: ElementNode,
+    previewProp: string,
+    spec: FrameworkComponentPropSpec,
+    expression: ValueExpression,
+    instanceProps: Record<string, InstancePropSpec>,
+  ): void {
+    const registeredCoreProp =
+      previewProp === 'className' ||
+      previewProp === 'style' ||
+      (node.componentId === 'srijika.container' && previewProp === 'ariaLabel') ||
+      (node.componentId === 'srijika.image' &&
+        (previewProp === 'src' ||
+          previewProp === 'alt' ||
+          previewProp === 'loading' ||
+          previewProp === 'fit'));
+    node.props[previewProp] = expression;
+    if (registeredCoreProp) return;
+    instanceProps[previewProp] = {
+      displayName: previewProp,
+      type: this.#instanceValueType(spec.type),
+      required: spec.required,
+      valueShape: primitiveShape(this.#instanceValueType(spec.type)),
+    };
   }
 
   #createElement(

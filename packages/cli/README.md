@@ -99,6 +99,13 @@ coverage plus deterministic no-overwrite moves and exact rewires. `check`
 strictly enforces adopted owners while reporting the rest as partial; partial
 coverage is never printed as full-project success.
 
+For Next.js projects, `check` also uses the versioned non-executing framework
+adapter for exact `next/link`, `next/image`, and configured project presentation
+components. App Router server/client violations and non-serializable boundary
+props are reported as stable `SRIJIKA5001`–`SRIJIKA5005` diagnostics. The full
+contract is in
+[`docs/NEXT_FRAMEWORK_ADAPTER.md`](../../docs/NEXT_FRAMEWORK_ADAPTER.md).
+
 React Query is not installed by default. Pass `--react-query` to `create` or
 `init` when query caching, retries, invalidation, and server-state lifecycle are
 part of the project.

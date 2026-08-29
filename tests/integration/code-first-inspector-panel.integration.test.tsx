@@ -59,6 +59,30 @@ function nodeByComponent(componentId: string) {
 }
 
 describe('CodeFirstInspectorPanel', () => {
+  it('identifies the exact safe framework adapter for a derived Next primitive', () => {
+    const result = compileSrijikaTsx(
+      'Navigation.ui.tsx',
+      `import Link from 'next/link';
+export function NavigationUI() { return <Link href="/docs">Docs</Link>; }`,
+    );
+    const primitive = result.framework.primitives[0]!;
+
+    render(
+      <CodeFirstInspectorPanel
+        document={result.document}
+        selectedNodeId={primitive.nodeIds[0]!}
+        fileName="Navigation.ui.tsx"
+        sourceMap={result.sourceMap}
+        framework={result.framework}
+      />,
+    );
+
+    expect(screen.getByLabelText('Selected node summary')).toHaveTextContent('Next Link');
+    expect(screen.getByLabelText('Selected node summary')).toHaveTextContent(
+      'srijika.next-app-router v1 · next/link',
+    );
+  });
+
   it('leads with UI/source identity and summarizes the root contract and structure', async () => {
     const user = userEvent.setup();
     const { document, sourceMap } = compiled();

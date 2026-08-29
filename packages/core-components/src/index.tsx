@@ -57,6 +57,7 @@ export function srijikaInputPartStyle(value: unknown): CSSProperties {
 
 const CONTAINER_TAGS = [
   'div',
+  'a',
   'section',
   'header',
   'footer',

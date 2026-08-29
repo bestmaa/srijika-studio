@@ -596,6 +596,8 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           'Feature, Slot, Part, and Shared owner folders use exact derived kebab-case; owner files use the matching derived PascalCase/camelCase names. Alternate spellings are hard errors.',
         logicIsolation:
           'Logic remains framework-free and deterministic: pure validation, authorization, transforms, aggregation, and API orchestration are allowed; React, query lifecycle, router lifecycle, and client-state lifecycle move to Hook, Connector, or Store.',
+        nextFrameworkAdapter:
+          'Versioned adapter srijika.next-app-router v1 recognizes only exact registered source imports. Built-in next/link and next/image plus explicitly configured project-local pure presentation components compile to bounded core preview nodes without loading or executing their modules. App Router pages and layouts are server components unless their directive prologue contains use client; route handlers remain server-owned code.',
       },
       promotion: [
         { when: 'one Part needs it', to: 'part-root' },
@@ -631,6 +633,11 @@ export const SRIJIKA_DOCUMENTATION: readonly DocumentationResource[] = [
           unresolvedProjectAlias: 'SRIJIKA4120',
           unresolvedProjectImport: 'SRIJIKA4121',
           recommendation: 'SRIJIKA4202',
+          unsupportedFrameworkPrimitive: 'SRIJIKA5001',
+          unprovableFrameworkUsage: 'SRIJIKA5002',
+          invalidFrameworkProps: 'SRIJIKA5003',
+          serverClientBoundary: 'SRIJIKA5004',
+          nonSerializableBoundaryProp: 'SRIJIKA5005',
         },
         errors: [
           'SRIJIKA-ARCH-MISSING-UI',

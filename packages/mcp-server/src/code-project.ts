@@ -72,6 +72,7 @@ export class SrijikaCodeProjectService {
       nextProject: project.nextProject,
       architecture: project.architecture,
       adoption: project.adoption,
+      framework: project.framework,
       adoptionPlan,
       ownershipRoots,
       scripts: project.scripts,

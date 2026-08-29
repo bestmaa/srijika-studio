@@ -4,6 +4,7 @@ import {
   analyzeDocument,
   assertDocumentSemantics,
   ComponentRegistry,
+  createFrameworkComponentRegistry,
   isEventSignatureAssignable,
   isTypeAssignable,
   isValueDeclarationAssignableToShape,
@@ -431,6 +432,7 @@ describe('ComponentRegistry', () => {
       control: 'select',
       options: [
         'div',
+        'a',
         'section',
         'header',
         'footer',
@@ -784,5 +786,87 @@ describe('ComponentRegistry', () => {
         'unknown-component',
       ]),
     );
+  });
+});
+
+describe('framework component registry', () => {
+  it('resolves only exact built-in and explicitly registered source contracts', () => {
+    const registry = createFrameworkComponentRegistry([
+      {
+        id: 'project.shared.card',
+        version: 1,
+        moduleSpecifier: '@/shared/Card',
+        exportName: 'Card',
+        displayName: 'Shared Card',
+        props: {},
+        children: 'optional',
+        preview: { kind: 'container', element: 'section' },
+        source: 'project',
+      },
+    ]);
+
+    expect(registry.resolve('next/link', 'default')).toMatchObject({
+      id: 'srijika.next.link',
+      source: 'framework',
+    });
+    expect(registry.resolve('@/shared/Card', 'Card')).toMatchObject({
+      id: 'project.shared.card',
+      source: 'project',
+    });
+    expect(registry.resolve('@/shared/Card', 'Missing')).toBeUndefined();
+  });
+
+  it('rejects unsafe local module traversal', () => {
+    expect(() =>
+      createFrameworkComponentRegistry([
+        {
+          id: 'project.shared.card',
+          version: 1,
+          moduleSpecifier: '../Card',
+          exportName: 'Card',
+          displayName: 'Shared Card',
+          props: {},
+          children: 'optional',
+          preview: { kind: 'container', element: 'section' },
+          source: 'project',
+        },
+      ]),
+    ).toThrow(/invalid project module specifier/);
+  });
+
+  it('rejects unsafe preview forwarding and duplicate component identities', () => {
+    const component = {
+      id: 'project.shared.card',
+      version: 1,
+      moduleSpecifier: '@/shared/Card',
+      exportName: 'Card',
+      displayName: 'Shared Card',
+      props: {},
+      children: 'optional' as const,
+      preview: { kind: 'container' as const, element: 'section' as const },
+      source: 'project' as const,
+    };
+
+    expect(() =>
+      createFrameworkComponentRegistry([
+        {
+          ...component,
+          id: 'project.shared.unsafe',
+          props: {
+            content: {
+              type: 'object',
+              required: true,
+              previewProp: 'dangerouslySetInnerHTML',
+            },
+          },
+        },
+      ]),
+    ).toThrow(/unsafe preview prop/);
+    expect(() =>
+      createFrameworkComponentRegistry([
+        component,
+        { ...component, moduleSpecifier: '@/shared/OtherCard' },
+      ]),
+    ).toThrow(/already registered/);
   });
 });

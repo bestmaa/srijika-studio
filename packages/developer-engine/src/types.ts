@@ -1,5 +1,6 @@
 import type {
   ResolvedSrijikaBrownfieldAdoptionConfig,
+  ResolvedSrijikaFrameworkConfig,
   SrijikaArchitectureConfig,
   SrijikaArchitectureDiagnostic,
   SrijikaArchitectureRecommendation,
@@ -24,6 +25,7 @@ export interface SrijikaProjectMetadata {
   scripts: Readonly<Record<string, string>>;
   architecture?: Partial<SrijikaArchitectureConfig>;
   adoption?: ResolvedSrijikaBrownfieldAdoptionConfig;
+  framework?: ResolvedSrijikaFrameworkConfig;
   aliases?: Readonly<Record<string, string>>;
   viteProject: boolean;
   nextProject: boolean;

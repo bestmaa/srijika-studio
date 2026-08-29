@@ -11,6 +11,7 @@ import {
   type IfNode,
 } from '@srijika/contracts';
 import { evaluateExpression, SrijikaRenderer } from '@srijika/react-renderer';
+import { compileSrijikaTsx } from '@srijika/tsx-compiler';
 
 function createRendererFixture() {
   const registry = createCoreComponentRegistry();
@@ -55,6 +56,32 @@ function createRendererFixture() {
 }
 
 describe('SrijikaRenderer', () => {
+  it('renders safe Next Link and Image fallbacks without loading framework modules', () => {
+    const compiled = compileSrijikaTsx(
+      'Hero.ui.tsx',
+      `import Link from 'next/link';
+import Image from 'next/image';
+export function HeroUI() {
+  return <main><Link href="/docs" prefetch={false}>Docs</Link><Image src="/hero.jpg" alt="Hero" width={640} height={360} /></main>;
+}`,
+    );
+    expect(compiled.diagnostics).toEqual([]);
+
+    render(
+      <SrijikaRenderer
+        document={compiled.document!}
+        registry={createCoreComponentRegistry()}
+        mode="preview"
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'Docs' })).toHaveAttribute('href', '/docs');
+    expect(screen.getByRole('link', { name: 'Docs' })).not.toHaveAttribute('prefetch');
+    expect(screen.getByRole('img', { name: 'Hero' })).toHaveAttribute('src', '/hero.jpg');
+    expect(screen.getByRole('img', { name: 'Hero' })).toHaveAttribute('width', '640');
+    expect(screen.getByRole('img', { name: 'Hero' })).toHaveAttribute('height', '360');
+  });
+
   it('renders conditions and dispatches typed preview events', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn();

@@ -445,6 +445,9 @@ importers:
 
   packages/tsx-compiler:
     dependencies:
+      '@srijika/component-registry':
+        specifier: workspace:*
+        version: link:../component-registry
       '@srijika/contracts':
         specifier: workspace:*
         version: link:../contracts

@@ -1,5 +1,36 @@
 export const SRIJIKA_ARCHITECTURE_PROFILE = 'feature-slot-part-v1' as const;
 export const SRIJIKA_BROWNFIELD_ADOPTION_PROFILE = 'brownfield-ownership-v1' as const;
+export const SRIJIKA_NEXT_FRAMEWORK_PROFILE = 'next-app-router-v1' as const;
+
+export type SrijikaFrameworkComponentPropType =
+  'string' | 'number' | 'boolean' | 'array' | 'object' | 'unknown';
+
+export interface SrijikaFrameworkComponentPropConfig {
+  type: SrijikaFrameworkComponentPropType;
+  required: boolean;
+  previewProp?: string;
+}
+
+export type SrijikaFrameworkComponentPreviewConfig =
+  { kind: 'container'; element: 'a' | 'div' | 'section' } | { kind: 'image' } | { kind: 'text' };
+
+export interface SrijikaProjectFrameworkComponentConfig {
+  id: string;
+  version: number;
+  moduleSpecifier: string;
+  exportName: string;
+  displayName: string;
+  props: Readonly<Record<string, SrijikaFrameworkComponentPropConfig>>;
+  children: 'required' | 'optional' | 'forbidden';
+  preview: SrijikaFrameworkComponentPreviewConfig;
+  source: 'project';
+}
+
+export interface ResolvedSrijikaFrameworkConfig {
+  version: 1;
+  profile: typeof SRIJIKA_NEXT_FRAMEWORK_PROFILE;
+  components: readonly SrijikaProjectFrameworkComponentConfig[];
+}
 
 export type SrijikaBrownfieldExclusionCategory = 'server' | 'service' | 'domain' | 'test';
 
@@ -77,6 +108,7 @@ export interface SrijikaProjectConfig {
   entry: string;
   architecture: ResolvedSrijikaArchitectureConfig;
   adoption?: ResolvedSrijikaBrownfieldAdoptionConfig;
+  framework?: ResolvedSrijikaFrameworkConfig;
 }
 
 export interface SrijikaArchitectureSourceFile {

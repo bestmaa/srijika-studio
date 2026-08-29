@@ -1,4 +1,5 @@
 import type { EventSignature, UiDocument, ValueShape, ValueType } from '@srijika/contracts';
+import type { FrameworkComponentManifest } from '@srijika/component-registry';
 
 export type SrijikaDiagnosticSeverity = 'error' | 'warning';
 
@@ -58,7 +59,12 @@ export type SrijikaDiagnosticCode =
   | 'SRIJIKA2005'
   | 'SRIJIKA3001'
   | 'SRIJIKA3002'
-  | 'SRIJIKA3003';
+  | 'SRIJIKA3003'
+  | 'SRIJIKA5001'
+  | 'SRIJIKA5002'
+  | 'SRIJIKA5003'
+  | 'SRIJIKA5004'
+  | 'SRIJIKA5005';
 
 export interface SrijikaDiagnostic {
   code: SrijikaDiagnosticCode;
@@ -87,6 +93,27 @@ export interface CompileSrijikaTsxOptions {
    * filesystem or resolves modules by itself.
    */
   resolvedTypeModules?: readonly SrijikaResolvedTypeModule[];
+  /** Explicit, non-executing project component manifests merged with built-in adapters. */
+  projectComponents?: readonly FrameworkComponentManifest[];
+}
+
+export type SrijikaNextBoundary = 'server' | 'client';
+
+export interface SrijikaFrameworkPrimitiveUse {
+  adapterId: string;
+  adapterVersion: number;
+  componentId: string;
+  moduleSpecifier: string;
+  exportName: string;
+  localName: string;
+  nodeIds: readonly string[];
+  importSpan: SrijikaSourceSpan;
+}
+
+export interface SrijikaFrameworkCompileMetadata {
+  boundary: SrijikaNextBoundary;
+  directives: readonly string[];
+  primitives: readonly SrijikaFrameworkPrimitiveUse[];
 }
 
 export interface SrijikaResolvedTypeModule {
@@ -141,6 +168,29 @@ export interface CompileSrijikaTsxResult {
   sourceMap: SrijikaSourceMap;
   /** Deterministic source-order metadata for the declared component contract. */
   componentContract: readonly SrijikaComponentContractEntry[];
+  /** Deterministic source-only framework metadata; no imported module is loaded. */
+  framework: SrijikaFrameworkCompileMetadata;
+}
+
+export interface SrijikaResolvedUiComponent {
+  /** Exact import specifier used by a page or layout. */
+  specifier: string;
+  /** Named export or `default`. */
+  exportName: string;
+  componentName: string;
+  contract: readonly SrijikaComponentContractEntry[];
+}
+
+export interface AnalyzeSrijikaNextBoundaryOptions {
+  resolvedUiComponents?: readonly SrijikaResolvedUiComponent[];
+}
+
+export interface AnalyzeSrijikaNextBoundaryResult {
+  fileName: string;
+  boundary: SrijikaNextBoundary;
+  routeKind: 'page' | 'layout' | 'route' | null;
+  diagnostics: readonly SrijikaDiagnostic[];
+  resolvedUiComponents: readonly string[];
 }
 
 export type ReplaceSrijikaTextNodeFailureReason =

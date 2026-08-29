@@ -3,7 +3,9 @@ import ts from 'typescript';
 import {
   SRIJIKA_ARCHITECTURE_PROFILE,
   SRIJIKA_BROWNFIELD_ADOPTION_PROFILE,
+  SRIJIKA_NEXT_FRAMEWORK_PROFILE,
   type ResolvedSrijikaBrownfieldAdoptionConfig,
+  type ResolvedSrijikaFrameworkConfig,
   type ResolvedSrijikaArchitectureConfig,
   type SrijikaArchitectureConfig,
   type SrijikaProjectConfig,
@@ -27,6 +29,10 @@ export const DEFAULT_SRIJIKA_ARCHITECTURE: ResolvedSrijikaArchitectureConfig = O
 
 const MAX_ARCHITECTURE_ROOT_SEGMENTS = 10;
 const MAX_BROWNFIELD_PATHS = 128;
+const MAX_FRAMEWORK_COMPONENTS = 128;
+const MAX_FRAMEWORK_COMPONENT_PROPS = 64;
+const frameworkIdentifierPattern = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const frameworkComponentIdPattern = /^[A-Za-z][A-Za-z0-9_-]*(?:\.[A-Za-z][A-Za-z0-9_-]*)+$/;
 
 const PROJECT_ARCHITECTURE_STRING_FIELDS = [
   'featuresRoot',
@@ -306,6 +312,219 @@ function parseBrownfieldAdoption(
   });
 }
 
+function parseFrameworkConfig(
+  root: Readonly<Record<string, unknown>>,
+): ResolvedSrijikaFrameworkConfig | undefined {
+  const value = root['framework'];
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('srijika.config.json framework must be an object.');
+  }
+  const framework = value as Readonly<Record<string, unknown>>;
+  const unknownFrameworkField = Object.keys(framework).find(
+    (field) => field !== 'version' && field !== 'profile' && field !== 'components',
+  );
+  if (unknownFrameworkField) {
+    throw new Error(`srijika.config.json framework.${unknownFrameworkField} is not supported.`);
+  }
+  if (framework['version'] !== 1) {
+    throw new Error('srijika.config.json framework.version must be 1.');
+  }
+  if (framework['profile'] !== SRIJIKA_NEXT_FRAMEWORK_PROFILE) {
+    throw new Error(
+      `srijika.config.json framework.profile must be "${SRIJIKA_NEXT_FRAMEWORK_PROFILE}".`,
+    );
+  }
+  const rawComponents = framework['components'];
+  if (!Array.isArray(rawComponents) || rawComponents.length > MAX_FRAMEWORK_COMPONENTS) {
+    throw new Error(
+      `srijika.config.json framework.components must be an array with at most ${MAX_FRAMEWORK_COMPONENTS} entries.`,
+    );
+  }
+  const components = rawComponents.map((entry, index) => {
+    const label = `srijika.config.json framework.components[${index}]`;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error(`${label} must be an object.`);
+    }
+    const component = entry as Readonly<Record<string, unknown>>;
+    const fields = new Set([
+      'id',
+      'version',
+      'moduleSpecifier',
+      'exportName',
+      'displayName',
+      'props',
+      'children',
+      'preview',
+    ]);
+    const unknownField = Object.keys(component).find((field) => !fields.has(field));
+    if (unknownField) throw new Error(`${label}.${unknownField} is not supported.`);
+    const id = component['id'];
+    if (typeof id !== 'string' || !frameworkComponentIdPattern.test(id)) {
+      throw new Error(`${label}.id must be a namespaced component identifier.`);
+    }
+    const version = component['version'];
+    if (!Number.isInteger(version) || (version as number) < 1) {
+      throw new Error(`${label}.version must be a positive integer.`);
+    }
+    const moduleSpecifier = component['moduleSpecifier'];
+    if (
+      typeof moduleSpecifier !== 'string' ||
+      !/^(?:\.\.?\/|@\/)[A-Za-z0-9._/-]+$/.test(moduleSpecifier) ||
+      moduleSpecifier.includes('//') ||
+      moduleSpecifier.endsWith('/') ||
+      moduleSpecifier.split('/').some((segment) => segment === '..')
+    ) {
+      throw new Error(`${label}.moduleSpecifier must be a bounded project-local specifier.`);
+    }
+    const exportName = component['exportName'];
+    if (
+      typeof exportName !== 'string' ||
+      (exportName !== 'default' && !frameworkIdentifierPattern.test(exportName))
+    ) {
+      throw new Error(`${label}.exportName must be default or a TypeScript identifier.`);
+    }
+    const displayName = component['displayName'];
+    if (typeof displayName !== 'string' || !displayName.trim() || displayName.length > 80) {
+      throw new Error(`${label}.displayName must be a nonempty string of at most 80 characters.`);
+    }
+    const children = component['children'];
+    if (children !== 'required' && children !== 'optional' && children !== 'forbidden') {
+      throw new Error(`${label}.children must be required, optional, or forbidden.`);
+    }
+    const rawProps = component['props'];
+    if (!rawProps || typeof rawProps !== 'object' || Array.isArray(rawProps)) {
+      throw new Error(`${label}.props must be an object.`);
+    }
+    const propEntries = Object.entries(rawProps);
+    if (propEntries.length > MAX_FRAMEWORK_COMPONENT_PROPS) {
+      throw new Error(`${label}.props supports at most ${MAX_FRAMEWORK_COMPONENT_PROPS} entries.`);
+    }
+    const props = Object.fromEntries(
+      propEntries.map(([name, rawProp]) => {
+        if (!frameworkIdentifierPattern.test(name) && name !== 'aria-label') {
+          throw new Error(`${label}.props.${name} is not a supported prop name.`);
+        }
+        if (!rawProp || typeof rawProp !== 'object' || Array.isArray(rawProp)) {
+          throw new Error(`${label}.props.${name} must be an object.`);
+        }
+        const prop = rawProp as Readonly<Record<string, unknown>>;
+        const unknownPropField = Object.keys(prop).find(
+          (field) => field !== 'type' && field !== 'required' && field !== 'previewProp',
+        );
+        if (unknownPropField) {
+          throw new Error(`${label}.props.${name}.${unknownPropField} is not supported.`);
+        }
+        const type = prop['type'];
+        if (
+          type !== 'string' &&
+          type !== 'number' &&
+          type !== 'boolean' &&
+          type !== 'array' &&
+          type !== 'object' &&
+          type !== 'unknown'
+        ) {
+          throw new Error(`${label}.props.${name}.type is not supported.`);
+        }
+        if (typeof prop['required'] !== 'boolean') {
+          throw new Error(`${label}.props.${name}.required must be boolean.`);
+        }
+        const previewProp = prop['previewProp'];
+        if (
+          previewProp !== undefined &&
+          (typeof previewProp !== 'string' ||
+            (!frameworkIdentifierPattern.test(previewProp) && previewProp !== 'aria-label'))
+        ) {
+          throw new Error(`${label}.props.${name}.previewProp must be a prop identifier.`);
+        }
+        return [
+          name,
+          Object.freeze({
+            type,
+            required: prop['required'],
+            ...(previewProp ? { previewProp } : {}),
+          }),
+        ];
+      }),
+    );
+    const rawPreview = component['preview'];
+    if (!rawPreview || typeof rawPreview !== 'object' || Array.isArray(rawPreview)) {
+      throw new Error(`${label}.preview must be an object.`);
+    }
+    const preview = rawPreview as Readonly<Record<string, unknown>>;
+    const kind = preview['kind'];
+    if (kind !== 'container' && kind !== 'image' && kind !== 'text') {
+      throw new Error(`${label}.preview.kind must be container, image, or text.`);
+    }
+    const previewFields = new Set(kind === 'container' ? ['kind', 'element'] : ['kind']);
+    const unknownPreviewField = Object.keys(preview).find((field) => !previewFields.has(field));
+    if (unknownPreviewField) {
+      throw new Error(`${label}.preview.${unknownPreviewField} is not supported.`);
+    }
+    const resolvedPreview =
+      kind === 'container'
+        ? (() => {
+            const element = preview['element'];
+            if (element !== 'a' && element !== 'div' && element !== 'section') {
+              throw new Error(`${label}.preview.element must be a, div, or section.`);
+            }
+            return Object.freeze({ kind, element });
+          })()
+        : Object.freeze({ kind });
+    const allowedPreviewProps = new Set(
+      kind === 'container'
+        ? preview['element'] === 'a'
+          ? ['className', 'style', 'ariaLabel', 'href', 'target', 'rel']
+          : ['className', 'style', 'ariaLabel']
+        : kind === 'image'
+          ? [
+              'className',
+              'style',
+              'ariaLabel',
+              'src',
+              'alt',
+              'width',
+              'height',
+              'sizes',
+              'loading',
+              'fit',
+            ]
+          : ['className', 'style', 'ariaLabel', 'text'],
+    );
+    for (const [name, prop] of Object.entries(props)) {
+      if (prop.previewProp && !allowedPreviewProps.has(prop.previewProp)) {
+        throw new Error(
+          `${label}.props.${name}.previewProp cannot forward an unsafe preview attribute.`,
+        );
+      }
+    }
+    return Object.freeze({
+      id,
+      version: version as number,
+      moduleSpecifier,
+      exportName,
+      displayName: displayName.trim(),
+      props: Object.freeze(props),
+      children,
+      preview: resolvedPreview,
+      source: 'project' as const,
+    });
+  });
+  assertUnique(
+    components.map(({ id }) => id),
+    'srijika.config.json framework component IDs',
+  );
+  assertUnique(
+    components.map(({ moduleSpecifier, exportName }) => `${moduleSpecifier}\0${exportName}`),
+    'srijika.config.json framework component import bindings',
+  );
+  return Object.freeze({
+    version: 1,
+    profile: SRIJIKA_NEXT_FRAMEWORK_PROFILE,
+    components: Object.freeze(components),
+  });
+}
+
 function validatedSuffix(value: string, field: string, extension: '.ts' | '.tsx'): string {
   if (
     !value ||
@@ -527,11 +746,13 @@ export function parseSrijikaProjectConfig(source: string): SrijikaProjectConfig 
     );
   }
   const adoption = parseBrownfieldAdoption(root);
+  const framework = parseFrameworkConfig(root);
   return Object.freeze({
     sourceOfTruth: 'tsx',
     entry,
     architecture,
     ...(adoption ? { adoption } : {}),
+    ...(framework ? { framework } : {}),
   });
 }
 

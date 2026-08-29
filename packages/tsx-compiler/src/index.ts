@@ -9,6 +9,7 @@ export {
   srijikaIntrinsicAttribute,
 } from './intrinsics';
 export { SRIJIKA_UI_COMPLEXITY_POLICY } from './policy';
+export { analyzeSrijikaNextBoundary } from './next-boundary';
 export {
   bindSrijikaNodeEvent,
   insertSrijikaContractMember,
@@ -22,6 +23,8 @@ export {
 export type {
   CompileSrijikaTsxOptions,
   CompileSrijikaTsxResult,
+  AnalyzeSrijikaNextBoundaryOptions,
+  AnalyzeSrijikaNextBoundaryResult,
   InsertSrijikaContractMemberFailureReason,
   InsertSrijikaContractMemberInput,
   InsertSrijikaContractMemberResult,
@@ -44,9 +47,13 @@ export type {
   SrijikaDiagnostic,
   SrijikaDiagnosticCode,
   SrijikaDiagnosticSeverity,
+  SrijikaFrameworkCompileMetadata,
+  SrijikaFrameworkPrimitiveUse,
+  SrijikaNextBoundary,
   SrijikaQuickFix,
   SrijikaQuickFixKind,
   SrijikaResolvedTypeModule,
+  SrijikaResolvedUiComponent,
   SrijikaSourceEdit,
   SrijikaSourceMap,
   SrijikaSourceSpan,
