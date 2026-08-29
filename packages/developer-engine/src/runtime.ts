@@ -11,6 +11,7 @@ import type {
 } from './types.js';
 
 const WINDOWS = process.platform === 'win32';
+const WINDOWS_COMMAND_TOKEN = /^[A-Za-z0-9_./:@=+\-[\]]+$/u;
 
 function executableFor(manager: SrijikaPackageManager): string {
   return WINDOWS ? `${manager}.cmd` : manager;
@@ -174,18 +175,31 @@ export function formatSrijikaCommand(plan: SrijikaCommandPlan): string {
   return [plan.executable, ...plan.args].map(quote).join(' ');
 }
 
+function windowsCommand(plan: SrijikaCommandPlan): string {
+  const tokens = [plan.executable, ...plan.args];
+  if (
+    !/^(?:bun|npm|pnpm|yarn)\.cmd$/u.test(plan.executable) ||
+    tokens.some((token) => !WINDOWS_COMMAND_TOKEN.test(token))
+  ) {
+    throw new Error('The Windows package-manager command contains an unsafe shell token.');
+  }
+  return tokens.join(' ');
+}
+
 export function runSrijikaCommand(
   plan: SrijikaCommandPlan,
   options: Pick<SpawnOptions, 'stdio' | 'env'> = {},
 ): Promise<number> {
   return new Promise((resolve, reject) => {
-    const child = spawn(plan.executable, [...plan.args], {
+    const spawnOptions: SpawnOptions = {
       cwd: plan.cwd,
       env: options.env ?? process.env,
       stdio: options.stdio ?? 'inherit',
-      shell: false,
       windowsHide: true,
-    });
+    };
+    const child = WINDOWS
+      ? spawn(windowsCommand(plan), { ...spawnOptions, shell: true })
+      : spawn(plan.executable, [...plan.args], { ...spawnOptions, shell: false });
     const forwardSignal = (signal: NodeJS.Signals): void => {
       if (!child.killed) child.kill(signal);
     };
