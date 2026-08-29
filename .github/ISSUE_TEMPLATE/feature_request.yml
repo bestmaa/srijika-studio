@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a focused improvement to Srijika Studio.
+title: 'feature: '
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for this proposal.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or contributor problem should be solved?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired workflow and observable result.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and tradeoffs
+      description: What other approaches did you consider?
+  - type: textarea
+    id: scope
+    attributes:
+      label: Affected areas
+      description: Desktop, compiler, VS Code, CLI, MCP, scaffolding, portal, documentation, or another area.

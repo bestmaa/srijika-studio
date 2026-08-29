@@ -1,5 +1,8 @@
 # Srijika Studio
 
+[![Continuous integration](https://github.com/bestmaa/srijika-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/bestmaa/srijika-studio/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 Srijika Studio is a code-first React application studio. Restricted, typed source ending in the resolved UI suffix (canonical default `.ui.tsx`) is the single persisted UI source of truth; the hierarchy, contract Inspector, diagnostics console, and live React preview are derived projections. `UiDocument` remains the validated renderer IR, but Studio never saves it back over developer-owned TSX.
 
 ## Code-first milestone
@@ -126,3 +129,14 @@ Full-workspace Rust checks include the Tauri shell and therefore require the nat
 - [Testing strategy](docs/TESTING.md)
 - [MVP acceptance checklist](docs/MVP_ACCEPTANCE.md)
 - [Roadmap and deliberate limits](docs/ROADMAP.md)
+
+## Contributing
+
+Srijika Studio welcomes bug fixes, focused features, tests, documentation, and
+design discussions. Start with [CONTRIBUTING.md](CONTRIBUTING.md), use a descriptive
+branch such as `fix/graph-zoom` or `feat/focused-subgraphs`, and open a pull request
+with the checks you actually ran. General help belongs in GitHub Discussions;
+security vulnerabilities must follow [SECURITY.md](SECURITY.md).
+
+Community participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md),
+and support guidance is available in [SUPPORT.md](SUPPORT.md).
