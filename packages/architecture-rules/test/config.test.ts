@@ -74,9 +74,13 @@ describe('Srijika architecture config safety', () => {
         JSON.stringify({ compilerOptions: { paths: { '@feature/': ['src/features/index.ts'] } } }),
       ),
     ).toThrow(/slash-delimited/);
-    expect(() =>
-      parseSrijikaTypeScriptPathAliases(JSON.stringify({ compilerOptions: { baseUrl: '.' } })),
-    ).toThrow(/baseUrl must be omitted/);
+    expect(
+      parseSrijikaTypeScriptPathAliases(
+        JSON.stringify({
+          compilerOptions: { baseUrl: '.', paths: { '@app/*': ['src/*'] } },
+        }),
+      ),
+    ).toEqual({ '@app/': 'src' });
     expect(() =>
       parseSrijikaTypeScriptPathAliases(
         JSON.stringify({ extends: './tsconfig.base.json', compilerOptions: {} }),

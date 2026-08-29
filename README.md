@@ -25,7 +25,10 @@ The repository currently implements:
   architecture checks, Vite HMR, toolchain doctoring, Desktop handoff, and optional
   explicit Bun turbo mode;
 - first-class monorepo discovery with a validated workspace manifest, generated
-  VS Code/MCP routing, and aggregate Vite/Next owner-test verification; and
+  VS Code/MCP routing, and aggregate Vite/Next owner-test verification;
+- fail-closed brownfield adoption for populated Next.js App Router applications,
+  with a no-write plan, immutable source baseline, report-only diagnostics,
+  create-only metadata, and engine-run typecheck/build gates; and
 - the existing schema, component registry, renderer, semantic analyzer, and preview channel as reusable lower layers.
 
 The old palette/drag/drop/Inspector mutation surfaces remain in the repository while migration tests are retained, but they are no longer active authoring entry points. A visual operation may return only when it can produce a bounded TSX source edit and pass through the normal compiler path. See [Code-first Srijika TSX](docs/CODE_FIRST_TSX.md).
@@ -71,6 +74,17 @@ pnpm srijika workspace tests sync /path/to/monorepo
 
 See [Srijika in a monorepo](docs/MONOREPO.md) for the manifest, Vite/Next,
 Playwright, VS Code, MCP, Studio, CI, and shared-package contracts.
+
+For an existing populated Next.js App Router application:
+
+```bash
+npx @srijika/cli adopt . --framework next --dry-run --json
+npx @srijika/cli adopt . --framework next --json
+```
+
+See [Adopt an existing Next.js App Router project](docs/NEXT_ADOPTION.md) for
+the no-overwrite transaction, server/framework classifications, merge
+instructions, and verification gates.
 
 Node remains the compatibility default. Bun is an optional explicit Vite runtime;
 dependency installation always follows the project's declared package manager and
@@ -120,6 +134,7 @@ Full-workspace Rust checks include the Tauri shell and therefore require the nat
 - [Architecture](docs/ARCHITECTURE.md)
 - [CLI and fast runtime](docs/CLI_AND_FAST_RUNTIME.md)
 - [Monorepo setup and aggregate testing](docs/MONOREPO.md)
+- [Existing Next.js App Router adoption](docs/NEXT_ADOPTION.md)
 - [Feature → Slot → Part ownership and structure rules](docs/FEATURE_SLOT_PART_ARCHITECTURE.md)
 - [Code-first Srijika TSX rules and project flow](docs/CODE_FIRST_TSX.md)
 - [UI document format](docs/UI_DOCUMENT_FORMAT.md)

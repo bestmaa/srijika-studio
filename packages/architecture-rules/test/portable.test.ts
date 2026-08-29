@@ -133,7 +133,7 @@ describe('portable architecture validator', () => {
     }
     const tsconfigSource = `{
       // JSONC must match the editor contract
-      "compilerOptions": { "paths": { "@app/*": ["src/*"] } }
+      "compilerOptions": { "baseUrl": ".", "paths": { "@app/*": ["src/*"] } }
     }`;
     await writeFile(path.join(project, 'tsconfig.json'), tsconfigSource);
     await writeFile(
@@ -232,11 +232,6 @@ describe('portable architecture validator', () => {
         },
       },
       {
-        name: 'base-url-dot',
-        config: { sourceOfTruth: 'tsx', entry: 'src/features/home/Home.ui.tsx' },
-        tsconfig: { compilerOptions: { baseUrl: '.' } },
-      },
-      {
         name: 'alias-target',
         config: { sourceOfTruth: 'tsx', entry: 'src/features/home/Home.ui.tsx' },
         tsconfig: { compilerOptions: { paths: { '@drive/*': ['D:src/*'] } } },
@@ -269,9 +264,7 @@ describe('portable architecture validator', () => {
       const result = spawnSync(process.execPath, [script], { cwd: project, encoding: 'utf8' });
 
       expect(result.status, testCase.name).toBe(1);
-      expect(result.stderr, testCase.name).toMatch(
-        /project-relative path|inside the project root|baseUrl must be omitted/,
-      );
+      expect(result.stderr, testCase.name).toMatch(/project-relative path|inside the project root/);
     }
   });
 
