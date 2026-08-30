@@ -1,0 +1,105 @@
+name: srijika-payload-reference
+
+x-payload-build: &payload-build
+  context: ../..
+  dockerfile: apps/payload-next-reference/deploy/Dockerfile
+
+x-payload-environment: &payload-environment
+  NODE_ENV: production
+  PAYLOAD_REFERENCE_MODE: live
+  DATABASE_HOST: postgres
+  DATABASE_PORT: 5432
+  DATABASE_NAME: payload
+  DATABASE_USER: payload
+  DATABASE_PASSWORD_FILE: /run/secrets/postgres_password
+  PAYLOAD_SECRET_FILE: /run/secrets/payload_secret
+  PAYLOAD_UPLOADS_DIR: /opt/runtime/media
+  HOSTNAME: 0.0.0.0
+  PORT: 3000
+
+services:
+  postgres:
+    image: postgres:17.6-bookworm@sha256:f3bd19c606e442c3d7bdfa8002e03fe260a1023351e0ea4598032022b68dd6e3
+    environment:
+      POSTGRES_DB: payload
+      POSTGRES_USER: payload
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U payload -d payload']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - database
+
+  migrate:
+    image: ${PAYLOAD_IMAGE:-srijika-payload-reference:local}
+    build: *payload-build
+    command: [migrate]
+    environment: *payload-environment
+    secrets:
+      - postgres_password
+      - payload_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    restart: 'no'
+    networks:
+      - database
+
+  web:
+    image: ${PAYLOAD_IMAGE:-srijika-payload-reference:local}
+    build: *payload-build
+    command: [serve]
+    environment: *payload-environment
+    secrets:
+      - postgres_password
+      - payload_secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - '${PAYLOAD_WEB_BIND:-127.0.0.1}:${PAYLOAD_WEB_PORT:-3000}:3000'
+    volumes:
+      - media:/opt/runtime/media
+      - next-cache:/opt/runtime/.next/cache
+    healthcheck:
+      test: [CMD, node, deploy/container-runtime.mjs, healthcheck]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    init: true
+    read_only: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - database
+      - edge
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:-./deploy/secrets/postgres_password.txt}
+  payload_secret:
+    file: ${PAYLOAD_SECRET_FILE:-./deploy/secrets/payload_secret.txt}
+
+volumes:
+  postgres-data:
+  media:
+  next-cache:
+
+networks:
+  database:
+    internal: true
+  edge:

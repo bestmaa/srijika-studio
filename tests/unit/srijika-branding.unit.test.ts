@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const repositoryRoot = fileURLToPath(new URL('../../', import.meta.url));
 const oldBrand = ['su', 'tra'].join('');
-const ignoredDirectories = new Set(['dist', 'node_modules', 'target']);
+const ignoredDirectories = new Set(['.next', 'dist', 'node_modules', 'target']);
 const allowedLegacyCompatibilityFiles = new Set([
   'apps/portal/scripts/sync-docs.mjs',
   'apps/studio/src/lib/codex-bridge.ts',

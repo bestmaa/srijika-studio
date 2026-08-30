@@ -18,8 +18,10 @@
     "next.config.ts",
     "playwright.config.ts",
     "vitest.config.ts",
+    "deploy/**/*.mjs",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "test/**/*.mjs",
     "test/**/*.ts",
     ".next/types/**/*.ts"
   ],
