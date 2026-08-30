@@ -2,6 +2,17 @@
 
 All notable changes to Srijika Language Support are documented here.
 
+## 0.6.0 — 2026-08-31
+
+- Added staged adoption for existing React and Next.js projects, including
+  owner-aware migration planning and strict boundary verification.
+- Added Next.js App Router discovery, route-aware architecture evidence, and
+  safe framework primitive handling.
+- Added managed Next.js live preview with bounded project startup, readiness,
+  source selection, and shutdown behavior.
+- Expanded Payload CMS integration guidance and coordinated package/runtime
+  references for production deployment.
+
 ## 0.5.0 — 2026-08-23
 
 - Added an always-available current-project Structure Graph independent of a

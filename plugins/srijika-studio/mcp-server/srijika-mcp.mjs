@@ -234082,7 +234082,7 @@ dist
           mcpServers: {
             "srijika-project": {
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.5.0", "--project", "."],
+              args: ["-y", "@srijika/mcp-server@0.6.0", "--project", "."],
               cwd: "."
             }
           }
@@ -234092,7 +234092,7 @@ dist
             "srijika-project": {
               type: "stdio",
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.5.0", "--project", "${workspaceFolder}"]
+              args: ["-y", "@srijika/mcp-server@0.6.0", "--project", "${workspaceFolder}"]
             }
           }
         }),
@@ -234311,7 +234311,7 @@ Studio later requires no migration: open this same project folder.
           scripts: {
             dev: "vite",
             "validate:srijika": "node scripts/srijika-validate.mjs",
-            "mcp:srijika": "npx -y @srijika/mcp-server@0.5.0 --project .",
+            "mcp:srijika": "npx -y @srijika/mcp-server@0.6.0 --project .",
             build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
             preview: "vite preview",
             typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"
@@ -236195,6 +236195,8 @@ module.exports = function srijikaNextPreviewLoader(source) {
 `),
     [instrumentationPath]: sourceFile2(String.raw`
 // @srijika-next-live-preview-v1
+declare const process: { readonly env: { readonly NODE_ENV?: string } };
+
 const SOURCE_ATTRIBUTE = 'data-srijika-source';
 const SELECT_MESSAGE = 'srijika:preview-select';
 const SELECTED_MESSAGE = 'srijika:preview-selected-source';
