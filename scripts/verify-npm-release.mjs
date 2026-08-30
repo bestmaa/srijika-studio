@@ -59,7 +59,10 @@ for (const releasePackage of releasePackages) {
     encoding: 'utf8',
   });
   if (packed.status !== 0) throw new Error(packed.stderr || `${manifest.name} pack failed.`);
-  const report = JSON.parse(packed.stdout)[0];
+  const parsedReport = JSON.parse(packed.stdout);
+  const reports = Array.isArray(parsedReport) ? parsedReport : Object.values(parsedReport);
+  const [report] = reports;
+  if (!report) throw new Error(`${manifest.name} pack produced no report.`);
   const files = new Set(report.files.map((file) => file.path));
   for (const expected of releasePackage.files) {
     if (!files.has(expected)) throw new Error(`${manifest.name} tarball is missing ${expected}.`);
