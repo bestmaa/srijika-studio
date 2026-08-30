@@ -27,6 +27,8 @@ For a managed host, set `POSTGRES_PASSWORD_FILE` and `PAYLOAD_SECRET_FILE` to
 absolute paths supplied by its secret store. Do not put secret values in the
 Compose environment, image, source, or `.env` file. The entrypoint rejects
 missing, short, placeholder, non-regular, or oversized secret files.
+The container entrypoint reads the mounted files before immediately dropping to
+the unprivileged `node` user; the application and migrations never run as root.
 
 ## Validate and start
 

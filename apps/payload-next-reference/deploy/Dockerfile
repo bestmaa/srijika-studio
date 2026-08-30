@@ -41,7 +41,7 @@ COPY --from=build --chown=node:node /workspace/tsconfig.base.json /tsconfig.base
 
 RUN mkdir -p media .next/cache && chown -R node:node media .next/cache
 
-USER node
+USER root
 EXPOSE 3000
 ENTRYPOINT ["node", "deploy/container-runtime.mjs"]
 CMD ["serve"]

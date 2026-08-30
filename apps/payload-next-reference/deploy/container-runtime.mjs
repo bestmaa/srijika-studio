@@ -63,6 +63,16 @@ async function configureProductionEnvironment() {
   process.env.PAYLOAD_UPLOADS_DIR = uploadsDirectory;
 }
 
+function dropRuntimePrivileges() {
+  if (typeof process.getuid !== 'function' || process.getuid() !== 0) return;
+  process.initgroups('node', 'node');
+  process.setgid('node');
+  process.setuid('node');
+  if (process.getuid() === 0 || process.getgid() === 0) {
+    throw new Error('The production runtime did not relinquish root privileges.');
+  }
+}
+
 async function runChild(modulePath, argumentsToChild, { inspectOutput = false } = {}) {
   await access(modulePath, constants.R_OK);
   const child = spawn(process.execPath, [modulePath, ...argumentsToChild], {
@@ -141,6 +151,10 @@ async function readStorageProbe() {
 }
 
 try {
+  if (mode === 'migrate' || mode === 'serve') {
+    await configureProductionEnvironment();
+  }
+  dropRuntimePrivileges();
   if (mode === 'healthcheck') {
     await healthcheck();
   } else if (mode === 'storage-write') {
@@ -156,8 +170,9 @@ try {
         if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
       }
     }
+  } else if (mode === 'identity') {
+    console.log(`${process.getuid?.() ?? 'unknown'}:${process.getgid?.() ?? 'unknown'}`);
   } else if (mode === 'migrate') {
-    await configureProductionEnvironment();
     const output = await runChild(
       path.join(runtimeRoot, 'node_modules/payload/bin.js'),
       ['migrate'],
@@ -169,7 +184,6 @@ try {
       throw new Error('Payload reported a migration failure without a failing process exit code.');
     }
   } else if (mode === 'serve') {
-    await configureProductionEnvironment();
     await runChild(path.join(runtimeRoot, 'node_modules/next/dist/bin/next'), [
       'start',
       '--hostname',

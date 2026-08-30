@@ -72,6 +72,7 @@ try {
   assert.match(dockerfile, /node:22\.13\.0-bookworm-slim@sha256:[a-f0-9]{64}/u);
   assert.match(dockerfile, /--frozen-lockfile/u);
   assert.match(dockerfile, /typecheck[\s\S]+test[\s\S]+build/u);
+  assert.match(dockerfile, /USER root/u);
   assert.doesNotMatch(dockerfile, /apps\/studio|packages\/mcp-server|packages\/cli|src-tauri/u);
   const baselineMigration = await readFile(
     path.join(appRoot, 'src/migrations/20260829_201814.ts'),
@@ -86,6 +87,7 @@ try {
   );
   const runtime = await readFile(path.join(appRoot, 'deploy/container-runtime.mjs'), 'utf8');
   assert.match(runtime, /Error running migration/u);
+  assert.match(runtime, /process\.setuid\('node'\)/u);
 
   if (process.env.SRIJIKA_RUN_COMPOSE_SMOKE === '1') {
     const port = await availablePort();
@@ -116,6 +118,20 @@ try {
         ],
         smokeEnvironment,
       );
+      const identity = run(
+        [
+          ...composeArguments,
+          'exec',
+          '-T',
+          'web',
+          'node',
+          'deploy/container-runtime.mjs',
+          'identity',
+        ],
+        smokeEnvironment,
+        { capture: true },
+      ).trim();
+      assert.equal(identity, '1000:1000', 'Runtime commands must relinquish root privileges.');
       const token = `persist-${Date.now()}`;
       run(
         [
