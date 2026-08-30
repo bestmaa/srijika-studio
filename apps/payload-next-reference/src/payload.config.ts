@@ -3,13 +3,16 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildConfig } from 'payload';
+import sharp from 'sharp';
 
 import { Media } from './collections/Media';
 import { Posts } from './collections/Posts';
 import { Users } from './collections/Users';
 import { SiteSettings } from './globals/SiteSettings';
+import { payloadRuntimeEnvironment } from './server/environment';
 
 const sourceDirectory = path.dirname(fileURLToPath(import.meta.url));
+const environment = payloadRuntimeEnvironment();
 
 export default buildConfig({
   admin: {
@@ -20,12 +23,12 @@ export default buildConfig({
   globals: [SiteSettings],
   editor: lexicalEditor(),
   db: postgresAdapter({
+    migrationDir: path.resolve(sourceDirectory, 'migrations'),
     pool: {
-      connectionString:
-        process.env['DATABASE_URL'] ??
-        'postgresql://postgres:postgres@127.0.0.1:5432/srijika_payload',
+      connectionString: environment.databaseUrl,
     },
   }),
-  secret: process.env['PAYLOAD_SECRET'] ?? 'local-reference-secret-change-before-deploy',
+  secret: environment.payloadSecret,
+  sharp,
   typescript: { outputFile: path.resolve(sourceDirectory, 'payload-types.ts') },
 });

@@ -7,6 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/.next/**',
       '**/.astro/**',
       '**/coverage/**',
       '**/target/**',
@@ -64,15 +65,20 @@ export default tseslint.config(
   },
   {
     files: [
+      'apps/payload-next-reference/deploy/*.mjs',
       'apps/payload-next-reference/scripts/*.mjs',
+      'apps/payload-next-reference/test/*.mjs',
       'apps/studio/scripts/*.mjs',
       'packages/create-srijika/**/*.mjs',
       'scripts/*.mjs',
     ],
     languageOptions: {
       globals: {
+        clearTimeout: 'readonly',
         console: 'readonly',
+        fetch: 'readonly',
         process: 'readonly',
+        setTimeout: 'readonly',
       },
     },
     rules: {

@@ -58,6 +58,10 @@ requests use Payload Local API with the request headers and `overrideAccess:
 false`; this keeps collection access rules authoritative without requiring the
 test suite to start PostgreSQL.
 
+For an immutable production image, secret-file injection, deterministic
+migrations, database-backed readiness, upload persistence, and backup guidance,
+follow the [Payload production Compose reference](./PAYLOAD_COMPOSE_DEPLOYMENT.md).
+
 ## Authentication and access control
 
 Server loaders must pass the incoming request context to Payload and keep

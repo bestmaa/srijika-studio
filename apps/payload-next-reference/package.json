@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:browser": "playwright test --config playwright.config.ts",
+    "test:compose": "node test/compose-reference.test.mjs",
     "payload:types": "payload generate:types",
     "payload:importmap": "payload generate:importmap",
     "payload:migration": "payload migrate:create",
@@ -22,7 +23,8 @@
     "next": "16.3.3",
     "payload": "3.88.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

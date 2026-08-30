@@ -62,6 +62,11 @@ jobs:
       - name: Verify Payload and Next.js reference in Chromium
         run: pnpm --filter @srijika/payload-next-reference test:browser
 
+      - name: Verify Payload production Compose reference
+        env:
+          SRIJIKA_RUN_COMPOSE_SMOKE: '1'
+        run: pnpm --filter @srijika/payload-next-reference test:compose
+
       - name: Build workspace and release artifacts
         run: pnpm build && pnpm --filter @srijika/studio verify:bundle && pnpm release:build && pnpm release:verify
 

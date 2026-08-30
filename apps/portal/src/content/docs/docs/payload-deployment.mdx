@@ -1,0 +1,21 @@
+---
+title: Deploy Payload with PostgreSQL
+description: Build and operate the maintained Next.js, Payload CMS, and PostgreSQL Compose reference.
+---
+
+The maintained deployment reference packages only the production Next.js and
+Payload application. Srijika Studio, Desktop, CLI, and MCP remain development
+tools and are not shipped in the runtime image.
+
+Its Compose stack pins image and package inputs, reads credentials from mounted
+secret files, waits for PostgreSQL readiness, runs committed migrations exactly
+once, and starts the web service only after migration success. A database-backed
+health endpoint controls readiness. PostgreSQL data and uploads live in separate
+persistent volumes.
+
+Start with the exhaustive
+[Payload production Compose reference](/reference/payload_compose_deployment/)
+for secret creation, build and startup commands, reverse-proxy boundaries,
+smoke testing, backup requirements, and rollback constraints. The companion
+[Payload + Next.js ownership guide](/reference/payload_next_integration/)
+explains which surfaces belong to Srijika and which remain owned by Payload.

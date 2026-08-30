@@ -17,6 +17,7 @@ target/
 apps/studio/src-tauri/gen/
 apps/studio/src-tauri/target/
 apps/payload-next-reference/media/
+apps/payload-next-reference/deploy/secrets/*.txt
 *.srijika.tmp
 .srijika/cache/
 .srijika/generated/
