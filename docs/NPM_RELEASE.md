@@ -60,6 +60,8 @@ gh workflow run release-npm.yml --ref main \
 
 This mode runs the normal release checks, then stamps a unique next-patch
 `preview.<run-number>.<attempt>` version inside the disposable CI checkout.
+The local CLI dependency's lockfile specifier is synchronized without changing
+external dependency resolutions, followed by a frozen offline install.
 It rebuilds and verifies the coordinated artifacts, and publishes only
 `@srijika/native` with provenance under the `native-preview` npm tag. The other
 packages, Marketplace version and `latest` tags retain their stable releases.
