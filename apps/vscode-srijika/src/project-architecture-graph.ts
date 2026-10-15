@@ -57,6 +57,7 @@ export interface SrijikaProjectGraphViolation {
 }
 
 export interface SrijikaProjectArchitectureGraphModel {
+  platform?: 'react-native-expo';
   projectName: string;
   projectRoot: string;
   entry: string;
@@ -75,15 +76,21 @@ export interface SrijikaProjectArchitectureGraphModel {
 }
 
 export interface SrijikaProjectArchitectureGraphInput {
+  platform?: 'react-native-expo';
   projectName: string;
   projectRoot: string;
   entry: string;
   architecture: ResolvedSrijikaArchitectureConfig;
   aliases?: Readonly<Record<string, string>>;
   files: readonly SrijikaArchitectureSourceFile[];
-  diagnostics: readonly SrijikaArchitectureDiagnostic[];
+  diagnostics: readonly SrijikaProjectGraphDiagnostic[];
   adoption?: SrijikaBrownfieldAdoptionPlan;
 }
+
+export type SrijikaProjectGraphDiagnostic = Pick<
+  SrijikaArchitectureDiagnostic,
+  'severity' | 'fileName' | 'span' | 'message' | 'guidance' | 'targetFileName' | 'ruleId'
+> & { code: string };
 
 interface ParsedModule {
   imports: readonly string[];
@@ -415,7 +422,7 @@ export function buildSrijikaProjectArchitectureGraph(
       id: 'app',
       kind: 'app',
       label: input.projectName,
-      subtitle: `Srijika application · ${input.entry}`,
+      subtitle: `${input.platform === 'react-native-expo' ? 'React Native + Expo' : 'Srijika application'} · ${input.entry}`,
       imports: [],
       exports: [],
       violationIds: [],
@@ -575,6 +582,7 @@ export function buildSrijikaProjectArchitectureGraph(
   }));
   const imports = finalizedNodes.flatMap((node) => node.imports);
   return {
+    ...(input.platform ? { platform: input.platform } : {}),
     projectName: input.projectName,
     projectRoot: normalizedPath(input.projectRoot),
     entry: input.entry,

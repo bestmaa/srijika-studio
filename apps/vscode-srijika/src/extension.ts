@@ -48,6 +48,7 @@ import { SrijikaProjectArchitecturePanel } from './project-architecture-panel';
 import { SrijikaStructureTreeItem, SrijikaStructureTreeProvider } from './structure-view';
 import { SrijikaMigrationViewProvider } from './migration-view';
 import { SrijikaRuntimeController } from './runtime-controller';
+import { SrijikaNativeController } from './native-controller';
 import { SrijikaTestingController } from './testing-controller';
 import {
   discoverSafeSrijikaMigrationSources,
@@ -170,6 +171,11 @@ export function activate(context: vscode.ExtensionContext): void {
   const architectureCollection =
     vscode.languages.createDiagnosticCollection('srijika-architecture');
   const output = vscode.window.createOutputChannel('Srijika');
+  const nativeController = new SrijikaNativeController(output, () => {
+    structureProvider.refresh();
+    scheduleArchitectureCheck();
+  });
+  let nativeProjectsReady = nativeController.refreshProjects();
   const runtimeController = new SrijikaRuntimeController(output);
   const testingController = new SrijikaTestingController(output);
   const compilations = new Map<string, CachedCompilation>();
@@ -234,6 +240,7 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const runArchitectureCheck = async (run: number, showSummary = false): Promise<void> => {
+    await nativeProjectsReady;
     if (run !== architectureRun) return;
     const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
     const nextDiagnostics = new Map<
@@ -252,9 +259,19 @@ export function activate(context: vscode.ExtensionContext): void {
     let skippedUnreadable = 0;
     let partialWorkspaces = 0;
     let blockedWorkspaces = 0;
+    const nativeSummary = await nativeController.checkArchitecture(() => run === architectureRun);
+    if (run !== architectureRun) return;
+    checkedFiles += nativeSummary.files;
+    issueCount += nativeSummary.issues;
+    configuredWorkspaces += nativeSummary.projects;
+    if (nativeSummary.projects > 0)
+      statusLines.push(
+        `Native: ${nativeSummary.projects} project(s), ${nativeSummary.files} source file(s), ${nativeSummary.issues} issue(s).`,
+      );
 
     for (const folder of workspaceFolders) {
       if (run !== architectureRun) return;
+      if (nativeController.ownsRoot(folder.uri.fsPath)) continue;
       let architecture;
       let authoritativeEntry: string | undefined;
       let adoption: ResolvedSrijikaBrownfieldAdoptionConfig | undefined;
@@ -630,6 +647,11 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   const compileDocument = (document: vscode.TextDocument): CachedCompilation | undefined => {
+    if (nativeController.compileDocument(document)) {
+      collection.delete(document.uri);
+      compilations.delete(document.uri.toString());
+      return undefined;
+    }
     const uiDocument = isConfiguredSrijikaUiDocument(document);
     const nextBoundaryDocument = isConfiguredNextBoundaryDocument(document);
     if (!uiDocument && !nextBoundaryDocument) {
@@ -705,8 +727,10 @@ export function activate(context: vscode.ExtensionContext): void {
     return cached?.documentVersion === document.version ? cached : compileDocument(document);
   };
 
-  const checkCurrentFile = vscode.commands.registerCommand('srijika.checkCurrentFile', () => {
+  const checkCurrentFile = vscode.commands.registerCommand('srijika.checkCurrentFile', async () => {
+    await nativeProjectsReady;
     const document = vscode.window.activeTextEditor?.document;
+    if (document && nativeController.checkCurrentFile(document)) return;
     if (
       !document ||
       (!isConfiguredSrijikaUiDocument(document) && !isConfiguredNextBoundaryDocument(document))
@@ -757,6 +781,11 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const architectureForCreation = async (workspaceFolder: vscode.WorkspaceFolder) => {
+    await nativeProjectsReady;
+    if (nativeController.ownsFile(workspaceFolder.uri.fsPath))
+      throw new Error(
+        'The web ownership creator is unavailable for Native projects. Edit Native UI/Connector files directly; Native diagnostics and the Structure Graph remain active.',
+      );
     uiSuffixByWorkspace.delete(workspaceFolder.uri.toString());
     let architecture = resolveSrijikaArchitectureConfig();
     try {
@@ -803,6 +832,11 @@ export function activate(context: vscode.ExtensionContext): void {
       };
     }
     const resource = target;
+    await nativeProjectsReady;
+    if (nativeController.ownsFile(resource.fsPath))
+      throw new Error(
+        'Use Native UI/Connector sources in this project. The web ownership creator does not generate Native files.',
+      );
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(resource);
     if (!workspaceFolder) throw new Error('Select a folder inside an open workspace.');
     const relativeFolder = vscode.workspace
@@ -1308,7 +1342,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const refreshStructure = vscode.commands.registerCommand('srijika.refreshStructure', () => {
-    structureProvider.refresh();
+    onArchitectureConfigChanged();
   });
   const runApp = vscode.commands.registerCommand(
     'srijika.runApp',
@@ -1400,6 +1434,8 @@ export function activate(context: vscode.ExtensionContext): void {
     { language: 'typescriptreact', pattern: '**/*.tsx' },
     {
       async provideCompletionItems(document, position) {
+        await nativeProjectsReady;
+        if (nativeController.ownsFile(document.fileName)) return [];
         if (!isConfiguredSrijikaUiDocument(document)) return [];
         const source = document.getText();
         const compilation = compilationFor(document);
@@ -1448,7 +1484,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const codeActions = vscode.languages.registerCodeActionsProvider(
     { language: 'typescriptreact', pattern: '**/*.tsx' },
     {
-      provideCodeActions(document, _range, actionContext) {
+      async provideCodeActions(document, _range, actionContext) {
+        await nativeProjectsReady;
+        if (nativeController.ownsFile(document.fileName)) return [];
         if (!isConfiguredSrijikaUiDocument(document)) return [];
         const compilation = compilationFor(document);
         if (!compilation) return [];
@@ -1527,6 +1565,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const architectureConfigWatcher =
     vscode.workspace.createFileSystemWatcher('**/srijika.config.json');
+  const nativeConfigWatcher = vscode.workspace.createFileSystemWatcher('**/srijika.native.json');
+  const nativePackageWatcher = vscode.workspace.createFileSystemWatcher('**/package.json');
   const typeScriptConfigWatcher = vscode.workspace.createFileSystemWatcher('**/tsconfig.json');
   let architectureSourceWatcherSubscriptions: vscode.Disposable[] = [];
   let architectureWatcherRefreshRun = 0;
@@ -1535,6 +1575,7 @@ export function activate(context: vscode.ExtensionContext): void {
     architectureSourceWatcherSubscriptions = [];
   };
   const refreshArchitectureSourceWatchers = async (): Promise<void> => {
+    await nativeProjectsReady;
     const run = ++architectureWatcherRefreshRun;
     const next: vscode.Disposable[] = [];
     for (const folder of vscode.workspace.workspaceFolders ?? []) {
@@ -1580,6 +1621,7 @@ export function activate(context: vscode.ExtensionContext): void {
     for (const document of vscode.workspace.textDocuments) compileDocument(document);
   };
   const onArchitectureConfigChanged = (): void => {
+    nativeProjectsReady = nativeController.refreshProjects();
     structureProvider.refresh();
     scheduleArchitectureCheck(0);
     void refreshArchitectureSourceWatchers();
@@ -1588,10 +1630,26 @@ export function activate(context: vscode.ExtensionContext): void {
     architectureConfigWatcher.onDidCreate(onArchitectureConfigChanged),
     architectureConfigWatcher.onDidChange(onArchitectureConfigChanged),
     architectureConfigWatcher.onDidDelete(onArchitectureConfigChanged),
+    nativeConfigWatcher.onDidCreate(onArchitectureConfigChanged),
+    nativeConfigWatcher.onDidChange(onArchitectureConfigChanged),
+    nativeConfigWatcher.onDidDelete(onArchitectureConfigChanged),
+    nativePackageWatcher.onDidCreate((uri) => {
+      if (nativeController.ownsRoot(uri.fsPath.replace(/[\\/]package\.json$/, '')))
+        onArchitectureConfigChanged();
+    }),
+    nativePackageWatcher.onDidChange((uri) => {
+      if (nativeController.ownsRoot(uri.fsPath.replace(/[\\/]package\.json$/, '')))
+        onArchitectureConfigChanged();
+    }),
+    nativePackageWatcher.onDidDelete((uri) => {
+      if (nativeController.ownsRoot(uri.fsPath.replace(/[\\/]package\.json$/, '')))
+        onArchitectureConfigChanged();
+    }),
     typeScriptConfigWatcher.onDidCreate(onArchitectureConfigChanged),
     typeScriptConfigWatcher.onDidChange(onArchitectureConfigChanged),
     typeScriptConfigWatcher.onDidDelete(onArchitectureConfigChanged),
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      nativeProjectsReady = nativeController.refreshProjects();
       structureProvider.refresh();
       scheduleArchitectureCheck(0);
       void refreshArchitectureSourceWatchers();
@@ -1599,13 +1657,25 @@ export function activate(context: vscode.ExtensionContext): void {
   ];
   void refreshArchitectureSourceWatchers();
 
-  const openSubscription = vscode.workspace.onDidOpenTextDocument(compileDocument);
+  const validateOpenDocument = (document: vscode.TextDocument): void => {
+    void nativeProjectsReady
+      .then(() => {
+        if (!document.isClosed) compileDocument(document);
+      })
+      .catch((error: unknown) =>
+        output.appendLine(
+          `Native project discovery failed: ${error instanceof Error ? error.message : String(error)}`,
+        ),
+      );
+  };
+  const openSubscription = vscode.workspace.onDidOpenTextDocument(validateOpenDocument);
   const changeSubscription = vscode.workspace.onDidChangeTextDocument(({ document }) => {
     if (document.fileName.toLowerCase().endsWith('.css')) cssClassNamesPromise = null;
-    compileDocument(document);
+    validateOpenDocument(document);
     if (
       /\.(?:[cm]?[jt]s|[jt]sx)$/.test(document.fileName) ||
       document.fileName.endsWith('srijika.config.json') ||
+      document.fileName.endsWith('srijika.native.json') ||
       document.fileName.endsWith('tsconfig.json')
     ) {
       scheduleArchitectureCheck();
@@ -1613,26 +1683,29 @@ export function activate(context: vscode.ExtensionContext): void {
   });
   const saveSubscription = vscode.workspace.onDidSaveTextDocument((document) => {
     if (document.fileName.toLowerCase().endsWith('.css')) cssClassNamesPromise = null;
-    compileDocument(document);
+    validateOpenDocument(document);
     if (
       /\.(?:[cm]?[jt]s|[jt]sx)$/.test(document.fileName) ||
       document.fileName.endsWith('srijika.config.json') ||
+      document.fileName.endsWith('srijika.native.json') ||
       document.fileName.endsWith('tsconfig.json')
     ) {
       scheduleArchitectureCheck(0);
     }
   });
   const closeSubscription = vscode.workspace.onDidCloseTextDocument((document) => {
+    nativeController.closeDocument(document.uri);
     collection.delete(document.uri);
     compilations.delete(document.uri.toString());
   });
 
-  for (const document of vscode.workspace.textDocuments) compileDocument(document);
+  for (const document of vscode.workspace.textDocuments) validateOpenDocument(document);
   scheduleArchitectureCheck(0);
 
   context.subscriptions.push(
     collection,
     architectureCollection,
+    nativeController,
     output,
     structureProvider,
     structureView,
@@ -1659,6 +1732,8 @@ export function activate(context: vscode.ExtensionContext): void {
     codeActions,
     architectureCodeActions,
     architectureConfigWatcher,
+    nativeConfigWatcher,
+    nativePackageWatcher,
     typeScriptConfigWatcher,
     ...watcherSubscriptions,
     openSubscription,

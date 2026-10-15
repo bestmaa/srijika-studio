@@ -1,6 +1,6 @@
 {
   "name": "@srijika/mcp-server",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "CLI-first Srijika project MCP tools with optional Studio bridge support.",
   "license": "Apache-2.0",
   "type": "module",
@@ -33,7 +33,7 @@
     "prepack": "pnpm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "typescript": "6.0.3",
     "zod": "4.4.3"
   },

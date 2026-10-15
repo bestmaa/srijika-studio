@@ -122,6 +122,12 @@ The Linux Tauri shell requires WebKitGTK and other native packages. Install the 
 
 ## Quality gates
 
+React Native + Expo tooling is available separately in
+[`@srijika/native`](packages/native/README.md). Run `pnpm native:build`, then
+`pnpm srijika-native create /absolute/path/my-mobile`. The generated mobile app
+has its own dependencies, Native compiler/checks and Expo Go phone preview;
+the existing React/Vite and Next.js workflows continue independently.
+
 ```bash
 pnpm verify
 pnpm test:e2e:web

@@ -40,8 +40,10 @@
     "test:mcp:windows": "node tests/e2e/mcp-stdio-smoke.mjs --windows",
     "plugin:build": "pnpm --filter @srijika/mcp-server build",
     "cli:build": "pnpm --filter @srijika/cli build",
+    "native:build": "pnpm --filter @srijika/native build",
+    "srijika-native": "node packages/native/dist/cli.mjs",
     "release:version": "node scripts/set-npm-release-version.mjs",
-    "release:build": "pnpm --filter @srijika/cli build && pnpm --filter @srijika/mcp-server build",
+    "release:build": "pnpm --filter @srijika/cli build && pnpm --filter @srijika/mcp-server build && pnpm native:build",
     "release:verify": "node scripts/verify-npm-release.mjs",
     "release:publish": "node scripts/publish-npm-packages.mjs",
     "srijika": "node packages/cli/dist/cli.mjs",
@@ -52,7 +54,7 @@
     "tauri": "pnpm --filter @srijika/studio tauri"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@eslint/js": "10.0.1",
     "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.62.1",

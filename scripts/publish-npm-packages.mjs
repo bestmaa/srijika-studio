@@ -7,7 +7,12 @@ if (process.env['GITHUB_ACTIONS'] !== 'true') {
 }
 
 const root = resolve(import.meta.dirname, '..');
-const directories = ['packages/cli', 'packages/mcp-server', 'packages/create-srijika'];
+const directories = [
+  'packages/cli',
+  'packages/mcp-server',
+  'packages/create-srijika',
+  'packages/native',
+];
 const publishWithProvenance = process.env['NPM_CONFIG_PROVENANCE'] === 'true';
 
 for (const relativeDirectory of directories) {

@@ -94,7 +94,7 @@ jobs:
         run: pnpm format:check && pnpm typecheck && pnpm test
 
       - name: Verify project, CLI, and VS Code contracts
-        run: pnpm --filter @srijika/project-scaffold test && pnpm --filter @srijika/cli test && pnpm --filter srijika-language-support test && pnpm --filter srijika-language-support build
+        run: pnpm --filter @srijika/project-scaffold test && pnpm --filter @srijika/cli test && pnpm --filter @srijika/native test && pnpm --filter srijika-language-support test && pnpm --filter srijika-language-support build
 
       - name: Verify Windows MCP transport
         run: pnpm release:build && pnpm test:mcp:windows

@@ -1,0 +1,75 @@
+---
+title: React Native + Expo
+description: Create a separate Native application, validate its architecture in VS Code, and preview it on a phone with Expo Go.
+---
+
+Srijika 0.7.0 adds an independent **React Native + Expo Go beta**. Native UI,
+compiler diagnostics and preview commands stay separate from React/Vite and
+Next.js. Only the framework-neutral ownership rules are shared.
+
+## Install the Native release
+
+The Native CLI is included as a verified tarball on the
+[0.7.0 GitHub release](https://github.com/bestmaa/srijika-studio/releases/tag/v0.7.0).
+This works independently of the first npm publication of `@srijika/native`:
+
+```sh
+npm exec --yes --package=https://github.com/bestmaa/srijika-studio/releases/download/v0.7.0/srijika-native-0.7.0.tgz -- srijika-native create my-mobile
+cd my-mobile
+pnpm install --frozen-lockfile
+pnpm verify
+pnpm start:tunnel
+```
+
+Node.js 22.13 or newer and pnpm 11.18.0 are required. The generated application
+pins Expo, React Native and its own lockfile. Its standalone validator does not
+depend on a Srijika repository checkout. Use `pnpm start` for a reachable LAN.
+
+Install Expo Go on your phone and scan the terminal QR code. Preview uses Metro
+and Expo Go; **Android Studio, Android SDK, JDK and an emulator are unnecessary**.
+The phone's Expo Go version must support the scaffold's Expo SDK.
+
+## Use VS Code
+
+Install or update
+[Srijika Language Support](https://marketplace.visualstudio.com/items?itemName=srijika.srijika-language-support)
+to version 0.7.0 or newer, reload the window and open the entire mobile folder.
+
+The explicit `srijika.native.json` `expo-go-v1` profile activates Native support:
+
+- Live **Srijika Native** diagnostics check components, props, styles and callback
+  contracts, including unsaved editor changes.
+- **Check Strict Project Architecture** checks private Feature, Slot, Part and
+  Shared ownership. Native and Expo runtime imports are rejected in business Logic.
+- **Open Current Project Structure Graph** shows App/entry files, owners,
+  imports, exports, package dependencies and exact findings.
+- **Run App** starts Expo Go preview. **Install / Sync Dependencies** uses the
+  frozen lockfile; **Doctor** checks the profile and Node/pnpm.
+
+Set `srijika.nativeConnection` to `tunnel` for WSL or blocked LAN access.
+`srijika.nativeDevPort` defaults to 8081. Native IntelliSense comes from VS Code's
+TypeScript service and the application's installed React Native types.
+
+## Ownership and supported UI
+
+Each visual owner has a pure `.ui.tsx` and a matching `.connector.tsx`.
+Connectors supply behavior and values. Hook, Store, Logic, API and Types remain
+optional; composition uses typed `ReactNode` slots. The starter contains a Home
+Feature and a private Counter Slot with editable name, increment and reset.
+
+The initial compiler supports `View`, `Text`, `Pressable`, `TextInput`, `Image`,
+`ScrollView` and `ActivityIndicator`, registered props, inline Native styles,
+declared callback props, fragments and bounded conditional JSX. Compilation never
+executes project imports. `pnpm verify` also checks actual Native TypeScript types.
+
+## Current limits
+
+Native visual owner creation, the desktop-to-phone Inspector bridge, custom
+component registration, `StyleSheet.create`, local `require` assets and
+`FlatList` render callbacks are later milestones. Edit Native owners directly;
+web HTML quick fixes and Vitest/Playwright owner generation are unavailable in
+Native projects. The web Studio preview does not render Native sources.
+
+Expo Go supports its bundled native modules. Custom native modules and APK/AAB
+distribution need a later development/cloud-build profile. React/Vite and
+Next.js continue using their existing compiler, runtime and editor workflows.

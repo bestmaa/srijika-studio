@@ -94,7 +94,7 @@ export function renderSrijikaProjectArchitectureWebview(
 </head>
 <body>
   <header>
-    <div><h1>Structure Graph</h1><div class="subtitle">${escapeHtml(model.graph.projectName)} · ${escapeHtml(model.graph.entry)}</div></div>
+    <div><h1>Structure Graph</h1><div class="subtitle">${model.graph.platform === 'react-native-expo' ? 'React Native + Expo · ' : ''}${escapeHtml(model.graph.projectName)} · ${escapeHtml(model.graph.entry)}</div></div>
     <div class="actions"><button id="refresh">Refresh graph</button><button id="select-project" class="secondary">Switch project</button></div>
   </header>
   <div class="toolbar">

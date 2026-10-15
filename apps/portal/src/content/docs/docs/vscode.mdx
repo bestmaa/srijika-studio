@@ -11,6 +11,10 @@ real Vite runtime, and MCP all work without it.
 
 ## Create and open a project
 
+For mobile applications, follow [React Native + Expo](/docs/react-native/).
+Version 0.7.0 adds separate Native detection, diagnostics, Structure Graph and
+Expo Go tasks. The React and Next.js workflows below retain their web behavior.
+
 ```bash
 npm create srijika@latest my-app
 ```
@@ -322,7 +326,7 @@ Changing runtime never changes the project's package manager or lockfile.
 ## Connect Codex or another MCP client
 
 Generated `.vscode/mcp.json` starts the pinned
-`@srijika/mcp-server@0.6.0` process with `${workspaceFolder}` as the project.
+`@srijika/mcp-server@0.7.0` process with `${workspaceFolder}` as the project.
 The MCP server can inspect, validate, preview scaffold plans, and atomically
 apply approved Feature/Slot/Part and shared-owner structure without Desktop
 Studio.

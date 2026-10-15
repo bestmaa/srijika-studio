@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { resolveSrijikaArchitectureConfig } from '@srijika/architecture-rules';
 import { parseSrijikaArchitectureConfig } from './architecture-adapter';
 import { discoverSafeSrijikaSources, openSafeSrijikaWorkspace } from './safe-workspace-files';
+import { readSrijikaEditorProject } from './project-profile';
 import {
   buildSrijikaStructureTreeOwners,
   childSrijikaStructureOwners,
@@ -112,6 +113,8 @@ export class SrijikaStructureTreeProvider
         return [];
       }
       architecture = resolveSrijikaArchitectureConfig(parsed);
+      if (await fileSystem.isRegularFile('srijika.native.json'))
+        await readSrijikaEditorProject(fileSystem);
     } catch (error) {
       if (!(
         (error instanceof vscode.FileSystemError && error.code === 'FileNotFound') ||

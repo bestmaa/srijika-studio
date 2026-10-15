@@ -2,6 +2,16 @@
 
 All notable changes to Srijika Language Support are documented here.
 
+## 0.7.0 - 2026-10-15
+
+- Added explicit React Native + Expo project detection and independent Native
+  diagnostics for open/dirty UI sources, ownership and Logic boundaries.
+- Added Native project labels, App/entry sources and source findings to the
+  current-project Structure Graph, including mixed Native/web workspaces.
+- Added Expo Go Run App, Native frozen installs and Node/pnpm doctor routing.
+- Kept Native files out of the web compiler, HTML/CSS completions, web quick
+  fixes and web-only owner/test generation commands.
+
 ## 0.6.0 — 2026-08-31
 
 - Added staged adoption for existing React and Next.js projects, including

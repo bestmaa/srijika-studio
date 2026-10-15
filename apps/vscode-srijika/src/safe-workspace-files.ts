@@ -54,3 +54,21 @@ export async function discoverSafeSrijikaMigrationSources(
     acceptFile: isSrijikaArchitectureSourcePath,
   });
 }
+
+/** Includes the Native App/entry/navigation sources without scanning build tools. */
+export async function discoverSafeSrijikaNativeSources(
+  fileSystem: SrijikaProjectFileSystem,
+): Promise<readonly SrijikaSafeProjectFile[]> {
+  return fileSystem.walkFiles([''], {
+    ...SRIJIKA_WORKSPACE_DISCOVERY_LIMITS,
+    ignoredDirectoryNames: new Set([
+      ...SRIJIKA_IGNORED_PROJECT_DIRECTORIES,
+      '.expo',
+      'android',
+      'ios',
+    ]),
+    allowIgnoredDirectorySymlinks: true,
+    stopAtNestedProjectRoots: true,
+    acceptFile: isSrijikaArchitectureSourcePath,
+  });
+}

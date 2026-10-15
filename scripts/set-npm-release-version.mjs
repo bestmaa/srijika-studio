@@ -11,6 +11,7 @@ const jsonFiles = [
   'packages/cli/package.json',
   'packages/mcp-server/package.json',
   'packages/create-srijika/package.json',
+  'packages/native/package.json',
   'apps/vscode-srijika/package.json',
 ];
 
@@ -25,6 +26,11 @@ for (const relativePath of jsonFiles) {
 }
 
 const replacements = [
+  {
+    path: 'packages/native/src/cli.ts',
+    pattern: /export const SRIJIKA_NATIVE_VERSION = '[^']+';/,
+    replacement: `export const SRIJIKA_NATIVE_VERSION = '${version}';`,
+  },
   {
     path: 'packages/cli/src/cli.ts',
     pattern: /export const SRIJIKA_CLI_VERSION = '[^']+';/,
