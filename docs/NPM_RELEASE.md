@@ -11,6 +11,9 @@ All four packages are published on npm. Each package has its own Trusted
 Publisher configuration; existing package authentication does not establish
 access to a newly added package.
 
+The verified `srijika-native-0.7.1.tgz` artifact is also available on the
+matching GitHub Release.
+
 Users then create a project with:
 
 ```bash
