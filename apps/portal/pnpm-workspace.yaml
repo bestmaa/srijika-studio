@@ -24,5 +24,6 @@ overrides:
   'fast-copy@>=3.0.0 <3.1.0': 3.1.0
 
 allowBuilds:
+  '@parcel/watcher': false
   esbuild: true
   sharp: true

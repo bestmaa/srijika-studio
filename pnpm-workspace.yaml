@@ -24,6 +24,7 @@ overrides:
   'postcss-selector-parser@>=6.0.0 <7.1.6': 7.1.6
   'fast-copy@>=3.0.0 <3.1.0': 3.1.0
 allowBuilds:
+  '@parcel/watcher': false
   '@vscode/vsce-sign': set this to true or false
   esbuild: true
   keytar: set this to true or false
