@@ -2,22 +2,24 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { assertNativePreviewContext, assertNativePreviewPackage } from './native-npm-preview.mjs';
+
 if (process.env['GITHUB_ACTIONS'] !== 'true') {
   throw new Error('npm publishing is restricted to the reviewed GitHub Actions workflow.');
 }
 
 const root = resolve(import.meta.dirname, '..');
-const directories = [
-  'packages/cli',
-  'packages/mcp-server',
-  'packages/create-srijika',
-  'packages/native',
-];
+const nativePreview = process.env['SRIJIKA_NATIVE_PREVIEW'] === 'true';
+if (nativePreview) assertNativePreviewContext(process.env);
+const directories = nativePreview
+  ? ['packages/native']
+  : ['packages/cli', 'packages/mcp-server', 'packages/create-srijika', 'packages/native'];
 const publishWithProvenance = process.env['NPM_CONFIG_PROVENANCE'] === 'true';
 
 for (const relativeDirectory of directories) {
   const directory = resolve(root, relativeDirectory);
   const manifest = JSON.parse(await readFile(resolve(directory, 'package.json'), 'utf8'));
+  if (nativePreview) assertNativePreviewPackage(manifest, process.env);
   const specifier = `${manifest.name}@${manifest.version}`;
   const existing = spawnSync('npm', ['view', specifier, 'version', '--json'], {
     encoding: 'utf8',
@@ -33,6 +35,7 @@ for (const relativeDirectory of directories) {
     `Publishing ${specifier}${publishWithProvenance ? ' with npm provenance' : ' from the reviewed GitHub Actions workflow'}.`,
   );
   const publishArguments = ['publish', '--access', 'public'];
+  if (nativePreview) publishArguments.push('--tag', 'native-preview');
   if (publishWithProvenance) publishArguments.push('--provenance');
   const published = spawnSync('npm', publishArguments, {
     cwd: directory,

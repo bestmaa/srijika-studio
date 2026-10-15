@@ -27,6 +27,11 @@ on:
         description: Version tag to verify, for example v0.1.0
         required: false
         type: string
+      native_preview:
+        description: Publish only a Native preview to validate Trusted Publishing
+        required: true
+        default: false
+        type: boolean
 
 concurrency:
   group: npm-release-${{ github.ref }}
@@ -104,6 +109,9 @@ jobs:
       - name: Verify package metadata and tarball contents
         run: pnpm release:verify
 
+      - name: Verify Native preview release boundaries
+        run: node --test scripts/native-npm-preview.test.mjs
+
   publish:
     name: Publish to npm
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.publish && github.ref == 'refs/heads/main')
@@ -142,11 +150,16 @@ jobs:
       - name: Install Chromium for migration verification
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Prepare Native preview version
+        if: github.event_name == 'workflow_dispatch' && inputs.native_preview
+        run: node scripts/prepare-native-npm-preview.mjs
+
       - name: Build and re-verify release artifacts
         run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test && pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify
 
-      - name: Publish CLI, MCP server, create launcher, and Native tooling
+      - name: Publish verified npm packages
         env:
+          SRIJIKA_NATIVE_PREVIEW: ${{ github.event_name == 'workflow_dispatch' && inputs.native_preview }}
           NPM_CONFIG_LOGLEVEL: verbose
           NPM_CONFIG_PROVENANCE: 'true'
         run: pnpm release:publish
