@@ -3,14 +3,24 @@ import { cp, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { env, stdout } from 'node:process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { build } from 'esbuild';
 
-import { createNativeProjectFileMap } from '../../../packages/native/dist/index.mjs';
-
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const nativeRoot = join(packageRoot, '../../packages/native');
+const nativeModulePath = pathToFileURL(join(nativeRoot, 'dist/index.mjs')).href;
+/** @type {unknown} */
+const loadedNativeModule = await import(nativeModulePath);
+if (!loadedNativeModule || typeof loadedNativeModule !== 'object')
+  throw new Error('The built Native package must export a module.');
+const nativeModule = /** @type {Record<string, unknown>} */ (loadedNativeModule);
+/** @typedef {(options: {projectName: string, displayName: string}, validatorSource: string, lockfileSource: string) => Readonly<Record<string, string>>} NativeScaffoldFactory */
+const createNativeProjectFileMap = /** @type {NativeScaffoldFactory} */ (
+  nativeModule['createNativeProjectFileMap']
+);
+if (typeof createNativeProjectFileMap !== 'function')
+  throw new Error('Build the Native package before preparing the editor host test.');
 /** @param {unknown} value */
 const json = (value) => `${JSON.stringify(value, null, 2)}\n`;
 const wsl = Boolean(env.WSL_DISTRO_NAME);
