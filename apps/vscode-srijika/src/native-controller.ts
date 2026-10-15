@@ -1,4 +1,4 @@
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 
 import * as vscode from 'vscode';
 
@@ -13,6 +13,7 @@ import { sourceSpanToRange } from './diagnostic-model';
 import { nativeDiagnosticToEditorDiagnostic, nativeProjectDiagnostics } from './native-adapter';
 import {
   nearestEditorProjectRoot,
+  projectContainsFile,
   readSrijikaEditorProject,
   type SrijikaEditorProject,
 } from './project-profile';
@@ -229,7 +230,12 @@ export class SrijikaNativeController implements vscode.Disposable {
         )
           throw new Error('Native source scan omitted the authoritative entry.');
         const open = new Map(
-          vscode.workspace.textDocuments.map((document) => [key(document.fileName), document]),
+          vscode.workspace.textDocuments
+            .filter((document) => projectContainsFile(record.root, document.fileName))
+            .map((document) => [
+              key(fileSystem.resolve(relative(record.root, document.fileName))),
+              document,
+            ]),
         );
         const candidates = [];
         for (const file of discovered)
@@ -261,7 +267,7 @@ export class SrijikaNativeController implements vscode.Disposable {
         checkedFiles += files.length;
         if (isCurrent()) this.#config.delete(record.uri);
         const sourceByName = new Map(files.map((file) => [key(file.fileName), file.source]));
-        for (const finding of nativeProjectDiagnostics(record.root, project, files)) {
+        for (const finding of nativeProjectDiagnostics(fileSystem.root, project, files)) {
           const source = sourceByName.get(key(finding.fileName));
           if (source === undefined) continue;
           const range = sourceSpanToRange(source, finding.span);
@@ -281,7 +287,7 @@ export class SrijikaNativeController implements vscode.Disposable {
           diagnostic.source = finding.code.startsWith('SRIJIKA-NATIVE1')
             ? 'Srijika Native'
             : 'Srijika Native Architecture';
-          const uri = vscode.Uri.file(finding.fileName);
+          const uri = open.get(key(finding.fileName))?.uri ?? vscode.Uri.file(finding.fileName);
           const target = finding.code.startsWith('SRIJIKA-NATIVE1') ? ui : architecture;
           const entry = target.get(uri.toString()) ?? { uri, diagnostics: [] };
           entry.diagnostics.push(diagnostic);

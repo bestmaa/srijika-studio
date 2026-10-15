@@ -50,6 +50,9 @@ function isInside(parent: string, child: string): boolean {
   return path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith(`..${sep}`));
 }
 
+const sourceKey = (path: string): string =>
+  process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path);
+
 function loadingHtml(nonce: string, message: string): string {
   return `<!doctype html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';"><style nonce="${nonce}">body{padding:24px;color:var(--vscode-foreground);background:var(--vscode-editor-background);font:13px/1.5 var(--vscode-font-family)}h1{font-size:18px}</style></head><body><h1>Srijika Structure Graph</h1><p>${message.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')}</p></body></html>`;
 }
@@ -265,18 +268,20 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
     }
     const candidates = [];
     const openSources = new Map(
-      vscode.workspace.textDocuments.map((document) => [
-        resolve(document.fileName),
-        document.getText(),
-      ]),
+      vscode.workspace.textDocuments
+        .filter((document) => isInside(project.projectRoot, document.fileName))
+        .map((document) => [
+          sourceKey(fileSystem.resolve(relative(project.projectRoot, document.fileName))),
+          document.getText(),
+        ]),
     );
     for (const file of [...byPath.values()].sort((left, right) =>
       left.relativePath.localeCompare(right.relativePath),
     )) {
       candidates.push({
         value: file,
-        byteLength: openSources.has(resolve(file.absolutePath))
-          ? Buffer.byteLength(openSources.get(resolve(file.absolutePath))!)
+        byteLength: openSources.has(sourceKey(file.absolutePath))
+          ? Buffer.byteLength(openSources.get(sourceKey(file.absolutePath))!)
           : (await fileSystem.inspectRegularFile(file.absolutePath)).size,
       });
     }
@@ -286,7 +291,7 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
     let totalBytes = 0;
     for (const candidate of budget.accepted) {
       const source =
-        openSources.get(resolve(candidate.value.absolutePath)) ??
+        openSources.get(sourceKey(candidate.value.absolutePath)) ??
         (
           await fileSystem.readText(
             candidate.value.relativePath,
@@ -302,11 +307,11 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
     const architectureResult =
       profile.kind === 'native'
         ? {
-            diagnostics: nativeProjectDiagnostics(project.projectRoot, profile, files),
+            diagnostics: nativeProjectDiagnostics(fileSystem.root, profile, files),
             adoption: undefined,
           }
         : checkArchitectureWorkspace({
-            projectRoot: project.projectRoot,
+            projectRoot: fileSystem.root,
             files,
             architecture: config.architecture,
             aliases,
@@ -326,7 +331,7 @@ export class SrijikaProjectArchitecturePanel implements vscode.Disposable {
     return buildSrijikaProjectArchitectureGraph({
       projectName,
       ...(profile.kind === 'native' ? { platform: 'react-native-expo' as const } : {}),
-      projectRoot: project.projectRoot,
+      projectRoot: fileSystem.root,
       entry: config.entry,
       architecture: config.architecture,
       aliases,
