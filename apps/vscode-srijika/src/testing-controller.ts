@@ -9,7 +9,17 @@ import {
   type CollectSrijikaTestEvidenceResult,
 } from '@srijika/developer-engine';
 
-import { selectedWorkspaceFolder } from './runtime-controller';
+import { selectedProjectRoot, selectedWorkspaceFolder } from './runtime-controller';
+import { openSafeSrijikaWorkspace } from './safe-workspace-files';
+
+async function webTestProject(folder: vscode.WorkspaceFolder, resource?: vscode.Uri) {
+  const root = await selectedProjectRoot(folder, resource);
+  if (await (await openSafeSrijikaWorkspace(root)).isRegularFile('srijika.native.json'))
+    throw new Error(
+      'Owner test generation currently supports React/Vite and Next.js. Use pnpm verify for Native architecture/compiler/type checks; Native device test automation is a separate workflow.',
+    );
+  return inspectSrijikaProject(root);
+}
 import {
   formatSrijikaTestEvidence,
   summarizeSrijikaTestSync,
@@ -53,7 +63,7 @@ export class SrijikaTestingController {
       resource,
       'Choose the Srijika project whose owner tests should be synchronized',
     );
-    const project = await inspectSrijikaProject(folder.uri.fsPath);
+    const project = await webTestProject(folder, resource);
     const framework = await selectFramework(project.viteProject, project.nextProject);
     const request = { project: project.root, port: configuredPort(folder) };
     const result =
@@ -79,7 +89,7 @@ export class SrijikaTestingController {
       resource,
       'Choose the Srijika project whose owner tests should be verified',
     );
-    const project = await inspectSrijikaProject(folder.uri.fsPath);
+    const project = await webTestProject(folder, resource);
     const framework = await selectFramework(project.viteProject, project.nextProject);
     const result = await verifySrijikaOwnerTests({
       project: project.root,
@@ -102,7 +112,7 @@ export class SrijikaTestingController {
       resource,
       'Choose the Srijika project whose test evidence should be inspected',
     );
-    const project = await inspectSrijikaProject(folder.uri.fsPath);
+    const project = await webTestProject(folder, resource);
     const framework = await selectFramework(project.viteProject, project.nextProject);
     const result = await collectSrijikaTestEvidence({ project: project.root, framework });
     this.#output.appendLine(`Srijika test evidence — ${folder.name}`);

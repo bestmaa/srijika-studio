@@ -2,7 +2,7 @@
   "name": "srijika-language-support",
   "displayName": "Srijika Language Support",
   "description": "Live diagnostics and quick fixes for code-first Srijika .ui.tsx files.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "publisher": "srijika",
   "license": "Apache-2.0",
@@ -39,6 +39,7 @@
   ],
   "activationEvents": [
     "workspaceContains:srijika.config.json",
+    "workspaceContains:**/srijika.native.json",
     "workspaceContains:**/*.ui.tsx",
     "onLanguage:typescriptreact",
     "onCommand:srijika.checkCurrentFile",
@@ -272,6 +273,22 @@
           "minimum": 1,
           "maximum": 65535,
           "description": "Strict Vite port used by Srijika: Run App."
+        },
+        "srijika.nativeDevPort": {
+          "type": "number",
+          "default": 8081,
+          "minimum": 1024,
+          "maximum": 65535,
+          "description": "Metro port for React Native + Expo Go projects."
+        },
+        "srijika.nativeConnection": {
+          "type": "string",
+          "enum": [
+            "lan",
+            "tunnel"
+          ],
+          "default": "lan",
+          "description": "Expo Go phone connection. Choose tunnel for WSL or blocked LAN access."
         }
       }
     }
@@ -280,9 +297,11 @@
     "build": "node ./scripts/build.mjs",
     "install:local": "pnpm run build && node ./scripts/install-local.mjs",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run --config vitest.config.mts"
+    "test": "vitest run --config vitest.config.mts",
+    "prepare:native-host-test": "node ./scripts/prepare-native-host.mjs"
   },
   "dependencies": {
+    "@srijika/native": "workspace:*",
     "@srijika/architecture-rules": "workspace:*",
     "@srijika/developer-engine": "workspace:*",
     "@srijika/project-scaffold": "workspace:*",

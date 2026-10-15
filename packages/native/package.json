@@ -1,0 +1,47 @@
+{
+  "name": "@srijika/native",
+  "version": "0.7.0",
+  "description": "Independent React Native and Expo tooling for Srijika projects.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./editor": "./dist/editor.mjs"
+  },
+  "bin": {
+    "srijika-native": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bestmaa/srijika-studio.git",
+    "directory": "packages/native"
+  },
+  "homepage": "https://srijika.com/docs/react-native/",
+  "bugs": "https://github.com/bestmaa/srijika-studio/issues",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "pnpm build && vitest run --config vitest.config.ts",
+    "prepack": "pnpm run build"
+  },
+  "dependencies": {
+    "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "@srijika/architecture-rules": "workspace:*",
+    "@types/node": "26.1.2",
+    "esbuild": "0.28.2",
+    "vitest": "4.1.10"
+  }
+}

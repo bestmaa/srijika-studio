@@ -4,6 +4,7 @@
     "allowJs": true,
     "paths": {
       "@srijika/architecture-rules": ["../../packages/architecture-rules/src/index.ts"],
+      "@srijika/native/editor": ["../../packages/native/src/editor.ts"],
       "@srijika/contracts": ["../../packages/contracts/src/index.ts"],
       "@srijika/developer-engine": ["../../packages/developer-engine/src/index.ts"],
       "@srijika/project-scaffold/ownership": ["../../packages/project-scaffold/src/ownership.ts"],

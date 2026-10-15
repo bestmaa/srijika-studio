@@ -7,6 +7,19 @@ const repository = 'git+https://github.com/bestmaa/srijika-studio.git';
 const requiredNodeEngine = '>=22.13.0';
 const releasePackages = [
   {
+    directory: 'packages/native',
+    name: '@srijika/native',
+    binName: 'srijika-native',
+    binPath: 'dist/cli.mjs',
+    files: [
+      'dist/cli.mjs',
+      'dist/index.mjs',
+      'dist/editor.mjs',
+      'dist/check.mjs',
+      'templates/pnpm-lock.yaml',
+    ],
+  },
+  {
     directory: 'packages/cli',
     name: '@srijika/cli',
     binName: 'srijika',

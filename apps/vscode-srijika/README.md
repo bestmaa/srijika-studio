@@ -23,6 +23,43 @@ diagnostics. Preview metadata is source-only; the extension never imports those
 runtime modules. See
 [`docs/NEXT_FRAMEWORK_ADAPTER.md`](../../docs/NEXT_FRAMEWORK_ADAPTER.md).
 
+## React Native + Expo projects
+
+A project containing both `srijika.config.json` and the explicit
+`srijika.native.json` `expo-go-v1` profile uses the independent Native compiler
+from `@srijika/native/editor`. React/Vite and Next.js retain their existing
+compiler, quick fixes and server/client boundary checks. Expo's
+`expo/tsconfig.base` is accepted only for a validated Native profile.
+
+Open the complete Native project folder. Native UI files receive live
+**Srijika Native** diagnostics, including native component/prop/style rules,
+callback contracts and source ranges. Architecture checks additionally cover
+Native App/navigation sources, private ownership and framework-free Logic.
+Dirty editor buffers are checked before save. Malformed Native profiles report
+setup errors and do not fall back to the web compiler. Native modules are never
+loaded to produce diagnostics or the graph; the extension does not install Expo,
+React Native, Android Studio or JDK in the editor host.
+
+Use **Srijika: Open Current Project Structure Graph** to inspect the Native
+App -> Feature -> Slot -> Part / Shared hierarchy, imports, exports and findings.
+The graph is labelled **React Native + Expo**, includes `App.tsx` and the runtime
+entry, and refreshes from editor changes. Project switching supports Native and
+web packages in the same workspace. The closest configured project owns a file.
+
+**Run App** launches the installed Expo CLI explicitly in Expo Go mode.
+**Install / Sync Dependencies** uses the Native project's frozen pnpm lockfile;
+**Doctor** checks its Native profile and Node/pnpm tools. Set
+`srijika.nativeConnection` to `tunnel` for WSL or blocked LAN access, or `lan` for
+same-network preview; `srijika.nativeDevPort` defaults to 8081. Scan the terminal
+QR code with Expo Go on a physical phone.
+
+Native JSX IntelliSense stays with VS Code's TypeScript service and the project's
+installed React Native types. Web HTML/CSS completions and web source quick fixes
+are not offered in Native UI. The web ownership-creation dialog and automated
+Vitest/Playwright owner-test commands are unavailable for Native projects; edit
+Native owners directly and run `pnpm verify`. The desktop-to-phone Inspector
+bridge and advanced Native compiler components remain later milestones.
+
 ## Install in VS Code
 
 Install **Srijika Language Support** from the
@@ -382,3 +419,20 @@ pnpm --filter srijika-language-support install:local
 
 The build bundles the extension and compiler for Node.js while leaving the
 VS Code runtime API external. Output is written to `dist/extension.cjs`.
+
+To verify the integration in a real VS Code Extension Development Host:
+
+```sh
+pnpm native:build
+pnpm --filter srijika-language-support build
+pnpm --filter srijika-language-support prepare:native-host-test
+```
+
+Run the printed `launch` command with your installed VS Code. On WSL, run it
+in Windows PowerShell; fixtures and the bundled extension are placed in a local
+Windows temporary directory. The test uses a separate profile with Native,
+React and Next.js fixture folders. It checks live unsaved Native diagnostics,
+recovery, malformed-profile isolation, the Native graph command and web compiler
+regressions. A successful host test writes `host-report.json` at the printed
+report path. It does not install fixture dependencies or mobile
+build tools.

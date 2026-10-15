@@ -1,10 +1,16 @@
 # npm and GitHub automatic release
 
-Srijika publishes three public packages in dependency order:
+Srijika prepares four public packages in dependency order:
 
 1. `@srijika/cli`
 2. `@srijika/mcp-server`
 3. `create-srijika`
+4. `@srijika/native` (separate Native CLI, compiler, scaffold and validator)
+
+The Native package is new in 0.7.0 and needs a first publication and its own
+Trusted Publisher configuration. Until that bootstrap is complete, distribute
+the verified `srijika-native-0.7.0.tgz` GitHub Release asset. Existing package
+authentication does not establish access to a new npm package.
 
 Users then create a project with:
 
@@ -22,7 +28,7 @@ pnpm release:build
 pnpm release:verify
 ```
 
-Configure **Trusted Publisher → GitHub Actions** on each of the three npm package
+Configure **Trusted Publisher → GitHub Actions** on each npm package's
 settings pages:
 
 - GitHub organization/user: `bestmaa`
@@ -33,23 +39,23 @@ settings pages:
 
 Trusted Publishing uses GitHub OIDC and does not need a long-lived npm token.
 The publish job grants `id-token: write`, runs on a GitHub-hosted Node 24 runner,
-and publishes with short-lived OIDC credentials. npm does not generate provenance
-for a private source repository, so the publish command must not force the
-`--provenance` flag. No write-capable `NPM_TOKEN` is required.
+and publishes with short-lived OIDC credentials. This public source repository
+publishes with provenance. No write-capable `NPM_TOKEN` is required for configured
+packages; first-publish authentication for a new package remains a separate step.
 
 ## Release a version
 
 Prepare and commit the coordinated version:
 
 ```bash
-pnpm release:version 0.6.0
+pnpm release:version 0.7.0
 pnpm install --lockfile-only
 pnpm release:build
 pnpm release:verify
 ```
 
-Merge that change, create tag `v0.6.0`, and publish a GitHub Release from the tag.
-The workflow verifies the tag against all three package versions, runs the complete
+Merge that change, create tag `v0.7.0`, and publish a GitHub Release from the tag.
+The workflow verifies the tag against all four package versions, runs the complete
 quality gate, builds exact tarballs, skips versions already present after a partial
 retry, and publishes with npm Trusted Publishing. Public packages built from this
 private repository are published without provenance because npm does not support

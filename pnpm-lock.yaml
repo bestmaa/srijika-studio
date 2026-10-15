@@ -243,6 +243,9 @@ importers:
       '@srijika/developer-engine':
         specifier: workspace:*
         version: link:../../packages/developer-engine
+      '@srijika/native':
+        specifier: workspace:*
+        version: link:../../packages/native
       '@srijika/project-scaffold':
         specifier: workspace:*
         version: link:../../packages/project-scaffold
@@ -369,7 +372,7 @@ importers:
   packages/create-srijika:
     dependencies:
       '@srijika/cli':
-        specifier: 0.6.0
+        specifier: 0.7.0
         version: link:../cli
 
   packages/developer-engine:
@@ -442,6 +445,25 @@ importers:
       playwright:
         specifier: 1.62.1
         version: 1.62.1
+
+  packages/native:
+    dependencies:
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+    devDependencies:
+      '@srijika/architecture-rules':
+        specifier: workspace:*
+        version: link:../architecture-rules
+      '@types/node':
+        specifier: 26.1.2
+        version: 26.1.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.1.2)(@vitest/coverage-v8@4.1.10)(happy-dom@20.11.13)(jsdom@30.0.1)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.2)(sass@1.77.4)(tsx@4.22.4)(yaml@2.9.0))
 
   packages/project-scaffold:
     dependencies:
