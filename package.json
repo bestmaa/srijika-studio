@@ -54,7 +54,7 @@
     "tauri": "pnpm --filter @srijika/studio tauri"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@eslint/js": "10.0.1",
     "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.62.1",

@@ -3,11 +3,26 @@ packages:
   - packages/*
 linkWorkspacePackages: true
 overrides:
-  'dompurify@<=3.4.12': 3.4.13
+  'dompurify@<3.4.16': 3.4.16
   'esbuild@<=0.24.2': 0.25.12
-  'fast-uri@>=3.0.0 <3.1.5': 3.1.5
-  'hono@<4.12.34': 4.12.34
+  'fast-uri@>=3.0.0 <3.1.8': 3.1.8
+  'hono@<4.13.7': 4.13.7
   'nanoid@<3.3.18': 3.3.18
+  'qs@>=6.0.0 <6.16.0': 6.16.0
+  'sharp@>=0.35.0 <0.35.5': 0.35.5
+  'js-yaml@>=4.0.0 <4.3.2': 4.3.2
+  'svgo@>=4.0.0 <4.1.0': 4.1.0
+  'devalue@>=5.0.0 <5.9.3': 5.9.3
+  'undici@>=7.0.0 <7.29.1': 7.29.1
+  'undici@>=8.0.0 <8.10.2': 8.10.2
+  'ip-address@>=10.0.0 <10.7.1': 10.7.1
+  'http-cache-semantics@>=4.0.0 <4.3.0': 4.3.0
+  'sass@<1.105.1': 1.105.1
+  'smol-toml@>=1.0.0 <1.9.0': 1.9.0
+  'source-map-js@>=1.0.0 <1.2.2': 1.2.2
+  'proxy-addr@>=2.0.0 <2.0.8': 2.0.8
+  'postcss-selector-parser@>=6.0.0 <7.1.6': 7.1.6
+  'fast-copy@>=3.0.0 <3.1.0': 3.1.0
 allowBuilds:
   '@vscode/vsce-sign': set this to true or false
   esbuild: true
