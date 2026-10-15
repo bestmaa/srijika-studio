@@ -63,12 +63,28 @@ const replacements = [
     'apps/portal/src/pages/index.astro',
     'apps/portal/src/content/docs/docs/product-status.mdx',
     'apps/portal/src/content/docs/docs/cli-runtime.mdx',
+    'apps/portal/src/content/docs/docs/react-native.mdx',
+    'packages/native/README.md',
     'docs/VSCODE_RELEASE.md',
   ].map((path) => ({
     path,
     pattern: /v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,
     replacement: `v${version}`,
   })),
+  ...[
+    'apps/portal/src/content/docs/docs/react-native.mdx',
+    'packages/native/README.md',
+    'docs/NPM_RELEASE.md',
+  ].map((path) => ({
+    path,
+    pattern: /srijika-native-\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?\.tgz/g,
+    replacement: `srijika-native-${version}.tgz`,
+  })),
+  {
+    path: 'apps/portal/src/pages/index.astro',
+    pattern: /status: "\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)? beta"/,
+    replacement: `status: "${version} beta"`,
+  },
   {
     path: 'docs/NPM_RELEASE.md',
     pattern: /pnpm release:version \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/g,

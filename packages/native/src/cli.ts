@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -7,7 +8,7 @@ import { printNativeCheck } from './project.js';
 import { startNativePreview } from './runtime.js';
 import { writeNativeProject } from './scaffold.js';
 
-export const SRIJIKA_NATIVE_VERSION = '0.7.0';
+export const SRIJIKA_NATIVE_VERSION = '0.7.1';
 
 const HELP = `Srijika Native ${SRIJIKA_NATIVE_VERSION}
 
@@ -109,7 +110,16 @@ export async function runNativeCli(args: readonly string[]): Promise<number> {
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+function isDirectExecution(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) {
   try {
     process.exitCode = await runNativeCli(process.argv.slice(2));
   } catch (error) {

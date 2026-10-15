@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
 const repository = 'git+https://github.com/bestmaa/srijika-studio.git';
@@ -97,6 +99,54 @@ if (rawTag) {
   if (tagVersion !== version) {
     throw new Error(`Release tag ${rawTag} does not match package version ${version}.`);
   }
+}
+
+const smokeRoot = await mkdtemp(join(tmpdir(), 'srijika-release-bin-'));
+try {
+  for (const releasePackage of releasePackages.filter((item) =>
+    ['@srijika/cli', '@srijika/native'].includes(item.name),
+  )) {
+    const entry = resolve(root, releasePackage.directory, releasePackage.binPath);
+    const launcher = join(smokeRoot, releasePackage.binName);
+    if (process.platform !== 'win32') await symlink(entry, launcher);
+    const binary = process.platform === 'win32' ? entry : launcher;
+    const versionResult = spawnSync(process.execPath, [binary, '--version'], {
+      cwd: smokeRoot,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    if (versionResult.status !== 0 || versionResult.stdout.trim() !== version) {
+      throw new Error(
+        `${releasePackage.name} must print ${version} through its installed binary: ${versionResult.stderr || versionResult.stdout}`,
+      );
+    }
+    const probe = join(smokeRoot, `${releasePackage.binName}-import.mjs`);
+    await writeFile(
+      probe,
+      `import ${JSON.stringify(pathToFileURL(entry).href)}; process.stdout.write('imported');\n`,
+    );
+    const imported = spawnSync(process.execPath, [probe], {
+      cwd: smokeRoot,
+      encoding: 'utf8',
+      timeout: 30_000,
+    });
+    if (imported.status !== 0 || imported.stdout !== 'imported') {
+      throw new Error(`${releasePackage.name} must remain inert when imported.`);
+    }
+    if (releasePackage.name === '@srijika/native') {
+      const mobileRoot = join(smokeRoot, 'mobile');
+      const created = spawnSync(process.execPath, [binary, 'create', mobileRoot], {
+        cwd: smokeRoot,
+        encoding: 'utf8',
+        timeout: 30_000,
+      });
+      if (created.status !== 0) throw new Error(created.stderr || 'Native scaffolding failed.');
+      const profile = JSON.parse(await readFile(join(mobileRoot, 'srijika.native.json'), 'utf8'));
+      if (profile.profile !== 'expo-go-v1') throw new Error('Native scaffold profile is missing.');
+    }
+  }
+} finally {
+  await rm(smokeRoot, { recursive: true, force: true });
 }
 
 console.log(

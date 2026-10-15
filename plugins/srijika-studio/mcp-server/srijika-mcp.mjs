@@ -234366,7 +234366,7 @@ dist
           mcpServers: {
             "srijika-project": {
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.7.0", "--project", "."],
+              args: ["-y", "@srijika/mcp-server@0.7.1", "--project", "."],
               cwd: "."
             }
           }
@@ -234376,7 +234376,7 @@ dist
             "srijika-project": {
               type: "stdio",
               command: "npx",
-              args: ["-y", "@srijika/mcp-server@0.7.0", "--project", "${workspaceFolder}"]
+              args: ["-y", "@srijika/mcp-server@0.7.1", "--project", "${workspaceFolder}"]
             }
           }
         }),
@@ -234595,7 +234595,7 @@ Studio later requires no migration: open this same project folder.
           scripts: {
             dev: "vite",
             "validate:srijika": "node scripts/srijika-validate.mjs",
-            "mcp:srijika": "npx -y @srijika/mcp-server@0.7.0 --project .",
+            "mcp:srijika": "npx -y @srijika/mcp-server@0.7.1 --project .",
             build: "pnpm run validate:srijika && tsc -p tsconfig.json && vite build",
             preview: "vite preview",
             typecheck: "pnpm run validate:srijika && tsc -p tsconfig.json"

@@ -44,11 +44,11 @@ pnpm srijika-native compile /absolute/path/my-mobile/src/features/home/Home.ui.t
 pnpm srijika-native dev /absolute/path/my-mobile --tunnel --port 8081
 ```
 
-The 0.7.0 release also provides `srijika-native-0.7.0.tgz` on its GitHub Release.
+The current release also provides `srijika-native-0.7.1.tgz` on its GitHub Release.
 Run it without a repository checkout:
 
 ```bash
-npm exec --yes --package=https://github.com/bestmaa/srijika-studio/releases/download/v0.7.0/srijika-native-0.7.0.tgz -- srijika-native create my-mobile
+npm exec --yes --package=https://github.com/bestmaa/srijika-studio/releases/download/v0.7.1/srijika-native-0.7.1.tgz -- srijika-native create my-mobile
 ```
 
 The package is prepared for public npm distribution; the new package's first
