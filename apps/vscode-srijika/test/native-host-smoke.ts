@@ -77,6 +77,32 @@ export async function run(): Promise<void> {
     'Native Structure Graph tab',
   );
 
+  const logicUri = vscode.Uri.joinPath(nativeRoot, 'src/features/home/home.logic.ts');
+  const pureLogic = 'export function greeting() { return "hello"; }\n';
+  await vscode.workspace.fs.writeFile(logicUri, Buffer.from(pureLogic));
+  const logic = await vscode.workspace.openTextDocument(logicUri);
+  const logicEdit = new vscode.WorkspaceEdit();
+  logicEdit.replace(
+    logicUri,
+    new vscode.Range(logic.positionAt(0), logic.positionAt(logic.getText().length)),
+    "import { Platform } from 'react-native'; export function greeting() { return Platform.OS; }\n",
+  );
+  assert.equal(await vscode.workspace.applyEdit(logicEdit), true);
+  await vscode.commands.executeCommand('srijika.checkArchitecture');
+  await waitFor(
+    () => findings(logicUri).some((diagnostic) => diagnostic.code === 'SRIJIKA-NATIVE2001'),
+    'unsaved Native Logic diagnostic',
+  );
+  const restoreLogic = new vscode.WorkspaceEdit();
+  restoreLogic.replace(
+    logicUri,
+    new vscode.Range(logic.positionAt(0), logic.positionAt(logic.getText().length)),
+    pureLogic,
+  );
+  assert.equal(await vscode.workspace.applyEdit(restoreLogic), true);
+  await vscode.commands.executeCommand('srijika.checkArchitecture');
+  await waitFor(() => findings(logicUri).length === 0, 'Native Logic recovery');
+
   const marker = vscode.Uri.joinPath(nativeRoot, 'srijika.native.json');
   const markerBytes = await vscode.workspace.fs.readFile(marker);
   await vscode.workspace.fs.writeFile(marker, Buffer.from('{"version":2}'));
@@ -120,6 +146,7 @@ export async function run(): Promise<void> {
       'unsaved Native diagnostics',
       'Native recovery',
       'Native graph command',
+      'unsaved Native Logic diagnostics',
       'invalid Native profile isolation',
       'React compiler',
       'Next server boundary',
