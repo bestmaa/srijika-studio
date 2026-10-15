@@ -44,16 +44,19 @@ pnpm srijika-native compile /absolute/path/my-mobile/src/features/home/Home.ui.t
 pnpm srijika-native dev /absolute/path/my-mobile --tunnel --port 8081
 ```
 
-The current release also provides `srijika-native-0.7.1.tgz` on its GitHub Release.
-Run it without a repository checkout:
+Install the stable Native CLI from npm without a repository checkout:
+
+```bash
+npm exec --yes --package=@srijika/native@latest -- srijika-native create my-mobile
+```
+
+The stable release also provides `srijika-native-0.7.1.tgz` on its GitHub Release:
 
 ```bash
 npm exec --yes --package=https://github.com/bestmaa/srijika-studio/releases/download/v0.7.1/srijika-native-0.7.1.tgz -- srijika-native create my-mobile
 ```
 
-The package is prepared for public npm distribution; the new package's first
-publication requires its own npm bootstrap. Use the GitHub release download
-while that is pending. Generated apps include a self-contained
+Generated apps include a self-contained
 `.srijika/native/check.mjs` and do not depend on a workspace checkout.
 
 ## Source and ownership

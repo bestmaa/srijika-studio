@@ -37,7 +37,6 @@ export default tseslint.config(
             'apps/studio/scripts/*.mjs',
             'packages/create-srijika/bin/*.mjs',
             'packages/create-srijika/test/*.mjs',
-            'scripts/*.mjs',
           ],
         },
         tsconfigRootDir: import.meta.dirname,

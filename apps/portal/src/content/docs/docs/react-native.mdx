@@ -9,17 +9,19 @@ Next.js. Only the framework-neutral ownership rules are shared.
 
 ## Install the Native release
 
-The Native CLI is included as a verified tarball on the
-[GitHub release](https://github.com/bestmaa/srijika-studio/releases/tag/v0.7.1).
-This works independently of the first npm publication of `@srijika/native`:
+The independent [`@srijika/native` package](https://www.npmjs.com/package/@srijika/native)
+is published on npm. Create a mobile application with the stable release:
 
 ```sh
-npm exec --yes --package=https://github.com/bestmaa/srijika-studio/releases/download/v0.7.1/srijika-native-0.7.1.tgz -- srijika-native create my-mobile
+npm exec --yes --package=@srijika/native@latest -- srijika-native create my-mobile
 cd my-mobile
 pnpm install --frozen-lockfile
 pnpm verify
 pnpm start:tunnel
 ```
+
+The verified `srijika-native-0.7.1.tgz` tarball is also available on the
+[GitHub release](https://github.com/bestmaa/srijika-studio/releases/tag/v0.7.1).
 
 Node.js 22.13 or newer and pnpm 11.18.0 are required. The generated application
 pins Expo, React Native and its own lockfile. Its standalone validator does not
