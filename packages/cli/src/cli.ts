@@ -1,4 +1,4 @@
-import { constants, watch } from 'node:fs';
+import { constants, realpathSync, watch } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -71,7 +71,7 @@ import {
   SRIJIKA_VSCODE_EXTENSION_ID,
 } from './vscode.js';
 
-export const SRIJIKA_CLI_VERSION = '0.7.0';
+export const SRIJIKA_CLI_VERSION = '0.7.1';
 
 const HELP = `Srijika CLI ${SRIJIKA_CLI_VERSION}
 
@@ -1217,11 +1217,16 @@ export async function runSrijikaCli(args = process.argv.slice(2)): Promise<numbe
   }
 }
 
-const isDirectExecution = process.argv[1]
-  ? import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-  : false;
+function isDirectExecution(): boolean {
+  if (!process.argv[1]) return false;
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href;
+  } catch {
+    return false;
+  }
+}
 
-if (isDirectExecution) {
+if (isDirectExecution()) {
   runSrijikaCli()
     .then((code) => {
       process.exitCode = code;

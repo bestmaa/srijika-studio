@@ -236,7 +236,7 @@ each application:
   "mcpServers": {
     "srijika-storefront": {
       "command": "npx",
-      "args": ["-y", "@srijika/mcp-server@0.7.0", "--project", "apps/storefront"],
+      "args": ["-y", "@srijika/mcp-server@0.7.1", "--project", "apps/storefront"],
       "cwd": "."
     }
   }

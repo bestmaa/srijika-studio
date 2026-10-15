@@ -2,6 +2,10 @@
 
 All notable changes to Srijika Language Support are documented here.
 
+## 0.7.1 - 2026-10-15
+
+- Updated coordinated release references alongside the CLI launcher patch.
+
 ## 0.7.0 - 2026-10-15
 
 - Added explicit React Native + Expo project detection and independent Native

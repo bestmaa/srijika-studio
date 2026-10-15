@@ -9,7 +9,7 @@ Srijika prepares four public packages in dependency order:
 
 The Native package is new in 0.7.0 and needs a first publication and its own
 Trusted Publisher configuration. Until that bootstrap is complete, distribute
-the verified `srijika-native-0.7.0.tgz` GitHub Release asset. Existing package
+the verified `srijika-native-0.7.1.tgz` GitHub Release asset. Existing package
 authentication does not establish access to a new npm package.
 
 Users then create a project with:
@@ -48,13 +48,13 @@ packages; first-publish authentication for a new package remains a separate step
 Prepare and commit the coordinated version:
 
 ```bash
-pnpm release:version 0.7.0
+pnpm release:version 0.7.1
 pnpm install --lockfile-only
 pnpm release:build
 pnpm release:verify
 ```
 
-Merge that change, create tag `v0.7.0`, and publish a GitHub Release from the tag.
+Merge that change, create tag `v0.7.1`, and publish a GitHub Release from the tag.
 The workflow verifies the tag against all four package versions, runs the complete
 quality gate, builds exact tarballs, skips versions already present after a partial
 retry, and publishes with npm Trusted Publishing. Public packages built from this
