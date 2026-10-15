@@ -152,7 +152,9 @@ jobs:
 
       - name: Prepare Native preview version
         if: github.event_name == 'workflow_dispatch' && inputs.native_preview
-        run: node scripts/prepare-native-npm-preview.mjs
+        run: |
+          node scripts/prepare-native-npm-preview.mjs
+          pnpm install --frozen-lockfile --offline --ignore-scripts
 
       - name: Build and re-verify release artifacts
         run: pnpm --filter @srijika/developer-engine test && pnpm --filter @srijika/cli test && pnpm release:build && pnpm test:mcp:isolated && pnpm release:verify

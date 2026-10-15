@@ -29,6 +29,25 @@ export function nativePreviewVersion(stableVersion, environment) {
   return `${major}.${minor}.${nextPatch}-preview.${environment.GITHUB_RUN_NUMBER}.${environment.GITHUB_RUN_ATTEMPT}`;
 }
 
+export function nativePreviewLockfile(source, stableVersion, environment) {
+  const version = nativePreviewVersion(stableVersion, environment);
+  const importer = [
+    '  packages/create-srijika:',
+    '    dependencies:',
+    "      '@srijika/cli':",
+    `        specifier: ${stableVersion}`,
+    '        version: link:../cli',
+    '',
+  ].join('\n');
+  if (source.split(importer).length !== 2) {
+    throw new Error('Native preview needs one exact create-srijika workspace lockfile entry.');
+  }
+  return source.replace(
+    importer,
+    importer.replace(`specifier: ${stableVersion}`, `specifier: ${version}`),
+  );
+}
+
 export function assertNativePreviewPackage(manifest, environment) {
   assertNativePreviewContext(environment);
   const suffix = `-preview.${environment.GITHUB_RUN_NUMBER}.${environment.GITHUB_RUN_ATTEMPT}`;

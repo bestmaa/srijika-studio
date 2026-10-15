@@ -2,12 +2,18 @@ import { spawnSync } from 'node:child_process';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
-import { nativePreviewVersion } from './native-npm-preview.mjs';
+import { nativePreviewLockfile, nativePreviewVersion } from './native-npm-preview.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const manifest = JSON.parse(await readFile(resolve(root, 'packages/native/package.json'), 'utf8'));
 const version = nativePreviewVersion(manifest.version, process.env);
 if (!process.env.GITHUB_ENV) throw new Error('Native preview preparation needs GITHUB_ENV.');
+const lockfilePath = resolve(root, 'pnpm-lock.yaml');
+const lockfile = nativePreviewLockfile(
+  await readFile(lockfilePath, 'utf8'),
+  manifest.version,
+  process.env,
+);
 const readmePath = resolve(root, 'packages/native/README.md');
 const stableReadme = await readFile(readmePath, 'utf8');
 
@@ -18,6 +24,7 @@ const prepared = spawnSync(
 );
 if (prepared.status !== 0) throw new Error('Native preview version preparation failed.');
 
+await writeFile(lockfilePath, lockfile);
 await writeFile(
   readmePath,
   `> Native preview ${version}, published under the native-preview npm tag. Stable installation uses latest.\n\n${stableReadme}`,
